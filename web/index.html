@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sidevoice-playground</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.mjs"></script>
+  </head>
+  <body>
+    <header>
+      <h1>sidevoice-playground</h1>
+      <p>Try a sidevoice-engine build by hand. Internal.</p>
+    </header>
+
+    <section id="engine">
+      <h2>Engine</h2>
+      <form id="engine-form">
+        <input id="engine-input" list="engine-releases" placeholder="0.2.0, nightly, latest, a release link, #27, a branch…" autocomplete="off" required />
+        <datalist id="engine-releases"></datalist>
+        <button type="submit">Load</button>
+      </form>
+      <p id="engine-status" class="status"></p>
+      <ul id="engine-list"></ul>
+      <div id="engine-details"></div>
+    </section>
+
+    <section id="tts">
+      <h2>Text to speech</h2>
+      <textarea id="tts-text" rows="3">The quick brown fox jumps over the lazy dog.</textarea>
+      <label>Model <select id="tts-model"></select></label>
+      <button id="tts-run" disabled>Speak</button>
+      <p class="status run-status"></p>
+      <audio id="tts-audio" controls hidden></audio>
+    </section>
+
+    <section id="stt">
+      <h2>Speech to text</h2>
+      <button id="stt-record" type="button">Record</button>
+      <input id="stt-file" type="file" accept="audio/*" />
+      <audio id="stt-audio" controls hidden></audio>
+      <label>Model <select id="stt-model"></select></label>
+      <button id="stt-run" disabled>Transcribe</button>
+      <p class="status run-status"></p>
+      <pre id="stt-text"></pre>
+    </section>
+
+    <section id="roundtrip">
+      <h2>Round trip: text → speech → text</h2>
+      <p>Uses the text and models chosen above.</p>
+      <button id="roundtrip-run" disabled>Run</button>
+      <p class="status run-status"></p>
+    </section>
+  </body>
+</html>

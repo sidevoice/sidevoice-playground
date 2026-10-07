@@ -1,0 +1,12 @@
+:root { font-family: system-ui, sans-serif; color-scheme: light dark; }
+body { max-width: 56rem; margin: 0 auto; padding: 1rem; }
+section { border-top: 1px solid #8884; padding: 0.5rem 0 1rem; }
+form, label { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+#engine-input { flex: 1; }
+textarea { width: 100%; }
+table { border-collapse: collapse; font-size: 0.9rem; }
+td, th { border: 1px solid #8884; padding: 0.2rem 0.5rem; text-align: left; }
+.status { color: #888; min-height: 1.2em; }
+.status.error { color: #c33; }
+#engine-list { list-style: none; padding: 0; }
+code { font-size: 0.85rem; }

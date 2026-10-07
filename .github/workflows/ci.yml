@@ -1,0 +1,29 @@
+name: ci
+
+# Every pull request and push to main: the unit tests, and the network test, which loads the engine's nightly web
+# build from GitHub Releases and creates an engine in Node (no model is downloaded or run).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm test
+        env:
+          PLAYGROUND_NETWORK: "1"
