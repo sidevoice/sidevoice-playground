@@ -1,13 +1,26 @@
-// The page: pick engines by name, load them side by side, and use the active one. An engine whose WebEngine has the
-// model interface (`models`, `install`, `uninstall`, `load`) speaks, transcribes and runs the round trip here, in the
-// browser; for an older one, each panel says what it does expose.
+// The page: pick an engine, load it (several side by side), then use the active one on a screen per capability.
+// Text to speech and speech to text each offer, in cascade, the families that have a model for their task, then that
+// family's models; picking a model installs and loads it right there, with progress and a Cancel button, in its
+// recommended build unless another is picked under Advanced. The round trip uses what both have loaded.
 
 import { record, decodeToPcm, toWav } from "./audio.mjs";
+import {
+  buildChoice,
+  buildInfo,
+  describeError,
+  familiesFor,
+  modelLabel,
+  preferredBuild,
+  progressText,
+  wer,
+} from "./catalog.mjs";
+import { engineAbilities, engineChoices, OTHER } from "./engine/choices.mjs";
 import { browserHost } from "./engine/host.mjs";
 import { listReleases, loadEngine, loadServedEngine } from "./engine/load.mjs";
 import { parseSpec } from "./engine/spec.mjs";
 
 const $ = (selector) => document.querySelector(selector);
+const CAPABILITIES = ["tts", "stt"];
 
 // The shell supplies the bytes: in the browser, server.mjs's /fetch (github.com sends no CORS headers).
 const fetchers = {
@@ -24,53 +37,73 @@ const fetchers = {
 };
 
 /**
- * label → { loaded, engine, backends, methods, offers?, catalog?, memory, voices }: `catalog` is what `models()` last
- * said, for an engine with the model interface; `memory` holds its loaded models by `model|build`; `voices`, by
- * model, what a loaded model said of its voices when the catalogue lists none.
+ * label → { loaded, engine, abilities, catalog, sections }: `catalog` is what `models()` last said, for an engine
+ * with the model interface; `sections` holds, per capability, the family, model and build picked on its screen and, once
+ * loaded, the loaded model, its `Tts` or `Stt` handle, the install's controller and (for speech) its voices.
  */
 const engines = new Map();
 let active = null;
+let screen = "tts";
 let clip = null; // the recording or upload to transcribe: { samples, rate }
-let busy = false;
+let running = false;
 /** What server.mjs says of its local build (`--engine-tarball`), if it has one. */
 let localBuild = null;
+let choices = [];
 
 function status(element, text, error = false) {
+  delete element.dataset.hint;
+  element.classList.remove("ok");
   element.textContent = text;
   element.classList.toggle("error", error);
 }
 
-async function fillReleases() {
-  const list = $("#engine-releases");
+/** A status line's advice on what to do next: `text`, or, when there is none, cleared if the line still shows advice. */
+function hint(element, text) {
+  if (text) {
+    status(element, text);
+    element.dataset.hint = "1";
+  } else if (element.dataset.hint) {
+    status(element, "");
+  }
+}
+
+// --- The engine picker.
+
+async function fillChoices() {
   try {
     const res = await fetch("/local-engine.json");
-    if (res.ok) {
-      localBuild = await res.json();
-      list.append(new Option("local", localBuild.label));
-      $("#engine-input").value = "local";
-      status($("#engine-status"), `This server offers ${localBuild.label}: type "local" (already filled in) and Load.`);
-    }
+    if (res.ok) localBuild = await res.json();
   } catch (error) {
     console.warn("could not ask for a local build", error);
   }
-  for (const name of ["nightly", "latest"]) list.append(new Option(name));
+  renderChoices();
   try {
-    for (const { tag, prerelease } of await listReleases(fetchers.fetchJson)) {
-      if (tag !== "nightly") list.append(new Option(tag, prerelease ? `${tag} (pre-release)` : tag));
-    }
+    renderChoices(await listReleases(fetchers.fetchJson));
   } catch (error) {
     console.warn("could not list releases", error);
   }
 }
 
+function renderChoices(releases = []) {
+  const select = $("#engine-choice");
+  const chosen = select.value;
+  choices = engineChoices({ local: localBuild, releases });
+  select.replaceChildren(...choices.map((choice) => new Option(choice.label, choice.value)));
+  select.value = choices.some((choice) => choice.value === chosen) ? chosen : choices[0].value;
+  renderHint();
+}
+
+function renderHint() {
+  const other = $("#engine-choice").value === OTHER;
+  $("#engine-other-field").hidden = !other;
+  $("#engine-other").required = other;
+  $("#engine-hint").textContent = choices.find((choice) => choice.value === $("#engine-choice").value)?.hint ?? "";
+}
+
 async function load(input) {
   const line = $("#engine-status");
-  const wantsLocal = input.trim() === "local";
-  if (wantsLocal && !localBuild) return status(line, "This server has no local build (server.mjs --engine-tarball).", true);
-  if (wantsLocal && engines.has(localBuild.label)) {
-    active = localBuild.label;
-    return render();
-  }
+  const wantsLocal = input === "local";
+  if (wantsLocal && engines.has(localBuild?.label)) return activate(localBuild.label);
   let spec;
   if (!wantsLocal) {
     try {
@@ -86,28 +119,25 @@ async function load(input) {
     else if (spec.kind === "ref") {
       status(line, `Fetching the CI build of ${spec.label} (the first time, the server downloads and installs it)…`);
       const info = await refBuild(spec.ref);
-      if (engines.has(info.label)) {
-        active = info.label;
-        status(line, `Already loaded: ${info.label}.`);
-        return render();
-      }
+      if (engines.has(info.label)) return activate(info.label);
       loaded = await loadServedEngine(info);
     } else loaded = await loadEngine(spec, fetchers);
     const engine = await loaded.module.WebEngine.create(browserHost());
     const methods = Object.getOwnPropertyNames(loaded.module.WebEngine.prototype).filter(
       (name) => name !== "constructor" && name !== "free",
     );
-    const entry = { loaded, engine, backends: engine.backends(), methods, memory: new Map(), voices: new Map() };
-    if (typeof engine.models === "function") entry.catalog = await engine.models();
-    else if (typeof engine.offers === "function") entry.offers = offersOf(engine);
+    const abilities = engineAbilities(methods);
+    const entry = { loaded, engine, abilities, catalog: [], sections: { tts: {}, stt: {} } };
+    if (abilities.usable) entry.catalog = await engine.models();
     engines.set(loaded.label, entry);
-    active = loaded.label;
-    status(line, `Loaded ${loaded.label}: version ${loaded.version}.`);
-    render();
+    status(line, `Loaded ${loaded.label}, version ${loaded.version}.`);
+    activate(loaded.label);
+    if (abilities.usable) $("#engine").open = false;
   } catch (error) {
     console.error(error);
     const unresolved = /resolve module specifier/i.test(String(error?.message));
-    status(line, unresolved ? `${describe(error)}: reload the page and load it again (this browser takes one import map only)` : describe(error), true);
+    const why = describeError(error);
+    status(line, unresolved ? `${why}: reload the page and load it again (this browser takes one import map only)` : why, true);
   }
 }
 
@@ -130,235 +160,305 @@ async function refBuild(ref) {
   return info;
 }
 
-function offersOf(engine) {
-  const offers = {};
-  for (const task of ["stt", "tts"]) {
-    try {
-      offers[task] = engine.offers(task);
-    } catch (error) {
-      offers[task] = { error: String(error?.message ?? error) };
-    }
-  }
-  return offers;
+function activate(label) {
+  active = label;
+  renderEngines();
+  renderScreens();
 }
 
-function render() {
-  const list = $("#engine-list");
-  list.replaceChildren(
+function renderEngines() {
+  $("#engine-list").replaceChildren(
     ...[...engines.keys()].map((label) => {
-      const item = document.createElement("li");
-      const radio = Object.assign(document.createElement("input"), { type: "radio", name: "active", checked: label === active });
-      radio.onchange = () => {
-        active = label;
-        render();
-      };
       const { loaded } = engines.get(label);
-      item.append(radio, ` ${label} — ${loaded.version} `, code(loaded.sha256.slice(0, 12)));
+      const radio = Object.assign(document.createElement("input"), { type: "radio", name: "active", checked: label === active });
+      radio.onchange = () => activate(label);
+      const item = document.createElement("li");
+      const row = document.createElement("label");
+      row.append(radio, `${label} — version ${loaded.version} `, code(loaded.sha256.slice(0, 12)));
+      item.append(row);
       return item;
     }),
   );
-
   const current = engines.get(active);
-  const details = $("#engine-details");
-  if (!current) return details.replaceChildren();
-  details.replaceChildren(
-    paragraph("Backends in this build: ", code(current.backends.join(", ") || "none")),
-    paragraph("WebEngine exposes: ", code(current.methods.join(", "))),
-    paragraph("Package sha256: ", code(current.loaded.sha256)),
-    ...(current.offers ? [offersTable(current.offers)] : []),
-  );
-  renderModels(current);
+  $("#engine-summary").textContent = current ? `${active} · ${current.loaded.version}` : "none loaded";
+  status($("#engine-details"), current?.abilities.text ?? "", current ? !current.abilities.usable : false);
+}
+
+// --- Screens: text to speech, speech to text, the round trip.
+
+function renderScreens() {
+  const current = engines.get(active);
+  const usable = Boolean(current?.abilities.usable);
+  $("#screens").hidden = !usable;
+  for (const button of document.querySelectorAll("#screens button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.screen === screen));
+  }
+  for (const id of ["tts", "stt", "roundtrip"]) $(`#${id}`).hidden = !usable || id !== screen;
+  if (!usable) return;
+  for (const capability of CAPABILITIES) renderPicker(current, capability);
+  renderVoices(current);
   renderRuns(current);
 }
 
-// --- Models: what models() says, and install / uninstall / load / unload by hand.
-
-function renderModels(current) {
-  const catalog = current.catalog ?? [];
-  $("#models-table").replaceChildren(catalog.length ? modelsTable(catalog) : paragraph("This engine has no models() to list."));
-  keepSelection($("#models-pick"), () => catalog.map((m) => new Option(`${m.id}${m.installed ? " (installed)" : ""}`, m.id)));
-  renderBuilds(current);
-  fillBuilds("#tts-model", catalog, "tts");
-  fillBuilds("#stt-model", catalog, "stt");
-  renderVoices(current);
+for (const button of document.querySelectorAll("#screens button")) {
+  button.onclick = () => {
+    screen = button.dataset.screen;
+    renderScreens();
+  };
 }
 
-function renderBuilds(current) {
-  const model = (current.catalog ?? []).find((m) => m.id === $("#models-pick").value);
-  keepSelection($("#models-build"), () => (model ? model.builds.map((b) => buildOption(model, b)) : []));
+/** A screen's pickers, in cascade from the catalogue: family, then model, then (under Advanced) the build. */
+function renderPicker(current, capability) {
+  const section = current.sections[capability];
+  const root = $(`#${capability}`);
+  const families = familiesFor(current.catalog, capability);
+  const familySelect = root.querySelector(".family");
+  familySelect.replaceChildren(
+    new Option(families.length ? "Pick a family…" : "This engine has no such model", ""),
+    ...families.map((family) => {
+      const option = new Option(`${family.id} (${family.models.length} model${family.models.length === 1 ? "" : "s"})`, family.id);
+      option.disabled = !family.models.some(preferredBuild);
+      return option;
+    }),
+  );
+  familySelect.value = section.family ?? "";
+
+  const models = families.find((family) => family.id === section.family)?.models ?? [];
+  const modelSelect = root.querySelector(".model");
+  modelSelect.replaceChildren(
+    new Option(section.family ? "Pick a model…" : "Pick a family first", ""),
+    ...models.map((model) => {
+      const option = new Option(modelLabel(model), model.id);
+      option.disabled = !preferredBuild(model);
+      return option;
+    }),
+  );
+  modelSelect.value = section.model ?? "";
+  modelSelect.disabled = !models.length;
+
+  const model = models.find((m) => m.id === section.model);
+  const builds = root.querySelector(".builds");
+  builds.replaceChildren(
+    builds.querySelector("legend"),
+    ...(model?.builds ?? []).map((build) => buildOption(capability, model, build, build.id === section.build)),
+  );
+  root.querySelector(".advanced").hidden = !model;
+  const build = model?.builds.find((b) => b.id === section.build);
+  root.querySelector(".build-info").textContent = build ? buildInfo(model, build) : "";
+  root.querySelector(".cancel").hidden = !section.controller;
+  root.querySelector(".remove").hidden = !model?.installed || Boolean(section.controller);
 }
 
-function modelsTable(catalog) {
-  const table = document.createElement("table");
-  table.innerHTML =
-    "<tr><th>Model</th><th>Does</th><th>Params</th><th>Build</th><th>Precision</th><th>Download</th><th>Memory</th><th>Runs here</th><th>Installed</th></tr>";
-  for (const model of catalog) {
-    for (const build of model.builds) {
-      const recommended = build.id === model.recommendedBuild ? " ★" : "";
-      table.append(
-        row(
-          model.id,
-          model.capabilities.join(", "),
-          `${model.parametersM} M`,
-          `${build.id}${recommended}`,
-          `${build.precision}${build.accelerator ? ` · ${build.accelerator}` : ""}`,
-          megabytes(build.downloadBytes),
-          `${build.memoryMb} MB`,
-          build.available ? "yes" : `no: ${reasons(build)}`,
-          build.installed ? "yes" : "",
-        ),
-      );
-    }
+/** One of the model's builds as a radio: those that do not run here disabled, with their reason. */
+function buildOption(capability, model, build, checked) {
+  const choice = buildChoice(model, build);
+  const label = Object.assign(document.createElement("label"), { className: "build-option" });
+  label.classList.toggle("unavailable", !choice.available);
+  const radio = Object.assign(document.createElement("input"), {
+    type: "radio",
+    name: `${capability}-build`,
+    value: choice.id,
+    checked,
+    disabled: !choice.available,
+  });
+  radio.onchange = () => pickerChanged(capability, "build", choice.id);
+  const text = document.createElement("span");
+  text.append(
+    Object.assign(document.createElement("strong"), { textContent: choice.title }),
+    Object.assign(document.createElement("small"), { textContent: choice.detail }),
+  );
+  label.append(radio, text);
+  return label;
+}
+
+/**
+ * A pick on a screen: a family clears the model; a model takes its preferred build (the recommended one when it runs
+ * here); a model or a build installs and loads it there.
+ */
+function pickerChanged(capability, which, value) {
+  const current = engines.get(active);
+  const section = current.sections[capability];
+  const root = $(`#${capability}`);
+  if (which === "family") {
+    section.family = root.querySelector(".family").value || null;
+    section.model = section.build = null;
+  } else if (which === "model") {
+    section.model = root.querySelector(".model").value || null;
+    const model = current.catalog.find((m) => m.id === section.model);
+    section.build = model ? preferredBuild(model)?.id ?? null : null;
+  } else {
+    section.build = value;
   }
-  return table;
+  if (section.model && section.build) return loadSection(current, capability);
+  section.controller?.abort();
+  section.controller = null;
+  unloadSection(current, capability);
+  status(root.querySelector(".model-status"), "");
+  renderScreens();
 }
 
-function buildOption(model, build) {
-  const marks = [build.id === model.recommendedBuild && "recommended", build.installed && "installed"].filter(Boolean);
-  const text = `${build.id} · ${build.precision} · ${megabytes(build.downloadBytes)}${marks.length ? ` (${marks.join(", ")})` : ""}`;
-  const option = new Option(build.available ? text : `${text} — does not run here: ${reasons(build)}`, build.id);
-  option.disabled = !build.available;
-  return option;
+for (const capability of CAPABILITIES) {
+  const root = $(`#${capability}`);
+  root.querySelector(".family").onchange = () => pickerChanged(capability, "family");
+  root.querySelector(".model").onchange = () => pickerChanged(capability, "model");
+  root.querySelector(".cancel").onclick = () => engines.get(active)?.sections[capability].controller?.abort();
+  root.querySelector(".remove").onclick = () => removeDownload(engines.get(active), capability);
 }
 
-/** Every build of every model that does `task`, as `model|build` options; those that do not run here disabled. */
-function fillBuilds(selector, catalog, task) {
-  keepSelection($(selector), () =>
-    catalog
-      .filter((m) => m.capabilities.includes(task))
-      .flatMap((m) => m.builds.map((b) => Object.assign(buildOption(m, b), { value: `${m.id}|${b.id}` })))
-      .sort((a, b) => a.disabled - b.disabled),
-  );
+/** Installs (if need be) and loads the section's pick, in place of what the section had loaded. */
+async function loadSection(current, capability) {
+  const section = current.sections[capability];
+  const root = $(`#${capability}`);
+  const line = root.querySelector(".model-status");
+  const bar = root.querySelector(".progress");
+  section.controller?.abort();
+  unloadSection(current, capability);
+  const controller = new AbortController();
+  section.controller = controller;
+  const { model, build } = section;
+  renderScreens();
+  const installed = current.catalog.find((m) => m.id === model)?.builds.find((b) => b.id === build)?.installed;
+  status(line, installed ? `Loading ${build}…` : `Installing ${build}…`);
+  bar.removeAttribute("value");
+  bar.hidden = false;
+  const onProgress = (progress) => {
+    status(line, progressText(progress));
+    if (progress.size) {
+      bar.max = progress.size;
+      bar.value = Math.min(progress.received, progress.size);
+    }
+  };
+  const start = performance.now();
+  try {
+    const loaded = await current.engine.load(model, build, onProgress, controller.signal);
+    if (section.controller !== controller) return loaded.free(); // something else was picked meanwhile
+    section.loaded = loaded;
+    section.handle = capability === "tts" ? loaded.asTts() : loaded.asStt();
+    if (capability === "tts") section.voices = await section.handle.voices();
+    status(line, `Ready: ${build}, loaded in ${seconds(start)}.`);
+    line.classList.add("ok");
+  } catch (error) {
+    if (section.controller === controller) {
+      console.error(error);
+      status(line, describeError(error), error?.code !== "cancelled");
+    }
+  } finally {
+    if (section.controller === controller) {
+      section.controller = null;
+      bar.hidden = true;
+    }
+    await refreshCatalog(current);
+  }
 }
 
-function renderVoices(current) {
-  const [modelId] = $("#tts-model").value.split("|");
-  const model = (current.catalog ?? []).find((m) => m.id === modelId);
-  const voices = model?.voices.length ? model.voices : current.voices.get(modelId) ?? [];
-  keepSelection($("#tts-voice"), () =>
-    voices.map((v) => new Option(`${v.id} (${[...v.languages, v.gender].filter(Boolean).join(", ")})`, v.id)),
-  );
-  fillLanguage(model, voices);
+function unloadSection(current, capability) {
+  const section = current.sections[capability];
+  section.handle?.free();
+  section.loaded?.free();
+  section.handle = section.loaded = section.voices = null;
+  $(`#${capability} .model-status`).classList.remove("ok");
 }
 
-function fillLanguage(model, voices) {
-  const voice = voices.find((v) => v.id === $("#tts-voice").value);
-  $("#tts-language").value = voice?.languages[0] ?? model?.languages[0] ?? "";
-}
-
-/** Refills `select` with `options()`, keeping what was chosen when it is still there. */
-function keepSelection(select, options) {
-  const chosen = select.value;
-  select.replaceChildren(...options());
-  const keep = [...select.options].find((o) => o.value === chosen && !o.disabled);
-  const first = [...select.options].find((o) => !o.disabled);
-  if (keep ?? first) select.value = (keep ?? first).value;
+async function removeDownload(current, capability) {
+  const section = current.sections[capability];
+  const line = $(`#${capability} .model-status`);
+  const model = section.model;
+  unloadSection(current, capability);
+  section.model = section.build = null;
+  try {
+    await current.engine.uninstall(model);
+    status(line, `Removed ${model}'s download. Pick it again to install it.`);
+  } catch (error) {
+    status(line, describeError(error), true);
+  }
+  await refreshCatalog(current);
 }
 
 async function refreshCatalog(current) {
-  if (!current?.catalog) return;
-  current.catalog = await current.engine.models();
-  if (engines.get(active) === current) renderModels(current);
+  try {
+    current.catalog = await current.engine.models();
+  } catch (error) {
+    console.warn("models() failed", error);
+  }
+  if (engines.get(active) === current) renderScreens();
 }
 
-// --- Running: one operation at a time, with progress, a Cancel button, and the engine's error codes.
+/** The voices the loaded model says it has (`tts.voices()`); none until a model is loaded. */
+function renderVoices(current) {
+  const voices = current.sections.tts.voices ?? [];
+  const select = $("#tts-voice");
+  const chosen = select.value;
+  select.replaceChildren(
+    ...(voices.length
+      ? voices.map((v) => new Option(`${v.id} · ${[...v.languages, v.gender].filter(Boolean).join(", ")}`, v.id))
+      : [new Option(current.sections.tts.model ? "Loading the model…" : "Pick a model first", "")]),
+  );
+  select.disabled = !voices.length;
+  if (voices.some((v) => v.id === chosen)) select.value = chosen;
+  if (select.value !== chosen) fillLanguage(current);
+}
 
-const RUNS = ["models-install", "models-uninstall", "models-load", "models-free", "tts-run", "stt-run", "roundtrip-run"];
+/** The language follows the voice: its first, else the model's first. */
+function fillLanguage(current) {
+  const section = current.sections.tts;
+  const model = current.catalog.find((m) => m.id === section.model);
+  const voice = (section.voices ?? []).find((v) => v.id === $("#tts-voice").value);
+  $("#tts-language").value = voice?.languages[0] ?? model?.languages[0] ?? "";
+}
+
+$("#tts-voice").onchange = () => fillLanguage(engines.get(active));
+$("#tts-speed").oninput = () => ($("#tts-speed-value").value = `${Number($("#tts-speed").value).toFixed(1)}×`);
+
+// --- Speaking, transcribing, and the round trip.
 
 function renderRuns(current) {
-  const usable = Boolean(current?.catalog) && !busy;
-  for (const id of RUNS) $(`#${id}`).disabled = !usable;
-  if (current && !current.catalog && !busy) {
-    const why = `Not wired: this engine's WebEngine exposes ${current.methods.join(", ")}, not the model interface (models, install, load).`;
-    for (const id of ["models", "tts", "stt", "roundtrip"]) status($(`#${id} .run-status`), why);
-  }
+  const { tts, stt } = current.sections;
+  $("#tts-run").disabled = running || !tts.handle;
+  $("#stt-run").disabled = running || !stt.handle || !clip;
+  $("#roundtrip-run").disabled = running || !tts.handle || !stt.handle;
+  if (running) return;
+  const missing = [!tts.handle && "a text-to-speech model", !stt.handle && "a speech-to-text model"].filter(Boolean);
+  const pick = "Pick a model above: it installs and loads here.";
+  hint($("#tts .run-status"), tts.handle ? null : pick);
+  hint($("#stt .run-status"), !stt.handle ? pick : clip ? null : "Record or upload a clip.");
+  hint($("#roundtrip .run-status"), missing.length ? `Load ${missing.join(" and ")} on its screen first.` : null);
 }
 
-async function run(panel, work) {
+async function run(id, work) {
   const current = engines.get(active);
-  if (!current?.catalog || busy) return;
-  const section = $(`#${panel}`);
-  const line = section.querySelector(".run-status");
-  const cancel = section.querySelector(".cancel");
-  const controller = new AbortController();
-  cancel.onclick = () => controller.abort();
-  cancel.disabled = false;
-  busy = true;
+  const line = $(`#${id} .run-status`);
+  running = true;
   renderRuns(current);
-  const context = {
-    current,
-    signal: controller.signal,
-    say: (text) => status(line, text),
-    onProgress: (progress) => status(line, progressText(progress)),
-  };
   try {
-    await work(context);
+    await work(current, (text) => status(line, text));
   } catch (error) {
     console.error(error);
-    status(line, describe(error), true);
+    status(line, describeError(error), true);
   } finally {
-    cancel.disabled = true;
-    busy = false;
+    running = false;
     renderRuns(current);
-    await refreshCatalog(current).catch((error) => console.warn("models() failed", error));
   }
 }
 
-/** The loaded model for `key` (`model|build`), loading it (and installing it first if need be) when it is not. */
-async function loadedModel({ current, signal, say, onProgress }, key) {
-  if (current.memory.has(key)) return current.memory.get(key);
-  const [model, build] = key.split("|");
-  say(`Loading ${build}…`);
+async function speak(current, say) {
+  const { handle, build } = current.sections.tts;
+  const language = $("#tts-language").value.trim() || undefined;
+  const speed = Number($("#tts-speed").value);
+  say(`Speaking with ${build}…`);
   const start = performance.now();
-  const loaded = await current.engine.load(model, build, onProgress, signal);
-  current.memory.set(key, loaded);
-  say(`Loaded ${build} in ${seconds(start)}.`);
-  return loaded;
+  const audio = await handle.speak($("#tts-text").value, $("#tts-voice").value, language, speed);
+  const length = audio.samples.length / audio.sampleRate;
+  say(`Spoke ${length.toFixed(1)} s at ${audio.sampleRate} Hz in ${seconds(start)}.`);
+  return { ...audio, language };
 }
 
-function freeModel(current, model) {
-  for (const [key, loaded] of current.memory) {
-    if (model && !key.startsWith(`${model}|`)) continue;
-    loaded.free();
-    current.memory.delete(key);
-  }
-}
-
-async function speak(context) {
-  const key = $("#tts-model").value;
-  if (!key) throw new Error("Pick a text-to-speech model.");
-  const tts = (await loadedModel(context, key)).asTts();
-  try {
-    // Some models list no voices in the catalogue: the loaded model says which it has.
-    if (!$("#tts-voice").value) {
-      context.current.voices.set(key.split("|")[0], await tts.voices());
-      renderVoices(context.current);
-    }
-    const language = $("#tts-language").value.trim() || undefined;
-    context.say(`Speaking with ${key.split("|")[1]}…`);
-    const start = performance.now();
-    const audio = await tts.speak($("#tts-text").value, $("#tts-voice").value, language);
-    const length = audio.samples.length / audio.sampleRate;
-    context.say(`Spoke ${length.toFixed(1)} s at ${audio.sampleRate} Hz in ${seconds(start)}.`);
-    return { ...audio, language };
-  } finally {
-    tts.free();
-  }
-}
-
-async function transcribe(context, samples, rate, language) {
-  const key = $("#stt-model").value;
-  if (!key) throw new Error("Pick a speech-to-text model.");
-  const stt = (await loadedModel(context, key)).asStt();
-  try {
-    context.say(`Transcribing with ${key.split("|")[1]}…`);
-    const start = performance.now();
-    const text = await stt.transcribe(samples, rate, language);
-    context.say(`Transcribed ${(samples.length / rate).toFixed(1)} s of audio in ${seconds(start)}.`);
-    return text;
-  } finally {
-    stt.free();
-  }
+async function transcribe(current, say, samples, rate, language) {
+  const { handle, build } = current.sections.stt;
+  say(`Transcribing with ${build}…`);
+  const start = performance.now();
+  const text = await handle.transcribe(samples, rate, language);
+  say(`Transcribed ${(samples.length / rate).toFixed(1)} s of audio in ${seconds(start)}.`);
+  return text;
 }
 
 function play(selector, samples, rate) {
@@ -368,179 +468,95 @@ function play(selector, samples, rate) {
   audio.play().catch(() => {});
 }
 
-$("#models-pick").onchange = () => renderBuilds(engines.get(active));
-$("#tts-model").onchange = () => renderVoices(engines.get(active));
-$("#tts-voice").onchange = () => {
-  const [modelId] = $("#tts-model").value.split("|");
-  const current = engines.get(active);
-  const model = current?.catalog?.find((m) => m.id === modelId);
-  fillLanguage(model, model?.voices.length ? model.voices : current?.voices.get(modelId) ?? []);
-};
-
-$("#models-install").onclick = () =>
-  run("models", async ({ current, signal, say, onProgress }) => {
-    const [model, build] = [$("#models-pick").value, $("#models-build").value];
-    say(`Installing ${build}…`);
-    const start = performance.now();
-    await current.engine.install(model, build || undefined, onProgress, signal);
-    say(`Installed ${build} in ${seconds(start)}.`);
-  });
-
-$("#models-uninstall").onclick = () =>
-  run("models", async ({ current, say }) => {
-    const model = $("#models-pick").value;
-    freeModel(current, model);
-    await current.engine.uninstall(model);
-    say(`Uninstalled ${model}.`);
-  });
-
-$("#models-load").onclick = () =>
-  run("models", (context) => loadedModel(context, `${$("#models-pick").value}|${$("#models-build").value}`));
-
-$("#models-free").onclick = () =>
-  run("models", async ({ current, say }) => {
-    const count = current.memory.size;
-    freeModel(current);
-    say(`Unloaded ${count} model${count === 1 ? "" : "s"}.`);
-  });
+function show(selector, text) {
+  const element = $(selector);
+  element.textContent = text;
+  element.hidden = false;
+}
 
 $("#tts-run").onclick = () =>
-  run("tts", async (context) => {
-    const audio = await speak(context);
+  run("tts", async (current, say) => {
+    const audio = await speak(current, say);
     play("#tts-audio", audio.samples, audio.sampleRate);
   });
 
 $("#stt-run").onclick = () =>
-  run("stt", async (context) => {
-    if (!clip) throw new Error("Record or upload a clip first.");
+  run("stt", async (current, say) => {
     const language = $("#stt-language").value.trim() || undefined;
-    $("#stt-text").textContent = await transcribe(context, clip.samples, clip.rate, language);
+    show("#stt-text", await transcribe(current, say, clip.samples, clip.rate, language));
   });
 
 $("#roundtrip-run").onclick = () =>
-  run("roundtrip", async (context) => {
+  run("roundtrip", async (current, say) => {
     const said = $("#tts-text").value;
-    const audio = await speak(context);
+    const audio = await speak(current, say);
     play("#roundtrip-audio", audio.samples, audio.sampleRate);
-    const heard = await transcribe(context, audio.samples, audio.sampleRate, audio.language);
-    $("#roundtrip-text").textContent = `said:  ${said}\nheard: ${heard}\nword error rate: ${(wer(said, heard) * 100).toFixed(0)}%`;
-    context.say(`Round trip done: ${$("#tts-model").value.split("|")[1]} → ${$("#stt-model").value.split("|")[1]}.`);
+    const heard = await transcribe(current, say, audio.samples, audio.sampleRate, audio.language);
+    show("#roundtrip-text", `Said: ${said}\nHeard: ${heard}\nWord error rate: ${(wer(said, heard) * 100).toFixed(0)}%`);
+    say(`Done: ${current.sections.tts.build} → ${current.sections.stt.build}.`);
   });
 
-// --- Formatting.
-
-/** An engine error rejects with an `Error` whose `code` is stable and whose `params` say more; others as they are. */
-function describe(error) {
-  if (error?.code === "cancelled") return "Cancelled.";
-  if (error?.code) {
-    const params = error.params && Object.keys(error.params).length ? ` ${JSON.stringify(error.params)}` : "";
-    return `Engine error: ${error.code}${params} (the browser console may say more)`;
-  }
-  return String(error?.message ?? error);
-}
-
-function reasons(build) {
-  return (build.reasons ?? [])
-    .map((r) => {
-      const params = Object.entries(r.params ?? {}).map(([k, v]) => `${k} ${v}`);
-      return params.length ? `${r.code} (${params.join(", ")})` : r.code;
-    })
-    .join("; ");
-}
-
-function progressText({ files, done, received, size }) {
-  const of = size ? ` of ${megabytes(size)}` : "";
-  return `Downloading: ${done}/${files} files done, ${megabytes(received)}${of} received…`;
-}
-
-function megabytes(bytes) {
-  return `${(bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)} MB`;
-}
-
-function seconds(start) {
-  return `${((performance.now() - start) / 1000).toFixed(1)} s`;
-}
-
-/** Word error rate of `heard` against `said`: word edits over the words said, case and punctuation aside. */
-function wer(said, heard) {
-  const words = (text) => text.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? [];
-  const [a, b] = [words(said), words(heard)];
-  let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
-  for (let i = 1; i <= a.length; i++) {
-    const next = [i];
-    for (let j = 1; j <= b.length; j++) {
-      next[j] = Math.min(previous[j] + 1, next[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    }
-    previous = next;
-  }
-  return a.length ? previous[b.length] / a.length : b.length ? 1 : 0;
-}
-
-function offersTable(offers) {
-  const table = document.createElement("table");
-  table.innerHTML = "<tr><th>Task</th><th>Model</th><th>Build</th><th>Offered</th><th>Why not</th></tr>";
-  for (const [task, rows] of Object.entries(offers)) {
-    if (!Array.isArray(rows)) {
-      table.append(row(task, "—", "—", "—", rows.error));
-      continue;
-    }
-    if (rows.length === 0) table.append(row(task, "none", "", "", ""));
-    for (const o of rows) table.append(row(task, o.model, o.build, o.offered ? "yes" : "no", o.why ?? ""));
-  }
-  return table;
-}
-
-function row(...cells) {
-  const tr = document.createElement("tr");
-  for (const cell of cells) tr.append(Object.assign(document.createElement("td"), { textContent: cell }));
-  return tr;
-}
-
-function code(text) {
-  return Object.assign(document.createElement("code"), { textContent: text });
-}
-
-function paragraph(...children) {
-  const p = document.createElement("p");
-  p.append(...children);
-  return p;
-}
+// --- Recording and uploads.
 
 function showClip(next) {
   clip = next;
   const audio = $("#stt-audio");
   audio.src = URL.createObjectURL(toWav(clip.samples, clip.rate));
   audio.hidden = false;
+  status($("#stt .run-status"), `Clip ready: ${(clip.samples.length / clip.rate).toFixed(1)} s.`);
+  const current = engines.get(active);
+  if (current?.abilities.usable) renderRuns(current);
 }
 
 let recording = null;
 $("#stt-record").onclick = async () => {
   const button = $("#stt-record");
+  const idle = () => {
+    recording = null;
+    button.textContent = "Record";
+    button.setAttribute("aria-pressed", "false");
+  };
   try {
     if (!recording) {
       recording = await record();
-      button.textContent = "Stop";
+      button.textContent = "Stop recording";
+      button.setAttribute("aria-pressed", "true");
     } else {
       const stopping = recording;
-      recording = null;
-      button.textContent = "Record";
+      idle();
       showClip(await stopping.stop());
     }
   } catch (error) {
-    recording = null;
-    button.textContent = "Record";
+    idle();
     status($("#stt .run-status"), String(error?.message ?? error), true);
   }
 };
 
 $("#stt-file").onchange = async (event) => {
   const file = event.target.files[0];
-  if (file) showClip(await decodeToPcm(await file.arrayBuffer()));
+  if (!file) return;
+  try {
+    showClip(await decodeToPcm(await file.arrayBuffer()));
+  } catch (error) {
+    status($("#stt .run-status"), `Could not read ${file.name}: ${error?.message ?? error}`, true);
+  }
 };
 
+// --- Small things.
+
+function seconds(start) {
+  return `${((performance.now() - start) / 1000).toFixed(1)} s`;
+}
+
+function code(text) {
+  return Object.assign(document.createElement("code"), { textContent: text });
+}
+
+$("#engine-choice").onchange = renderHint;
 $("#engine-form").onsubmit = (event) => {
   event.preventDefault();
-  load($("#engine-input").value);
+  const value = $("#engine-choice").value;
+  load(value === OTHER ? $("#engine-other").value.trim() : value);
 };
 
-fillReleases();
+fillChoices();

@@ -17,10 +17,14 @@ native path: [`DESIGN.md`](DESIGN.md).
 
 - **Works**: naming an engine and loading its web build from GitHub Releases (checked against the release's
   `SHA256SUMS`), several versions side by side; a local build of any ref (`--engine-tarball`). With an engine that
-  has the model interface (`models`, `install`, `uninstall`, `load`, sidevoice-engine#41 on): the catalogue as it
-  is for this browser, installing with progress and cancel, text to speech, speech to text from a recording or an
-  upload, and the round trip with its word error rate. Models download to and run in the browser (OPFS), never on
-  the server. Older builds show what they offer (`backends()`, `offers()`).
+  has the model interface (`models`, `install`, `uninstall`, `load`, sidevoice-engine#41 on), a screen per
+  capability: text to speech and speech to text each pick a family, then one of its models that does the task, and
+  install and load it there with progress and cancel, in its recommended build or the one picked under Advanced
+  (every build `models()` lists, those that do not run here with their reason). Then speaking (voice, language,
+  speed), transcribing a recording or an upload, and the round trip with its word error rate. Models download to
+  and run in the browser (OPFS), never on the server. Phone and desktop alike; the look is the Sidevoice app's.
+  Older builds say they cannot speak or transcribe. `models()` does not name a model's family yet (up to #41): it is
+  read from the model id until the engine says it.
 - **Git refs**: a pull request, branch or commit loads the engine CI's build of its head commit (the
   `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
 - **Not yet**: release builds whose package carries `dist/snippets/` and npm dependencies (#41 on) do not load from

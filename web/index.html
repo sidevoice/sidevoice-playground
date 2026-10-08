@@ -2,77 +2,127 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>sidevoice-playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>sidevoice playground</title>
     <link rel="stylesheet" href="style.css" />
     <script type="module" src="app.mjs"></script>
   </head>
   <body>
-    <header>
-      <h1>sidevoice-playground</h1>
-      <p>Try a sidevoice-engine build by hand. Internal. Models download to and run in this browser.</p>
+    <header class="topbar">
+      <div>
+        <h1>sidevoice playground</h1>
+        <p class="subtitle">Try an engine build by hand. Models download to and run in this browser.</p>
+      </div>
     </header>
 
-    <section id="engine">
-      <h2>Engine</h2>
-      <form id="engine-form">
-        <input id="engine-input" list="engine-releases" placeholder="0.2.0, nightly, latest, a release link, #27, a branch…" autocomplete="off" required />
-        <datalist id="engine-releases"></datalist>
-        <button type="submit">Load</button>
-      </form>
-      <p id="engine-status" class="status"></p>
-      <ul id="engine-list"></ul>
-      <div id="engine-details"></div>
-    </section>
+    <main>
+      <details id="engine" class="card" open>
+        <summary>
+          <span class="label">Engine</span>
+          <span id="engine-summary" class="engine-summary">none loaded</span>
+        </summary>
+        <form id="engine-form" class="field-row">
+          <label class="field grow">
+            <span class="label">Build</span>
+            <select id="engine-choice"></select>
+          </label>
+          <label class="field grow" id="engine-other-field" hidden>
+            <span class="label">Version, pull request, branch or commit</span>
+            <input id="engine-other" placeholder="0.2.0, #41, a link, a branch, a sha" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          </label>
+          <button type="submit" class="primary">Load</button>
+        </form>
+        <p id="engine-hint" class="muted"></p>
+        <p id="engine-status" class="status" aria-live="polite"></p>
+        <ul id="engine-list" class="engine-list"></ul>
+        <p id="engine-details" class="status"></p>
+      </details>
 
-    <section id="models">
-      <h2>Models</h2>
-      <p>The active engine's catalogue, as <code>models()</code> reports it for this browser. Installing stores the
-        files in this browser's private storage (OPFS); speaking or transcribing installs and loads a model first if
-        it is not.</p>
-      <label>Model <select id="models-pick"></select></label>
-      <label>Build <select id="models-build"></select></label>
-      <button id="models-install" disabled>Install</button>
-      <button id="models-uninstall" disabled>Uninstall</button>
-      <button id="models-load" disabled>Load</button>
-      <button id="models-free" disabled>Unload all</button>
-      <button class="cancel" disabled>Cancel</button>
-      <p class="status run-status"></p>
-      <div id="models-table"></div>
-    </section>
+      <nav id="screens" class="screens" hidden aria-label="Screens">
+        <button type="button" data-screen="tts" aria-pressed="true">Text to speech</button>
+        <button type="button" data-screen="stt" aria-pressed="false">Speech to text</button>
+        <button type="button" data-screen="roundtrip" aria-pressed="false">Round trip</button>
+      </nav>
 
-    <section id="tts">
-      <h2>Text to speech</h2>
-      <textarea id="tts-text" rows="3">The quick brown fox jumps over the lazy dog.</textarea>
-      <label>Model <select id="tts-model"></select></label>
-      <label>Voice <select id="tts-voice"></select> Language <input id="tts-language" size="8" placeholder="en" /></label>
-      <button id="tts-run" disabled>Speak</button>
-      <button class="cancel" disabled>Cancel</button>
-      <p class="status run-status"></p>
-      <audio id="tts-audio" controls hidden></audio>
-    </section>
+      <section id="tts" class="screen card" hidden>
+        <h2>Text to speech</h2>
+        <div class="model-block">
+          <div class="field-row">
+            <label class="field grow"><span class="label">Family</span><select class="family"></select></label>
+            <label class="field grow"><span class="label">Model</span><select class="model" disabled></select></label>
+          </div>
+          <p class="build-info muted"></p>
+          <details class="advanced">
+            <summary>Advanced: build</summary>
+            <fieldset class="builds">
+              <legend class="muted">The model's builds from <code>models()</code>. The recommended one is chosen unless you pick another.</legend>
+            </fieldset>
+          </details>
+          <progress class="progress" hidden></progress>
+          <p class="status model-status" aria-live="polite"></p>
+          <div class="actions">
+            <button type="button" class="cancel" hidden>Cancel</button>
+            <button type="button" class="remove ghost" hidden>Remove download</button>
+          </div>
+        </div>
+        <label class="field"><span class="label">Text</span>
+          <textarea id="tts-text" rows="4">The quick brown fox jumps over the lazy dog.</textarea></label>
+        <div class="field-row">
+          <label class="field grow"><span class="label">Voice</span><select id="tts-voice" disabled></select></label>
+          <label class="field narrow"><span class="label">Language</span>
+            <input id="tts-language" placeholder="en" autocomplete="off" autocapitalize="off" spellcheck="false" /></label>
+        </div>
+        <label class="field"><span class="label">Speed <output id="tts-speed-value">1.0×</output></span>
+          <input id="tts-speed" type="range" min="0.5" max="2" step="0.1" value="1" /></label>
+        <button type="button" id="tts-run" class="primary wide" disabled>Speak</button>
+        <p class="status run-status" aria-live="polite"></p>
+        <audio id="tts-audio" controls hidden></audio>
+      </section>
 
-    <section id="stt">
-      <h2>Speech to text</h2>
-      <button id="stt-record" type="button">Record</button>
-      <input id="stt-file" type="file" accept="audio/*" />
-      <audio id="stt-audio" controls hidden></audio>
-      <label>Model <select id="stt-model"></select></label>
-      <label>Language <input id="stt-language" size="8" placeholder="detect" /></label>
-      <button id="stt-run" disabled>Transcribe</button>
-      <button class="cancel" disabled>Cancel</button>
-      <p class="status run-status"></p>
-      <pre id="stt-text"></pre>
-    </section>
+      <section id="stt" class="screen card" hidden>
+        <h2>Speech to text</h2>
+        <div class="model-block">
+          <div class="field-row">
+            <label class="field grow"><span class="label">Family</span><select class="family"></select></label>
+            <label class="field grow"><span class="label">Model</span><select class="model" disabled></select></label>
+          </div>
+          <p class="build-info muted"></p>
+          <details class="advanced">
+            <summary>Advanced: build</summary>
+            <fieldset class="builds">
+              <legend class="muted">The model's builds from <code>models()</code>. The recommended one is chosen unless you pick another.</legend>
+            </fieldset>
+          </details>
+          <progress class="progress" hidden></progress>
+          <p class="status model-status" aria-live="polite"></p>
+          <div class="actions">
+            <button type="button" class="cancel" hidden>Cancel</button>
+            <button type="button" class="remove ghost" hidden>Remove download</button>
+          </div>
+        </div>
+        <label class="field narrow"><span class="label">Language (optional)</span>
+          <input id="stt-language" placeholder="detect" autocomplete="off" autocapitalize="off" spellcheck="false" /></label>
+        <div class="actions">
+          <button type="button" id="stt-record">Record</button>
+          <input id="stt-file" class="sr-only" type="file" accept="audio/*" />
+          <label class="button" for="stt-file">Upload a file</label>
+        </div>
+        <audio id="stt-audio" controls hidden></audio>
+        <button type="button" id="stt-run" class="primary wide" disabled>Transcribe</button>
+        <p class="status run-status" aria-live="polite"></p>
+        <pre id="stt-text" class="result" hidden></pre>
+      </section>
 
-    <section id="roundtrip">
-      <h2>Round trip: text → speech → text</h2>
-      <p>Uses the text, voice, language and models chosen above.</p>
-      <button id="roundtrip-run" disabled>Run</button>
-      <button class="cancel" disabled>Cancel</button>
-      <p class="status run-status"></p>
-      <audio id="roundtrip-audio" controls hidden></audio>
-      <pre id="roundtrip-text"></pre>
-    </section>
+      <section id="roundtrip" class="screen card" hidden>
+        <h2>Round trip</h2>
+        <p class="muted">Speaks the text with the model, voice, language and speed chosen under Text to speech, then
+          transcribes it with the model chosen under Speech to text.</p>
+        <button type="button" id="roundtrip-run" class="primary wide" disabled>Run</button>
+        <p class="status run-status" aria-live="polite"></p>
+        <audio id="roundtrip-audio" controls hidden></audio>
+        <pre id="roundtrip-text" class="result" hidden></pre>
+      </section>
+    </main>
   </body>
 </html>
