@@ -4,7 +4,7 @@
 
 import { record, decodeToPcm, toWav } from "./audio.mjs";
 import { browserHost } from "./engine/host.mjs";
-import { listReleases, loadEngine, loadLocalEngine } from "./engine/load.mjs";
+import { listReleases, loadEngine, loadServedEngine } from "./engine/load.mjs";
 import { parseSpec } from "./engine/spec.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -81,7 +81,18 @@ async function load(input) {
   }
   status(line, `Loading ${wantsLocal ? localBuild.label : spec.label}…`);
   try {
-    const loaded = wantsLocal ? await loadLocalEngine(localBuild) : await loadEngine(spec, fetchers);
+    let loaded;
+    if (wantsLocal) loaded = await loadServedEngine(localBuild);
+    else if (spec.kind === "ref") {
+      status(line, `Fetching the CI build of ${spec.label} (the first time, the server downloads and installs it)…`);
+      const info = await refBuild(spec.ref);
+      if (engines.has(info.label)) {
+        active = info.label;
+        status(line, `Already loaded: ${info.label}.`);
+        return render();
+      }
+      loaded = await loadServedEngine(info);
+    } else loaded = await loadEngine(spec, fetchers);
     const engine = await loaded.module.WebEngine.create(browserHost());
     const methods = Object.getOwnPropertyNames(loaded.module.WebEngine.prototype).filter(
       (name) => name !== "constructor" && name !== "free",
@@ -95,8 +106,28 @@ async function load(input) {
     render();
   } catch (error) {
     console.error(error);
-    status(line, describe(error), true);
+    const unresolved = /resolve module specifier/i.test(String(error?.message));
+    status(line, unresolved ? `${describe(error)}: reload the page and load it again (this browser takes one import map only)` : describe(error), true);
   }
+}
+
+/**
+ * The CI build of `ref`, installed by the server (refs.mjs), with its dependencies' names added to the page's import
+ * map under its own scope. A page holds the import map it started with only in browsers that merge several (Chrome
+ * 133 on); elsewhere, reloading the page brings the scope in from the server.
+ */
+async function refBuild(ref) {
+  const res = await fetch(`/ref-build?ref=${encodeURIComponent(ref)}`);
+  if (!res.ok) throw new Error(await res.text());
+  const info = await res.json();
+  const known = [...document.querySelectorAll('script[type="importmap"]')].some((s) => s.textContent.includes(info.prefix));
+  if (!known) {
+    const script = Object.assign(document.createElement("script"), { type: "importmap" });
+    script.textContent = JSON.stringify({ scopes: { [info.prefix]: info.imports } });
+    document.head.append(script);
+  }
+  if (!info.verified) console.warn(`${info.label}: the artifact has no digest to check it against`);
+  return info;
 }
 
 function offersOf(engine) {

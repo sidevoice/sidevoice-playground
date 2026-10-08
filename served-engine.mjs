@@ -1,11 +1,11 @@
-// A local engine build for the web shell: an npm tarball made by `cargo xtask npm` in a sidevoice-engine checkout,
-// for a build no release carries (a pull request, a branch). server.mjs installs it as a consumer installs it, with
-// its dependencies (transformers.js, eSpeak NG), and serves the installed packages under /local-engine/ with an
-// import map for the names the package imports, the way the engine's own web e2e serves its page
-// (xtask/web-e2e/run.mjs in sidevoice-engine).
+// An engine build served by server.mjs rather than imported from memory: an npm tarball (made by `cargo xtask npm`)
+// installed as a consumer installs it, with its dependencies (transformers.js, eSpeak NG), into a scratch directory,
+// and served under a prefix of its own with an import map for the names the package imports, the way the engine's
+// own web e2e serves its page (xtask/web-e2e/run.mjs in sidevoice-engine). Two kinds are served: the local build
+// (`--engine-tarball`, under /local-engine/) and CI builds of git refs (refs.mjs, under /engines/<sha>/).
 //
-// No SHA256SUMS comes with a local build: its digest is shown in the page, and checked against `--engine-sha256`
-// when one is given.
+// A build from a release is still imported in the page (web/engine/load.mjs). From sidevoice-engine#41 on, the
+// package imports npm dependencies, which only a served build resolves.
 
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -15,7 +15,7 @@ import { basename, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { sha256Hex } from "./web/engine/load.mjs";
 
-export const PREFIX = "/local-engine/";
+export const LOCAL_PREFIX = "/local-engine/";
 
 // The names the engine package imports, directly or through its dependencies.
 const SPECIFIERS = [
@@ -30,31 +30,45 @@ const SPECIFIERS = [
 const CONDITIONS = new Set(["browser", "import", "module", "default"]);
 
 /**
- * Installs `tarball` into a scratch directory and says how the page reaches it.
- * @returns {Promise<{ label: string, version: string, sha256: string, site: string, entry: string, imports: Record<string, string> }>}
+ * @typedef {{ label: string, version: string, sha256: string, prefix: string, site: string, entry: string,
+ *   imports: Record<string, string> }} ServedEngine
+ */
+
+/**
+ * The local build: `tarball`, checked against `sha256` when given (no SHA256SUMS comes with it), served under
+ * LOCAL_PREFIX.
+ * @returns {Promise<ServedEngine>}
  */
 export async function installLocalEngine({ tarball, label, sha256 }) {
   const path = resolve(tarball);
   const digest = await sha256Hex(await readFile(path));
   if (sha256 && digest !== sha256.toLowerCase()) throw new Error(`${path} is ${digest}, --engine-sha256 says ${sha256}`);
+  return installEngine(path, { label: label ?? `local build (${basename(path)})`, sha256: digest, prefix: LOCAL_PREFIX });
+}
+
+/**
+ * Installs the tarball at `path` into a scratch directory and says how the page reaches it under `prefix`.
+ * @returns {Promise<ServedEngine>}
+ */
+export async function installEngine(path, { label, sha256, prefix }) {
 
   const site = await mkdtemp(join(tmpdir(), "sidevoice-playground-engine-"));
   await writeFile(join(site, "package.json"), '{ "private": true, "type": "module" }\n');
   await promisify(execFile)("npm", ["install", "--no-audit", "--no-fund", path], { cwd: site });
 
-  const imports = importMap(site);
+  const imports = importMap(site, prefix);
   const entry = imports["@sidevoice/engine"];
   if (!entry) throw new Error(`${path}: the installed @sidevoice/engine names no entry point`);
   const { version } = await readJson(join(site, "node_modules/@sidevoice/engine/package.json"));
-  return { label: label ?? `local build (${basename(path)})`, version, sha256: digest, site, entry, imports };
+  return { label, version, sha256, prefix, site, entry, imports };
 }
 
-/** Each specifier the installed packages in `site` resolve for a browser, as a URL path under PREFIX. */
-export function importMap(site, read = (file) => readFileSync(file, "utf8")) {
+/** Each specifier the installed packages in `site` resolve for a browser, as a URL path under `prefix`. */
+export function importMap(site, prefix, read = (file) => readFileSync(file, "utf8")) {
   const imports = {};
   for (const specifier of SPECIFIERS) {
     const resolved = resolveSpecifier(site, specifier, read);
-    if (resolved) imports[specifier] = `${PREFIX}node_modules/${resolved}`;
+    if (resolved) imports[specifier] = `${prefix}node_modules/${resolved}`;
   }
   return imports;
 }

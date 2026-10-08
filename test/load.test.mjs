@@ -84,6 +84,6 @@ test("a tarball that does not match SHA256SUMS is refused before it is imported"
   await assert.rejects(loadEngine(parseSpec("0.2.0"), fakeRelease(tgz, "0".repeat(64))), /SHA256SUMS says/);
 });
 
-test("a git ref is refused with where to read why", async () => {
-  await assert.rejects(loadEngine(parseSpec("#27"), fakeRelease()), /no prebuilt web build/);
+test("a git ref is not loaded in the page: the server fetches its CI build", async () => {
+  await assert.rejects(loadEngine(parseSpec("#27"), fakeRelease()), /fetched by the server/);
 });

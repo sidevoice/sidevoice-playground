@@ -21,7 +21,7 @@ import { untgz } from "./tar.mjs";
 export async function loadEngine(spec, { fetchBytes, fetchJson }) {
   if (spec.kind === "ref") {
     throw new Error(
-      `${spec.label} is a git ref, not a release: it has no prebuilt web build yet (DESIGN.md, "Arbitrary refs")`,
+      `${spec.label} is a git ref, not a release: its CI build is fetched by the server (/ref-build), not here`,
     );
   }
   const { tag, asset, label } = spec.kind === "latest" ? await latest(fetchJson) : spec;
@@ -42,16 +42,16 @@ export async function loadEngine(spec, { fetchBytes, fetchJson }) {
 }
 
 /**
- * The local build server.mjs serves (`--engine-tarball`), as `/local-engine.json` describes it: imported from the
- * server, where the page's import map resolves its dependencies, and its wasm fetched beside it. Unlike a release
- * build it is one module instance, loaded once.
- * @param {{ label: string, version: string, sha256: string, entry: string }} info
+ * A build server.mjs serves installed (served-engine.mjs): the local one, or a CI build of a git ref, as
+ * `/local-engine.json` or `/ref-build` describes it. Imported from the server, where the page's import map resolves
+ * its dependencies, with its wasm fetched beside it. Unlike a release build it is one module instance per build.
+ * @param {{ label: string, version: string, sha256: string, entry: string, sha?: string }} info
  * @returns {Promise<LoadedEngine>}
  */
-export async function loadLocalEngine(info) {
+export async function loadServedEngine(info) {
   const module = await import(info.entry);
   await module.default();
-  return { label: info.label, tag: "local", version: info.version, sha256: info.sha256, module };
+  return { label: info.label, tag: info.sha ?? "local", version: info.version, sha256: info.sha256, module };
 }
 
 /** The engine's releases that carry a web build, newest first, for the picker. */

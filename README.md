@@ -21,9 +21,10 @@ native path: [`DESIGN.md`](DESIGN.md).
   is for this browser, installing with progress and cancel, text to speech, speech to text from a recording or an
   upload, and the round trip with its word error rate. Models download to and run in the browser (OPFS), never on
   the server. Older builds show what they offer (`backends()`, `offers()`).
-- **Not yet**: git refs typed in the engine box (they are recognised and refused: no build of them is kept anywhere
-  yet; build one and pass it with `--engine-tarball`). Release builds whose package carries `dist/snippets/` and
-  npm dependencies (#41 on) do not load from a release yet: the in-memory import cannot resolve them. The Tauri app.
+- **Git refs**: a pull request, branch or commit loads the engine CI's build of its head commit (the
+  `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
+- **Not yet**: release builds whose package carries `dist/snippets/` and npm dependencies (#41 on) do not load from
+  a release: the in-memory import cannot resolve them. The Tauri app.
 
 ## Run
 
@@ -53,6 +54,16 @@ The server installs it as a consumer would, with its npm dependencies, into a sc
 There is no `SHA256SUMS` for a local build: the page shows the tarball's digest, and `--engine-sha256` makes the
 server refuse a tarball with another one.
 
+**Builds of git refs.** sidevoice-engine's CI uploads the npm package of every commit it builds as the Actions
+artifact `engine-npm-<full sha>`, kept 7 days. For a ref, the server asks the GitHub API for its head commit, finds
+that artifact from a successful run, downloads it, checks the zip against the digest the API gives (when it gives
+one), and installs and serves the tarball like a local build, under `/engines/<sha>/`; once per commit. It says
+when there is no build: no CI run yet, CI still running, the run failed, or the artifact expired. Artifacts need a
+GitHub token even on a public repository: the server reads one from `--github-token-file`
+(`~/.agent/secrets/github.token` by default), uses it for reads only, and never sends it to the page or logs it.
+Each build's dependencies get their own scope in the page's import map; a browser that takes only one import map
+per page (anything before Chrome 133) needs a reload after the first load of a ref.
+
 What you can type in the engine box:
 
 | You type | It loads |
@@ -61,7 +72,7 @@ What you can type in the engine box:
 | `nightly`, `…/releases/tag/nightly` | the latest green `main` |
 | `latest` | the newest published release |
 | `local` | the build passed with `--engine-tarball` |
-| `#27`, `…/pull/27`, `…/tree/<branch>`, `…/commit/<sha>`, a branch, a SHA | refused for now, with the reason (`DESIGN.md`, *Arbitrary refs*) |
+| `#27`, `…/pull/27`, `…/tree/<branch>`, `…/commit/<sha>`, a branch, a SHA | the CI build of its head commit (below) |
 
 ## Layout
 
@@ -71,6 +82,7 @@ web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, W
                   tar.mjs (gzip + ustar), host.mjs (the page's capabilities for WebEngine.create)
 server.mjs      serves web/ and /fetch, the relay for engine release assets (github.com sends no CORS headers)
 access.mjs      the access gate: the token, the cookie, the check every request goes through
-local-engine.mjs  a local engine tarball installed and served under /local-engine/, with its import map
+served-engine.mjs  an engine tarball installed and served under a prefix, with its import map
+refs.mjs        a git ref → its head commit → its CI artifact, verified, unzipped (zip.mjs) and served
 test/           node --test
 ```
