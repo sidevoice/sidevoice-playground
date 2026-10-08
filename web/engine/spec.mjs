@@ -4,8 +4,8 @@
 // - `release`: a GitHub Release of sidevoice-engine, which carries the npm package as an asset (RELEASING.md,
 //   "Assets"): a version (`0.2.0`, `v0.2.0`, `@sidevoice/engine@0.2.0`, a release URL), `nightly`, or `latest`
 //   (resolved later, against the GitHub API).
-// - `ref`: any other git ref (a branch, a commit, a pull request). No prebuilt package exists for it; it needs a CI
-//   build first (DESIGN.md), so the loader refuses it with a reason.
+// - `ref`: any other git ref (a branch, a commit, a pull request). Its package is the engine CI's artifact for the
+//   ref's head commit, which only the server can download (refs.mjs; DESIGN.md, "Arbitrary refs").
 
 export const ENGINE_REPO = "sidevoice/sidevoice-engine";
 
