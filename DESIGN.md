@@ -90,7 +90,13 @@ Nothing builds them today. Options:
   own `cargo xtask npm` (and the runner build), publishing to a playground pre-release. No engine change, but the
   playground repository is private, so downloads need a token too, and the engine gets built in two places.
 
-Until one is chosen, the playground recognises a ref and says it cannot load it yet.
+Until one is chosen, the playground recognises a ref and says it cannot load it yet. Meanwhile, a ref built by
+hand loads as a local build: `server.mjs --engine-tarball` (README, *A local engine build*).
+
+From sidevoice-engine#41 the package imports npm dependencies (transformers.js, eSpeak NG) from
+`dist/snippets/`, so the in-memory `data:` import of a release build cannot resolve them. A local build is served
+installed, with an import map; release builds will need the same (the relay installing the verified tarball, or a
+CDN for the dependencies).
 
 ## Recommendation
 

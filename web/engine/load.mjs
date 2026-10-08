@@ -41,6 +41,19 @@ export async function loadEngine(spec, { fetchBytes, fetchJson }) {
   return { label, tag, version, sha256, module };
 }
 
+/**
+ * The local build server.mjs serves (`--engine-tarball`), as `/local-engine.json` describes it: imported from the
+ * server, where the page's import map resolves its dependencies, and its wasm fetched beside it. Unlike a release
+ * build it is one module instance, loaded once.
+ * @param {{ label: string, version: string, sha256: string, entry: string }} info
+ * @returns {Promise<LoadedEngine>}
+ */
+export async function loadLocalEngine(info) {
+  const module = await import(info.entry);
+  await module.default();
+  return { label: info.label, tag: "local", version: info.version, sha256: info.sha256, module };
+}
+
 /** The engine's releases that carry a web build, newest first, for the picker. */
 export async function listReleases(fetchJson) {
   const releases = await fetchJson(`https://api.github.com/repos/${ENGINE_REPO}/releases?per_page=50`);

@@ -10,7 +10,7 @@
   <body>
     <header>
       <h1>sidevoice-playground</h1>
-      <p>Try a sidevoice-engine build by hand. Internal.</p>
+      <p>Try a sidevoice-engine build by hand. Internal. Models download to and run in this browser.</p>
     </header>
 
     <section id="engine">
@@ -25,11 +25,29 @@
       <div id="engine-details"></div>
     </section>
 
+    <section id="models">
+      <h2>Models</h2>
+      <p>The active engine's catalogue, as <code>models()</code> reports it for this browser. Installing stores the
+        files in this browser's private storage (OPFS); speaking or transcribing installs and loads a model first if
+        it is not.</p>
+      <label>Model <select id="models-pick"></select></label>
+      <label>Build <select id="models-build"></select></label>
+      <button id="models-install" disabled>Install</button>
+      <button id="models-uninstall" disabled>Uninstall</button>
+      <button id="models-load" disabled>Load</button>
+      <button id="models-free" disabled>Unload all</button>
+      <button class="cancel" disabled>Cancel</button>
+      <p class="status run-status"></p>
+      <div id="models-table"></div>
+    </section>
+
     <section id="tts">
       <h2>Text to speech</h2>
       <textarea id="tts-text" rows="3">The quick brown fox jumps over the lazy dog.</textarea>
       <label>Model <select id="tts-model"></select></label>
+      <label>Voice <select id="tts-voice"></select> Language <input id="tts-language" size="8" placeholder="en" /></label>
       <button id="tts-run" disabled>Speak</button>
+      <button class="cancel" disabled>Cancel</button>
       <p class="status run-status"></p>
       <audio id="tts-audio" controls hidden></audio>
     </section>
@@ -40,16 +58,21 @@
       <input id="stt-file" type="file" accept="audio/*" />
       <audio id="stt-audio" controls hidden></audio>
       <label>Model <select id="stt-model"></select></label>
+      <label>Language <input id="stt-language" size="8" placeholder="detect" /></label>
       <button id="stt-run" disabled>Transcribe</button>
+      <button class="cancel" disabled>Cancel</button>
       <p class="status run-status"></p>
       <pre id="stt-text"></pre>
     </section>
 
     <section id="roundtrip">
       <h2>Round trip: text → speech → text</h2>
-      <p>Uses the text and models chosen above.</p>
+      <p>Uses the text, voice, language and models chosen above.</p>
       <button id="roundtrip-run" disabled>Run</button>
+      <button class="cancel" disabled>Cancel</button>
       <p class="status run-status"></p>
+      <audio id="roundtrip-audio" controls hidden></audio>
+      <pre id="roundtrip-text"></pre>
     </section>
   </body>
 </html>
