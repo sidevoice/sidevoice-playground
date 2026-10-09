@@ -117,11 +117,17 @@ engine runs what its native build runs at that commit (sherpa-onnx and whisper.c
 show as `backend-not-in-this-build`). CI builds the template against the engine's `main` and speaks the protocol to
 it, so a template that no longer builds is caught there; no model is run.
 
-**Opening the unsigned .dmg.** CI's `macOS app (Apple silicon) .dmg` job uploads it as the artifact
-`sidevoice-playground-macos-aarch64` (a zip holding `sidevoice-playground_<commit>_aarch64.dmg`, kept 30 days). The
-app is signed ad hoc, not with a Developer ID, and not notarised, so Gatekeeper stops it the first time:
+**Download.** main's newest app is the `nightly` pre-release:
+<https://github.com/sidevoice/sidevoice-playground/releases/download/nightly/sidevoice-playground_aarch64.dmg> (its
+commit in the release notes, its digest in `SHA256SUMS` beside it); after installing it, `xattr -dr
+com.apple.quarantine "/Applications/Sidevoice Playground.app"` (below).
 
-1. Unzip the artifact, open the `.dmg` and drag *Sidevoice Playground* to Applications.
+**Opening the unsigned .dmg.** CI's `macOS app (Apple silicon) .dmg` job uploads it as the artifact
+`sidevoice-playground-macos-aarch64` (a zip holding `sidevoice-playground_<commit>_aarch64.dmg`, kept 30 days), and
+on main to the `nightly` pre-release. The app is signed ad hoc, not with a Developer ID, and not notarised, so
+Gatekeeper stops it the first time:
+
+1. Unzip the artifact (or take the nightly's `.dmg`), open the `.dmg` and drag *Sidevoice Playground* to Applications.
 2. Either clear the quarantine flag the browser put on it — `xattr -dr com.apple.quarantine "/Applications/Sidevoice
    Playground.app"` — and open it as usual; or open it once, dismiss the warning, then in System Settings → Privacy
    & Security choose *Open Anyway* (on macOS 15 the old right-click → Open no longer bypasses it). If macOS says the
