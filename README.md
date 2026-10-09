@@ -27,7 +27,12 @@ Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
   one of its models that does the task, and
   install and load it there with progress and cancel, in its recommended build or the one picked under Advanced
   (every build `models()` lists, those that do not run here with their reason). Then speaking (voice, language,
-  speed), transcribing a recording or an upload, and the round trip with its word error rate. Models download to
+  speed), transcribing a recording or an upload, and the round trip with its word error rate. **Turn detection**
+  runs the voice module's chain on the microphone: the engine's voice-activity stream (probability graph where the
+  backend gives one, speech start and end), then at each end of speech either the end-of-turn model (smart-turn, its
+  P(end) against a threshold) or silence with patience, with sidevoice-voice's numbers (`web/turns/chain.mjs`);
+  end-of-turn needs an engine from sidevoice-engine main at 8aa89d1 (#78) on, and the native runner has neither
+  stream. Models download to
   and run in the browser (OPFS), never on the server. Phone and desktop alike; the look is the Sidevoice app's.
   Older builds say they cannot speak or transcribe. `models()` does not name a model's family yet (up to #41): it is
   read from the model id until the engine says it.

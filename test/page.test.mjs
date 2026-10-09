@@ -14,6 +14,9 @@ test("every element the page script looks up is in index.html", () => {
   for (const kind of ["version", "pull", "branch"]) {
     for (const id of [`engine-${kind}`, `engine-${kind}-form`, `engine-${kind}-detail`]) assert.ok(ids.has(id), `#${id}`);
   }
+  const screens = [...html.matchAll(/data-screen="([\w-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(screens, ["tts", "stt", "roundtrip", "turns"]);
+  for (const screen of screens) assert.ok(ids.has(screen), `#${screen}`);
   for (const screen of ["tts", "stt"]) {
     const section = html.slice(html.indexOf(`<section id="${screen}"`), html.indexOf("</section>", html.indexOf(`<section id="${screen}"`)));
     for (const name of ["family", "model", "advanced", "builds", "build-info", "progress", "model-status", "cancel", "remove", "run-status"]) {
@@ -32,7 +35,7 @@ test("the page is set up for phones: viewport, no zoom on focus, touch-sized con
 
 test("the sections' scripts look up only elements index.html has, and each section button names a section", async () => {
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-  for (const file of ["voice.mjs", "connector.mjs"]) {
+  for (const file of ["voice.mjs", "connector.mjs", "turns.mjs"]) {
     const script = await readFile(new URL(`../web/${file}`, import.meta.url), "utf8");
     const used = [...script.matchAll(/\$\(["`]#([\w-]+)/g)].map((m) => m[1]);
     assert.ok(used.length > 0, file);

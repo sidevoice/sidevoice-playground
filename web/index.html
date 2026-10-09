@@ -77,6 +77,7 @@
         <button type="button" data-screen="tts" aria-pressed="true">Text to speech</button>
         <button type="button" data-screen="stt" aria-pressed="false">Speech to text</button>
         <button type="button" data-screen="roundtrip" aria-pressed="false">Round trip</button>
+        <button type="button" data-screen="turns" aria-pressed="false">Turn detection</button>
       </nav>
 
       <section id="tts" class="screen card" hidden>
@@ -156,6 +157,50 @@
         <p class="status run-status" aria-live="polite"></p>
         <audio id="roundtrip-audio" controls hidden></audio>
         <pre id="roundtrip-text" class="result" hidden></pre>
+      </section>
+
+      <section id="turns" class="screen card" hidden>
+        <h2>Turn detection</h2>
+        <p class="muted">The voice module's chain on this engine: the microphone into the voice-activity detector's
+          stream, and at each end of speech either the end-of-turn model (smart-turn) or silence with patience, with
+          sidevoice-voice's numbers.</p>
+        <div class="field-row">
+          <label class="field grow"><span class="label">Voice activity</span><select id="turns-vad"></select></label>
+          <label class="field grow"><span class="label">End of turn</span><select id="turns-eot"></select></label>
+        </div>
+        <p id="turns-models" class="status" aria-live="polite"></p>
+        <fieldset class="turns-options">
+          <legend class="muted">Detector (a new stream takes them)</legend>
+          <label class="field"><span class="label">Threshold <output id="turns-threshold-value"></output></span>
+            <input id="turns-threshold" type="range" min="0.05" max="0.95" step="0.05" /></label>
+          <div class="field-row">
+            <label class="field grow"><span class="label">Min silence (ms)</span>
+              <input id="turns-min-silence" type="number" min="0" max="5000" step="50" inputmode="numeric" /></label>
+            <label class="field grow"><span class="label">Min speech (ms)</span>
+              <input id="turns-min-speech" type="number" min="0" max="5000" step="50" inputmode="numeric" /></label>
+          </div>
+        </fieldset>
+        <div class="field-row">
+          <label class="field grow"><span class="label">Patience</span>
+            <select id="turns-patience">
+              <option value="fast">fast</option>
+              <option value="normal" selected>normal</option>
+              <option value="calm">calm</option>
+            </select></label>
+          <label class="field grow"><span class="label">End-of-turn threshold <output id="turns-eot-threshold-value"></output></span>
+            <input id="turns-eot-threshold" type="range" min="0.05" max="0.95" step="0.05" /></label>
+        </div>
+        <label class="check"><input id="turns-smart" type="checkbox" /> Smart-turn: ask the end-of-turn model at each pause</label>
+        <div class="actions">
+          <button type="button" id="turns-start" class="primary">Listen</button>
+          <button type="button" id="turns-stop" class="ghost" disabled>Stop</button>
+        </div>
+        <p id="turns-status" class="status" aria-live="polite"></p>
+        <canvas id="turns-graph" class="turns-graph" width="600" height="120"></canvas>
+        <p id="turns-graph-note" class="muted"></p>
+        <p id="turns-timer" class="status" aria-live="off"></p>
+        <h3>Chain</h3>
+        <ol id="turns-log" class="voice-log"></ol>
       </section>
       </div>
 

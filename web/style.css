@@ -592,3 +592,23 @@ code {
 .voice-log .error {
   color: var(--sv-error);
 }
+.turns-graph {
+  display: block;
+  width: 100%;
+  height: 120px;
+  margin-top: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.turns-options {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.voice-log .cut {
+  font-weight: 600;
+}
+.voice-log .keep,
+.voice-log .note {
+  opacity: 0.75;
+}
