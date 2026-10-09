@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { RefError, refBuilds, validRef } from "../refs.mjs";
+import { RefError, refBuilds, validRef, VOICES_PREFIX } from "../refs.mjs";
+import { VOICE } from "../web/sources.mjs";
 import { zip } from "./zip-fixture.mjs";
 
 const SHA = "efa1d6d42715ed713605fb009f72538e90c6cfc7";
@@ -111,4 +112,25 @@ test("unknown refs, bad refs and a missing token are refused before anything is 
   assert.match((await failure(refBuilds({ token: TOKEN, fetch }).get("no-such-branch"))).message, /no branch or commit no-such-branch/);
   assert.equal((await failure(refBuilds({ token: TOKEN, fetch }).get("../etc"))).status, 400);
   assert.equal((await failure(refBuilds({ token: null, fetch }).get("feat/web"))).status, 503);
+});
+
+test("the voice module's builds: its own repository's `voice-npm-<sha>` artifacts, served under /voices/", async () => {
+  const VOICE_REPO = "https://api.github.com/repos/sidevoice/sidevoice-voice";
+  const tarball = new TextEncoder().encode("the voice package");
+  const archive = zip({ "sidevoice-voice-0.1.0.tgz": tarball });
+  const { fetch } = github({
+    [`${VOICE_REPO}/pulls/7`]: { head: { sha: SHA } },
+    [`${VOICE_REPO}/actions/artifacts?name=voice-npm-${SHA}&per_page=100`]: {
+      artifacts: [artifact({ name: `voice-npm-${SHA}`, digest: `sha256:${sha256(archive)}` })],
+    },
+    [`${VOICE_REPO}/actions/runs/7`]: run(), [ARCHIVE]: archive,
+    [`${VOICE_REPO}/commits/${SHA}`]: { sha: SHA },
+  });
+  const install = async (path, options) => ({ ...options, version: "0.1.0", site: "/scratch", entry: "x.js", imports: {} });
+  const builds = refBuilds({ token: TOKEN, fetch, install, source: VOICE, prefix: VOICES_PREFIX });
+
+  const build = await builds.get("pull/7/head");
+  assert.equal(build.sha, SHA);
+  assert.equal(build.prefix, `/voices/${SHA}/`);
+  assert.equal(build.sha256, sha256(tarball));
 });

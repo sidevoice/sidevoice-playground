@@ -1,8 +1,9 @@
-// An engine build served by server.mjs rather than imported from memory: an npm tarball (made by `cargo xtask npm`)
+// A build served by server.mjs rather than imported from memory, of the engine or of the voice module: an npm tarball (made by `cargo xtask npm`)
 // installed as a consumer installs it, with its dependencies (transformers.js, eSpeak NG), into a scratch directory,
 // and served under a prefix of its own with an import map for the names the package imports, the way the engine's
 // own web e2e serves its page (xtask/web-e2e/run.mjs in sidevoice-engine). Two kinds are served: the local build
-// (`--engine-tarball`, under /local-engine/) and CI builds of git refs (refs.mjs, under /engines/<sha>/).
+// (`--engine-tarball`, under /local-engine/) and CI builds of git refs (refs.mjs, under /engines/<sha>/). The voice module
+// (`@sidevoice/voice`) imports nothing by name: the page hands it the engine it loaded, so only its own entry is mapped.
 //
 // A build from a release is still imported in the page (web/engine/load.mjs). From sidevoice-engine#41 on, the
 // package imports npm dependencies, which only a served build resolves.
@@ -50,23 +51,41 @@ export async function installLocalEngine({ tarball, label, sha256 }) {
  * Installs the tarball at `path` into a scratch directory and says how the page reaches it under `prefix`.
  * @returns {Promise<ServedEngine>}
  */
-export async function installEngine(path, { label, sha256, prefix }) {
+export function installEngine(path, { label, sha256, prefix }) {
+  return installPackage(path, { label, sha256, prefix, name: "@sidevoice/engine", specifiers: SPECIFIERS });
+}
 
-  const site = await mkdtemp(join(tmpdir(), "sidevoice-playground-engine-"));
+/**
+ * The voice module's tarball at `path`, installed and served under `prefix` like an engine build. Its peer, the
+ * engine, is not installed: the page passes the engine it loaded.
+ * @returns {Promise<ServedEngine>}
+ */
+export function installVoice(path, { label, sha256, prefix }) {
+  const name = "@sidevoice/voice";
+  return installPackage(path, { label, sha256, prefix, name, specifiers: [name], npmArgs: ["--legacy-peer-deps"] });
+}
+
+/**
+ * Installs package `name` from the tarball at `path` into a scratch directory and says how the page reaches it under
+ * `prefix`: its entry, and the import map of `specifiers`.
+ * @returns {Promise<ServedEngine>}
+ */
+async function installPackage(path, { label, sha256, prefix, name, specifiers, npmArgs = [] }) {
+  const site = await mkdtemp(join(tmpdir(), "sidevoice-playground-build-"));
   await writeFile(join(site, "package.json"), '{ "private": true, "type": "module" }\n');
-  await promisify(execFile)("npm", ["install", "--no-audit", "--no-fund", path], { cwd: site });
+  await promisify(execFile)("npm", ["install", "--no-audit", "--no-fund", ...npmArgs, path], { cwd: site });
 
-  const imports = importMap(site, prefix);
-  const entry = imports["@sidevoice/engine"];
-  if (!entry) throw new Error(`${path}: the installed @sidevoice/engine names no entry point`);
-  const { version } = await readJson(join(site, "node_modules/@sidevoice/engine/package.json"));
+  const imports = importMap(site, prefix, undefined, specifiers);
+  const entry = imports[name];
+  if (!entry) throw new Error(`${path}: the installed ${name} names no entry point`);
+  const { version } = await readJson(join(site, "node_modules", name, "package.json"));
   return { label, version, sha256, prefix, site, entry, imports };
 }
 
-/** Each specifier the installed packages in `site` resolve for a browser, as a URL path under `prefix`. */
-export function importMap(site, prefix, read = (file) => readFileSync(file, "utf8")) {
+/** Each of `specifiers` the installed packages in `site` resolve for a browser, as a URL path under `prefix`. */
+export function importMap(site, prefix, read = (file) => readFileSync(file, "utf8"), specifiers = SPECIFIERS) {
   const imports = {};
-  for (const specifier of SPECIFIERS) {
+  for (const specifier of specifiers) {
     const resolved = resolveSpecifier(site, specifier, read);
     if (resolved) imports[specifier] = `${prefix}node_modules/${resolved}`;
   }

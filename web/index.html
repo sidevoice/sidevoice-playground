@@ -12,11 +12,18 @@
     <header class="topbar">
       <div>
         <h1>sidevoice playground</h1>
-        <p class="subtitle">Try an engine build by hand. Models download to and run in this browser.</p>
+        <p class="subtitle">Try Sidevoice's parts by hand: an engine build, the voice module on it, and the connector.</p>
       </div>
     </header>
 
+    <nav id="sections" class="screens sections" aria-label="Sections">
+      <button type="button" data-section="engine" aria-pressed="true">Engine</button>
+      <button type="button" data-section="voice" aria-pressed="false">Voice</button>
+      <button type="button" data-section="connector" aria-pressed="false">Connector</button>
+    </nav>
+
     <main>
+      <div id="section-engine" class="section">
       <details id="engine" class="card" open>
         <summary>
           <span class="label">Engine</span>
@@ -150,6 +157,85 @@
         <audio id="roundtrip-audio" controls hidden></audio>
         <pre id="roundtrip-text" class="result" hidden></pre>
       </section>
+      </div>
+
+      <div id="section-voice" class="section" hidden>
+        <section class="card">
+          <h2>Voice</h2>
+          <p class="muted">A call on <code>@sidevoice/voice</code> with the engine loaded under Engine: this browser's
+            microphone and speaker, and this page standing in for the room (it takes the call's turns and sends it the
+            replies to speak).</p>
+          <form id="voice-build-form" class="engine-pick">
+            <div class="field-row">
+              <label class="field grow"><span class="label">Voice build</span><select id="voice-build"></select></label>
+              <button type="submit" class="primary">Load</button>
+            </div>
+            <p id="voice-build-detail" class="muted"></p>
+          </form>
+          <p id="voice-status" class="status" aria-live="polite"></p>
+        </section>
+
+        <section id="voice-config" class="card" hidden>
+          <h2>Call</h2>
+          <div class="field-row">
+            <label class="field grow"><span class="label">Voice activity</span><select id="voice-vad"></select></label>
+            <label class="field grow"><span class="label">End of turn</span>
+              <select id="voice-end">
+                <option value="silence">silence</option>
+                <option value="smart-turn">smart-turn</option>
+              </select></label>
+            <label class="field grow"><span class="label">Patience</span>
+              <select id="voice-patience">
+                <option value="fast">fast</option>
+                <option value="normal" selected>normal</option>
+                <option value="calm">calm</option>
+              </select></label>
+          </div>
+          <div class="field-row">
+            <label class="field grow"><span class="label">Speech to text</span><select id="voice-stt"></select></label>
+            <label class="field narrow"><span class="label">Language</span>
+              <input id="voice-language" placeholder="detect" autocomplete="off" autocapitalize="off" spellcheck="false" /></label>
+          </div>
+          <div class="field-row">
+            <label class="field grow"><span class="label">Text to speech</span><select id="voice-tts"></select></label>
+            <label class="field grow"><span class="label">Voice</span><select id="voice-voice"></select></label>
+          </div>
+          <label class="check"><input id="voice-aec" type="checkbox" checked /> Echo cancellation (the browser's)</label>
+          <label class="check"><input id="voice-echo" type="checkbox" checked /> Reply with what was heard</label>
+          <div class="actions">
+            <button type="button" id="voice-start" class="primary">Start</button>
+            <button type="button" id="voice-mute" disabled>Mute</button>
+            <button type="button" id="voice-stop" class="ghost" disabled>Stop</button>
+          </div>
+          <p id="voice-call-status" class="status" aria-live="polite"></p>
+        </section>
+
+        <section id="voice-live" class="card" hidden>
+          <h2>Live</h2>
+          <p id="voice-state" class="muted"></p>
+          <meter id="voice-level" min="0" max="1" value="0"></meter>
+          <h3>Speaking</h3>
+          <p id="voice-karaoke" class="karaoke"></p>
+          <label class="field"><span class="label">Reply</span>
+            <textarea id="voice-reply-text" rows="2">Hello, this is the playground speaking.</textarea></label>
+          <button type="button" id="voice-reply" disabled>Speak this reply</button>
+          <h3>Turns</h3>
+          <ol id="voice-turns" class="voice-log"></ol>
+        </section>
+      </div>
+
+      <div id="section-connector" class="section" hidden>
+        <section class="card">
+          <h2>Connector</h2>
+          <p class="muted">The connector's test bench (<code>cargo xtask bench</code> in sidevoice-connector): this
+            build of the connector and its pinned core in a private profile, with a page to say things into a
+            conversation and read its replies. The bench's page is the connector's own; this playground only reaches
+            it.</p>
+          <p id="connector-status" class="status" aria-live="polite"></p>
+          <p><a id="connector-open" class="button" href="connector/" target="_blank" rel="noopener">Open the
+              bench</a></p>
+        </section>
+      </div>
     </main>
   </body>
 </html>

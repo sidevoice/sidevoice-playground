@@ -241,6 +241,19 @@ main {
   font-weight: 600;
 }
 
+/* Sections: the playground's parts (Engine, Voice, Connector), above the screens; it scrolls away with the page. */
+.sections {
+  position: static;
+  width: calc(100% - 24px);
+  max-width: 736px;
+  margin: 12px auto 0;
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .screen {
   display: flex;
   flex-direction: column;
@@ -535,4 +548,47 @@ code {
     align-self: flex-start;
     min-width: 200px;
   }
+}
+
+/* The Voice section: its options, the microphone's level, the reply as it sounds and the call's log. */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--sv-text);
+}
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--sv-primary);
+}
+#voice-level {
+  width: 100%;
+  height: 12px;
+}
+.karaoke {
+  margin: 0;
+  min-height: 1.5em;
+  font-size: 18px;
+}
+.karaoke .heard {
+  color: var(--sv-muted);
+}
+.karaoke .sounding {
+  color: var(--sv-on-primary);
+  background: var(--sv-primary);
+  border-radius: 4px;
+}
+.voice-log {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 14px;
+  color: var(--sv-muted);
+  overflow-wrap: anywhere;
+}
+.voice-log .error {
+  color: var(--sv-error);
 }

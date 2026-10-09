@@ -1,8 +1,9 @@
-// Engine builds of git refs (pull requests, branches, commits), from sidevoice-engine's CI (DESIGN.md, "Arbitrary
-// refs", R1): every CI run uploads the npm package as an Actions artifact named `engine-npm-<full commit sha>`, kept 7
-// days. The server resolves the ref to its head commit, finds that commit's artifact from a successful run, downloads
-// it (Actions artifacts need a token, even on a public repository), checks it against the digest the API gives,
-// unzips the tarball and serves it as served-engine.mjs does, under /engines/<sha>/.
+// Builds of git refs (pull requests, branches, commits), from a source repository's CI (DESIGN.md, "Arbitrary refs",
+// R1; web/sources.mjs): every CI run uploads the npm package as an Actions artifact, `engine-npm-<full commit sha>` for
+// the engine and `voice-npm-<sha>` for the voice module, kept 7 days. The server resolves the ref to its head commit,
+// finds that commit's artifact from a successful run, downloads it (Actions artifacts need a token, even on a public
+// repository), checks it against the digest the API gives, unzips the tarball and serves it as served-engine.mjs does,
+// under its prefix (/engines/<sha>/, /voices/<sha>/).
 //
 // The token is read from a file by the server and goes to api.github.com only: never to the page, never to a log.
 
@@ -10,13 +11,14 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { installEngine } from "./served-engine.mjs";
-import { ENGINE_REPO } from "./web/engine/spec.mjs";
+import { ENGINE } from "./web/sources.mjs";
 import { artifactName, artifactsPath } from "./web/engine/listing.mjs";
 import { sha256Hex } from "./web/engine/load.mjs";
 import { unzip } from "./zip.mjs";
 
 const API = "https://api.github.com";
 export const ENGINES_PREFIX = "/engines/";
+export const VOICES_PREFIX = "/voices/";
 
 /** A failure the page should read as it is, with the HTTP status the server answers it with. */
 export class RefError extends Error {
@@ -27,7 +29,7 @@ export class RefError extends Error {
 }
 
 /**
- * sidevoice-engine's GitHub API with the server's token: `api(path)` is the JSON at `path` (null on a 404),
+ * GitHub's API with the server's token: `api(path)` is the JSON at `path` (null on a 404),
  * `headers()` what every request to GitHub carries. Without a token every call fails with a 503.
  * @param {{ token: string | null, fetch?: typeof globalThis.fetch }} options
  */
@@ -55,11 +57,19 @@ export function validRef(ref) {
 }
 
 /**
- * The ref builds this server serves, by commit. `token` is GitHub's (read-only use); `fetch` and `install` are
- * replaceable for tests.
- * @param {{ token: string | null, fetch?: typeof globalThis.fetch, install?: typeof installEngine }} options
+ * The ref builds of `source` (the engine by default) this server serves under `prefix`, by commit. `token` is GitHub's
+ * (read-only use); `fetch` and `install` are replaceable for tests.
+ * @param {{ token: string | null, fetch?: typeof globalThis.fetch, install?: typeof installEngine,
+ *   source?: import("./web/sources.mjs").Source, prefix?: string }} options
  */
-export function refBuilds({ token, fetch = globalThis.fetch, install = installEngine }) {
+export function refBuilds({
+  token,
+  fetch = globalThis.fetch,
+  install = installEngine,
+  source = ENGINE,
+  prefix = ENGINES_PREFIX,
+}) {
+  const repo = source.repo;
   /** sha → Promise<ServedEngine>: a build is fetched and installed once, however often it is asked for. */
   const builds = new Map();
   /** sha → ServedEngine, once installed. */
@@ -71,33 +81,33 @@ export function refBuilds({ token, fetch = globalThis.fetch, install = installEn
   async function resolve(ref) {
     const pr = ref.match(/^pull\/(\d+)\/head$/);
     if (pr) {
-      const pull = await api(`/repos/${ENGINE_REPO}/pulls/${pr[1]}`);
-      if (!pull) throw new RefError(404, `${ENGINE_REPO} has no pull request #${pr[1]}`);
+      const pull = await api(`/repos/${repo}/pulls/${pr[1]}`);
+      if (!pull) throw new RefError(404, `${repo} has no pull request #${pr[1]}`);
       return { sha: pull.head.sha, name: `#${pr[1]}` };
     }
-    const commit = await api(`/repos/${ENGINE_REPO}/commits/${encodeURIComponent(ref)}`);
-    if (!commit) throw new RefError(404, `${ENGINE_REPO} has no branch or commit ${ref}`);
+    const commit = await api(`/repos/${repo}/commits/${encodeURIComponent(ref)}`);
+    if (!commit) throw new RefError(404, `${repo} has no branch or commit ${ref}`);
     return { sha: commit.sha, name: commit.sha.startsWith(ref) ? null : ref };
   }
 
   /** The artifact of a successful run for `sha`, or why there is none. */
   async function artifactFor(sha) {
     const short = sha.slice(0, 7);
-    const name = artifactName(sha);
-    const { artifacts = [] } = (await api(artifactsPath(sha))) ?? {};
+    const name = artifactName(sha, source);
+    const { artifacts = [] } = (await api(artifactsPath(sha, source))) ?? {};
     const newest = [...artifacts].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const live = newest.filter((a) => !a.expired);
     const runs = [];
     for (const artifact of live) {
-      const run = await api(`/repos/${ENGINE_REPO}/actions/runs/${artifact.workflow_run?.id}`);
+      const run = await api(`/repos/${repo}/actions/runs/${artifact.workflow_run?.id}`);
       if (run?.conclusion === "success") return artifact;
       if (run) runs.push(run);
     }
     if (runs.length) throw notReady(short, runs);
     if (newest.length) {
-      throw new RefError(410, `the build of ${short} has expired (CI keeps it 7 days): re-run the engine's CI on it to build it again`);
+      throw new RefError(410, `the build of ${short} has expired (CI keeps it 7 days): re-run ${repo}'s CI on it to build it again`);
     }
-    const { workflow_runs = [] } = (await api(`/repos/${ENGINE_REPO}/actions/runs?head_sha=${sha}&per_page=20`)) ?? {};
+    const { workflow_runs = [] } = (await api(`/repos/${repo}/actions/runs?head_sha=${sha}&per_page=20`)) ?? {};
     if (!workflow_runs.length) throw new RefError(404, `no CI run for ${short} yet, so no build of it`);
     const going = workflow_runs.filter((run) => run.status !== "completed");
     if (going.length) throw notReady(short, going);
@@ -134,7 +144,7 @@ export function refBuilds({ token, fetch = globalThis.fetch, install = installEn
     const served = await install(join(dir, name), {
       label,
       sha256: await sha256Hex(tarball),
-      prefix: `${ENGINES_PREFIX}${sha}/`,
+      prefix: `${prefix}${sha}/`,
     });
     const result = { ...served, sha, verified: Boolean(expected) };
     installed.set(sha, result);
@@ -154,7 +164,7 @@ export function refBuilds({ token, fetch = globalThis.fetch, install = installEn
       }
       return { ...(await builds.get(sha)), label };
     },
-    /** The installed build of commit `sha`, served under /engines/<sha>/, if any. */
+    /** The installed build of commit `sha`, served under its prefix, if any. */
     installed: (sha) => installed.get(sha) ?? null,
     /** Every installed build, for the page's import map. */
     all: () => [...installed.values()],

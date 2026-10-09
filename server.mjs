@@ -13,7 +13,14 @@
 // /engine-builds lists what there is to pick (engine-builds.mjs): releases, pull requests and branches, through the
 // GitHub API with the same token; `?fresh=1` lists anew instead of answering from the short-lived copy it keeps.
 //
-//   node server.mjs [--access-file FILE] [--github-token-file FILE]
+// The voice module (`@sidevoice/voice`, sidevoice-voice) the same way: /voice-builds lists its pull requests and
+// branches, /voice-build?ref=<ref> fetches and installs one CI build, /voices/<sha>/ serves it.
+//
+// /connector/ is the connector's test bench (`cargo xtask bench` in sidevoice-connector), reached through this server:
+// a reverse proxy to --bench-url (http://127.0.0.1:4477 by default), so the bench's page and logic stay in the connector
+// and only one copy of them exists. The bench answers only requests naming its own host, which the proxy does.
+//
+//   node server.mjs [--access-file FILE] [--github-token-file FILE] [--bench-url URL]
 //                   [--engine-tarball FILE [--engine-label TEXT] [--engine-sha256 HEX]]      PORT=5174 by default
 
 import { createServer } from "node:http";
@@ -24,14 +31,17 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { accessToken, DEFAULT_ACCESS_FILE, gate } from "./access.mjs";
 import { engineBuilds } from "./engine-builds.mjs";
-import { ENGINES_PREFIX, githubApi, RefError, refBuilds } from "./refs.mjs";
+import { proxyBench } from "./bench.mjs";
+import { ENGINES_PREFIX, githubApi, RefError, refBuilds, VOICES_PREFIX } from "./refs.mjs";
 import { releaseBuilds } from "./release-builds.mjs";
-import { installLocalEngine, LOCAL_PREFIX } from "./served-engine.mjs";
+import { installLocalEngine, installVoice, LOCAL_PREFIX } from "./served-engine.mjs";
 import { publicApi } from "./web/engine/listing.mjs";
+import { VOICE } from "./web/sources.mjs";
 
 const ROOT = fileURLToPath(new URL("./web/", import.meta.url));
 const PORT = Number(process.env.PORT ?? 5174);
 const DEFAULT_GITHUB_TOKEN_FILE = join(homedir(), ".agent/secrets/github.token");
+const DEFAULT_BENCH_URL = "http://127.0.0.1:4477";
 const TYPES = {
   ".html": "text/html",
   ".mjs": "text/javascript",
@@ -49,6 +59,11 @@ let refs = null;
 let releases = null;
 /** What there is to pick (`engineBuilds`). Set when the server starts. */
 let listing = null;
+/** The voice module's ref builds, and what there is to pick of them. Set when the server starts. */
+let voices = null;
+let voiceListing = null;
+/** Where the connector's test bench listens. Set when the server starts. */
+let bench = DEFAULT_BENCH_URL;
 /** Whether a request may go through: every route needs it. Set when the server starts. */
 let access = null;
 
@@ -70,9 +85,9 @@ function describe({ label, version, sha256, entry, prefix, imports, sha, tag, ve
   return { label, version, sha256, entry, prefix, imports, sha, tag, verified };
 }
 
-/** The builds served under /engines/: of git refs, by commit, and of releases, by tarball digest. */
+/** The builds served: engines of git refs, by commit, and of releases, by tarball digest; voice builds, by commit. */
 function served() {
-  return [...refs.all(), ...releases.all()];
+  return [...refs.all(), ...releases.all(), ...voices.all()];
 }
 
 async function handle(req, res) {
@@ -83,6 +98,11 @@ async function handle(req, res) {
   }
   if (!verdict.ok) return send(res, 401, "unauthorized: open the playground with the link you were given");
   const url = new URL(req.url, "http://localhost");
+  if (url.pathname === "/connector") {
+    res.writeHead(308, { location: "/connector/" });
+    return res.end();
+  }
+  if (url.pathname.startsWith("/connector/")) return proxyBench(req, res, bench, url);
   if (url.pathname === "/local-engine.json") {
     if (!local) return send(res, 404, "no local engine build: start the server with --engine-tarball");
     return sendJson(res, describe(local));
@@ -90,11 +110,23 @@ async function handle(req, res) {
   if (url.pathname === "/engine-builds") {
     return sendJson(res, await listing.get({ fresh: url.searchParams.has("fresh") }));
   }
+  if (url.pathname === "/voice-builds") {
+    return sendJson(res, await voiceListing.get({ fresh: url.searchParams.has("fresh") }));
+  }
   if (url.pathname === "/ref-build" || url.pathname === "/release-build") {
     try {
       const build = url.pathname === "/ref-build"
         ? await refs.get(url.searchParams.get("ref"))
         : await releases.get(url.searchParams.get("name"));
+      return sendJson(res, describe(build));
+    } catch (error) {
+      if (error instanceof RefError) return send(res, error.status, error.message);
+      throw error;
+    }
+  }
+  if (url.pathname === "/voice-build") {
+    try {
+      const build = await voices.get(url.searchParams.get("ref"));
       return sendJson(res, describe(build));
     } catch (error) {
       if (error instanceof RefError) return send(res, error.status, error.message);
@@ -108,6 +140,12 @@ async function handle(req, res) {
     const [key, ...rest] = url.pathname.slice(ENGINES_PREFIX.length).split("/");
     const build = refs.installed(key) ?? releases.installed(key);
     if (!build) return send(res, 404, `no build ${key} is installed here: load it first`);
+    return serveFile(res, build.site + sep, decodeURIComponent(rest.join("/")));
+  }
+  if (url.pathname.startsWith(VOICES_PREFIX)) {
+    const [key, ...rest] = url.pathname.slice(VOICES_PREFIX.length).split("/");
+    const build = voices.installed(key);
+    if (!build) return send(res, 404, `no voice build ${key} is installed here: load it first`);
     return serveFile(res, build.site + sep, decodeURIComponent(rest.join("/")));
   }
   if (url.pathname === "/" || url.pathname === "/index.html") {
@@ -153,6 +191,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     options: {
       "access-file": { type: "string" },
       "github-token-file": { type: "string" },
+      "bench-url": { type: "string" },
       "engine-tarball": { type: "string" },
       "engine-label": { type: "string" },
       "engine-sha256": { type: "string" },
@@ -164,6 +203,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   refs = refBuilds({ token: githubToken });
   releases = releaseBuilds({ api: githubToken ? githubApi({ token: githubToken }).api : publicApi() });
   listing = engineBuilds({ token: githubToken });
+  voices = refBuilds({ token: githubToken, source: VOICE, prefix: VOICES_PREFIX, install: installVoice });
+  voiceListing = engineBuilds({ token: githubToken, source: VOICE });
+  bench = values["bench-url"] ?? DEFAULT_BENCH_URL;
   if (values["engine-tarball"]) {
     local = await installLocalEngine({
       tarball: values["engine-tarball"],
