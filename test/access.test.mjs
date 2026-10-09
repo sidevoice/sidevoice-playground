@@ -29,7 +29,7 @@ test("every request needs the cookie, which the token in the URL sets once", () 
 
   const opened = check(request(`/app.mjs?x=1&access=${token}`));
   assert.equal(opened.redirect, "/app.mjs?x=1");
-  assert.match(opened.cookie, /; HttpOnly; Secure; SameSite=Strict; Path=\/$/);
+  assert.match(opened.cookie, /; HttpOnly; Secure; SameSite=Lax; Path=\/$/);
   assert.ok(!opened.cookie.includes(token), "the cookie does not carry the token");
 
   const cookie = opened.cookie.split(";")[0];

@@ -1,8 +1,9 @@
 // The access gate: the playground is reachable from outside through a tunnel, so every route asks for a secret.
 // A random token (32 bytes, base64url) is made at each start and lives in memory: a restart invalidates the last
 // one. It is also written over a file only its owner can read, for whoever hands it out. It is accepted
-// once as `?access=<token>` on any URL, which sets a cookie (HttpOnly, Secure, SameSite=Strict) and redirects to the
-// same URL without it; from then on every request needs the cookie, and any other gets 401. The cookie carries a
+// once as `?access=<token>` on any URL, which sets a cookie (HttpOnly, Secure, SameSite=Lax) and redirects to the
+// same URL without it. Lax, not Strict: a link opened from another app is a cross-site navigation, and a Strict
+// cookie set there is not sent on the redirect that follows, which would end in 401. From then on every request needs the cookie, and any other gets 401. The cookie carries a
 // value derived from the token, not the token itself. Comparisons are constant-time. Nothing here logs the token.
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -30,7 +31,7 @@ export async function accessToken(file = DEFAULT_ACCESS_FILE) {
  */
 export function gate(token) {
   const cookieValue = createHmac("sha256", token).update("sidevoice-playground cookie").digest("base64url");
-  const cookie = `${COOKIE}=${cookieValue}; HttpOnly; Secure; SameSite=Strict; Path=/`;
+  const cookie = `${COOKIE}=${cookieValue}; HttpOnly; Secure; SameSite=Lax; Path=/`;
   return {
     check(req) {
       const url = new URL(req.url, "http://localhost");

@@ -42,7 +42,7 @@ npm test         # unit tests; PLAYGROUND_NETWORK=1 also loads the real nightly 
 **Access.** Every route asks for a token, because the playground is meant to be reached through a tunnel too. Each
 start makes a new one (32 random bytes, base64url), keeps it in memory and writes it over
 `~/.agent/secrets/sidevoice-playground-access` (mode 600; `--access-file` to change it); a restart invalidates the
-last one. Open any URL once with `?access=<token>`: the server sets an HttpOnly, Secure, SameSite=Strict cookie and
+last one. Open any URL once with `?access=<token>`: the server sets an HttpOnly, Secure, SameSite=Lax cookie and
 redirects to the URL without it. Anything else gets 401. The token is never logged.
 
 **A local engine build.** For a build no release carries (a pull request, a branch), make the npm tarball in an
