@@ -4,11 +4,21 @@
 export const OTHER = "other";
 
 /**
- * @param {{ local?: { label: string } | null, releases?: { tag: string, prerelease: boolean }[] }} sources
+ * In the macOS app, the native engine comes first, and git refs are not offered: their CI builds are fetched and
+ * installed by server.mjs, which the app does not run.
+ * @param {{ native?: { label: string, version: string, rev: string } | null, local?: { label: string } | null,
+ *   releases?: { tag: string, prerelease: boolean }[] }} sources
  * @returns {{ value: string, label: string, hint: string }[]}
  */
-export function engineChoices({ local = null, releases = [] } = {}) {
+export function engineChoices({ native = null, local = null, releases = [] } = {}) {
   const choices = [];
+  if (native) {
+    choices.push({
+      value: "native",
+      label: `${native.label} (built into this app)`,
+      hint: `sidevoice-engine ${native.version} at commit ${native.rev}, compiled into this app: the version the app was built with. Another engine means rebuilding the app. Models download to this Mac.`,
+    });
+  }
   if (local) {
     choices.push({ value: "local", label: local.label, hint: "The build this server was started with." });
   }
@@ -20,11 +30,19 @@ export function engineChoices({ local = null, releases = [] } = {}) {
     if (tag === "nightly") continue;
     choices.push({ value: tag, label: prerelease ? `${tag} (pre-release)` : tag, hint: `The release ${tag}.` });
   }
-  choices.push({
-    value: OTHER,
-    label: "Other: a version, pull request, branch or commit…",
-    hint: "A pull request, branch or commit loads the engine CI's build of its head commit (kept 7 days).",
-  });
+  choices.push(
+    native
+      ? {
+          value: OTHER,
+          label: "Other: a version or a release link…",
+          hint: "A web build from a release. Pull requests, branches and commits load in the web playground (npm start), not here.",
+        }
+      : {
+          value: OTHER,
+          label: "Other: a version, pull request, branch or commit…",
+          hint: "A pull request, branch or commit loads the engine CI's build of its head commit (kept 7 days).",
+        },
+  );
   return choices;
 }
 

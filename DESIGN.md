@@ -1,7 +1,9 @@
 # Design: loading an arbitrary engine at run time
 
-Status: **proposal**. The web path is built; the native path waits for the engine owner's decision on the points
-marked *engine change*.
+Status: the web path is built. The native path is built as option **D** (compiled in), by the operator's decision of
+2026-10-09: a macOS app to try the native engine now, one pinned version per build. The runner (C + C1) stays the way
+to try any native build without rebuilding, and still waits for the engine owner's decision on the points marked
+*engine change*.
 
 The goal: the operator names an engine (a version, `nightly`, `latest`, a release link, a pull request, a branch, a
 commit) and the playground downloads that build and uses it. Trying an engine build never means rebuilding the
@@ -47,7 +49,7 @@ internal tool; the Tauri side could verify the attestation natively later.
 | **A. Webview only** | The Tauri app is the web shell; it loads the wasm build like the browser does. | No native code beyond a fetch command. Ready now. | Exercises only the web build's backends. sherpa-onnx and MLX — what the desktop app runs — are never tried. Misses the point of a macOS build. |
 | **B. dlopen a C ABI library** | Each release ships `libsidevoice_engine.dylib` with a stable C ABI; the app downloads and `dlopen`s it. *Engine change.* | One process, no IPC. | A C ABI is the hardest contract to keep across pre-1.0 versions — the very versions the playground straddles. An uncaught C++ exception in sherpa-onnx aborts the whole app (#27 says so). Two versions in one process each open their own ONNX Runtime: symbol clashes, so no side-by-side comparison. Async API to flatten into C. |
 | **C. Runner process (sidecar)** | Each release ships a small `sidevoice-engine-runner` binary built from the engine; the app downloads it, checks it, spawns it and talks JSON lines over stdio. *Engine change.* | A crash kills the runner, not the app. Several versions run side by side. A versioned, extensible protocol instead of struct layouts; engine error codes pass through as they are. CI proves real inference by running the same binary headless. | One more release asset (macOS arm64 is enough). A protocol to keep. Audio crosses a pipe (negligible here). |
-| **D. Compile the engine into the app** | The Tauri app depends on the crate at a tag. | What the desktop app does. | Every engine build means rebuilding the app: what the operator asked to avoid. Rejected. |
+| **D. Compile the engine into the app** | The Tauri app depends on the crate at a commit or tag. | What the desktop app does. Needs no engine change: the public API (`Engine`, `NativeHost`, `BundledCatalog`) is enough. | Every engine build means rebuilding the app. **Built** (below), for one pinned version. |
 
 ### Where the runner comes from
 
@@ -100,11 +102,26 @@ From sidevoice-engine#41 the package imports npm dependencies (transformers.js, 
 installed, with an import map; release builds will need the same (the relay installing the verified tarball, or a
 CDN for the dependencies).
 
+### Built: D, the native engine compiled in
+
+`src-tauri/` depends on sidevoice-engine at one commit (`Cargo.toml`), links sherpa-onnx statically through
+`SHERPA_ONNX_LIB_DIR` as the engine documents for consumers, and exposes the engine as Tauri commands that mirror the
+web build's `WebEngine`: `native_models`, `native_install` (progress as `native-progress` events), `native_uninstall`,
+`native_load` (a handle the page holds), `native_voices`, `native_speak`, `native_transcribe`, `native_cancel`,
+`native_free`. `web/engine/native.mjs` wraps them back into `WebEngine`'s shape, so the screens do not know which
+engine they use. Values cross as the web build gives them to JavaScript (camelCase, stable codes); audio as raw
+little-endian f32 bytes, not JSON. The app shows which engine it was built with (version and commit, read from
+`Cargo.lock` at build time). Web builds load in the app as in a browser; release assets come through an app command
+(`fetch_release_asset`, the same URLs `/fetch` takes).
+
+What D gives up, as above: one native engine per app build, and the engine's crashes are the app's (a C++ exception
+in sherpa-onnx aborts it). Both are acceptable for trying models by hand; the runner would lift them.
+
 ## Recommendation
 
 1. **Web**: as built — release assets through a fetch relay, verified, imported in the page.
-2. **Native**: **C + C1** — an engine-owned runner binary per release, spawned by the Tauri app. Until it exists,
-   the Tauri app ships as option A (the web shell in a webview), which costs nothing extra.
+2. **Native**: **D** now (built: one pinned engine per app build). **C + C1** — an engine-owned runner binary per
+   release, spawned by the app — when trying native builds without rebuilding the app is worth an engine change.
 3. **Refs**: **R1** — the engine's CI keeps its PR builds as artifacts.
 
 ## What this asks of the engine

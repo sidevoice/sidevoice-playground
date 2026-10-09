@@ -19,6 +19,21 @@ test("the local build comes first when there is one; then nightly, latest, the r
   assert.equal(engineChoices().at(0).value, "nightly");
 });
 
+test("in the app the native engine comes first, and Other offers no git refs", () => {
+  const choices = engineChoices({
+    native: { label: "native 0.1.0 @ 6ae37d1", version: "0.1.0", rev: "6ae37d12be4b28d30d7566ff9915bb3ac0122f54" },
+    releases: [{ tag: "v0.2.0", prerelease: false }],
+  });
+  assert.deepEqual(choices.map((c) => [c.value, c.label]), [
+    ["native", "native 0.1.0 @ 6ae37d1 (built into this app)"],
+    ["nightly", "nightly"],
+    ["latest", "latest release"],
+    ["v0.2.0", "v0.2.0"],
+    [OTHER, "Other: a version or a release link…"],
+  ]);
+  assert.match(choices[0].hint, /6ae37d12be4b28d30d7566ff9915bb3ac0122f54, compiled into this app: the version the app was built with/);
+});
+
 test("an engine without the model interface says it cannot speak or transcribe", () => {
   assert.equal(engineAbilities(["backends", "models", "install", "uninstall", "load"]).usable, true);
   const old = engineAbilities(["backends", "offers"]);

@@ -2,6 +2,9 @@
 // Text to speech and speech to text each offer, in cascade, the families that have a model for their task, then that
 // family's models; picking a model installs and loads it right there, with progress and a Cancel button, in its
 // recommended build unless another is picked under Advanced. The round trip uses what both have loaded.
+//
+// In the macOS app (src-tauri/) the page also offers the native engine, compiled into the app, through the same
+// interface (engine/native.mjs); there, release assets come through the app instead of server.mjs.
 
 import { record, decodeToPcm, toWav } from "./audio.mjs";
 import {
@@ -17,14 +20,20 @@ import {
 import { engineAbilities, engineChoices, OTHER } from "./engine/choices.mjs";
 import { browserHost } from "./engine/host.mjs";
 import { listReleases, loadEngine, loadServedEngine } from "./engine/load.mjs";
+import { NATIVE, NATIVE_METHODS, nativeEngine, nativeInfo, tauri } from "./engine/native.mjs";
 import { parseSpec } from "./engine/spec.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const CAPABILITIES = ["tts", "stt"];
 
-// The shell supplies the bytes: in the browser, server.mjs's /fetch (github.com sends no CORS headers).
+/** The macOS app's Tauri API, or null in a browser tab. */
+const app = tauri();
+
+// The shell supplies the bytes: in the browser, server.mjs's /fetch (github.com sends no CORS headers); in the app,
+// its fetch_release_asset command (src-tauri/src/release.rs).
 const fetchers = {
   fetchBytes: async (url) => {
+    if (app) return new Uint8Array(await app.core.invoke("fetch_release_asset", { url }));
     const res = await fetch(`/fetch?url=${encodeURIComponent(url)}`);
     if (!res.ok) throw new Error(await res.text());
     return new Uint8Array(await res.arrayBuffer());
@@ -48,6 +57,8 @@ let clip = null; // the recording or upload to transcribe: { samples, rate }
 let running = false;
 /** What server.mjs says of its local build (`--engine-tarball`), if it has one. */
 let localBuild = null;
+/** What the app says of its native engine (`nativeInfo`), in the app. */
+let native = null;
 let choices = [];
 
 function status(element, text, error = false) {
@@ -70,11 +81,20 @@ function hint(element, text) {
 // --- The engine picker.
 
 async function fillChoices() {
-  try {
-    const res = await fetch("/local-engine.json");
-    if (res.ok) localBuild = await res.json();
-  } catch (error) {
-    console.warn("could not ask for a local build", error);
+  if (app) {
+    $(".subtitle").textContent = "Try an engine by hand: the native one this app was built with, or a web build.";
+    try {
+      native = await nativeInfo(app);
+    } catch (error) {
+      console.error("could not ask the app for its native engine", error);
+    }
+  } else {
+    try {
+      const res = await fetch("/local-engine.json");
+      if (res.ok) localBuild = await res.json();
+    } catch (error) {
+      console.warn("could not ask for a local build", error);
+    }
   }
   renderChoices();
   try {
@@ -87,7 +107,7 @@ async function fillChoices() {
 function renderChoices(releases = []) {
   const select = $("#engine-choice");
   const chosen = select.value;
-  choices = engineChoices({ local: localBuild, releases });
+  choices = engineChoices({ native, local: localBuild, releases });
   select.replaceChildren(...choices.map((choice) => new Option(choice.label, choice.value)));
   select.value = choices.some((choice) => choice.value === chosen) ? chosen : choices[0].value;
   renderHint();
@@ -102,6 +122,7 @@ function renderHint() {
 
 async function load(input) {
   const line = $("#engine-status");
+  if (input === NATIVE) return loadNative(line);
   const wantsLocal = input === "local";
   if (wantsLocal && engines.has(localBuild?.label)) return activate(localBuild.label);
   let spec;
@@ -117,6 +138,7 @@ async function load(input) {
     let loaded;
     if (wantsLocal) loaded = await loadServedEngine(localBuild);
     else if (spec.kind === "ref") {
+      if (app) throw new Error(`${spec.label} is a git ref: its CI build loads in the web playground (npm start), not in the app`);
       status(line, `Fetching the CI build of ${spec.label} (the first time, the server downloads and installs it)…`);
       const info = await refBuild(spec.ref);
       if (engines.has(info.label)) return activate(info.label);
@@ -138,6 +160,30 @@ async function load(input) {
     const unresolved = /resolve module specifier/i.test(String(error?.message));
     const why = describeError(error);
     status(line, unresolved ? `${why}: reload the page and load it again (this browser takes one import map only)` : why, true);
+  }
+}
+
+/**
+ * The engine compiled into the app, through the same interface as a web build's (engine/native.mjs). Its "digest"
+ * in the list is the engine's commit.
+ */
+async function loadNative(line) {
+  if (!native) return status(line, "The app did not say which native engine it has: see the console.", true);
+  if (engines.has(native.label)) return activate(native.label);
+  if (native.error) return status(line, `The native engine could not start: ${native.error}`, true);
+  status(line, `Loading ${native.label}…`);
+  try {
+    const engine = nativeEngine(app);
+    const loaded = { label: native.label, tag: NATIVE, version: native.version, sha256: native.rev, module: null };
+    const entry = { loaded, engine, abilities: engineAbilities(NATIVE_METHODS), catalog: [], sections: { tts: {}, stt: {} } };
+    entry.catalog = await engine.models();
+    engines.set(loaded.label, entry);
+    status(line, `Loaded ${loaded.label}, built into this app. Models are kept in ${native.dataDir}.`);
+    activate(loaded.label);
+    $("#engine").open = false;
+  } catch (error) {
+    console.error(error);
+    status(line, describeError(error), true);
   }
 }
 

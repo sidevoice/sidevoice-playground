@@ -15,7 +15,7 @@ export function preferredBuild(model) {
 /** A model in a picker: its id, size, and whether anything of it runs here. */
 export function modelLabel(model) {
   const runs = model.builds.some((build) => build.available);
-  const marks = [model.installed && "installed", !runs && "no build runs in this browser"].filter(Boolean);
+  const marks = [model.installed && "installed", !runs && "no build runs here"].filter(Boolean);
   return `${model.id} · ${model.parametersM} M params${marks.length ? ` (${marks.join(", ")})` : ""}`;
 }
 
@@ -64,11 +64,11 @@ export function wer(said, heard) {
   return a.length ? previous[b.length] / a.length : b.length ? 1 : 0;
 }
 
-/** A picked build, spelled out under the pickers: what it is, what it costs, and whether it runs in this browser. */
+/** A picked build, spelled out under the pickers: what it is, what it costs, and whether it runs here. */
 export function buildInfo(model, build) {
   const what = [build.backend, build.precision, build.accelerator].filter(Boolean).join(" · ");
   const cost = `${megabytes(build.downloadBytes)} download · about ${build.memoryMb} MB in memory`;
-  const runs = build.available ? "runs in this browser" : `does not run here: ${reasons(build)}`;
+  const runs = build.available ? "runs here" : `does not run here: ${reasons(build)}`;
   const marks = [build.id === model.recommendedBuild && "recommended", build.installed && "installed"].filter(Boolean);
   return `${what} · ${cost} · ${runs}${marks.length ? ` · ${marks.join(", ")}` : ""}`;
 }
