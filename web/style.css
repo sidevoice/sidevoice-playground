@@ -128,6 +128,38 @@ main {
   font-size: 14px;
 }
 
+/* The engine pickers: a dropdown per kind, each with its Load button and the picked choice's details below. */
+.engine-pickers {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.engine-pick .muted {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.engine-pick .muted[data-state="available"] {
+  color: var(--sv-positive);
+}
+.engine-pick .muted[data-state="expired"],
+.engine-pick .muted[data-state="none"] {
+  color: var(--sv-error);
+}
+.engine-listing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+.engine-listing .status {
+  flex: 1 1 240px;
+}
+.engine-listing .status:empty {
+  display: block;
+}
+
 .engine-list {
   list-style: none;
   padding: 0;

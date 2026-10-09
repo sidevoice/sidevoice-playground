@@ -9,6 +9,9 @@
 // - CI builds of git refs (refs.mjs): /ref-build?ref=<ref> fetches and installs one and describes it,
 //   /engines/<sha>/ serves it. Actions artifacts need a GitHub token: --github-token-file, read-only use.
 //
+// /engine-builds lists what there is to pick (engine-builds.mjs): releases, pull requests and branches, through the
+// GitHub API with the same token; `?fresh=1` lists anew instead of answering from the short-lived copy it keeps.
+//
 //   node server.mjs [--access-file FILE] [--github-token-file FILE]
 //                   [--engine-tarball FILE [--engine-label TEXT] [--engine-sha256 HEX]]      PORT=5174 by default
 
@@ -19,6 +22,7 @@ import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { accessToken, DEFAULT_ACCESS_FILE, gate } from "./access.mjs";
+import { engineBuilds } from "./engine-builds.mjs";
 import { ENGINES_PREFIX, RefError, refBuilds } from "./refs.mjs";
 import { installLocalEngine, LOCAL_PREFIX } from "./served-engine.mjs";
 
@@ -39,6 +43,8 @@ const TYPES = {
 let local = null;
 /** The ref builds (`refBuilds`). Set when the server starts. */
 let refs = null;
+/** What there is to pick (`engineBuilds`). Set when the server starts. */
+let listing = null;
 /** Whether a request may go through: every route needs it. Set when the server starts. */
 let access = null;
 
@@ -83,6 +89,9 @@ async function handle(req, res) {
   if (url.pathname === "/local-engine.json") {
     if (!local) return send(res, 404, "no local engine build: start the server with --engine-tarball");
     return sendJson(res, describe(local));
+  }
+  if (url.pathname === "/engine-builds") {
+    return sendJson(res, await listing.get({ fresh: url.searchParams.has("fresh") }));
   }
   if (url.pathname === "/ref-build") {
     try {
@@ -153,6 +162,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const githubToken = await readToken(values["github-token-file"] ?? DEFAULT_GITHUB_TOKEN_FILE);
   if (!githubToken) console.log("no GitHub token: builds of git refs cannot be fetched (--github-token-file)");
   refs = refBuilds({ token: githubToken });
+  listing = engineBuilds({ token: githubToken });
   if (values["engine-tarball"]) {
     local = await installLocalEngine({
       tarball: values["engine-tarball"],

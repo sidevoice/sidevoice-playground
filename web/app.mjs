@@ -14,9 +14,9 @@ import {
   progressText,
   wer,
 } from "./catalog.mjs";
-import { engineAbilities, engineChoices, OTHER } from "./engine/choices.mjs";
+import { engineAbilities, engineChoices, KINDS } from "./engine/choices.mjs";
 import { browserHost } from "./engine/host.mjs";
-import { listReleases, loadEngine, loadServedEngine } from "./engine/load.mjs";
+import { loadEngine, loadServedEngine } from "./engine/load.mjs";
 import { parseSpec } from "./engine/spec.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -48,7 +48,10 @@ let clip = null; // the recording or upload to transcribe: { samples, rate }
 let running = false;
 /** What server.mjs says of its local build (`--engine-tarball`), if it has one. */
 let localBuild = null;
-let choices = [];
+/** What server.mjs lists to pick (`/engine-builds`): `releases`, `latest`, `pulls`, `branches`. */
+let listed = {};
+/** Each dropdown's choices (`engineChoices`). */
+let choices = {};
 
 function status(element, text, error = false) {
   delete element.dataset.hint;
@@ -69,35 +72,62 @@ function hint(element, text) {
 
 // --- The engine picker.
 
-async function fillChoices() {
-  try {
-    const res = await fetch("/local-engine.json");
-    if (res.ok) localBuild = await res.json();
-  } catch (error) {
-    console.warn("could not ask for a local build", error);
+async function fillChoices({ fresh = false } = {}) {
+  if (!localBuild) {
+    try {
+      const res = await fetch("/local-engine.json");
+      if (res.ok) localBuild = await res.json();
+    } catch (error) {
+      console.warn("could not ask for a local build", error);
+    }
   }
   renderChoices();
+  const line = $("#engine-hint");
+  status(line, "Listing releases, pull requests and branches…");
+  $("#engine-refresh").disabled = true;
   try {
-    renderChoices(await listReleases(fetchers.fetchJson));
+    const res = await fetch(`/engine-builds${fresh ? "?fresh=1" : ""}`);
+    if (!res.ok) throw new Error(await res.text());
+    listed = await res.json();
+    const errors = listed.errors ?? [];
+    status(line, errors.length ? `Some lists are incomplete: ${errors.join("; ")}` : `Listed at ${listed.listed.slice(11, 16)} UTC.`, errors.length > 0);
   } catch (error) {
-    console.warn("could not list releases", error);
+    console.warn("could not list engine builds", error);
+    status(line, `Could not list engine builds: ${error.message}`, true);
+  } finally {
+    $("#engine-refresh").disabled = false;
+  }
+  renderChoices();
+}
+
+/** Each dropdown from what is listed, keeping what was picked in it when it is still there. */
+function renderChoices() {
+  choices = engineChoices({ local: localBuild, ...listed });
+  for (const kind of KINDS) {
+    const select = $(`#engine-${kind}`);
+    const chosen = select.value;
+    const list = choices[kind];
+    const empty = { pull: "No open pull requests", branch: "No branches" }[kind];
+    select.replaceChildren(
+      ...(list === undefined
+        ? [new Option("Listing…", "")]
+        : list.length
+          ? list.map((choice) => Object.assign(new Option(choice.label, choice.value), { disabled: choice.state === "none" && kind === "version" }))
+          : [new Option(empty, "")]),
+    );
+    if (list?.some((choice) => choice.value === chosen)) select.value = chosen;
+    select.disabled = !list?.length;
+    select.form.querySelector("button").disabled = !list?.length;
+    renderDetail(kind);
   }
 }
 
-function renderChoices(releases = []) {
-  const select = $("#engine-choice");
-  const chosen = select.value;
-  choices = engineChoices({ local: localBuild, releases });
-  select.replaceChildren(...choices.map((choice) => new Option(choice.label, choice.value)));
-  select.value = choices.some((choice) => choice.value === chosen) ? chosen : choices[0].value;
-  renderHint();
-}
-
-function renderHint() {
-  const other = $("#engine-choice").value === OTHER;
-  $("#engine-other-field").hidden = !other;
-  $("#engine-other").required = other;
-  $("#engine-hint").textContent = choices.find((choice) => choice.value === $("#engine-choice").value)?.hint ?? "";
+function renderDetail(kind) {
+  const detail = $(`#engine-${kind}-detail`);
+  const choice = choices[kind]?.find((c) => c.value === $(`#engine-${kind}`).value);
+  detail.textContent = choice?.detail ?? "";
+  if (choice?.state) detail.dataset.state = choice.state;
+  else delete detail.dataset.state;
 }
 
 async function load(input) {
@@ -552,11 +582,14 @@ function code(text) {
   return Object.assign(document.createElement("code"), { textContent: text });
 }
 
-$("#engine-choice").onchange = renderHint;
-$("#engine-form").onsubmit = (event) => {
-  event.preventDefault();
-  const value = $("#engine-choice").value;
-  load(value === OTHER ? $("#engine-other").value.trim() : value);
-};
+for (const kind of KINDS) {
+  $(`#engine-${kind}`).onchange = () => renderDetail(kind);
+  $(`#engine-${kind}-form`).onsubmit = (event) => {
+    event.preventDefault();
+    const value = $(`#engine-${kind}`).value;
+    if (value) load(value);
+  };
+}
+$("#engine-refresh").onclick = () => fillChoices({ fresh: true });
 
 fillChoices();
