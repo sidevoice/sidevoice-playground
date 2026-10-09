@@ -25,6 +25,7 @@ import { loadEngine, loadServedEngine } from "./engine/load.mjs";
 import { NATIVE, NATIVE_METHODS, nativeEngine, onNativeExit, prepareNative, tauri } from "./engine/native.mjs";
 import { parseSpec } from "./engine/spec.mjs";
 import { connectorSection } from "./connector.mjs";
+import { turnsScreen } from "./turns.mjs";
 import { voiceSection } from "./voice.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -310,7 +311,9 @@ function renderEngines() {
   status($("#engine-details"), current?.abilities.text ?? "", current ? !current.abilities.usable : false);
 }
 
-// --- Screens: text to speech, speech to text, the round trip.
+// --- Screens: text to speech, speech to text, the round trip, turn detection (turns.mjs).
+
+const turns = turnsScreen({ currentEngine: () => engines.get(active) ?? null });
 
 function renderScreens() {
   const current = engines.get(active);
@@ -319,7 +322,9 @@ function renderScreens() {
   for (const button of document.querySelectorAll("#screens button")) {
     button.setAttribute("aria-pressed", String(button.dataset.screen === screen));
   }
-  for (const id of ["tts", "stt", "roundtrip"]) $(`#${id}`).hidden = !usable || id !== screen;
+  for (const id of ["tts", "stt", "roundtrip", "turns"]) $(`#${id}`).hidden = !usable || id !== screen;
+  if (screen === "turns" && usable) turns.render();
+  else turns.stop();
   if (!usable) return;
   for (const capability of CAPABILITIES) renderPicker(current, capability);
   renderVoices(current);
