@@ -77,7 +77,7 @@ gate like every route, kept a minute; *Refresh lists* asks anew), and only the l
 | Dropdown | Lists | Details shown | It loads |
 |---|---|---|---|
 | Version | the local build (with `--engine-tarball`), `nightly`, `latest release (vX.Y.Z)`, every `vX.Y.Z` with a web build | version and digest, or publication date | that build; a release's web build from GitHub Releases |
-| Pull request | the open pull requests, `#<number> <title>` | author, head (`owner:branch @ sha`), draft, whether its `engine-npm-<sha>` build is there (until when) or expired | the CI build of its head commit (below) |
+| Pull request | the open pull requests, `#<number> <title>` | author, head (`owner:branch @ sha`), draft, whether its `engine-npm-<sha>` build is there (until when) or expired | the CI build of its head commit (below); while the head has none, the newest earlier commit of the pull request that has one, said in its label (`head building; loads <sha> (N commits behind)`) |
 | Branch | the branches | head commit | the CI build of its head commit |
 
 ## The macOS app

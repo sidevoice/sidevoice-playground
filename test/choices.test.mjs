@@ -86,3 +86,25 @@ test("an engine without the model interface says it cannot speak or transcribe",
   assert.equal(old.usable, false);
   assert.match(old.text, /cannot speak or transcribe here: its WebEngine exposes backends, offers/);
 });
+
+test("a pull request whose head is building loads its newest earlier build, by that commit, and says so", () => {
+  const OLD = "0123456789abcdef0123456789abcdef01234567";
+  const pr = (build) => ({
+    number: 41, title: "feat(web)", author: "rubasace", draft: false, head: { label: "sidevoice:feat/web", sha: SHA },
+    build, fallback: { sha: OLD, behind: 2, expires: "2026-10-16T00:00:00Z" },
+  });
+  const [building] = engineChoices({ pulls: [pr({ state: "none" })] }).pull;
+  assert.equal(building.value, OLD);
+  assert.equal(parseSpec(building.value).ref, OLD, "loads that commit's CI build");
+  assert.equal(building.label, "#41 feat(web) (head building; loads 0123456, 2 commits behind)");
+  assert.match(building.detail, /head: no CI build.* · its web build loads 0123456 instead, 2 commits behind, CI build available until 2026-10-16/);
+  assert.equal(building.state, "fallback");
+  assert.equal(building.sha, SHA, "a native build is still made at the head");
+
+  const [expired] = engineChoices({ pulls: [pr({ state: "expired", expires: "2026-10-02T10:00:00Z" })] }).pull;
+  assert.match(expired.label, /\(head's build expired; loads 0123456, 2 commits behind\)$/);
+
+  const [built] = engineChoices({ pulls: [pr({ state: "available", expires: "2026-10-14T10:00:00Z" })] }).pull;
+  assert.equal(built.value, "#41", "the head's own build wins");
+  assert.equal(built.state, "available");
+});

@@ -121,3 +121,32 @@ test("a commit by the name of a tag, a branch or a pull request; GitHub's API wi
   assert.equal(seen[0], "https://api.github.com/repos/x");
   await assert.rejects(publicApi(fetch)("/limited"), /HTTP 403 \(the hourly limit without a token\?\)/);
 });
+
+test("a pull request whose head has no build yet offers its newest earlier commit that has one", async () => {
+  const [D, E, F] = ["d", "e", "f"].map((c) => c.repeat(40));
+  const live = { artifacts: [{ expired: false, expires_at: "2026-10-16T00:00:00Z" }] };
+  const answers = {
+    ...routes,
+    // #13's head is C (no build). Its commits, oldest first: F (built), E (expired), D (no build), then C.
+    [`${REPO}/pulls/13/commits?per_page=100&page=1`]: [F, E, D, C].map((sha) => ({ sha })),
+    [`${REPO}/actions/artifacts?name=engine-npm-${D}&per_page=100`]: { artifacts: [] },
+    [`${REPO}/actions/artifacts?name=engine-npm-${E}&per_page=100`]: { artifacts: [{ expired: true, expires_at: "2026-10-01T00:00:00Z" }] },
+    [`${REPO}/actions/artifacts?name=engine-npm-${F}&per_page=100`]: live,
+  };
+  const { fetch, calls } = github(answers);
+  const listing = await engineBuilds({ token: TOKEN, fetch }).get();
+  const [built, expiredOnly, building] = listing.pulls;
+  assert.equal(built.fallback, undefined, "a head with its build needs none");
+  assert.ok(!calls.includes(`${REPO}/pulls/41/commits?per_page=100&page=1`), "nor looks for one");
+  assert.equal(expiredOnly.fallback, undefined, "no commit of #37 has a build: as before");
+  assert.deepEqual(building.build, { state: "none" });
+  assert.deepEqual(building.fallback, { sha: F, behind: 3, expires: "2026-10-16T00:00:00Z" });
+
+  // Once the head's own build is there, it is the one.
+  const ready = await engineBuilds({
+    token: TOKEN,
+    fetch: github({ ...answers, [`${REPO}/actions/artifacts?name=engine-npm-${C}&per_page=100`]: live }).fetch,
+  }).get();
+  assert.deepEqual(ready.pulls[2].build, { state: "available", expires: "2026-10-16T00:00:00Z" });
+  assert.equal(ready.pulls[2].fallback, undefined);
+});

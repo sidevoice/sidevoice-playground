@@ -8,7 +8,8 @@ import { ENGINE_REPO, parseSpec } from "./spec.mjs";
 export const KINDS = ["version", "pull", "branch"];
 
 /**
- * @typedef {{ value: string, label: string, detail: string, state?: "available" | "expired" | "none", sha?: string }} Choice
+ * @typedef {{ value: string, label: string, detail: string, state?: "available" | "expired" | "none" | "fallback",
+ *   sha?: string }} Choice
  */
 
 /**
@@ -18,7 +19,8 @@ export const KINDS = ["version", "pull", "branch"];
  *   releases?: { tag: string, prerelease: boolean, published?: string }[],
  *   latest?: { tag: string, published?: string } | null,
  *   pulls?: { number: number, title: string, author: string, draft: boolean, head: { label: string, sha: string },
- *     build: { state: "available" | "expired" | "none", expires?: string } }[],
+ *     build: { state: "available" | "expired" | "none", expires?: string },
+ *     fallback?: { sha: string, behind: number, expires: string } }[],
  *   branches?: { name: string, sha: string }[] }} sources
  * @returns {{ version: Choice[], pull?: Choice[], branch?: Choice[] }}
  */
@@ -52,15 +54,25 @@ export function engineChoices({ local = null, releases = [], latest, pulls, bran
     });
   }
 
-  const pull = pulls?.map((pr) => ({
-    value: `#${pr.number}`,
-    label: `#${pr.number} ${pr.title}`,
-    detail: [`by ${pr.author}`, `${pr.head.label} @ ${pr.head.sha.slice(0, 7)}`, pr.draft && "draft", buildText(pr.build)]
-      .filter(Boolean)
-      .join(" · "),
-    state: pr.build.state,
-    sha: pr.head.sha,
-  }));
+  const pull = pulls?.map((pr) => {
+    const facts = [`by ${pr.author}`, `${pr.head.label} @ ${pr.head.sha.slice(0, 7)}`, pr.draft && "draft"];
+    const choice = { value: `#${pr.number}`, label: `#${pr.number} ${pr.title}`, state: pr.build.state, sha: pr.head.sha };
+    if (pr.build.state !== "available" && pr.fallback) {
+      // The web build of an earlier commit, by its sha; a native build is still made at the head.
+      const { sha, behind, expires } = pr.fallback;
+      const behindText = `${behind} commit${behind === 1 ? "" : "s"} behind`;
+      return {
+        ...choice,
+        value: sha,
+        label: `${choice.label} (${pr.build.state === "expired" ? "head's build expired" : "head building"}; loads ${sha.slice(0, 7)}, ${behindText})`,
+        detail: [...facts, `head: ${buildText(pr.build)}`, `its web build loads ${sha.slice(0, 7)} instead, ${behindText}, CI build available until ${day(expires)}`]
+          .filter(Boolean)
+          .join(" · "),
+        state: "fallback",
+      };
+    }
+    return { ...choice, detail: [...facts, buildText(pr.build)].filter(Boolean).join(" · ") };
+  });
   const branch = branches?.map((b) => ({
     value: branchInput(b.name),
     label: b.name,
