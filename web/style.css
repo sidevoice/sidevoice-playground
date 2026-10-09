@@ -160,6 +160,29 @@ main {
   display: block;
 }
 
+/* The native runner's build output, as cargo prints it: its last lines, scrolling. */
+.engine-build summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--sv-primary-soft);
+  font-size: 14px;
+}
+.build-log {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--sv-field);
+  border: 1px solid #2a3440;
+  border-radius: 10px;
+}
+
 .engine-list {
   list-style: none;
   padding: 0;

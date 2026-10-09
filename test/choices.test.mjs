@@ -56,6 +56,8 @@ test("pull requests by number and title, with author, head and whether their CI 
   assert.match(pull[1].detail, / · draft · CI build expired on 2026-10-02/);
   assert.match(pull[2].detail, /no CI build/);
   assert.deepEqual(pull.map((c) => c.state), ["available", "expired", "none"]);
+  // The commit a native build is made at.
+  assert.deepEqual([...pull, ...branch].map((c) => c.sha), Array(5).fill(SHA));
   assert.deepEqual(pairs(branch), [["main", "main"], ["https://github.com/sidevoice/sidevoice-engine/tree/0.2.0", "0.2.0"]]);
 });
 

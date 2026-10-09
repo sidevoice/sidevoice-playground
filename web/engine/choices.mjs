@@ -8,7 +8,7 @@ import { ENGINE_REPO, parseSpec } from "./spec.mjs";
 export const KINDS = ["version", "pull", "branch"];
 
 /**
- * @typedef {{ value: string, label: string, detail: string, state?: "available" | "expired" | "none" }} Choice
+ * @typedef {{ value: string, label: string, detail: string, state?: "available" | "expired" | "none", sha?: string }} Choice
  */
 
 /**
@@ -59,11 +59,13 @@ export function engineChoices({ local = null, releases = [], latest, pulls, bran
       .filter(Boolean)
       .join(" · "),
     state: pr.build.state,
+    sha: pr.head.sha,
   }));
   const branch = branches?.map((b) => ({
     value: branchInput(b.name),
     label: b.name,
     detail: `Head ${b.sha.slice(0, 7)}: loads the engine CI's build of that commit, if it has one.`,
+    sha: b.sha,
   }));
   return { version, pull, branch };
 }

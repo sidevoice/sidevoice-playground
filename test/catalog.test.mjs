@@ -67,7 +67,7 @@ test("builds read the same whatever their backend: what they are, what they cost
   assert.match(buildChoice(catalog[2], catalog[2].builds[0]).detail, /recommended/);
   assert.equal(
     buildInfo(catalog[1], catalog[1].builds[0]),
-    "transformers-js · fp16 · webgpu · 79 MB download · about 100 MB in memory · runs in this browser · recommended",
+    "transformers-js · fp16 · webgpu · 79 MB download · about 100 MB in memory · runs here · recommended",
   );
   const reasoned = build("x/y", { available: false, reasons: [{ code: "not-enough-memory", params: { needs: 3000, has: 2048 } }] });
   assert.equal(buildChoice({ id: "x" }, reasoned).detail, "Does not run here: not-enough-memory (needs 3000, has 2048)");
@@ -75,7 +75,7 @@ test("builds read the same whatever their backend: what they are, what they cost
 
 test("labels, progress and errors in words", () => {
   assert.equal(modelLabel(catalog[2]), "whisper-tiny · 39 M params (installed)");
-  assert.equal(modelLabel(catalog[0]), "fastconformer-es-large · 114 M params (no build runs in this browser)");
+  assert.equal(modelLabel(catalog[0]), "fastconformer-es-large · 114 M params (no build runs here)");
   assert.equal(progressText({ files: 3, done: 1, received: 5e6, size: 79e6 }), "Downloading: 1/3 files done, 5.0 MB of 79 MB received…");
   assert.equal(describeError(Object.assign(new Error("cancelled"), { code: "cancelled" })), "Cancelled.");
   assert.match(describeError(Object.assign(new Error("x"), { code: "model-in-use", params: {} })), /^Engine error: model-in-use \(/);

@@ -1,7 +1,9 @@
 name: ci
 
 # Every pull request and push to main: the unit tests, and the network test, which loads the engine's nightly web
-# build from GitHub Releases and creates an engine in Node (no model is downloaded or run).
+# build from GitHub Releases and creates an engine in Node (no model is downloaded or run). And the macOS app: built,
+# checked, and packed as an unsigned .dmg kept as an artifact; and the native runner template it ships, built against
+# sidevoice-engine's main as the app builds it on a Mac, so a template that no longer builds is caught here.
 on:
   pull_request:
   push:
@@ -27,3 +29,88 @@ jobs:
       - run: npm test
         env:
           PLAYGROUND_NETWORK: "1"
+
+  # On every run, not only when src-tauri/ changes: the app embeds web/, so a change to the page is a change to the
+  # app, and a path filter would spare only the PRs that touch nothing but docs.
+  macos:
+    name: macOS app (Apple silicon) .dmg
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Toolchain (src-tauri/rust-toolchain.toml)
+        working-directory: src-tauri
+        run: |
+          set -euo pipefail
+          rustup toolchain install
+          rustc --version
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+      - name: rustfmt, clippy, tests
+        working-directory: src-tauri
+        run: |
+          set -euo pipefail
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+      - name: Build the app
+        run: npm run tauri -- build --ci --bundles app
+      - name: Check the app
+        run: |
+          set -euo pipefail
+          APP="src-tauri/target/release/bundle/macos/Sidevoice Playground.app"
+          BIN="$APP/Contents/MacOS/sidevoice-playground"
+          lipo -archs "$BIN" | tee /dev/stderr | grep -qx arm64
+          plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # The runner template ships with it, its build script included.
+          test -f "$APP/Contents/Resources/runner/build.sh"
+          test -f "$APP/Contents/Resources/runner/Cargo.toml.in"
+          # It starts and stays up: the window and the page.
+          "$BIN" > "$RUNNER_TEMP/app.log" 2>&1 &
+          PID=$!
+          sleep 15
+          if ! kill -0 "$PID" 2>/dev/null; then echo "the app exited on its own:"; cat "$RUNNER_TEMP/app.log"; exit 1; fi
+          kill "$PID"
+          cat "$RUNNER_TEMP/app.log"
+      - name: Make the .dmg
+        id: dmg
+        run: |
+          set -euo pipefail
+          APP="src-tauri/target/release/bundle/macos/Sidevoice Playground.app"
+          DMG="dist/sidevoice-playground_${GITHUB_SHA:0:7}_aarch64.dmg"
+          ROOT="$RUNNER_TEMP/dmg"
+          mkdir -p "$ROOT" dist
+          ditto "$APP" "$ROOT/Sidevoice Playground.app"
+          ln -s /Applications "$ROOT/Applications"
+          hdiutil create -volname "Sidevoice Playground" -srcfolder "$ROOT" -fs HFS+ -format UDZO -ov "$DMG"
+          hdiutil verify "$DMG"
+          ls -l "$DMG"
+          echo "path=$DMG" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sidevoice-playground-macos-aarch64
+          path: ${{ steps.dmg.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+      # The runner template against sidevoice-engine's main, by the script the app runs (runner/build.sh), with the
+      # runner's stable Rust as a Mac has it; then its own tests, and the protocol spoken to it (no model downloaded
+      # or run).
+      - name: The native runner against sidevoice-engine main
+        run: |
+          set -euo pipefail
+          rustup toolchain install stable --profile minimal
+          REV=$(git ls-remote https://github.com/sidevoice/sidevoice-engine refs/heads/main | cut -f1)
+          OUT="$RUNNER_TEMP/runner"
+          cd "$RUNNER_TEMP"
+          RUSTUP_TOOLCHAIN=stable sh "$GITHUB_WORKSPACE/src-tauri/runner/build.sh" "$REV" "$OUT"
+          RUSTUP_TOOLCHAIN=stable cargo test --release --manifest-path "$OUT/Cargo.toml"
+          printf '%s\n' '{"id":1,"op":"hello"}' '{"id":2,"op":"models"}' '{"id":3,"op":"nope"}' \
+            | "$OUT/bin/sidevoice-engine-runner" --data-dir "$RUNNER_TEMP/engine-data" > "$RUNNER_TEMP/answers"
+          cat "$RUNNER_TEMP/answers"
+          grep -q "\"id\":1,\"ok\":{.*\"rev\":\"$REV\"" "$RUNNER_TEMP/answers"
+          grep -q '"id":2,"ok":\[{' "$RUNNER_TEMP/answers"
+          grep -q '"error":{"code":"bad-request".*"id":3' "$RUNNER_TEMP/answers"

@@ -1,0 +1,23 @@
+[package]
+name = "sidevoice-playground"
+version = "0.0.0"
+description = "The playground as a macOS app: the web page in a webview, and the native engine built on this Mac per engine commit and run as a child process"
+edition = "2021"
+rust-version = "1.98"
+license = "Apache-2.0"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.7.1", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.2", features = [] }
+# The relay for engine release assets (src/release.rs), as server.mjs's /fetch: rustls, so nothing links the system's
+# OpenSSL.
+reqwest = { version = "0.13.0", default-features = false, features = ["rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The native runner (src/runner.rs): its build and its process, on the app's own Tokio runtime; libc to kill a
+# build's whole process group.
+tokio = { version = "1", default-features = false, features = ["process", "io-util", "sync"] }
+libc = "0.2"

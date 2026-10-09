@@ -99,3 +99,25 @@ test("without a token nothing is asked of GitHub, and the listing says why", asy
   assert.equal(listing.errors.length, 1);
   assert.match(listing.errors[0], /no GitHub token/);
 });
+
+test("a commit by the name of a tag, a branch or a pull request; GitHub's API without a token says its limit", async () => {
+  const { commitOf, publicApi } = await import("../web/engine/listing.mjs");
+  const api = async (path) =>
+    ({
+      "/repos/sidevoice/sidevoice-engine/pulls/41": { head: { sha: A } },
+      "/repos/sidevoice/sidevoice-engine/commits/nightly": { sha: B },
+    })[path] ?? null;
+  assert.equal(await commitOf(api, "pull/41/head"), A);
+  assert.equal(await commitOf(api, "nightly"), B);
+  await assert.rejects(commitOf(api, "v9.9.9"), /no tag, branch or commit v9.9.9/);
+
+  const seen = [];
+  const fetch = async (url, { headers }) => {
+    seen.push(url);
+    assert.equal(headers.authorization, undefined);
+    return url.endsWith("/limited") ? new Response("", { status: 403 }) : Response.json({ ok: 1 });
+  };
+  assert.deepEqual(await publicApi(fetch)("/repos/x"), { ok: 1 });
+  assert.equal(seen[0], "https://api.github.com/repos/x");
+  await assert.rejects(publicApi(fetch)("/limited"), /HTTP 403 \(the hourly limit without a token\?\)/);
+});

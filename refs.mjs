@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { installEngine } from "./served-engine.mjs";
 import { ENGINE_REPO } from "./web/engine/spec.mjs";
+import { artifactName, artifactsPath } from "./web/engine/listing.mjs";
 import { sha256Hex } from "./web/engine/load.mjs";
 import { unzip } from "./zip.mjs";
 
@@ -45,12 +46,6 @@ export function githubApi({ token, fetch = globalThis.fetch }) {
 
   return { api, headers };
 }
-
-/** The name of the artifact sidevoice-engine's CI uploads the npm package of commit `sha` as. */
-export const artifactName = (sha) => `engine-npm-${sha}`;
-
-/** The API path that lists commit `sha`'s artifacts, expired ones included. */
-export const artifactsPath = (sha) => `/repos/${ENGINE_REPO}/actions/artifacts?name=${artifactName(sha)}&per_page=100`;
 
 /** What spec.mjs makes of a ref: `pull/<n>/head`, or a branch or commit name. */
 export function validRef(ref) {

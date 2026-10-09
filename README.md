@@ -10,8 +10,8 @@ build — a version, `nightly`, `latest`, a pull request, a branch — and the p
 trying an engine build never means rebuilding the playground. Then: text to speech, speech to text, comparing
 models, and the round trip text → speech → text.
 
-A web app; later also a Tauri app for macOS on Apple silicon. How engines are loaded, and the open questions for the
-native path: [`DESIGN.md`](DESIGN.md).
+A web app, and a Tauri app for macOS on Apple silicon that can also run any engine commit **natively**, built on the
+Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
 
 ## Status
 
@@ -28,7 +28,9 @@ native path: [`DESIGN.md`](DESIGN.md).
 - **Git refs**: an open pull request or a branch loads the engine CI's build of its head commit (the
   `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
 - **Not yet**: release builds whose package carries `dist/snippets/` and npm dependencies (#41 on) do not load from
-  a release: the in-memory import cannot resolve them. The Tauri app.
+  a release: the in-memory import cannot resolve them.
+- **The macOS app**: the same page, and the native engine of any version, pull request or branch, built on the Mac
+  (below). Unsigned: CI builds the `.dmg`.
 
 ## Run
 
@@ -78,13 +80,74 @@ gate like every route, kept a minute; *Refresh lists* asks anew), and only the l
 | Pull request | the open pull requests, `#<number> <title>` | author, head (`owner:branch @ sha`), draft, whether its `engine-npm-<sha>` build is there (until when) or expired | the CI build of its head commit (below) |
 | Branch | the branches | head commit | the CI build of its head commit |
 
+## The macOS app
+
+A Tauri v2 app for Apple silicon (`src-tauri/`) that shows the same page, `web/`, in a webview, with no server and
+no access gate: nothing listens on the network, and only the app's own page reaches its commands. Nothing of the
+engine is compiled into it. It offers the same three dropdowns, listed from GitHub's API directly (no token: 60
+requests an hour), and one more, **Run**:
+
+- **its web build, in this window**: a release's web build loads as in a browser, its assets coming through the app
+  instead of `server.mjs`. Pull requests and branches do not: their web builds are fetched and installed by the
+  server, which the app does not run.
+- **natively: built on this Mac, run beside the app**: any version, pull request or branch. The app takes the commit
+  it names and builds **the native runner** for it: a small crate shipped with the app as a template
+  (`src-tauri/runner/`), sidevoice-engine as a git dependency at that commit, built with `cargo build --release` by
+  the template's own `build.sh`. The build's output shows in the engine box as it goes; *Cancel* kills it. The first
+  build of a commit takes minutes (whisper.cpp is compiled from source); its binary is kept and reused. Then the app
+  starts the runner as a child process and speaks to it in JSON lines (`src-tauri/runner/src/main.rs`), whose
+  operations mirror a web build's `WebEngine` (`models`, `install` with progress, `uninstall`, `load`, `voices`,
+  `speak`, `transcribe`), so the text-to-speech, speech-to-text and round-trip screens work the same on either.
+
+What the native build needs on the Mac: Xcode (or its command line tools), CMake and Rust — `brew install cmake
+rustup && rustup default stable`. The app finds them where Homebrew and rustup put them even when started from the
+Finder; one that is missing is named in the engine box with the command that installs it. sherpa-onnx's static
+libraries come as the engine documents for consumers: its own `cargo xtask sherpa-libs` checks them against its
+pinned digests (in `~/.cache/sidevoice-engine/sherpa-onnx/`); an engine without that command leaves the download to
+the sherpa-onnx crate, unchecked.
+
+Where things are kept, under `~/Library/Application Support/dev.sidevoice.playground/`: `runners/<commit>/` (each
+runner and its binary), `runners/target/` (cargo's build directory, shared, several GB: delete it to reclaim the
+space, and the next build starts from scratch), `sidevoice-engine/` (the models, shared by every runner).
+
+Limits. The runner is written against the model interface (sidevoice-engine#58 on): an older engine fails to build,
+and says so as a build error. If the runner crashes (an uncaught C++ exception in sherpa-onnx, say), the app stays up,
+the engine box says how it ended with its last lines of stderr, and loading it again starts it again. The native
+engine runs what its native build runs at that commit (sherpa-onnx and whisper.cpp models; transformers.js builds
+show as `backend-not-in-this-build`). CI builds the template against the engine's `main` and speaks the protocol to
+it, so a template that no longer builds is caught there; no model is run.
+
+**Opening the unsigned .dmg.** CI's `macOS app (Apple silicon) .dmg` job uploads it as the artifact
+`sidevoice-playground-macos-aarch64` (a zip holding `sidevoice-playground_<commit>_aarch64.dmg`, kept 30 days). The
+app is signed ad hoc, not with a Developer ID, and not notarised, so Gatekeeper stops it the first time:
+
+1. Unzip the artifact, open the `.dmg` and drag *Sidevoice Playground* to Applications.
+2. Either clear the quarantine flag the browser put on it — `xattr -dr com.apple.quarantine "/Applications/Sidevoice
+   Playground.app"` — and open it as usual; or open it once, dismiss the warning, then in System Settings → Privacy
+   & Security choose *Open Anyway* (on macOS 15 the old right-click → Open no longer bypasses it). If macOS says the
+   app "is damaged", it is the quarantine flag: the `xattr` line fixes it.
+3. The first recording asks for the microphone.
+
+**Building it.** On a Mac with Apple silicon, Rust (`src-tauri/rust-toolchain.toml`) and Node 22:
+
+```sh
+npm run tauri dev                        # the app, from web/ as it is
+npm run tauri build -- --bundles app     # src-tauri/target/release/bundle/macos/Sidevoice Playground.app
+sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runner alone, as the app builds it
+```
+
 ## Layout
 
 ```
 web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, WAV)
   engine/         choices.mjs (the pickers' choices), spec.mjs (a choice → a release or a ref),
                   load.mjs (download, verify, import),
-                  tar.mjs (gzip + ustar), host.mjs (the page's capabilities for WebEngine.create)
+                  tar.mjs (gzip + ustar), host.mjs (the page's capabilities for WebEngine.create),
+                  listing.mjs (what there is to pick, from GitHub's API), native.mjs (the app's native runner in
+                  WebEngine's shape)
+src-tauri/      the macOS app: main.rs, runner.rs (the native runner: built, started, spoken to), release.rs
+                (release assets for the page); tauri.conf.json, Info.plist (the microphone)
+  runner/         the native runner's template: Cargo.toml.in, build.sh, src/ (the protocol, the engine's values)
 server.mjs      serves web/ and /fetch, the relay for engine release assets (github.com sends no CORS headers)
 access.mjs      the access gate: the token, the cookie, the check every request goes through
 served-engine.mjs  an engine tarball installed and served under a prefix, with its import map

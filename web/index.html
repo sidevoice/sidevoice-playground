@@ -23,6 +23,13 @@
           <span id="engine-summary" class="engine-summary">none loaded</span>
         </summary>
         <div class="engine-pickers">
+          <label class="field" id="engine-runtime-field" hidden>
+            <span class="label">Run</span>
+            <select id="engine-runtime">
+              <option value="web">its web build, in this window</option>
+              <option value="native">natively: built on this Mac, run beside the app</option>
+            </select>
+          </label>
           <form id="engine-version-form" class="engine-pick">
             <div class="field-row">
               <label class="field grow"><span class="label">Version</span><select id="engine-version"></select></label>
@@ -50,6 +57,11 @@
           <button type="button" id="engine-refresh" class="ghost">Refresh lists</button>
         </div>
         <p id="engine-status" class="status" aria-live="polite"></p>
+        <details id="engine-build" class="engine-build" hidden open>
+          <summary>Native build log</summary>
+          <pre id="engine-build-log" class="build-log"></pre>
+        </details>
+        <button type="button" id="engine-cancel" hidden>Cancel</button>
         <ul id="engine-list" class="engine-list"></ul>
         <p id="engine-details" class="status"></p>
       </details>

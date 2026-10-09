@@ -1,7 +1,9 @@
 # Design: loading an arbitrary engine at run time
 
-Status: **proposal**. The web path is built; the native path waits for the engine owner's decision on the points
-marked *engine change*.
+Status: the web path is built. The native path is built as **C3** (below), by the operator's decision of 2026-10-09:
+the macOS app builds a runner on the user's Mac for the engine commit picked, and runs it as a child process. Nothing
+of the engine is compiled into the app. C1 (the engine publishing the runner) stays the way to skip that build, and
+waits for the engine owner's decision on the points marked *engine change*.
 
 The goal: the operator names an engine (a version, `nightly`, `latest`, a release link, a pull request, a branch, a
 commit) and the playground downloads that build and uses it. Trying an engine build never means rebuilding the
@@ -59,11 +61,28 @@ internal tool; the Tauri side could verify the attestation natively later.
 - **C2. The playground owns it.** No engine change, but the playground chases every breaking change of a pre-1.0
   API, and an adapter written for one engine version does not compile against another: it would need one adapter
   per API generation. Fragile, and the adapter logic lives away from its owner.
+- **C3. Built on the user's machine per ref** (**chosen**, operator, 2026-10-09). The playground owns the adapter as
+  in C2, but ships it as a *template*, not a binary: `src-tauri/runner/`, a crate depending on sidevoice-engine at
+  `rev = @ENGINE_REV@`, a resource of the app, never linked into it. For the commit a picked release, pull request or
+  branch names, the app runs the template's `build.sh`, which writes the crate out with that commit, gets sherpa-onnx's
+  static libraries as the engine documents for consumers (its own `cargo xtask sherpa-libs`, digest-checked, through
+  `SHERPA_ONNX_LIB_DIR`; the crate's own unchecked download for an engine without it), and runs `cargo build
+  --release`. The binary is kept per commit under the app's data directory and reused; the cargo target directory is
+  shared, so a second commit builds faster than the first. No engine change, any ref works the day it is pushed, and
+  a crash stays in the runner. Against: the user's Mac needs Rust, CMake and Xcode's tools (the app says which is
+  missing and how to install it), the first build of a commit takes minutes (whisper.cpp from source), and the one
+  adapter compiles only against engines with the model interface (sidevoice-engine#58 on): an older engine fails as
+  a build error. CI builds the template against the engine's `main`, so the adapter breaking is caught when the
+  engine moves, not on a Mac.
 
-### Runner protocol (sketch, for the engine owner to own)
+### Runner protocol
 
-One JSON object per line on stdin, one reply per line on stdout; audio as WAV files in a directory the app names
-(no base64 on the pipe). Every reply carries `id`; a failure is `{ id, error: "<stable code>" }`.
+As built for C3 (`src-tauri/runner/src/main.rs` documents it): one JSON object per line on stdin, one per line on
+stdout, mirroring what the page uses of a web build's `WebEngine` — `hello`, `models`, `install` and `load` (jobs
+whose progress comes as `{ event: "progress", job, ... }` lines, stopped by `cancel`), `uninstall`, then `voices`,
+`speak` and `transcribe` on a loaded model's handle, and `free`. Values are the shapes the web build gives
+JavaScript; a failure is `{ id, error: { code, params, message? } }`; audio crosses as base64 of little-endian f32.
+The sketch first proposed to the engine owner for C1, before the model interface existed:
 
 ```
 → { "id": 1, "op": "hello" }                 ← { "id": 1, "engine": "0.3.0", "protocol": 1, "backends": [...] }
@@ -103,8 +122,8 @@ CDN for the dependencies).
 ## Recommendation
 
 1. **Web**: as built — release assets through a fetch relay, verified, imported in the page.
-2. **Native**: **C + C1** — an engine-owned runner binary per release, spawned by the Tauri app. Until it exists,
-   the Tauri app ships as option A (the web shell in a webview), which costs nothing extra.
+2. **Native**: **C3** (built): the runner built on the user's Mac per engine commit, spawned by the app. **C1** — an
+   engine-owned runner binary per release — when skipping that build is worth an engine change.
 3. **Refs**: **R1** — the engine's CI keeps its PR builds as artifacts.
 
 ## What this asks of the engine
