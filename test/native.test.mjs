@@ -1,119 +1,125 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { audioFrom, bytesOf, coded, nativeEngine, nativeInfo, tauri } from "../web/engine/native.mjs";
+import { decodeSamples, encodeSamples, nativeEngine, onNativeExit, prepareNative, tauri } from "../web/engine/native.mjs";
 
-/** A stand-in for the app's Tauri API: records each invoke, answers from `answers`, and delivers events. */
+const SHA = "de128c8f0e2b1a3c4d5e6f708192a3b4c5d6e7f8";
+
+/** The app as the page sees it: `answers(command, args)` answers each invoke; events are emitted by hand. */
 function fakeApp(answers) {
+  const listeners = new Map();
   const calls = [];
-  const listeners = new Set();
-  const app = {
+  return {
     calls,
-    emit: (payload) => listeners.forEach((listener) => listener({ payload })),
+    emit(name, payload) {
+      for (const handler of listeners.get(name) ?? []) handler({ payload });
+    },
+    listening: (name) => (listeners.get(name) ?? []).length,
     core: {
-      invoke: async (command, args, options) => {
-        calls.push({ command, args, options });
-        const answer = answers[command];
-        return typeof answer === "function" ? answer(args, app) : answer;
+      invoke: async (command, args) => {
+        calls.push([command, args]);
+        return answers(command, args);
       },
     },
     event: {
-      listen: async (event, listener) => {
-        assert.equal(event, "native-progress");
-        listeners.add(listener);
-        return () => listeners.delete(listener);
+      listen: async (name, handler) => {
+        listeners.set(name, [...(listeners.get(name) ?? []), handler]);
+        return () => listeners.set(name, listeners.get(name).filter((h) => h !== handler));
       },
     },
   };
-  return app;
 }
 
-test("only inside the app is there a native engine", () => {
+test("the app's Tauri API is found when there is one", () => {
   assert.equal(tauri({}), null);
-  const api = { core: {} };
+  const api = {};
   assert.equal(tauri({ __TAURI__: api }), api);
 });
 
-test("the native engine is named by the version and commit the app was built with", async () => {
-  const app = fakeApp({ native_info: { version: "0.1.0", rev: "6ae37d12be4b28d30d7566ff9915bb3ac0122f54", dataDir: "/d" } });
-  assert.equal((await nativeInfo(app)).label, "native 0.1.0 @ 6ae37d1");
-});
-
-test("load reports its own job's progress, and gives a model that speaks and transcribes through the app", async () => {
-  const rate = 24000;
-  const spoken = new Float32Array([0.25, -0.5]);
-  const app = fakeApp({
-    native_load: (args, self) => {
-      self.emit({ job: "someone-else", files: 9, done: 0, received: 0, size: null });
-      self.emit({ job: args.job, files: 2, done: 1, received: 10, size: 20 });
-      return { handle: 7, model: "kokoro", build: "kokoro-b", capabilities: ["tts", "stt"] };
-    },
-    native_voices: [{ id: "af_bella", languages: ["en"] }],
-    native_speak: () => {
-      const out = new Uint8Array(4 + spoken.byteLength);
-      new DataView(out.buffer).setUint32(0, rate, true);
-      out.set(new Uint8Array(spoken.buffer), 4);
-      return out.buffer;
-    },
-    native_transcribe: "hello",
-    native_free: true,
+test("preparing a native engine: the build's lines reach the page, and its hello comes back", async () => {
+  const lines = [];
+  let app;
+  app = fakeApp(async (command, { job }) => {
+    assert.equal(command, "native_prepare");
+    app.emit("native-build", { job, line: "== cargo build --release" });
+    app.emit("native-build", { job: "another", line: "not this build's" });
+    return { protocol: 1, engine: "0.1.0", rev: SHA, dataDir: "/data" };
   });
-  const engine = nativeEngine(app);
-  const progress = [];
-  const loaded = await engine.load("kokoro", undefined, (p) => progress.push(p), new AbortController().signal);
-  assert.deepEqual(app.calls[0].args, { model: "kokoro", build: null, job: app.calls[0].args.job });
-  assert.deepEqual(progress.map((p) => p.done), [1]);
-
-  const tts = loaded.asTts();
-  assert.deepEqual(await tts.voices(), [{ id: "af_bella", languages: ["en"] }]);
-  const audio = await tts.speak("hi", "af_bella", undefined, 1.2);
-  assert.equal(audio.sampleRate, rate);
-  assert.deepEqual([...audio.samples], [...spoken]);
-  assert.deepEqual(app.calls.at(-1).args, { handle: 7, text: "hi", voice: "af_bella", language: null, speed: 1.2 });
-
-  assert.equal(await loaded.asStt().transcribe(audio.samples, rate, "en"), "hello");
-  const call = app.calls.at(-1);
-  assert.deepEqual(call.options.headers, { "x-handle": "7", "x-sample-rate": "24000", "x-language": "en" });
-  assert.deepEqual([...new Float32Array(call.args.slice().buffer)], [...spoken]);
-
-  loaded.free();
-  assert.deepEqual(app.calls.at(-1), { command: "native_free", args: { handle: 7 }, options: undefined });
+  const hello = await prepareNative(app, SHA, { onLine: (line) => lines.push(line) });
+  assert.equal(hello.engine, "0.1.0");
+  assert.deepEqual(app.calls[0], ["native_prepare", { sha: SHA, job: app.calls[0][1].job }]);
+  assert.deepEqual(lines, ["== cargo build --release"]);
+  assert.equal(app.listening("native-build"), 0);
 });
 
-test("a model that cannot speak has no asTts", async () => {
-  const app = fakeApp({ native_load: { handle: 1, model: "whisper", build: "w", capabilities: ["stt"] } });
-  const loaded = await nativeEngine(app).load("whisper", "w");
-  assert.equal(loaded.asTts(), undefined);
-  assert.ok(loaded.asStt());
-});
-
-test("aborting cancels the app's job, and its rejection carries the engine's code", async () => {
-  let release;
-  const app = fakeApp({
-    native_install: () => new Promise((_, reject) => (release = () => reject({ code: "cancelled", params: {} }))),
-    native_cancel: (args) => {
-      assert.match(args.job, /^job-/);
-      release();
-      return true;
-    },
-  });
+test("cancelling a build kills it, and a build that fails says why with its code", async () => {
   const controller = new AbortController();
-  const installing = nativeEngine(app).install("whisper", "w", () => {}, controller.signal);
-  await new Promise((resolve) => setTimeout(resolve));
-  controller.abort();
-  await assert.rejects(installing, (error) => error instanceof Error && error.code === "cancelled");
-  await assert.rejects(nativeEngine(app).install("x", null, null, controller.signal), { code: "cancelled" });
+  let app;
+  app = fakeApp(async (command, args) => {
+    if (command === "native_cancel") return true;
+    controller.abort();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    throw { code: "cancelled", params: {}, message: "the build was cancelled" };
+  });
+  const error = await prepareNative(app, SHA, { signal: controller.signal }).catch((e) => e);
+  assert.equal(error.code, "cancelled");
+  assert.ok(app.calls.some(([command]) => command === "native_cancel"));
+
+  const missing = fakeApp(async () => {
+    throw { code: "runner-tool-missing", params: {}, message: "error: cmake was not found. Install it: brew install cmake" };
+  });
+  const why = await prepareNative(missing, SHA).catch((e) => e);
+  assert.equal(why.code, "runner-tool-missing");
+  assert.match(why.message, /brew install cmake/);
 });
 
-test("audio crosses as little-endian bytes", () => {
-  const bytes = bytesOf([0.5, -1]);
-  assert.equal(bytes.byteLength, 8);
-  const answer = new Uint8Array([0x80, 0xbb, 0, 0, ...bytes]);
-  assert.deepEqual(audioFrom(answer.buffer), { sampleRate: 48000, samples: new Float32Array([0.5, -1]) });
+test("the runner as a WebEngine: calls carry the commit, progress is the job's, audio crosses as base64", async () => {
+  let app;
+  app = fakeApp(async (command, { sha, op, args }) => {
+    assert.equal(command, "native_call");
+    assert.equal(sha, SHA);
+    if (op === "models") return [{ id: "kokoro" }];
+    if (op === "load") {
+      app.emit("native-progress", { sha, job: args.job, files: 2, done: 1, received: 5, size: 10 });
+      app.emit("native-progress", { sha: "other", job: args.job, files: 9, done: 9 });
+      return { handle: 7, model: args.model, build: "kokoro-fp32", capabilities: ["tts"] };
+    }
+    if (op === "speak") return { sampleRate: 24000, samples: encodeSamples([0.5, -1]) };
+    if (op === "transcribe") return `${decodeSamples(args.samples).length} samples at ${args.sampleRate}`;
+    if (op === "free") return true;
+    throw new Error(op);
+  });
+  const engine = nativeEngine(app, SHA);
+  assert.deepEqual(await engine.models(), [{ id: "kokoro" }]);
+  const progress = [];
+  const loaded = await engine.load("kokoro", null, (p) => progress.push(p.done));
+  assert.deepEqual(progress, [1]);
+  assert.equal(loaded.asStt(), undefined);
+  const audio = await loaded.asTts().speak("hi", "af", undefined, 1);
+  assert.equal(audio.sampleRate, 24000);
+  assert.deepEqual([...audio.samples], [0.5, -1]);
+  const call = app.calls.find(([, args]) => args.op === "speak")[1].args;
+  assert.deepEqual(call, { handle: 7, text: "hi", voice: "af", language: null, speed: 1 });
+  loaded.free();
+  assert.ok(app.calls.some(([, args]) => args.op === "free" && args.args.handle === 7));
 });
 
-test("a rejection that is not the engine's stays as it is", () => {
-  assert.equal(coded("boom").message, "boom");
-  const error = coded({ code: "model-in-use", params: {} });
-  assert.equal(error.code, "model-in-use");
-  assert.deepEqual(error.params, {});
+test("a runner that exited rejects with its code and message, and the page hears it", async () => {
+  const app = fakeApp(async () => {
+    throw { code: "runner-exited", params: {}, message: "the native runner exited (signal: 6 (SIGABRT))" };
+  });
+  const heard = [];
+  await onNativeExit(app, (payload) => heard.push(payload));
+  app.emit("native-exited", { sha: SHA, message: "gone" });
+  assert.deepEqual(heard, [{ sha: SHA, message: "gone" }]);
+  const error = await nativeEngine(app, SHA).models().catch((e) => e);
+  assert.equal(error.code, "runner-exited");
+  assert.match(error.message, /SIGABRT/);
+});
+
+test("samples cross as base64 of little-endian f32, as the runner reads them", () => {
+  assert.equal(encodeSamples([0.5, -1]), "AAAAPwAAgL8=");
+  assert.deepEqual([...decodeSamples("AAAAPwAAgL8=")], [0.5, -1]);
+  assert.deepEqual([...decodeSamples("AAAA")], []);
+  const long = new Float32Array(100_000).map((_, i) => i / 100_000);
+  assert.deepEqual(decodeSamples(encodeSamples(long)), long);
 });

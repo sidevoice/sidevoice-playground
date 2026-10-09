@@ -1,9 +1,9 @@
 use serde_json::json;
 use sidevoice_engine::{Accelerator, Capability, Gender, Model, ModelBuild, Reason, Voice};
 
-use super::{audio_bytes, model, samples};
+use super::{decode_samples, encode_samples, model};
 
-/// The shape the page's screens read (web/catalog.mjs), as the engine's web build gives it.
+/// The shape a web build's `models()` gives JavaScript.
 #[test]
 fn a_model_reads_as_the_web_build_lists_it() {
     let listed = Model {
@@ -81,9 +81,10 @@ fn a_model_reads_as_the_web_build_lists_it() {
 }
 
 #[test]
-fn audio_crosses_as_little_endian_bytes() {
-    let bytes = audio_bytes(24_000, &[0.5, -1.0]);
-    assert_eq!(&bytes[..4], &24_000u32.to_le_bytes());
-    assert_eq!(samples(&bytes[4..]), vec![0.5, -1.0]);
-    assert_eq!(samples(&[0, 0, 0]), Vec::<f32>::new());
+fn audio_crosses_as_base64_of_little_endian_f32() {
+    let text = encode_samples(&[0.5, -1.0]);
+    assert_eq!(text, "AAAAPwAAgL8=");
+    assert_eq!(decode_samples(&text), Some(vec![0.5, -1.0]));
+    assert_eq!(decode_samples("AAAA"), Some(Vec::new()));
+    assert_eq!(decode_samples("not base64!"), None);
 }

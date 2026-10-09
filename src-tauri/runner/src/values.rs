@@ -1,9 +1,12 @@
-//! The engine's values as the page reads them: the shapes sidevoice-engine's web build gives JavaScript (`Model`,
-//! `ModelBuild`, `Reason`, `Voice`, `Progress`, in camelCase), so the page's screens read either engine alike. Enums
-//! go by their stable ids, which are their names in lower case (`cpu`, `coreml`, `stt`, `female`).
+//! The engine's values as the runner answers them: the shapes sidevoice-engine's web build gives JavaScript (`Model`,
+//! `ModelBuild`, `Reason`, `Voice`, `Progress`, in camelCase), so whoever reads a web build reads the runner alike.
+//! Enums go by their stable ids, which are their names in lower case (`cpu`, `coreml`, `stt`, `female`). Audio
+//! samples cross as base64 of little-endian f32.
 
 use std::fmt::Debug;
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 use serde_json::{json, Map, Value};
 use sidevoice_engine::{LoadedModel, Model, ModelBuild, Progress, Reason, Voice};
 
@@ -61,9 +64,10 @@ pub fn voice(voice: &Voice) -> Value {
     value
 }
 
-/// `{ job, files, done, received, size }`, the payload of a `native-progress` event.
+/// `{ event: "progress", job, files, done, received, size }`: how far job `job` has got.
 pub fn progress(job: &str, progress: &Progress) -> Value {
     json!({
+        "event": "progress",
         "job": job,
         "files": progress.files,
         "done": progress.done,
@@ -72,7 +76,7 @@ pub fn progress(job: &str, progress: &Progress) -> Value {
     })
 }
 
-/// What `native_load` answers: the handle the page holds, and what the model can do.
+/// What `load` answers: the handle the caller holds, and what the model can do.
 pub fn loaded(handle: u32, loaded: &LoadedModel) -> Value {
     json!({
         "handle": handle,
@@ -82,23 +86,25 @@ pub fn loaded(handle: u32, loaded: &LoadedModel) -> Value {
     })
 }
 
-/// Spoken audio for the page: its sample rate (u32 LE), then its samples (f32 LE).
-pub fn audio_bytes(sample_rate: u32, samples: &[f32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(4 + samples.len() * 4);
-    bytes.extend_from_slice(&sample_rate.to_le_bytes());
-    for sample in samples {
-        bytes.extend_from_slice(&sample.to_le_bytes());
-    }
-    bytes
+/// Samples as base64 of their little-endian f32 bytes.
+pub fn encode_samples(samples: &[f32]) -> String {
+    let bytes: Vec<u8> = samples
+        .iter()
+        .flat_map(|sample| sample.to_le_bytes())
+        .collect();
+    STANDARD.encode(bytes)
 }
 
-/// Samples from the page: f32 LE, a trailing partial sample ignored.
-pub fn samples(bytes: &[u8]) -> Vec<f32> {
+/// Samples from base64 of little-endian f32 bytes, a trailing partial sample ignored; None if it is not base64.
+pub fn decode_samples(text: &str) -> Option<Vec<f32>> {
+    let bytes = STANDARD.decode(text).ok()?;
     let (chunks, _) = bytes.as_chunks::<4>();
-    chunks
-        .iter()
-        .map(|chunk| f32::from_le_bytes(*chunk))
-        .collect()
+    Some(
+        chunks
+            .iter()
+            .map(|chunk| f32::from_le_bytes(*chunk))
+            .collect(),
+    )
 }
 
 /// An engine enum's stable id: its name in lower case (`CoreMl` → `coreml`).

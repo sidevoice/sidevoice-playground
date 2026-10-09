@@ -7,9 +7,13 @@ const app = await readFile(new URL("../web/app.mjs", import.meta.url), "utf8");
 
 test("every element the page script looks up is in index.html", () => {
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-  const used = [...app.matchAll(/\$\(`?["`]#([\w-]+)/g)].map((m) => m[1]).filter((id) => !id.includes("$"));
+  const used = [...app.matchAll(/\$\(`?["`]#([\w-]+)/g)].map((m) => m[1]).filter((id) => !id.endsWith("-"));
   assert.ok(used.length > 20);
   for (const id of used) assert.ok(ids.has(id), `#${id}`);
+  // The engine pickers, looked up by kind.
+  for (const kind of ["version", "pull", "branch"]) {
+    for (const id of [`engine-${kind}`, `engine-${kind}-form`, `engine-${kind}-detail`]) assert.ok(ids.has(id), `#${id}`);
+  }
   for (const screen of ["tts", "stt"]) {
     const section = html.slice(html.indexOf(`<section id="${screen}"`), html.indexOf("</section>", html.indexOf(`<section id="${screen}"`)));
     for (const name of ["family", "model", "advanced", "builds", "build-info", "progress", "model-status", "cancel", "remove", "run-status"]) {

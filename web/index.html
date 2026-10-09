@@ -22,19 +22,46 @@
           <span class="label">Engine</span>
           <span id="engine-summary" class="engine-summary">none loaded</span>
         </summary>
-        <form id="engine-form" class="field-row">
-          <label class="field grow">
-            <span class="label">Build</span>
-            <select id="engine-choice"></select>
+        <div class="engine-pickers">
+          <label class="field" id="engine-runtime-field" hidden>
+            <span class="label">Run</span>
+            <select id="engine-runtime">
+              <option value="web">its web build, in this window</option>
+              <option value="native">natively: built on this Mac, run beside the app</option>
+            </select>
           </label>
-          <label class="field grow" id="engine-other-field" hidden>
-            <span class="label">Version, pull request, branch or commit</span>
-            <input id="engine-other" placeholder="0.2.0, #41, a link, a branch, a sha" autocomplete="off" autocapitalize="off" spellcheck="false" />
-          </label>
-          <button type="submit" class="primary">Load</button>
-        </form>
-        <p id="engine-hint" class="muted"></p>
+          <form id="engine-version-form" class="engine-pick">
+            <div class="field-row">
+              <label class="field grow"><span class="label">Version</span><select id="engine-version"></select></label>
+              <button type="submit" class="primary">Load</button>
+            </div>
+            <p id="engine-version-detail" class="muted"></p>
+          </form>
+          <form id="engine-pull-form" class="engine-pick">
+            <div class="field-row">
+              <label class="field grow"><span class="label">Pull request</span><select id="engine-pull"></select></label>
+              <button type="submit" class="primary">Load</button>
+            </div>
+            <p id="engine-pull-detail" class="muted"></p>
+          </form>
+          <form id="engine-branch-form" class="engine-pick">
+            <div class="field-row">
+              <label class="field grow"><span class="label">Branch</span><select id="engine-branch"></select></label>
+              <button type="submit" class="primary">Load</button>
+            </div>
+            <p id="engine-branch-detail" class="muted"></p>
+          </form>
+        </div>
+        <div class="engine-listing">
+          <p id="engine-hint" class="status" aria-live="polite"></p>
+          <button type="button" id="engine-refresh" class="ghost">Refresh lists</button>
+        </div>
         <p id="engine-status" class="status" aria-live="polite"></p>
+        <details id="engine-build" class="engine-build" hidden open>
+          <summary>Native build log</summary>
+          <pre id="engine-build-log" class="build-log"></pre>
+        </details>
+        <button type="button" id="engine-cancel" hidden>Cancel</button>
         <ul id="engine-list" class="engine-list"></ul>
         <p id="engine-details" class="status"></p>
       </details>

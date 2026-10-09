@@ -128,6 +128,61 @@ main {
   font-size: 14px;
 }
 
+/* The engine pickers: a dropdown per kind, each with its Load button and the picked choice's details below. */
+.engine-pickers {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.engine-pick .muted {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.engine-pick .muted[data-state="available"] {
+  color: var(--sv-positive);
+}
+.engine-pick .muted[data-state="expired"],
+.engine-pick .muted[data-state="none"] {
+  color: var(--sv-error);
+}
+.engine-listing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+.engine-listing .status {
+  flex: 1 1 240px;
+}
+.engine-listing .status:empty {
+  display: block;
+}
+
+/* The native runner's build output, as cargo prints it: its last lines, scrolling. */
+.engine-build summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--sv-primary-soft);
+  font-size: 14px;
+}
+.build-log {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--sv-field);
+  border: 1px solid #2a3440;
+  border-radius: 10px;
+}
+
 .engine-list {
   list-style: none;
   padding: 0;

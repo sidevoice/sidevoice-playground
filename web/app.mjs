@@ -3,8 +3,9 @@
 // family's models; picking a model installs and loads it right there, with progress and a Cancel button, in its
 // recommended build unless another is picked under Advanced. The round trip uses what both have loaded.
 //
-// In the macOS app (src-tauri/) the page also offers the native engine, compiled into the app, through the same
-// interface (engine/native.mjs); there, release assets come through the app instead of server.mjs.
+// In the macOS app (src-tauri/) any engine commit picked can also run natively: built on this Mac and run as a child
+// process, through the same interface (engine/native.mjs). There, the lists come from GitHub's API directly and
+// release assets through the app, as there is no server.mjs.
 
 import { record, decodeToPcm, toWav } from "./audio.mjs";
 import {
@@ -17,10 +18,11 @@ import {
   progressText,
   wer,
 } from "./catalog.mjs";
-import { engineAbilities, engineChoices, OTHER } from "./engine/choices.mjs";
+import { engineAbilities, engineChoices, KINDS } from "./engine/choices.mjs";
 import { browserHost } from "./engine/host.mjs";
-import { listReleases, loadEngine, loadServedEngine } from "./engine/load.mjs";
-import { NATIVE, NATIVE_METHODS, nativeEngine, nativeInfo, tauri } from "./engine/native.mjs";
+import { commitOf, listEngineBuilds, publicApi } from "./engine/listing.mjs";
+import { loadEngine, loadServedEngine } from "./engine/load.mjs";
+import { NATIVE, NATIVE_METHODS, nativeEngine, onNativeExit, prepareNative, tauri } from "./engine/native.mjs";
 import { parseSpec } from "./engine/spec.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -28,6 +30,8 @@ const CAPABILITIES = ["tts", "stt"];
 
 /** The macOS app's Tauri API, or null in a browser tab. */
 const app = tauri();
+/** GitHub's API as the page reaches it with no token, for the app, which has no server to list builds. */
+const github = publicApi();
 
 // The shell supplies the bytes: in the browser, server.mjs's /fetch (github.com sends no CORS headers); in the app,
 // its fetch_release_asset command (src-tauri/src/release.rs).
@@ -57,9 +61,10 @@ let clip = null; // the recording or upload to transcribe: { samples, rate }
 let running = false;
 /** What server.mjs says of its local build (`--engine-tarball`), if it has one. */
 let localBuild = null;
-/** What the app says of its native engine (`nativeInfo`), in the app. */
-let native = null;
-let choices = [];
+/** What there is to pick (engine/listing.mjs): `releases`, `latest`, `pulls`, `branches`; from server.mjs in a browser. */
+let listed = {};
+/** Each dropdown's choices (`engineChoices`). */
+let choices = {};
 
 function status(element, text, error = false) {
   delete element.dataset.hint;
@@ -80,15 +85,8 @@ function hint(element, text) {
 
 // --- The engine picker.
 
-async function fillChoices() {
-  if (app) {
-    $(".subtitle").textContent = "Try an engine by hand: the native one this app was built with, or a web build.";
-    try {
-      native = await nativeInfo(app);
-    } catch (error) {
-      console.error("could not ask the app for its native engine", error);
-    }
-  } else {
+async function fillChoices({ fresh = false } = {}) {
+  if (!app && !localBuild) {
     try {
       const res = await fetch("/local-engine.json");
       if (res.ok) localBuild = await res.json();
@@ -97,32 +95,66 @@ async function fillChoices() {
     }
   }
   renderChoices();
+  const line = $("#engine-hint");
+  status(line, "Listing releases, pull requests and branches…");
+  $("#engine-refresh").disabled = true;
   try {
-    renderChoices(await listReleases(fetchers.fetchJson));
+    if (app) listed = await listEngineBuilds(github);
+    else {
+      const res = await fetch(`/engine-builds${fresh ? "?fresh=1" : ""}`);
+      if (!res.ok) throw new Error(await res.text());
+      listed = await res.json();
+    }
+    const errors = listed.errors ?? [];
+    status(line, errors.length ? `Some lists are incomplete: ${errors.join("; ")}` : `Listed at ${listed.listed.slice(11, 16)} UTC.`, errors.length > 0);
   } catch (error) {
-    console.warn("could not list releases", error);
+    console.warn("could not list engine builds", error);
+    status(line, `Could not list engine builds: ${error.message}`, true);
+  } finally {
+    $("#engine-refresh").disabled = false;
+  }
+  renderChoices();
+}
+
+/** Each dropdown from what is listed, keeping what was picked in it when it is still there. */
+function renderChoices() {
+  choices = engineChoices({ local: localBuild, ...listed });
+  for (const kind of KINDS) {
+    const select = $(`#engine-${kind}`);
+    const chosen = select.value;
+    const list = choices[kind];
+    const empty = { pull: "No open pull requests", branch: "No branches" }[kind];
+    select.replaceChildren(
+      ...(list === undefined
+        ? [new Option("Listing…", "")]
+        : list.length
+          ? list.map((choice) => Object.assign(new Option(choice.label, choice.value), { disabled: choice.state === "none" && kind === "version" }))
+          : [new Option(empty, "")]),
+    );
+    if (list?.some((choice) => choice.value === chosen)) select.value = chosen;
+    select.disabled = !list?.length;
+    select.form.querySelector("button").disabled = !list?.length || serverOnly(kind);
+    renderDetail(kind);
   }
 }
 
-function renderChoices(releases = []) {
-  const select = $("#engine-choice");
-  const chosen = select.value;
-  choices = engineChoices({ native, local: localBuild, releases });
-  select.replaceChildren(...choices.map((choice) => new Option(choice.label, choice.value)));
-  select.value = choices.some((choice) => choice.value === chosen) ? chosen : choices[0].value;
-  renderHint();
+/** Whether a kind's web builds load only through server.mjs, which the app does not run: pull requests and branches. */
+function serverOnly(kind) {
+  return Boolean(app) && kind !== "version" && $("#engine-runtime").value !== NATIVE;
 }
 
-function renderHint() {
-  const other = $("#engine-choice").value === OTHER;
-  $("#engine-other-field").hidden = !other;
-  $("#engine-other").required = other;
-  $("#engine-hint").textContent = choices.find((choice) => choice.value === $("#engine-choice").value)?.hint ?? "";
+function renderDetail(kind) {
+  const detail = $(`#engine-${kind}-detail`);
+  const choice = choices[kind]?.find((c) => c.value === $(`#engine-${kind}`).value);
+  const note = serverOnly(kind) ? " Its web build loads in the web playground only: run it natively here." : "";
+  detail.textContent = choice ? `${choice.detail}${note}` : "";
+  if (choice?.state) detail.dataset.state = choice.state;
+  else delete detail.dataset.state;
 }
 
-async function load(input) {
+async function load(input, choice) {
+  if (app && $("#engine-runtime").value === NATIVE) return loadNative(input, choice);
   const line = $("#engine-status");
-  if (input === NATIVE) return loadNative(line);
   const wantsLocal = input === "local";
   if (wantsLocal && engines.has(localBuild?.label)) return activate(localBuild.label);
   let spec;
@@ -138,7 +170,7 @@ async function load(input) {
     let loaded;
     if (wantsLocal) loaded = await loadServedEngine(localBuild);
     else if (spec.kind === "ref") {
-      if (app) throw new Error(`${spec.label} is a git ref: its CI build loads in the web playground (npm start), not in the app`);
+      if (app) throw new Error(`${spec.label}'s web build is fetched by the web playground's server: run it natively here (Run: native)`);
       status(line, `Fetching the CI build of ${spec.label} (the first time, the server downloads and installs it)…`);
       const info = await refBuild(spec.ref);
       if (engines.has(info.label)) return activate(info.label);
@@ -164,27 +196,71 @@ async function load(input) {
 }
 
 /**
- * The engine compiled into the app, through the same interface as a web build's (engine/native.mjs). Its "digest"
- * in the list is the engine's commit.
+ * The native engine at the engine commit `choice` names, in the macOS app: built on this Mac the first time (its
+ * output in the build log, Cancel killing it), then run as a child process and reached through the same interface as
+ * a web build's (engine/native.mjs). Its "digest" in the list is the engine's commit.
  */
-async function loadNative(line) {
-  if (!native) return status(line, "The app did not say which native engine it has: see the console.", true);
-  if (engines.has(native.label)) return activate(native.label);
-  if (native.error) return status(line, `The native engine could not start: ${native.error}`, true);
-  status(line, `Loading ${native.label}…`);
+async function loadNative(input, choice) {
+  const line = $("#engine-status");
+  const controller = new AbortController();
+  const log = $("#engine-build-log");
   try {
-    const engine = nativeEngine(app);
-    const loaded = { label: native.label, tag: NATIVE, version: native.version, sha256: native.rev, module: null };
-    const entry = { loaded, engine, abilities: engineAbilities(NATIVE_METHODS), catalog: [], sections: { tts: {}, stt: {} } };
+    const { name, sha } = await nativeCommit(input, choice);
+    const label = `native ${name} @ ${sha.slice(0, 7)}`;
+    if (engines.has(label)) return activate(label);
+    status(line, `Preparing ${label}: the first time, the native runner is built on this Mac (minutes); then it is kept.`);
+    log.textContent = "";
+    $("#engine-build").hidden = false;
+    $("#engine-cancel").hidden = false;
+    $("#engine-cancel").onclick = () => controller.abort();
+    const hello = await prepareNative(app, sha, { onLine: (text) => appendLog(log, text), signal: controller.signal });
+    const engine = nativeEngine(app, sha);
+    const loaded = { label, tag: NATIVE, version: hello.engine, sha256: sha, module: null };
+    const entry = { loaded, engine, abilities: engineAbilities(NATIVE_METHODS), catalog: [], sections: { tts: {}, stt: {} }, sha };
     entry.catalog = await engine.models();
-    engines.set(loaded.label, entry);
-    status(line, `Loaded ${loaded.label}, built into this app. Models are kept in ${native.dataDir}.`);
-    activate(loaded.label);
+    engines.set(label, entry);
+    status(line, `Loaded ${label}, version ${hello.engine}, running on this Mac. Models are kept in ${hello.dataDir}.`);
+    activate(label);
     $("#engine").open = false;
   } catch (error) {
     console.error(error);
-    status(line, describeError(error), true);
+    const runner = typeof error?.code === "string" && error.code.startsWith("runner-");
+    status(line, runner ? `${error.message} (the build log below says more)` : describeError(error), error?.code !== "cancelled");
+  } finally {
+    $("#engine-cancel").hidden = true;
   }
+}
+
+/** The engine commit a choice names, and what to call it: a listed pull request or branch carries it. */
+async function nativeCommit(input, choice) {
+  const spec = parseSpec(input);
+  if (choice?.sha) return { name: spec.label, sha: choice.sha };
+  if (spec.kind === "latest") {
+    const tag = listed.latest?.tag;
+    if (!tag) throw new Error("No release is published yet.");
+    return { name: `latest (${tag})`, sha: await commitOf(github, tag) };
+  }
+  return { name: spec.label, sha: await commitOf(github, spec.kind === "ref" ? spec.ref : spec.tag) };
+}
+
+/** A line of the build's output at the end of the log, which keeps its last lines only. */
+function appendLog(log, text) {
+  const lines = `${log.textContent}${text}\n`.split("\n");
+  log.textContent = lines.slice(-400).join("\n");
+  log.scrollTop = log.scrollHeight;
+}
+
+/** A native engine whose runner exited on its own (a crash in the engine, say) is dropped, and the page says why. */
+function nativeExited({ sha, message }) {
+  for (const [label, entry] of engines) {
+    if (entry.sha !== sha) continue;
+    engines.delete(label);
+    if (active === label) active = null;
+    status($("#engine-status"), `${label} stopped: ${message}. Load it again to start it again.`, true);
+    $("#engine").open = true;
+  }
+  renderEngines();
+  renderScreens();
 }
 
 /**
@@ -598,11 +674,20 @@ function code(text) {
   return Object.assign(document.createElement("code"), { textContent: text });
 }
 
-$("#engine-choice").onchange = renderHint;
-$("#engine-form").onsubmit = (event) => {
-  event.preventDefault();
-  const value = $("#engine-choice").value;
-  load(value === OTHER ? $("#engine-other").value.trim() : value);
-};
+for (const kind of KINDS) {
+  $(`#engine-${kind}`).onchange = () => renderDetail(kind);
+  $(`#engine-${kind}-form`).onsubmit = (event) => {
+    event.preventDefault();
+    const value = $(`#engine-${kind}`).value;
+    if (value) load(value, choices[kind]?.find((choice) => choice.value === value));
+  };
+}
+$("#engine-refresh").onclick = () => fillChoices({ fresh: true });
+if (app) {
+  $(".subtitle").textContent = "Try an engine build by hand: its web build, or its native build, built on this Mac.";
+  $("#engine-runtime-field").hidden = false;
+  $("#engine-runtime").onchange = renderChoices;
+  onNativeExit(app, nativeExited);
+}
 
 fillChoices();

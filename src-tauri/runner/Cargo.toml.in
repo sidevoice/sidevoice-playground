@@ -1,0 +1,18 @@
+# The native runner (src/main.rs): sidevoice-engine's native build as a process of its own, at one commit of the
+# engine. A template: build.sh writes it out as Cargo.toml with @ENGINE_REV@ replaced by that commit.
+[package]
+name = "sidevoice-engine-runner"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# A package of its own wherever it is written out.
+[workspace]
+
+[dependencies]
+# Its default features: every backend its native build has on this machine.
+sidevoice-engine = { git = "https://github.com/sidevoice/sidevoice-engine", rev = "@ENGINE_REV@" }
+base64 = "0.22"
+serde_json = "1"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread"] }

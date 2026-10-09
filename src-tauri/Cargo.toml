@@ -1,7 +1,7 @@
 [package]
 name = "sidevoice-playground"
 version = "0.0.0"
-description = "The playground as a macOS app: the web page in a webview, and sidevoice-engine compiled in as the native engine"
+description = "The playground as a macOS app: the web page in a webview, and the native engine built on this Mac per engine commit and run as a child process"
 edition = "2021"
 rust-version = "1.98"
 license = "Apache-2.0"
@@ -11,13 +11,13 @@ publish = false
 tauri-build = { version = "2.7.1", features = [] }
 
 [dependencies]
-# The native engine: sidevoice-engine compiled into the app at one commit, its default features (the sherpa-onnx
-# backend, linked statically through SHERPA_ONNX_LIB_DIR: README, "The macOS app"). Changing it means rebuilding the
-# app; build.rs reads the commit back from Cargo.lock so the page can say which engine it is.
-sidevoice-engine = { git = "https://github.com/sidevoice/sidevoice-engine", rev = "6ae37d12be4b28d30d7566ff9915bb3ac0122f54" }
 tauri = { version = "2.12.2", features = [] }
-# The relay for engine release assets (src/release.rs), as server.mjs's /fetch: the engine's own HTTP client and TLS,
-# so nothing is added to the build.
+# The relay for engine release assets (src/release.rs), as server.mjs's /fetch: rustls, so nothing links the system's
+# OpenSSL.
 reqwest = { version = "0.13.0", default-features = false, features = ["rustls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The native runner (src/runner.rs): its build and its process, on the app's own Tokio runtime; libc to kill a
+# build's whole process group.
+tokio = { version = "1", default-features = false, features = ["process", "io-util", "sync"] }
+libc = "0.2"

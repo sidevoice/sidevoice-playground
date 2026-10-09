@@ -1,8 +1,9 @@
 name: ci
 
 # Every pull request and push to main: the unit tests, and the network test, which loads the engine's nightly web
-# build from GitHub Releases and creates an engine in Node (no model is downloaded or run). And the macOS app: built
-# with the native engine compiled in, checked, and packed as an unsigned .dmg kept as an artifact.
+# build from GitHub Releases and creates an engine in Node (no model is downloaded or run). And the macOS app: built,
+# checked, and packed as an unsigned .dmg kept as an artifact; and the native runner template it ships, built against
+# sidevoice-engine's main as the app builds it on a Mac, so a template that no longer builds is caught here.
 on:
   pull_request:
   push:
@@ -45,34 +46,6 @@ jobs:
           set -euo pipefail
           rustup toolchain install
           rustc --version
-      # The engine at the commit Cargo.lock pins, for its own `cargo xtask sherpa-libs`: sherpa-onnx's static
-      # libraries for this machine, checked against the digests the engine pins, kept outside target/ and linked
-      # through SHERPA_ONNX_LIB_DIR (which the command writes to $GITHUB_ENV), so no build script downloads anything
-      # unchecked.
-      - name: The engine at the commit Cargo.lock pins
-        id: engine
-        run: |
-          set -euo pipefail
-          SOURCE=$(grep -o '"git+https://github.com/sidevoice/sidevoice-engine[^"]*"' src-tauri/Cargo.lock | head -1)
-          REV=${SOURCE##*#}; REV=${REV%\"}
-          [ ${#REV} = 40 ] || { echo "no sidevoice-engine commit in src-tauri/Cargo.lock: $SOURCE"; exit 1; }
-          DIR="$RUNNER_TEMP/sidevoice-engine"
-          rm -rf "$DIR" && git init -q "$DIR"
-          git -C "$DIR" fetch -q --depth 1 https://github.com/sidevoice/sidevoice-engine "$REV"
-          git -C "$DIR" checkout -q FETCH_HEAD
-          echo "rev=$REV" >> "$GITHUB_OUTPUT"
-          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/sidevoice-engine/sherpa-onnx
-          key: sherpa-onnx-libs-${{ runner.os }}-${{ runner.arch }}-${{ steps.engine.outputs.rev }}
-      # From src-tauri, so the pinned toolchain builds the xtask too; without its default features it does not build
-      # the engine (nor sherpa-onnx-sys) before the libraries are there.
-      - name: sherpa-onnx's libraries (the engine's cargo xtask sherpa-libs)
-        working-directory: src-tauri
-        env:
-          ENGINE: ${{ steps.engine.outputs.dir }}
-        run: cargo run --quiet --locked --manifest-path "$ENGINE/xtask/Cargo.toml" --no-default-features -- sherpa-libs
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri
@@ -93,9 +66,10 @@ jobs:
           lipo -archs "$BIN" | tee /dev/stderr | grep -qx arm64
           plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist"
           codesign --verify --deep --strict --verbose=2 "$APP"
-          # The engine it was built with is the one Cargo.lock pins.
-          grep -q "${{ steps.engine.outputs.rev }}" "$BIN"
-          # It starts and stays up: the window, the page and the native engine on its NativeHost.
+          # The runner template ships with it, its build script included.
+          test -f "$APP/Contents/Resources/runner/build.sh"
+          test -f "$APP/Contents/Resources/runner/Cargo.toml.in"
+          # It starts and stays up: the window and the page.
           "$BIN" > "$RUNNER_TEMP/app.log" 2>&1 &
           PID=$!
           sleep 15
@@ -107,8 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           APP="src-tauri/target/release/bundle/macos/Sidevoice Playground.app"
-          REV="${{ steps.engine.outputs.rev }}"
-          DMG="dist/sidevoice-playground_engine-${REV:0:7}_aarch64.dmg"
+          DMG="dist/sidevoice-playground_${GITHUB_SHA:0:7}_aarch64.dmg"
           ROOT="$RUNNER_TEMP/dmg"
           mkdir -p "$ROOT" dist
           ditto "$APP" "$ROOT/Sidevoice Playground.app"
@@ -123,3 +96,21 @@ jobs:
           path: ${{ steps.dmg.outputs.path }}
           if-no-files-found: error
           retention-days: 30
+      # The runner template against sidevoice-engine's main, by the script the app runs (runner/build.sh), with the
+      # runner's stable Rust as a Mac has it; then its own tests, and the protocol spoken to it (no model downloaded
+      # or run).
+      - name: The native runner against sidevoice-engine main
+        run: |
+          set -euo pipefail
+          rustup toolchain install stable --profile minimal
+          REV=$(git ls-remote https://github.com/sidevoice/sidevoice-engine refs/heads/main | cut -f1)
+          OUT="$RUNNER_TEMP/runner"
+          cd "$RUNNER_TEMP"
+          RUSTUP_TOOLCHAIN=stable sh "$GITHUB_WORKSPACE/src-tauri/runner/build.sh" "$REV" "$OUT"
+          RUSTUP_TOOLCHAIN=stable cargo test --release --manifest-path "$OUT/Cargo.toml"
+          printf '%s\n' '{"id":1,"op":"hello"}' '{"id":2,"op":"models"}' '{"id":3,"op":"nope"}' \
+            | "$OUT/bin/sidevoice-engine-runner" --data-dir "$RUNNER_TEMP/engine-data" > "$RUNNER_TEMP/answers"
+          cat "$RUNNER_TEMP/answers"
+          grep -q "\"id\":1,\"ok\":{.*\"rev\":\"$REV\"" "$RUNNER_TEMP/answers"
+          grep -q '"id":2,"ok":\[{' "$RUNNER_TEMP/answers"
+          grep -q '"error":{"code":"bad-request".*"id":3' "$RUNNER_TEMP/answers"

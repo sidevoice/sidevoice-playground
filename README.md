@@ -5,17 +5,17 @@
 
 # sidevoice-playground
 
-An internal app to try [sidevoice-engine](https://github.com/sidevoice/sidevoice-engine) by hand. You name an engine
-build — a version, `nightly`, `latest`, a release link — and the playground downloads it and uses it, so trying an
-engine build never means rebuilding the playground. Then: text to speech, speech to text, comparing models, and the
-round trip text → speech → text.
+An internal app to try [sidevoice-engine](https://github.com/sidevoice/sidevoice-engine) by hand. You pick an engine
+build — a version, `nightly`, `latest`, a pull request, a branch — and the playground downloads it and uses it, so
+trying an engine build never means rebuilding the playground. Then: text to speech, speech to text, comparing
+models, and the round trip text → speech → text.
 
-A web app, and a Tauri app for macOS on Apple silicon that also runs the **native** engine, compiled into it (below).
-How engines are loaded: [`DESIGN.md`](DESIGN.md).
+A web app, and a Tauri app for macOS on Apple silicon that can also run any engine commit **natively**, built on the
+Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
 
 ## Status
 
-- **Works**: naming an engine and loading its web build from GitHub Releases (checked against the release's
+- **Works**: picking an engine and loading its web build from GitHub Releases (checked against the release's
   `SHA256SUMS`), several versions side by side; a local build of any ref (`--engine-tarball`). With an engine that
   has the model interface (`models`, `install`, `uninstall`, `load`, sidevoice-engine#41 on), a screen per
   capability: text to speech and speech to text each pick a family, then one of its models that does the task, and
@@ -25,11 +25,12 @@ How engines are loaded: [`DESIGN.md`](DESIGN.md).
   and run in the browser (OPFS), never on the server. Phone and desktop alike; the look is the Sidevoice app's.
   Older builds say they cannot speak or transcribe. `models()` does not name a model's family yet (up to #41): it is
   read from the model id until the engine says it.
-- **Git refs**: a pull request, branch or commit loads the engine CI's build of its head commit (the
+- **Git refs**: an open pull request or a branch loads the engine CI's build of its head commit (the
   `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
 - **Not yet**: release builds whose package carries `dist/snippets/` and npm dependencies (#41 on) do not load from
   a release: the in-memory import cannot resolve them.
-- **The macOS app**: the same page, plus the native engine compiled in (below). Unsigned: CI builds the `.dmg`.
+- **The macOS app**: the same page, and the native engine of any version, pull request or branch, built on the Mac
+  (below). Unsigned: CI builds the `.dmg`.
 
 ## Run
 
@@ -55,7 +56,7 @@ node server.mjs --engine-tarball ../sidevoice-engine/target/npm/sidevoice-engine
 ```
 
 The server installs it as a consumer would, with its npm dependencies, into a scratch directory, serves it under
-`/local-engine/` and gives the page the import map its dependencies need. The engine box then offers `local`.
+`/local-engine/` and gives the page the import map its dependencies need. The Version list then offers it first.
 There is no `SHA256SUMS` for a local build: the page shows the tarball's digest, and `--engine-sha256` makes the
 server refuse a tarball with another one.
 
@@ -69,45 +70,56 @@ GitHub token even on a public repository: the server reads one from `--github-to
 Each build's dependencies get their own scope in the page's import map; a browser that takes only one import map
 per page (anything before Chrome 133) needs a reload after the first load of a ref.
 
-What you can type in the engine box:
+**Picking an engine.** Three dropdowns, each with its Load button and, below it, the details of what is picked.
+Nothing is typed: the server lists them through the GitHub API with its token (`/engine-builds`, behind the access
+gate like every route, kept a minute; *Refresh lists* asks anew), and only the listing reaches the page.
 
-| You type | It loads |
-|---|---|
-| `0.2.0`, `v0.2.0`, `@sidevoice/engine@0.2.0`, `…/releases/tag/v0.2.0` | that release's web build |
-| `nightly`, `…/releases/tag/nightly` | the latest green `main` |
-| `latest` | the newest published release |
-| `local` | the build passed with `--engine-tarball` |
-| `#27`, `…/pull/27`, `…/tree/<branch>`, `…/commit/<sha>`, a branch, a SHA | the CI build of its head commit (below) |
+| Dropdown | Lists | Details shown | It loads |
+|---|---|---|---|
+| Version | the local build (with `--engine-tarball`), `nightly`, `latest release (vX.Y.Z)`, every `vX.Y.Z` with a web build | version and digest, or publication date | that build; a release's web build from GitHub Releases |
+| Pull request | the open pull requests, `#<number> <title>` | author, head (`owner:branch @ sha`), draft, whether its `engine-npm-<sha>` build is there (until when) or expired | the CI build of its head commit (below) |
+| Branch | the branches | head commit | the CI build of its head commit |
 
 ## The macOS app
 
 A Tauri v2 app for Apple silicon (`src-tauri/`) that shows the same page, `web/`, in a webview, with no server and
-no access gate: nothing listens on the network, and only the app's own page reaches its commands. Its engine box
-offers one more choice first, **native**: sidevoice-engine compiled into the app, the sherpa-onnx backend linked
-statically, on the engine's own `NativeHost` and bundled catalogue. The page reaches it through Tauri commands that
-mirror a web build's `WebEngine` (`models`, `install` with its progress as events, `uninstall`, `load`, then
-`voices`, `speak` and `transcribe` on the loaded model; `web/engine/native.mjs`, `src-tauri/src/native.rs`), so the
-text-to-speech, speech-to-text and round-trip screens work the same on either engine. Models download to
-`~/Library/Application Support/dev.sidevoice.playground/sidevoice-engine/`.
+no access gate: nothing listens on the network, and only the app's own page reaches its commands. Nothing of the
+engine is compiled into it. It offers the same three dropdowns, listed from GitHub's API directly (no token: 60
+requests an hour), and one more, **Run**:
 
-**The native engine is the version the app was built with.** It is pinned in `src-tauri/Cargo.toml` as a git
-dependency at one commit (today `main` at `6ae37d1`, version 0.1.0); the engine box names it (`native 0.1.0 @
-6ae37d1`) and says so. Trying another engine natively means changing that pin (a tag such as `v0.2.0` once it
-exists: `tag = "v0.2.0"` in place of `rev`), running `cargo update -p sidevoice-engine` in `src-tauri/`, and
-rebuilding. Web builds still load in the app as in a browser — releases, `nightly`, `latest` — their release assets
-coming through the app instead of `server.mjs`. Git refs and `--engine-tarball` builds do not: the server fetches and
-installs those, and the app does not run it; use the web playground for them.
+- **its web build, in this window**: a release's web build loads as in a browser, its assets coming through the app
+  instead of `server.mjs`. Pull requests and branches do not: their web builds are fetched and installed by the
+  server, which the app does not run.
+- **natively: built on this Mac, run beside the app**: any version, pull request or branch. The app takes the commit
+  it names and builds **the native runner** for it: a small crate shipped with the app as a template
+  (`src-tauri/runner/`), sidevoice-engine as a git dependency at that commit, built with `cargo build --release` by
+  the template's own `build.sh`. The build's output shows in the engine box as it goes; *Cancel* kills it. The first
+  build of a commit takes minutes (whisper.cpp is compiled from source); its binary is kept and reused. Then the app
+  starts the runner as a child process and speaks to it in JSON lines (`src-tauri/runner/src/main.rs`), whose
+  operations mirror a web build's `WebEngine` (`models`, `install` with progress, `uninstall`, `load`, `voices`,
+  `speak`, `transcribe`), so the text-to-speech, speech-to-text and round-trip screens work the same on either.
 
-**What the native engine runs.** What sidevoice-engine's native build runs at the pinned commit: sherpa-onnx models
-(Whisper and NeMo transducers to transcribe; Kokoro, Piper and Supertonic to speak), **on the CPU only**: the
-statically linked sherpa-onnx libraries have no Core ML (sidevoice-engine#33 brings it back), and nothing runs on
-Metal yet. Builds for other backends do not run: transformers.js is the web build's (`backend-not-in-this-build`,
-shown under Advanced), and MLX is a stub that fails with `not-implemented` if picked. whisper.cpp
-(sidevoice-engine#40, Metal) comes with a later `main`, by moving the pin.
+What the native build needs on the Mac: Xcode (or its command line tools), CMake and Rust — `brew install cmake
+rustup && rustup default stable`. The app finds them where Homebrew and rustup put them even when started from the
+Finder; one that is missing is named in the engine box with the command that installs it. sherpa-onnx's static
+libraries come as the engine documents for consumers: its own `cargo xtask sherpa-libs` checks them against its
+pinned digests (in `~/.cache/sidevoice-engine/sherpa-onnx/`); an engine without that command leaves the download to
+the sherpa-onnx crate, unchecked.
+
+Where things are kept, under `~/Library/Application Support/dev.sidevoice.playground/`: `runners/<commit>/` (each
+runner and its binary), `runners/target/` (cargo's build directory, shared, several GB: delete it to reclaim the
+space, and the next build starts from scratch), `sidevoice-engine/` (the models, shared by every runner).
+
+Limits. The runner is written against the model interface (sidevoice-engine#58 on): an older engine fails to build,
+and says so as a build error. If the runner crashes (an uncaught C++ exception in sherpa-onnx, say), the app stays up,
+the engine box says how it ended with its last lines of stderr, and loading it again starts it again. The native
+engine runs what its native build runs at that commit (sherpa-onnx and whisper.cpp models; transformers.js builds
+show as `backend-not-in-this-build`). CI builds the template against the engine's `main` and speaks the protocol to
+it, so a template that no longer builds is caught there; no model is run.
 
 **Opening the unsigned .dmg.** CI's `macOS app (Apple silicon) .dmg` job uploads it as the artifact
-`sidevoice-playground-macos-aarch64` (a zip holding `sidevoice-playground_engine-<commit>_aarch64.dmg`, kept 30
-days). The app is signed ad hoc, not with a Developer ID, and not notarised, so Gatekeeper stops it the first time:
+`sidevoice-playground-macos-aarch64` (a zip holding `sidevoice-playground_<commit>_aarch64.dmg`, kept 30 days). The
+app is signed ad hoc, not with a Developer ID, and not notarised, so Gatekeeper stops it the first time:
 
 1. Unzip the artifact, open the `.dmg` and drag *Sidevoice Playground* to Applications.
 2. Either clear the quarantine flag the browser put on it — `xattr -dr com.apple.quarantine "/Applications/Sidevoice
@@ -116,34 +128,30 @@ days). The app is signed ad hoc, not with a Developer ID, and not notarised, so 
    app "is damaged", it is the quarantine flag: the `xattr` line fixes it.
 3. The first recording asks for the microphone.
 
-**Building it.** On a Mac with Apple silicon, Rust `1.98.1` (`src-tauri/rust-toolchain.toml`, the engine's) and
-Node 22:
+**Building it.** On a Mac with Apple silicon, Rust (`src-tauri/rust-toolchain.toml`) and Node 22:
 
 ```sh
-# sherpa-onnx's static libraries, as sidevoice-engine documents for consumers: its own `cargo xtask sherpa-libs`, from
-# a checkout of the engine at the commit src-tauri/Cargo.lock pins, checked against the digests it pins.
-export SHERPA_ONNX_LIB_DIR="$(cd ../sidevoice-engine && cargo xtask sherpa-libs)"
 npm run tauri dev                        # the app, from web/ as it is
 npm run tauri build -- --bundles app     # src-tauri/target/release/bundle/macos/Sidevoice Playground.app
+sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runner alone, as the app builds it
 ```
-
-Without `SHERPA_ONNX_LIB_DIR` the `sherpa-onnx` crate's build script downloads the libraries itself, unchecked. The
-`-D_GLIBCXX_USE_CXX11_ABI=0` line sidevoice-engine#40 asks of consumers is for Linux x86_64 only (sherpa-onnx's
-static libraries there use libstdc++'s old ABI, and whisper.cpp must match); macOS links libc++, where it does not
-apply, and the pinned engine has no whisper.cpp yet. A Linux build of the app would need it once the pin includes #40.
 
 ## Layout
 
 ```
 web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, WAV)
-  engine/         spec.mjs (what you typed → a release or a ref), load.mjs (download, verify, import),
+  engine/         choices.mjs (the pickers' choices), spec.mjs (a choice → a release or a ref),
+                  load.mjs (download, verify, import),
                   tar.mjs (gzip + ustar), host.mjs (the page's capabilities for WebEngine.create),
-                  native.mjs (the app's native engine in WebEngine's shape)
-src-tauri/      the macOS app: main.rs, native.rs (the engine's commands), values.rs (its values as the page reads
-                them), release.rs (release assets for the page); tauri.conf.json, Info.plist (the microphone)
+                  listing.mjs (what there is to pick, from GitHub's API), native.mjs (the app's native runner in
+                  WebEngine's shape)
+src-tauri/      the macOS app: main.rs, runner.rs (the native runner: built, started, spoken to), release.rs
+                (release assets for the page); tauri.conf.json, Info.plist (the microphone)
+  runner/         the native runner's template: Cargo.toml.in, build.sh, src/ (the protocol, the engine's values)
 server.mjs      serves web/ and /fetch, the relay for engine release assets (github.com sends no CORS headers)
 access.mjs      the access gate: the token, the cookie, the check every request goes through
 served-engine.mjs  an engine tarball installed and served under a prefix, with its import map
+engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
 refs.mjs        a git ref → its head commit → its CI artifact, verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

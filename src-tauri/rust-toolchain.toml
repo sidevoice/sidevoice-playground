@@ -1,4 +1,5 @@
-# The Rust the app is built with, here and in CI: sidevoice-engine's (its `rust-version`), so the two never drift.
+# The Rust the app is built with, here and in CI, pinned so that a new release's lints do not break a build. The
+# native runner is not built with it: runner/build.sh builds it with the Mac's own cargo.
 [toolchain]
 channel = "1.98.1"
 profile = "minimal"
