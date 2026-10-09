@@ -5,17 +5,17 @@
 
 # sidevoice-playground
 
-An internal app to try [sidevoice-engine](https://github.com/sidevoice/sidevoice-engine) by hand. You name an engine
-build — a version, `nightly`, `latest`, a release link — and the playground downloads it and uses it, so trying an
-engine build never means rebuilding the playground. Then: text to speech, speech to text, comparing models, and the
-round trip text → speech → text.
+An internal app to try [sidevoice-engine](https://github.com/sidevoice/sidevoice-engine) by hand. You pick an engine
+build — a version, `nightly`, `latest`, a pull request, a branch — and the playground downloads it and uses it, so
+trying an engine build never means rebuilding the playground. Then: text to speech, speech to text, comparing
+models, and the round trip text → speech → text.
 
 A web app; later also a Tauri app for macOS on Apple silicon. How engines are loaded, and the open questions for the
 native path: [`DESIGN.md`](DESIGN.md).
 
 ## Status
 
-- **Works**: naming an engine and loading its web build from GitHub Releases (checked against the release's
+- **Works**: picking an engine and loading its web build from GitHub Releases (checked against the release's
   `SHA256SUMS`), several versions side by side; a local build of any ref (`--engine-tarball`). With an engine that
   has the model interface (`models`, `install`, `uninstall`, `load`, sidevoice-engine#41 on), a screen per
   capability: text to speech and speech to text each pick a family, then one of its models that does the task, and
@@ -25,7 +25,7 @@ native path: [`DESIGN.md`](DESIGN.md).
   and run in the browser (OPFS), never on the server. Phone and desktop alike; the look is the Sidevoice app's.
   Older builds say they cannot speak or transcribe. `models()` does not name a model's family yet (up to #41): it is
   read from the model id until the engine says it.
-- **Git refs**: a pull request, branch or commit loads the engine CI's build of its head commit (the
+- **Git refs**: an open pull request or a branch loads the engine CI's build of its head commit (the
   `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
 - **Not yet**: release builds whose package carries `dist/snippets/` and npm dependencies (#41 on) do not load from
   a release: the in-memory import cannot resolve them. The Tauri app.
@@ -54,7 +54,7 @@ node server.mjs --engine-tarball ../sidevoice-engine/target/npm/sidevoice-engine
 ```
 
 The server installs it as a consumer would, with its npm dependencies, into a scratch directory, serves it under
-`/local-engine/` and gives the page the import map its dependencies need. The engine box then offers `local`.
+`/local-engine/` and gives the page the import map its dependencies need. The Version list then offers it first.
 There is no `SHA256SUMS` for a local build: the page shows the tarball's digest, and `--engine-sha256` makes the
 server refuse a tarball with another one.
 
@@ -68,25 +68,27 @@ GitHub token even on a public repository: the server reads one from `--github-to
 Each build's dependencies get their own scope in the page's import map; a browser that takes only one import map
 per page (anything before Chrome 133) needs a reload after the first load of a ref.
 
-What you can type in the engine box:
+**Picking an engine.** Three dropdowns, each with its Load button and, below it, the details of what is picked.
+Nothing is typed: the server lists them through the GitHub API with its token (`/engine-builds`, behind the access
+gate like every route, kept a minute; *Refresh lists* asks anew), and only the listing reaches the page.
 
-| You type | It loads |
-|---|---|
-| `0.2.0`, `v0.2.0`, `@sidevoice/engine@0.2.0`, `…/releases/tag/v0.2.0` | that release's web build |
-| `nightly`, `…/releases/tag/nightly` | the latest green `main` |
-| `latest` | the newest published release |
-| `local` | the build passed with `--engine-tarball` |
-| `#27`, `…/pull/27`, `…/tree/<branch>`, `…/commit/<sha>`, a branch, a SHA | the CI build of its head commit (below) |
+| Dropdown | Lists | Details shown | It loads |
+|---|---|---|---|
+| Version | the local build (with `--engine-tarball`), `nightly`, `latest release (vX.Y.Z)`, every `vX.Y.Z` with a web build | version and digest, or publication date | that build; a release's web build from GitHub Releases |
+| Pull request | the open pull requests, `#<number> <title>` | author, head (`owner:branch @ sha`), draft, whether its `engine-npm-<sha>` build is there (until when) or expired | the CI build of its head commit (below) |
+| Branch | the branches | head commit | the CI build of its head commit |
 
 ## Layout
 
 ```
 web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, WAV)
-  engine/         spec.mjs (what you typed → a release or a ref), load.mjs (download, verify, import),
+  engine/         choices.mjs (the pickers' choices), spec.mjs (a choice → a release or a ref),
+                  load.mjs (download, verify, import),
                   tar.mjs (gzip + ustar), host.mjs (the page's capabilities for WebEngine.create)
 server.mjs      serves web/ and /fetch, the relay for engine release assets (github.com sends no CORS headers)
 access.mjs      the access gate: the token, the cookie, the check every request goes through
 served-engine.mjs  an engine tarball installed and served under a prefix, with its import map
+engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
 refs.mjs        a git ref → its head commit → its CI artifact, verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

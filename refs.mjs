@@ -25,6 +25,33 @@ export class RefError extends Error {
   }
 }
 
+/**
+ * sidevoice-engine's GitHub API with the server's token: `api(path)` is the JSON at `path` (null on a 404),
+ * `headers()` what every request to GitHub carries. Without a token every call fails with a 503.
+ * @param {{ token: string | null, fetch?: typeof globalThis.fetch }} options
+ */
+export function githubApi({ token, fetch = globalThis.fetch }) {
+  function headers() {
+    if (!token) throw new RefError(503, "this server has no GitHub token, which Actions artifacts need (--github-token-file)");
+    return { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" };
+  }
+
+  async function api(path) {
+    const res = await fetch(`${API}${path}`, { headers: headers() });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new RefError(502, `GitHub API ${path.split("?")[0]}: HTTP ${res.status}`);
+    return res.json();
+  }
+
+  return { api, headers };
+}
+
+/** The name of the artifact sidevoice-engine's CI uploads the npm package of commit `sha` as. */
+export const artifactName = (sha) => `engine-npm-${sha}`;
+
+/** The API path that lists commit `sha`'s artifacts, expired ones included. */
+export const artifactsPath = (sha) => `/repos/${ENGINE_REPO}/actions/artifacts?name=${artifactName(sha)}&per_page=100`;
+
 /** What spec.mjs makes of a ref: `pull/<n>/head`, or a branch or commit name. */
 export function validRef(ref) {
   if (typeof ref !== "string") return false;
@@ -43,17 +70,7 @@ export function refBuilds({ token, fetch = globalThis.fetch, install = installEn
   /** sha → ServedEngine, once installed. */
   const installed = new Map();
 
-  async function api(path) {
-    const res = await fetch(`${API}${path}`, { headers: headers() });
-    if (res.status === 404) return null;
-    if (!res.ok) throw new RefError(502, `GitHub API ${path.split("?")[0]}: HTTP ${res.status}`);
-    return res.json();
-  }
-
-  function headers() {
-    if (!token) throw new RefError(503, "this server has no GitHub token, which Actions artifacts need (--github-token-file)");
-    return { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" };
-  }
+  const { api, headers } = githubApi({ token, fetch });
 
   /** The commit `ref` names now, and how to call it. */
   async function resolve(ref) {
@@ -71,8 +88,8 @@ export function refBuilds({ token, fetch = globalThis.fetch, install = installEn
   /** The artifact of a successful run for `sha`, or why there is none. */
   async function artifactFor(sha) {
     const short = sha.slice(0, 7);
-    const name = `engine-npm-${sha}`;
-    const { artifacts = [] } = (await api(`/repos/${ENGINE_REPO}/actions/artifacts?name=${name}&per_page=100`)) ?? {};
+    const name = artifactName(sha);
+    const { artifacts = [] } = (await api(artifactsPath(sha))) ?? {};
     const newest = [...artifacts].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const live = newest.filter((a) => !a.expired);
     const runs = [];
