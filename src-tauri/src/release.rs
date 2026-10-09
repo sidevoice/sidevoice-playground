@@ -1,5 +1,5 @@
 //! Engine release assets for the page, which loads web builds from GitHub Releases: github.com sends no CORS headers,
-//! so the page cannot download them itself. The app's side of what server.mjs's `/fetch` does, for the same URLs only.
+//! so the page cannot download them itself. sidevoice-engine's release assets only.
 
 use tauri::ipc::Response;
 

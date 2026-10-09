@@ -24,19 +24,24 @@ playground.
 - No build exists for a git ref that is not `main` or a tag: the PR CI builds the npm package and keeps nothing.
 - github.com sends no CORS headers on release downloads: a page cannot fetch an asset by itself.
 
-## Web: release assets, verified and imported in the page (built)
+## Web: release assets, verified and installed by the server (built)
 
-1. The operator types a name; `web/engine/spec.mjs` reads it as a release tag (versions in any spelling, release
-   links, `nightly`), `latest` (resolved through the GitHub API, which does allow CORS) or a git ref.
-2. The shell downloads the tarball and `SHA256SUMS` from the release. In the browser, through `server.mjs`'s
-   `/fetch` (localhost only, engine release URLs only); in Tauri, through a Rust command doing the same.
-3. The page checks the tarball against `SHA256SUMS`, unpacks it in memory, imports the entry module from a `data:`
-   URL and initialises it with the `.wasm` bytes. Each load is its own module instance, so several versions live side
-   by side and can be compared.
+1. The operator picks a name; `web/engine/spec.mjs` reads it as a release tag (versions, `nightly`), `latest` or a
+   git ref.
+2. For a release, `server.mjs` downloads the tarball and `SHA256SUMS` from it (`release-builds.mjs`; `latest`
+   resolved through the GitHub API), checks the one against the other, and installs the package as a consumer
+   installs it, with its npm dependencies, serving it under `/engines/<sha256>/` with the import map they need, as it
+   serves the local build and builds of git refs. The page imports it from there.
+3. The macOS app has no server: it imports a release's package from memory instead (the tarball checked against
+   `SHA256SUMS`, unpacked, its entry imported from a `data:` URL), which only works for a package that imports
+   nothing. From sidevoice-engine#41 the package imports npm dependencies (transformers.js, eSpeak NG) and its own
+   modules (`dist/snippets/`), so the app refuses those and runs them natively instead. Loading them in the app's
+   window would take a local origin serving the installed package and its dependencies (an npm install on the Mac,
+   or pinned CDN URLs rewritten into it), and an import map in place before the page's own modules load, as
+   WebKit takes one import map per page.
 
 Why release assets rather than npm through a CDN (jsDelivr, esm.sh): the nightly is never on npm, the bytes are the
-same, and one path covers both. A CDN would spare the `/fetch` relay for versions only, and the relay is needed for
-the nightly anyway.
+same, and one path covers both.
 
 Not done: the attestation is not verified in the page (sigstore verification in a browser is heavy). `SHA256SUMS`
 from the same release protects against a broken download, not against a tampered release. Acceptable for an
@@ -115,9 +120,7 @@ from a successful run, checks it against the API's digest, and serves it install
 git refs*). A ref built by hand loads as a local build: `server.mjs --engine-tarball`.
 
 From sidevoice-engine#41 the package imports npm dependencies (transformers.js, eSpeak NG) from
-`dist/snippets/`, so the in-memory `data:` import of a release build cannot resolve them. A local build is served
-installed, with an import map; release builds will need the same (the relay installing the verified tarball, or a
-CDN for the dependencies).
+`dist/snippets/`: every build the server serves is installed with them, with an import map (above, *Web*).
 
 ## Recommendation
 

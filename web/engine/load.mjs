@@ -1,9 +1,12 @@
-// An engine's web build, loaded at run time from a GitHub Release of sidevoice-engine: the npm package tarball the
-// release carries, checked against the release's SHA256SUMS, unpacked in memory and imported as a module. Several
-// versions can be loaded side by side; each import is its own module instance with its own wasm memory.
-//
-// The bytes come through `fetchBytes`, because github.com sends no CORS headers: the page cannot download a release
-// asset by itself. Each shell supplies one (server.mjs for the web, the Tauri side later).
+// An engine's web build, loaded at run time, two ways:
+// - `loadServedEngine`: installed and served by server.mjs, with the import map its npm dependencies need, as
+//   `/local-engine.json`, `/ref-build` or `/release-build` describes it. Any build loads this way.
+// - `loadEngine`: from a GitHub Release of sidevoice-engine, where there is no server (the macOS app): the npm package
+//   tarball the release carries, checked against the release's SHA256SUMS, unpacked in memory and imported as a
+//   module. Only a package that imports nothing loads this way: one with npm dependencies or its own modules
+//   (`dist/snippets/`, sidevoice-engine#41 on) cannot be resolved from memory, and is refused saying so. Each import
+//   is its own module instance with its own wasm memory. The bytes come through `fetchBytes`, because github.com
+//   sends no CORS headers: the page cannot download a release asset by itself.
 
 import { assetFor, assetUrl, ENGINE_REPO } from "./spec.mjs";
 import { untgz } from "./tar.mjs";
@@ -42,16 +45,16 @@ export async function loadEngine(spec, { fetchBytes, fetchJson }) {
 }
 
 /**
- * A build server.mjs serves installed (served-engine.mjs): the local one, or a CI build of a git ref, as
- * `/local-engine.json` or `/ref-build` describes it. Imported from the server, where the page's import map resolves
- * its dependencies, with its wasm fetched beside it. Unlike a release build it is one module instance per build.
- * @param {{ label: string, version: string, sha256: string, entry: string, sha?: string }} info
+ * A build server.mjs serves installed (served-engine.mjs): the local one, a CI build of a git ref, or a release's, as
+ * `/local-engine.json`, `/ref-build` or `/release-build` describes it. Imported from the server, where the page's
+ * import map resolves its dependencies, with its wasm fetched beside it: one module instance per build.
+ * @param {{ label: string, version: string, sha256: string, entry: string, sha?: string, tag?: string }} info
  * @returns {Promise<LoadedEngine>}
  */
 export async function loadServedEngine(info) {
   const module = await import(info.entry);
   await module.default();
-  return { label: info.label, tag: info.sha ?? "local", version: info.version, sha256: info.sha256, module };
+  return { label: info.label, tag: info.sha ?? info.tag ?? "local", version: info.version, sha256: info.sha256, module };
 }
 
 /** The engine's releases that carry a web build, newest first, for the picker. */
@@ -89,6 +92,13 @@ export function readPackage(files) {
   const manifest = files.get("package/package.json");
   if (!manifest) throw new Error("not an npm package: no package/package.json");
   const pkg = JSON.parse(new TextDecoder().decode(manifest));
+  const needs = Object.keys(pkg.dependencies ?? {});
+  if ([...files.keys()].some((path) => path.includes("/snippets/"))) needs.push("its own modules (dist/snippets/)");
+  if (needs.length) {
+    throw new Error(
+      `this build imports ${needs.join(", ")}, which cannot be resolved from memory: it loads installed, through the web playground's server, or natively in the macOS app`,
+    );
+  }
   const exported = typeof pkg.exports === "string" ? pkg.exports : pkg.exports?.["."] ?? pkg.main;
   if (typeof exported !== "string") throw new Error("the package names no entry point");
   const entry = `package/${exported.replace(/^\.\//, "")}`;

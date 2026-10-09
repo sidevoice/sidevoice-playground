@@ -1,7 +1,7 @@
 //! The playground as a macOS app: the page in `web/` in a webview, with two things a browser tab does not have. The
 //! native engine, built on this Mac for the engine commit picked and run as a child process (`runner`); and the relay
-//! for engine release assets the page loads web builds through (`release`), as server.mjs's `/fetch`. There is no
-//! access gate: nothing listens on the network, and only the app's own page calls these commands.
+//! for engine release assets the page loads web builds through (`release`). There is no access gate: nothing listens
+//! on the network, and only the app's own page calls these commands.
 
 mod release;
 mod runner;
