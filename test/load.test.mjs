@@ -46,6 +46,15 @@ test("readPackage finds the entry through package.json, and its wasm beside it",
   assert.throws(() => readPackage(new Map()), /no package\/package.json/);
 });
 
+test("a package with npm dependencies or its own modules is refused from memory, saying where it loads", () => {
+  const json = (value) => new TextEncoder().encode(JSON.stringify(value));
+  const manifest = JSON.parse(new TextDecoder().decode(pkg["package/package.json"]));
+  const withDeps = { ...pkg, "package/package.json": json({ ...manifest, dependencies: { "@huggingface/transformers": "4.3.1" } }) };
+  assert.throws(() => readPackage(new Map(Object.entries(withDeps))), /imports @huggingface\/transformers, which cannot be resolved from memory: it loads installed/);
+  const withSnippets = { ...pkg, "package/dist/snippets/x/inline0.js": new Uint8Array() };
+  assert.throws(() => readPackage(new Map(Object.entries(withSnippets))), /its own modules \(dist\/snippets\/\)/);
+});
+
 test("parseSums reads sha256sum's format", () => {
   const sums = parseSums(`${"a".repeat(64)}  sidevoice-engine-0.2.0.tgz\n${"b".repeat(64)} *attestation.sigstore.json\n`);
   assert.equal(sums.get("sidevoice-engine-0.2.0.tgz"), "a".repeat(64));

@@ -16,9 +16,10 @@ Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
 ## Status
 
 - **Works**: picking an engine and loading its web build from GitHub Releases (checked against the release's
-  `SHA256SUMS`), several versions side by side; a local build of any ref (`--engine-tarball`). With an engine that
-  has the model interface (`models`, `install`, `uninstall`, `load`, sidevoice-engine#41 on), a screen per
-  capability: text to speech and speech to text each pick a family, then one of its models that does the task, and
+  `SHA256SUMS` and installed by the server with its npm dependencies), several versions side by side; a local build
+  of any ref (`--engine-tarball`). With an engine that has the model interface (`models`, `install`, `uninstall`,
+  `load`, sidevoice-engine#41 on), a screen per capability: text to speech and speech to text each pick a family, then
+  one of its models that does the task, and
   install and load it there with progress and cancel, in its recommended build or the one picked under Advanced
   (every build `models()` lists, those that do not run here with their reason). Then speaking (voice, language,
   speed), transcribing a recording or an upload, and the round trip with its word error rate. Models download to
@@ -27,8 +28,6 @@ Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
   read from the model id until the engine says it.
 - **Git refs**: an open pull request or a branch loads the engine CI's build of its head commit (the
   `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
-- **Not yet**: release builds whose package carries `dist/snippets/` and npm dependencies (#41 on) do not load from
-  a release: the in-memory import cannot resolve them.
 - **The macOS app**: the same page, and the native engine of any version, pull request or branch, built on the Mac
   (below). Unsigned: CI builds the `.dmg`.
 
@@ -70,13 +69,18 @@ GitHub token even on a public repository: the server reads one from `--github-to
 Each build's dependencies get their own scope in the page's import map; a browser that takes only one import map
 per page (anything before Chrome 133) needs a reload after the first load of a ref.
 
+**Builds of releases.** For a version, `nightly` or `latest`, the server downloads the release's npm tarball and its
+`SHA256SUMS` (no token needed), checks the one against the other, and installs and serves it like a local build, under
+`/engines/<its sha256>/`, so the package's own modules (`dist/snippets/`) and its npm dependencies resolve. Once per
+tarball: `nightly`, whose tarball changes, is checked again each time it is loaded, and shows its digest in its name.
+
 **Picking an engine.** Three dropdowns, each with its Load button and, below it, the details of what is picked.
 Nothing is typed: the server lists them through the GitHub API with its token (`/engine-builds`, behind the access
 gate like every route, kept a minute; *Refresh lists* asks anew), and only the listing reaches the page.
 
 | Dropdown | Lists | Details shown | It loads |
 |---|---|---|---|
-| Version | the local build (with `--engine-tarball`), `nightly`, `latest release (vX.Y.Z)`, every `vX.Y.Z` with a web build | version and digest, or publication date | that build; a release's web build from GitHub Releases |
+| Version | the local build (with `--engine-tarball`), `nightly`, `latest release (vX.Y.Z)`, every `vX.Y.Z` with a web build | version and digest, or publication date | that build; a release's web build from GitHub Releases, installed by the server (below) |
 | Pull request | the open pull requests, `#<number> <title>` | author, head (`owner:branch @ sha`), draft, whether its `engine-npm-<sha>` build is there (until when) or expired | the CI build of its head commit (below); while the head has none, the newest earlier commit of the pull request that has one, said in its label (`head building; loads <sha> (N commits behind)`) |
 | Branch | the branches | head commit | the CI build of its head commit |
 
@@ -87,9 +91,11 @@ no access gate: nothing listens on the network, and only the app's own page reac
 engine is compiled into it. It offers the same three dropdowns, listed from GitHub's API directly (no token: 60
 requests an hour), and one more, **Run**:
 
-- **its web build, in this window**: a release's web build loads as in a browser, its assets coming through the app
-  instead of `server.mjs`. Pull requests and branches do not: their web builds are fetched and installed by the
-  server, which the app does not run.
+- **its web build, in this window**: only a release whose package imports nothing loads here, from memory, its assets
+  coming through the app. A package with npm dependencies or its own modules (`dist/snippets/`, sidevoice-engine#41
+  on: `nightly`, `v0.2.0`) needs them installed and served beside it, which the web playground's server does and the
+  app, with no server, does not; it is refused saying so. Pull requests and branches do not load here either. Run
+  those natively here, or in the web playground.
 - **natively: built on this Mac, run beside the app**: any version, pull request or branch. The app takes the commit
   it names and builds **the native runner** for it: a small crate shipped with the app as a template
   (`src-tauri/runner/`), sidevoice-engine as a git dependency at that commit, built with `cargo build --release` by
@@ -154,10 +160,11 @@ web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, W
 src-tauri/      the macOS app: main.rs, runner.rs (the native runner: built, started, spoken to), release.rs
                 (release assets for the page); tauri.conf.json, Info.plist (the microphone)
   runner/         the native runner's template: Cargo.toml.in, build.sh, src/ (the protocol, the engine's values)
-server.mjs      serves web/ and /fetch, the relay for engine release assets (github.com sends no CORS headers)
+server.mjs      serves web/ and the engine builds the page loads
 access.mjs      the access gate: the token, the cookie, the check every request goes through
 served-engine.mjs  an engine tarball installed and served under a prefix, with its import map
 engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
+release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
 refs.mjs        a git ref → its head commit → its CI artifact, verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

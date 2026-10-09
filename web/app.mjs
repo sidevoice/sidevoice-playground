@@ -33,15 +33,10 @@ const app = tauri();
 /** GitHub's API as the page reaches it with no token, for the app, which has no server to list builds. */
 const github = publicApi();
 
-// The shell supplies the bytes: in the browser, server.mjs's /fetch (github.com sends no CORS headers); in the app,
-// its fetch_release_asset command (src-tauri/src/release.rs).
+// In the app, which has no server, a release's web build is imported from memory (engine/load.mjs): its bytes come
+// through the app's fetch_release_asset command (src-tauri/src/release.rs), as github.com sends no CORS headers.
 const fetchers = {
-  fetchBytes: async (url) => {
-    if (app) return new Uint8Array(await app.core.invoke("fetch_release_asset", { url }));
-    const res = await fetch(`/fetch?url=${encodeURIComponent(url)}`);
-    if (!res.ok) throw new Error(await res.text());
-    return new Uint8Array(await res.arrayBuffer());
-  },
+  fetchBytes: async (url) => new Uint8Array(await app.core.invoke("fetch_release_asset", { url })),
   fetchJson: async (url) => {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
@@ -172,10 +167,16 @@ async function load(input, choice) {
     else if (spec.kind === "ref") {
       if (app) throw new Error(`${spec.label}'s web build is fetched by the web playground's server: run it natively here (Run: native)`);
       status(line, `Fetching the CI build of ${spec.label} (the first time, the server downloads and installs it)…`);
-      const info = await refBuild(spec.ref);
+      const info = await servedBuild(`/ref-build?ref=${encodeURIComponent(spec.ref)}`);
       if (engines.has(info.label)) return activate(info.label);
       loaded = await loadServedEngine(info);
-    } else loaded = await loadEngine(spec, fetchers);
+    } else if (app) loaded = await loadEngine(spec, fetchers);
+    else {
+      status(line, `Fetching ${spec.label} from GitHub Releases (the first time, the server downloads, checks and installs it)…`);
+      const info = await servedBuild(`/release-build?name=${encodeURIComponent(input)}`);
+      if (engines.has(info.label)) return activate(info.label);
+      loaded = await loadServedEngine(info);
+    }
     const engine = await loaded.module.WebEngine.create(browserHost());
     const methods = Object.getOwnPropertyNames(loaded.module.WebEngine.prototype).filter(
       (name) => name !== "constructor" && name !== "free",
@@ -264,12 +265,13 @@ function nativeExited({ sha, message }) {
 }
 
 /**
- * The CI build of `ref`, installed by the server (refs.mjs), with its dependencies' names added to the page's import
- * map under its own scope. A page holds the import map it started with only in browsers that merge several (Chrome
- * 133 on); elsewhere, reloading the page brings the scope in from the server.
+ * A build the server installs and describes at `path` (`/ref-build`, refs.mjs; `/release-build`, release-builds.mjs),
+ * with its dependencies' names added to the page's import map under its own scope. A page holds the import map it
+ * started with only in browsers that merge several (Chrome 133 on); elsewhere, reloading the page brings the scope in
+ * from the server.
  */
-async function refBuild(ref) {
-  const res = await fetch(`/ref-build?ref=${encodeURIComponent(ref)}`);
+async function servedBuild(path) {
+  const res = await fetch(path);
   if (!res.ok) throw new Error(await res.text());
   const info = await res.json();
   const known = [...document.querySelectorAll('script[type="importmap"]')].some((s) => s.textContent.includes(info.prefix));
