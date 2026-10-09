@@ -10,6 +10,11 @@ build — a version, `nightly`, `latest`, a pull request, a branch — and the p
 trying an engine build never means rebuilding the playground. Then: text to speech, speech to text, comparing
 models, and the round trip text → speech → text.
 
+Two more sections sit beside the engine's: **Voice**, a call on the voice module
+([sidevoice-voice](https://github.com/sidevoice/sidevoice-voice)) with the engine loaded, and **Connector**, the
+connector's test bench ([sidevoice-connector](https://github.com/sidevoice/sidevoice-connector)) reached through
+this server.
+
 A web app, and a Tauri app for macOS on Apple silicon that can also run any engine commit **natively**, built on the
 Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
 
@@ -28,6 +33,16 @@ Mac (below). How engines are loaded: [`DESIGN.md`](DESIGN.md).
   read from the model id until the engine says it.
 - **Git refs**: an open pull request or a branch loads the engine CI's build of its head commit (the
   `engine-npm-<sha>` Actions artifact, kept 7 days), fetched by the server with a GitHub token.
+- **Voice** (web only): a CI build of `@sidevoice/voice` (a pull request's or a branch's `voice-npm-<sha>`
+  artifact, fetched like an engine ref's), a call on it with the active engine's models: voice activity, speech to
+  text (language), text to speech (voice), end of turn, patience, and the browser's echo cancellation on or off. It
+  shows the call's state, the microphone's level, its turns with their transcripts and timings, and each reply as it
+  sounds (heard, sounding, rest). The page stands in for the room: it answers each finished turn with what was
+  heard, when asked, or speaks a reply typed in.
+- **Connector**: the connector's test bench (`cargo xtask bench` in a sidevoice-connector checkout, on
+  127.0.0.1:4477) under `/connector/`, through this server's access gate (`--bench-url` to point elsewhere). The
+  bench's page and logic stay in the connector; the section says whether it answers and opens it. In the macOS app,
+  it gives the command and the bench's own address.
 - **The macOS app**: the same page, and the native engine of any version, pull request or branch, built on the Mac
   (below). Unsigned: CI builds the `.dmg`.
 
@@ -152,6 +167,9 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 ```
 web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, WAV)
+  voice.mjs, voice/call.mjs  the Voice section: the DOM, and what it makes of the call (no DOM)
+  connector.mjs   the Connector section
+  sources.mjs     the repositories builds come from (engine, voice) and their artifacts' names
   engine/         choices.mjs (the pickers' choices), spec.mjs (a choice → a release or a ref),
                   load.mjs (download, verify, import),
                   tar.mjs (gzip + ustar), host.mjs (the page's capabilities for WebEngine.create),
@@ -160,11 +178,12 @@ web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, W
 src-tauri/      the macOS app: main.rs, runner.rs (the native runner: built, started, spoken to), release.rs
                 (release assets for the page); tauri.conf.json, Info.plist (the microphone)
   runner/         the native runner's template: Cargo.toml.in, build.sh, src/ (the protocol, the engine's values)
-server.mjs      serves web/ and the engine builds the page loads
+server.mjs      serves web/, the engine and voice builds the page loads, and the bench under /connector/
+bench.mjs       the reverse proxy to the connector's test bench
 access.mjs      the access gate: the token, the cookie, the check every request goes through
-served-engine.mjs  an engine tarball installed and served under a prefix, with its import map
+served-engine.mjs  an engine or voice tarball installed and served under a prefix, with its import map
 engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
-refs.mjs        a git ref → its head commit → its CI artifact, verified, unzipped (zip.mjs) and served
+refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

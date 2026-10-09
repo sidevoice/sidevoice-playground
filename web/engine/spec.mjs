@@ -7,7 +7,9 @@
 // - `ref`: any other git ref (a branch, a commit, a pull request). Its package is the engine CI's artifact for the
 //   ref's head commit, which only the server can download (refs.mjs; DESIGN.md, "Arbitrary refs").
 
-export const ENGINE_REPO = "sidevoice/sidevoice-engine";
+import { ENGINE } from "../sources.mjs";
+
+export const ENGINE_REPO = ENGINE.repo;
 
 const VERSION = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 const SHA = /^[0-9a-f]{7,40}$/;

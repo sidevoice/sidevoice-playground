@@ -24,6 +24,8 @@ import { commitOf, listEngineBuilds, publicApi } from "./engine/listing.mjs";
 import { loadEngine, loadServedEngine } from "./engine/load.mjs";
 import { NATIVE, NATIVE_METHODS, nativeEngine, onNativeExit, prepareNative, tauri } from "./engine/native.mjs";
 import { parseSpec } from "./engine/spec.mjs";
+import { connectorSection } from "./connector.mjs";
+import { voiceSection } from "./voice.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const CAPABILITIES = ["tts", "stt"];
@@ -686,10 +688,27 @@ for (const kind of KINDS) {
 }
 $("#engine-refresh").onclick = () => fillChoices({ fresh: true });
 if (app) {
-  $(".subtitle").textContent = "Try an engine build by hand: its web build, or its native build, built on this Mac.";
+  $(".subtitle").textContent = "Try Sidevoice's parts by hand: an engine build (its web build, or its native build, built on this Mac) and the connector's bench. The voice module loads in the web playground.";
   $("#engine-runtime-field").hidden = false;
   $("#engine-runtime").onchange = renderChoices;
   onNativeExit(app, nativeExited);
 }
 
 fillChoices();
+
+// --- The sections: Engine above, Voice (voice.mjs) and Connector (connector.mjs).
+
+const sections = {
+  voice: voiceSection({ currentEngine: () => engines.get(active) ?? null, servedBuild, inApp: Boolean(app) }),
+  connector: connectorSection({ inApp: Boolean(app) }),
+};
+for (const button of document.querySelectorAll("#sections button")) {
+  button.onclick = () => {
+    const shown = button.dataset.section;
+    for (const other of document.querySelectorAll("#sections button")) {
+      other.setAttribute("aria-pressed", String(other === button));
+      $(`#section-${other.dataset.section}`).hidden = other !== button;
+    }
+    sections[shown]?.show();
+  };
+}

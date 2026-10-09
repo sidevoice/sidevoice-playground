@@ -2,8 +2,10 @@
 
 Rules for any coding agent (and person) working in this repository.
 
-- An internal tool to try sidevoice-engine builds by hand. Keep it small: no framework, no build step, no runtime
-  dependencies. The page is plain ES modules in `web/`; `server.mjs` serves it; tests run with `node --test`.
+- An internal tool to try Sidevoice's parts by hand: sidevoice-engine builds, the voice module (sidevoice-voice) on
+  them, and the connector's test bench, whose page and logic stay in sidevoice-connector. Keep it small: no
+  framework, no build step, no runtime dependencies. The page is plain ES modules in `web/`; `server.mjs` serves it;
+  tests run with `node --test`.
 - Code, comments, docs and commit messages are in **English**. The UI is English only: it is not a product.
 - The engine is loaded at run time, never bundled or compiled in (`DESIGN.md`). The macOS app's native engine too:
   it is built on the user's Mac, per engine commit, from the runner template the app ships (`src-tauri/runner/`), and

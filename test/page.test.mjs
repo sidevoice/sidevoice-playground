@@ -29,3 +29,16 @@ test("the page is set up for phones: viewport, no zoom on focus, touch-sized con
   assert.match(css, /min-height: 44px/);
   assert.match(css, /overflow-x: hidden/);
 });
+
+test("the sections' scripts look up only elements index.html has, and each section button names a section", async () => {
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  for (const file of ["voice.mjs", "connector.mjs"]) {
+    const script = await readFile(new URL(`../web/${file}`, import.meta.url), "utf8");
+    const used = [...script.matchAll(/\$\(["`]#([\w-]+)/g)].map((m) => m[1]);
+    assert.ok(used.length > 0, file);
+    for (const id of used) assert.ok(ids.has(id), `${file}: #${id}`);
+  }
+  const sections = [...html.matchAll(/data-section="([\w-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(sections, ["engine", "voice", "connector"]);
+  for (const section of sections) assert.ok(ids.has(`section-${section}`), `#section-${section}`);
+});
