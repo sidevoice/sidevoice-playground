@@ -1,12 +1,14 @@
 use serde_json::json;
-use sidevoice_engine::{Accelerator, Capability, Gender, Model, ModelBuild, Reason, Voice};
+use sidevoice_engine::{
+    Accelerator, Capability, Gender, LocalModelInfo, ModelBuild, Reason, SpeedRange, Voice,
+};
 
 use super::{decode_samples, encode_samples, model};
 
 /// The shape a web build's `models()` gives JavaScript.
 #[test]
 fn a_model_reads_as_the_web_build_lists_it() {
-    let listed = Model {
+    let listed = LocalModelInfo {
         id: "kokoro-82m-v1.0".into(),
         family: "kokoro".into(),
         capabilities: vec![Capability::Tts],
@@ -15,9 +17,11 @@ fn a_model_reads_as_the_web_build_lists_it() {
         license: "Apache-2.0".into(),
         voices: vec![Voice {
             id: "af_bella".into(),
+            name: None,
             languages: vec!["en".into()],
             gender: Some(Gender::Female),
         }],
+        speed: Some(SpeedRange { min: 0.5, max: 2.0 }),
         installed: false,
         builds: vec![
             ModelBuild {
@@ -58,6 +62,7 @@ fn a_model_reads_as_the_web_build_lists_it() {
             "languages": ["en", "es"],
             "license": "Apache-2.0",
             "voices": [{ "id": "af_bella", "languages": ["en"], "gender": "female" }],
+            "speed": { "min": 0.5, "max": 2.0 },
             "installed": false,
             "builds": [
                 {

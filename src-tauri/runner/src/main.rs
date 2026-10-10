@@ -9,7 +9,7 @@
 //!                                     ← { "event": "progress", "job", "files", "done", "received", "size" } ...
 //!                                     ← { "id": 3, "ok": null }
 //! → { "id": 4, "op": "load", "model", "build"?, "job" }   ← { "id": 4, "ok": { "handle", "model", "build", "capabilities" } }
-//! → { "id": 5, "op": "uninstall", "model" }               → { "id": 6, "op": "cancel", "job" }
+//! → { "id": 5, "op": "uninstall", "model", "build"? }     → { "id": 6, "op": "cancel", "job" }
 //! → { "id": 7, "op": "voices", "handle" }                 → { "id": 8, "op": "free", "handle" }
 //! → { "id": 9, "op": "speak", "handle", "text", "voice", "language"?, "speed"? }
 //!                                     ← { "id": 9, "ok": { "sampleRate", "samples": "<base64 f32 LE>" } }
@@ -33,7 +33,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
-use sidevoice_engine::{BundledCatalog, Cancel, Engine, LoadedModel, NativeHost, Progress};
+use sidevoice_engine::{BundledCatalog, Cancel, Engine, LocalModel, NativeHost, Progress};
 use tokio::runtime::Handle;
 
 /// The version of this protocol: what `hello` says.
@@ -85,7 +85,7 @@ impl From<sidevoice_engine::Error> for Coded {
 struct Runner {
     engine: Engine,
     data_dir: PathBuf,
-    loaded: Mutex<HashMap<u32, LoadedModel>>,
+    loaded: Mutex<HashMap<u32, LocalModel>>,
     jobs: Mutex<HashMap<String, Cancel>>,
     next: AtomicU32,
     out: Mutex<std::io::Stdout>,
@@ -103,7 +103,7 @@ impl Runner {
         }
     }
 
-    fn model(&self, handle: u32) -> Result<LoadedModel, Coded> {
+    fn model(&self, handle: u32) -> Result<LocalModel, Coded> {
         lock(&self.loaded)
             .get(&handle)
             .cloned()
@@ -157,7 +157,9 @@ impl Runner {
                 json!({ "protocol": PROTOCOL, "engine": VERSION, "rev": REV, "dataDir": self.data_dir }),
             ),
             "models" => {
-                let models = self.runtime.block_on(self.engine.models())?;
+                let models = self
+                    .runtime
+                    .block_on(self.engine.local_catalog().models(None))?;
                 Ok(models.iter().map(values::model).collect())
             }
             "install" => {
@@ -174,8 +176,9 @@ impl Runner {
                 Ok(Value::Null)
             }
             "uninstall" => {
+                let (model, build) = (text("model")?, optional("build"));
                 self.runtime
-                    .block_on(self.engine.uninstall(text("model")?))?;
+                    .block_on(self.engine.uninstall(model, build.as_deref()))?;
                 Ok(Value::Null)
             }
             "load" => {
