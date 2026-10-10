@@ -168,12 +168,36 @@ npm run tauri build -- --bundles app     # src-tauri/target/release/bundle/macos
 sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runner alone, as the app builds it
 ```
 
+## Web preview
+
+The real sidevoice-web, at a release, `main`, a branch or a pull request, on the real core and connector of a picked
+release, in a scenario. Nothing is faked and no model runs: the core offered is the room-only one (`rust-native-v2`,
+the nightly today).
+
+- **The web** is built by checkout, once per commit: a bare mirror of the repository (`git archive` of the commit),
+  then the web's own build (`npm ci`, `npm run build`, `node scripts/assemble-static-web.mjs`). Only the site is
+  kept, the 3 newest. A web that pins an `@sidevoice/*` version npm does not have yet takes it from the engine or
+  voice build picked for it (their CI tarballs); with none picked, the start says which.
+- **The core and the connector** are the archives their releases publish for linux-x86_64 (the core's, the one the
+  connector fetches), checked against `SHA256SUMS` and unpacked once per digest.
+- **A run** starts the core in the scenario's own profile, told to answer the preview origin
+  (`SIDEVOICE_ALLOWED_HOSTS`, `SIDEVOICE_ALLOWED_ORIGINS`). *Pairing code* asks the connector, in the same
+  profile, for a one-time code (`pair-device`). One run at a time: a start stops the last one.
+- **The preview origin** is a listener of its own (`--preview-port`, PORT+1 by default; `--preview-origin` is its
+  public address, behind a tunnel), so the web's storage there is never the playground's. It is behind the same
+  access gate (the page links to it with the token), serves the site as a deployment does, and passes `/api/…` and
+  socket upgrades to the core as they came.
+- **Scenarios** are `preview/scenarios/*.json`: *Fresh install* empties its profile and, on the first page, the
+  browser's storage for the preview origin (`/preview-reset`); *Paired* keeps both, so it is paired once (*Forget*
+  starts it over). What is built, unpacked and kept lives under `--cache-dir` (`~/.cache/sidevoice-playground`).
+
 ## Layout
 
 ```
 web/            the page: index.html, app.mjs (UI), audio.mjs (record, decode, WAV)
   voice.mjs, voice/call.mjs  the Voice section: the DOM, and what it makes of the call (no DOM)
   connector.mjs   the Connector section
+  preview.mjs, preview/choices.mjs  the Web preview section, and its pickers' choices (no DOM)
   sources.mjs     the repositories builds come from (engine, voice) and their artifacts' names
   engine/         choices.mjs (the pickers' choices), spec.mjs (a choice → a release or a ref),
                   load.mjs (download, verify, import),
@@ -189,6 +213,8 @@ access.mjs      the access gate: the token, the cookie, the check every request 
 served-engine.mjs  an engine or voice tarball installed and served under a prefix, with its import map
 engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
+preview/        the Web preview: web-build.mjs (by checkout), archives.mjs (core, connector), runs.mjs,
+                proxy.mjs (the preview origin), index.mjs (its routes), scenarios/
 refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

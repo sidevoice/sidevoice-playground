@@ -53,7 +53,7 @@ export function releaseBuilds({ api, fetch = globalThis.fetch, install = install
     const dir = await mkdtemp(join(tmpdir(), "sidevoice-playground-release-"));
     await writeFile(join(dir, asset), tarball);
     const served = await install(join(dir, asset), { label: tag, sha256: digest, prefix: `${ENGINES_PREFIX}${digest}/` });
-    const result = { ...served, tag, verified: true };
+    const result = { ...served, tag, verified: true, tarball: join(dir, asset) };
     installed.set(digest, result);
     return result;
   }

@@ -20,6 +20,7 @@
       <button type="button" data-section="engine" aria-pressed="true">Engine</button>
       <button type="button" data-section="voice" aria-pressed="false">Voice</button>
       <button type="button" data-section="connector" aria-pressed="false">Connector</button>
+      <button type="button" data-section="preview" aria-pressed="false">Web preview</button>
     </nav>
 
     <main>
@@ -279,6 +280,43 @@
           <p id="connector-status" class="status" aria-live="polite"></p>
           <p><a id="connector-open" class="button" href="connector/" target="_blank" rel="noopener">Open the
               bench</a></p>
+        </section>
+      </div>
+      <div id="section-preview" class="section" hidden>
+        <section class="card">
+          <h2>Web preview</h2>
+          <p class="muted">The real sidevoice-web, built by checkout at the commit picked, on the real core and connector of
+            a release, in a scenario. It opens on an origin of its own, so what it stores there is its own.</p>
+          <label class="field"><span class="label">Web</span><select id="preview-web"></select></label>
+          <div class="field-row">
+            <label class="field grow"><span class="label">Core</span><select id="preview-core"></select></label>
+            <label class="field grow"><span class="label">Connector</span><select id="preview-connector"></select></label>
+          </div>
+          <details class="advanced">
+            <summary>Builds for what the web pins and npm does not have yet</summary>
+            <div class="field-row">
+              <label class="field grow"><span class="label">Engine</span><select id="preview-engine"></select></label>
+              <label class="field grow"><span class="label">Voice</span><select id="preview-voice"></select></label>
+            </div>
+          </details>
+          <label class="field"><span class="label">Scenario</span><select id="preview-scenario"></select></label>
+          <p id="preview-summary" class="muted"></p>
+          <ol id="preview-steps" class="voice-log"></ol>
+          <div class="actions">
+            <button type="button" id="preview-start" class="primary">Start</button>
+            <button type="button" id="preview-stop" class="ghost">Stop</button>
+            <button type="button" id="preview-forget" class="ghost" hidden>Forget its kept state</button>
+          </div>
+          <p id="preview-status" class="status" aria-live="polite"></p>
+          <pre id="preview-log" class="build-log" hidden></pre>
+        </section>
+        <section id="preview-live" class="card" hidden>
+          <h2>Running</h2>
+          <p id="preview-running" class="muted"></p>
+          <p><a id="preview-open" class="button" target="_blank" rel="noopener">Open the preview</a></p>
+          <div class="actions"><button type="button" id="preview-pair">Pairing code</button></div>
+          <p id="preview-code-status" class="status" aria-live="polite"></p>
+          <pre id="preview-code" class="result" hidden></pre>
         </section>
       </div>
     </main>
