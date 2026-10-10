@@ -8,17 +8,19 @@ use std::fmt::Debug;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use serde_json::{json, Map, Value};
-use sidevoice_engine::{LoadedModel, Model, ModelBuild, Progress, Reason, Voice};
+use sidevoice_engine::{
+    Capability, LocalModel, LocalModelInfo, ModelBuild, Progress, Reason, SpeedRange, Voice,
+};
 
 #[cfg(test)]
 mod tests;
 
 /// A model, as `models()` lists it.
-pub fn model(model: &Model) -> Value {
-    json!({
+pub fn model(model: &LocalModelInfo) -> Value {
+    let mut value = json!({
         "id": model.id,
         "family": model.family,
-        "capabilities": model.capabilities.iter().map(id).collect::<Vec<_>>(),
+        "capabilities": model.capabilities.iter().map(capability).collect::<Vec<_>>(),
         "parametersM": model.parameters_m,
         "languages": model.languages,
         "license": model.license,
@@ -26,7 +28,16 @@ pub fn model(model: &Model) -> Value {
         "installed": model.installed,
         "builds": model.builds.iter().map(build).collect::<Vec<_>>(),
         "recommendedBuild": model.recommended_build,
-    })
+    });
+    if let Some(range) = model.speed {
+        value["speed"] = speed(range);
+    }
+    value
+}
+
+/// `{ min, max }`: the speeds a model takes.
+fn speed(range: SpeedRange) -> Value {
+    json!({ "min": range.min, "max": range.max })
 }
 
 fn build(build: &ModelBuild) -> Value {
@@ -55,9 +66,12 @@ fn reason(reason: &Reason) -> Value {
     json!({ "code": reason.code, "params": params })
 }
 
-/// `{ id, languages, gender? }`.
+/// `{ id, name?, languages, gender? }`.
 pub fn voice(voice: &Voice) -> Value {
     let mut value = json!({ "id": voice.id, "languages": voice.languages });
+    if let Some(name) = &voice.name {
+        value["name"] = name.as_str().into();
+    }
     if let Some(gender) = voice.gender {
         value["gender"] = id(gender).into();
     }
@@ -77,12 +91,12 @@ pub fn progress(job: &str, progress: &Progress) -> Value {
 }
 
 /// What `load` answers: the handle the caller holds, and what the model can do.
-pub fn loaded(handle: u32, loaded: &LoadedModel) -> Value {
+pub fn loaded(handle: u32, loaded: &LocalModel) -> Value {
     json!({
         "handle": handle,
         "model": loaded.id(),
         "build": loaded.build(),
-        "capabilities": loaded.capabilities().iter().map(id).collect::<Vec<_>>(),
+        "capabilities": loaded.capabilities().iter().map(capability).collect::<Vec<_>>(),
     })
 }
 
@@ -105,6 +119,14 @@ pub fn decode_samples(text: &str) -> Option<Vec<f32>> {
             .map(|chunk| f32::from_le_bytes(*chunk))
             .collect(),
     )
+}
+
+/// A capability's id, as a web build names it: `end-of-turn`, else its name in lower case.
+fn capability(capability: &Capability) -> String {
+    match capability {
+        Capability::EndOfTurn => "end-of-turn".to_owned(),
+        other => id(other),
+    }
 }
 
 /// An engine enum's stable id: its name in lower case (`CoreMl` → `coreml`).

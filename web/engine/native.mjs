@@ -60,7 +60,7 @@ export function nativeEngine(api, sha) {
     install: async (...args) => {
       await install(...args);
     },
-    uninstall: (model) => call("uninstall", { model }),
+    uninstall: (model, build) => call("uninstall", { model, build: build ?? null }),
     load: async (...args) => loadedModel(call, await load(...args)),
   };
 }
