@@ -1,7 +1,8 @@
 name: ci
 
-# Every pull request and push to main: the unit tests, and the network test, which loads the engine's nightly web
-# build from GitHub Releases and creates an engine in Node (no model is downloaded or run). And the macOS app: built,
+# Every pull request and push to main: the unit tests; the network test, which loads the engine's nightly web
+# build from GitHub Releases and creates an engine in Node (no model is downloaded or run); and the mocked preview's
+# conformance test, which asks the nightly core (room-only) and the newest connector what the mocks answer. And the macOS app: built,
 # checked, and packed as an unsigned .dmg kept as an artifact; and the native runner template it ships, built against
 # sidevoice-engine's main as the app builds it on a Mac, so a template that no longer builds is caught here. On main,
 # the .dmg then replaces the `nightly` pre-release's.
@@ -32,6 +33,7 @@ jobs:
       - run: npm test
         env:
           PLAYGROUND_NETWORK: "1"
+          PLAYGROUND_CONFORMANCE: "1"
 
   # On every run, not only when src-tauri/ changes: the app embeds web/, so a change to the page is a change to the
   # app, and a path filter would spare only the PRs that touch nothing but docs.

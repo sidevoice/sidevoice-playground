@@ -4,6 +4,8 @@
 // preview origin (proxy.mjs), so the core is told to answer that origin (its documented SIDEVOICE_ALLOWED_HOSTS and
 // SIDEVOICE_ALLOWED_ORIGINS). Starting a run ends the one before: its processes stop, and a scenario that does not
 // keep its state starts from an empty profile.
+//
+// A mocked run (the preview's main use) runs nothing here: the web build alone, its mocks in the page (mock/).
 
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
@@ -122,6 +124,7 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
     if (!run) return;
     // What the connector runs on demand stops the way a person stops it; then the core this run started.
     if (run.connectorUsed) await connector(run, ["service", "stop"]).catch(() => {});
+    if (!run.process) return;
     run.process.kill("SIGTERM");
     await new Promise((resolve) => (run.process.exitCode !== null ? resolve() : run.process.once("exit", resolve)));
   }
@@ -130,10 +133,11 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
     /** What is running, for the page and for the proxy: no secrets in it. */
     get current() {
       return current && {
-        scenario: current.scenario.id,
+        mode: current.mode,
+        scenario: current.scenario?.id ?? null,
         web: current.web.label,
-        core: current.core.tag,
-        connector: current.connector.tag,
+        core: current.core?.tag ?? null,
+        connector: current.connector?.tag ?? null,
         port: current.port,
         site: current.web.site,
         reset: current.reset,
@@ -165,15 +169,21 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
         throw new RefError(504, `core ${core.tag} was not ready within ${READY_MS / 1000} s`);
       }
       current = {
-        scenario, web, core, connector: connectorArchive, profile, process: child, port, connectorUsed: false,
+        mode: "real", scenario, web, core, connector: connectorArchive, profile, process: child, port, connectorUsed: false,
         // A fresh scenario starts with a browser that remembers nothing of the preview origin.
         reset: scenario.state === "fresh",
       };
       return this.current;
     },
+    /** Starts the mocked preview of the web build `web` ({ label, site }), after stopping whatever ran. */
+    async mock({ web }) {
+      await stopCurrent();
+      current = { mode: "mock", web, process: null, port: null, reset: false };
+      return this.current;
+    },
     /** A one-time pairing code from the real connector, linked to this run's core: `{code, expires_in, reach}`. */
     async pairingCode() {
-      if (!current) throw new RefError(409, "no preview is running");
+      if (current?.mode !== "real") throw new RefError(409, "no preview with a real core is running");
       current.connectorUsed = true;
       const answer = await connector(current, ["pair-device"]);
       if (!answer.ok) throw new RefError(502, answer.error?.message ?? "the connector gave no code");

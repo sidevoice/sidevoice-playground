@@ -1,0 +1,44 @@
+{
+  "id": "first-visit",
+  "title": "First visit: no machine yet",
+  "summary": "Nothing paired. Pair the NUC with a code from the card, or, in the desktop app view, install this computer's local host.",
+  "view": "browser",
+  "world": {
+    "page": "room",
+    "machines": {
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": false, "devices": [], "participants": [
+        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" }
+      ] }
+    },
+    "local": { "computerName": "Mac de Ana", "state": "absent", "installed": false, "reach": "local-only", "install": "ok", "participants": [] }
+  },
+  "options": [
+    { "id": "nucReach", "group": "The NUC", "label": "Reachable", "values": [
+      { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
+      { "value": "room", "label": "only through the room", "set": { "machines.nuc.reach": "room" } },
+      { "value": "offline", "label": "off (the room says so)", "set": { "machines.nuc.reach": "offline" } },
+      { "value": "away", "label": "nowhere (no answer)", "set": { "machines.nuc.reach": "away" } }
+    ] },
+    { "id": "install", "group": "This computer (desktop app)", "label": "Installing the local host", "values": [
+      { "value": "ok", "label": "works", "set": { "local.install": "ok" } },
+      { "value": "network", "label": "fails: network", "set": { "local.install": "download@install.network" } },
+      { "value": "proxy", "label": "fails: proxy", "set": { "local.install": "download@install.proxy" } },
+      { "value": "checksum", "label": "fails: checksum", "set": { "local.install": "verification@install.checksum" } },
+      { "value": "authenticity", "label": "fails: authenticity", "set": { "local.install": "verification@install.authenticity" } },
+      { "value": "disk", "label": "fails: disk full", "set": { "local.install": "staging@install.disk" } },
+      { "value": "service", "label": "fails: service start", "set": { "local.install": "service-start@service.start.failed" } }
+    ] },
+    { "id": "installSpeed", "group": "This computer (desktop app)", "label": "Download", "values": [
+      { "value": "normal", "label": "normal", "set": { "local.installSlow": false } },
+      { "value": "slow", "label": "slow (×6)", "set": { "local.installSlow": true } }
+    ] },
+    { "id": "startsAs", "group": "This computer (desktop app)", "label": "Once installed, it starts", "values": [
+      { "value": "running", "label": "and runs", "set": { "local.startsAs": "running" } },
+      { "value": "failed", "label": "and fails (missing module)", "set": { "local.startsAs": "failed", "local.startFailure": { "key": "import.missing-module", "step": "service-start" } } }
+    ] },
+    { "id": "page", "group": "This page", "label": "Served by", "values": [
+      { "value": "room", "label": "the room", "set": { "page": "room" } },
+      { "value": "none", "label": "a static site (no room)", "set": { "page": "none" } }
+    ] }
+  ]
+}

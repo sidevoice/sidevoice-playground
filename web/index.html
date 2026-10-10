@@ -285,10 +285,15 @@
       <div id="section-preview" class="section" hidden>
         <section class="card">
           <h2>Web preview</h2>
-          <p class="muted">The real sidevoice-web, built by checkout at the commit picked, on the real core and connector of
-            a release, in a scenario. It opens on an origin of its own, so what it stores there is its own.</p>
+          <p class="muted">The real sidevoice-web, built by checkout at the commit picked. Mocked, everything it talks to
+            answers from a scenario its own card picks, live, over the page; with a real core, it runs on the core and
+            connector of a release, in a scenario. It opens on an origin of its own, so what it stores there is its own.</p>
           <label class="field"><span class="label">Web</span><select id="preview-web"></select></label>
-          <div class="field-row">
+          <label class="field"><span class="label">Mode</span><select id="preview-mode">
+            <option value="mock">Mocked: scenarios and options in the preview's card</option>
+            <option value="real">Real core and connector</option>
+          </select></label>
+          <div class="field-row" id="preview-real">
             <label class="field grow"><span class="label">Core</span><select id="preview-core"></select></label>
             <label class="field grow"><span class="label">Connector</span><select id="preview-connector"></select></label>
           </div>
@@ -299,9 +304,11 @@
               <label class="field grow"><span class="label">Voice</span><select id="preview-voice"></select></label>
             </div>
           </details>
-          <label class="field"><span class="label">Scenario</span><select id="preview-scenario"></select></label>
-          <p id="preview-summary" class="muted"></p>
-          <ol id="preview-steps" class="voice-log"></ol>
+          <div id="preview-real-scenario">
+            <label class="field"><span class="label">Scenario</span><select id="preview-scenario"></select></label>
+            <p id="preview-summary" class="muted"></p>
+            <ol id="preview-steps" class="voice-log"></ol>
+          </div>
           <div class="actions">
             <button type="button" id="preview-start" class="primary">Start</button>
             <button type="button" id="preview-stop" class="ghost">Stop</button>

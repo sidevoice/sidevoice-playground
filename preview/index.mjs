@@ -1,6 +1,8 @@
 // Web preview: what the playground's page asks of the server about it (under /preview/), and the job that starts a
-// run. A start builds (or finds) the picked web, gets the picked core and connector, and starts the scenario; it takes
-// minutes the first time for a web commit, so it runs in the background and /preview/status tells how it goes.
+// run. A start builds (or finds) the picked web and starts it: mocked (the default: its scenarios and options are
+// picked in the preview's own card, mock/), or on the real core and connector of the picked releases, in a scenario
+// of scenarios/. It takes minutes the first time for a web commit, so it runs in the background and /preview/status
+// tells how it goes.
 
 import { RefError } from "../refs.mjs";
 import { archives as archiveStore, listArchives } from "./archives.mjs";
@@ -24,17 +26,23 @@ export async function listWeb(api) {
   };
 }
 
-/** A picked start, checked: `{ web, engine?, voice?, core, connector, scenario }`, refs and tags as the pickers give them. */
+/**
+ * A picked start, checked: `{ mode, web, engine?, voice? }`, and for `mode: "real"` `{ core, connector, scenario }` too;
+ * refs and tags as the pickers give them. `mode` is `mock` unless it says `real`.
+ */
 export function validStart(body, scenarios) {
   const ref = (value) => typeof value === "string" && /^[\w.\/-]+$/.test(value) && !value.includes("..");
   if (!body || !ref(body.web)) throw new RefError(400, "pick a web version");
   for (const name of ["engine", "voice"]) {
     if (body[name] != null && !ref(body[name])) throw new RefError(400, `not a build: ${body[name]}`);
   }
+  const mode = body.mode ?? "mock";
+  if (!["mock", "real"].includes(mode)) throw new RefError(400, `no mode ${mode}`);
+  if (mode === "mock") return { mode, web: body.web, engine: body.engine ?? null, voice: body.voice ?? null };
   if (!ref(body.core) || !ref(body.connector)) throw new RefError(400, "pick a core and a connector");
   const scenario = scenarios.find((s) => s.id === body.scenario);
   if (!scenario) throw new RefError(400, `no scenario ${body.scenario}`);
-  return { ...body, scenario };
+  return { ...body, mode, scenario };
 }
 
 /**
@@ -58,11 +66,19 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     log.length = 0;
     job = { state: "starting", error: null };
     try {
+      if (pick.mode === "mock") {
+        const tarballs = await picked(pick);
+        say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
+        const { sha, site, mocks } = await builds.get(pick.web, tarballs);
+        if (!mocks.ok) throw new RefError(409, `the mocks do not match web ${sha.slice(0, 7)}'s types: ${mocks.errors}`);
+        await manager.mock({ web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site } });
+        job = { state: "running", error: null };
+        say("Running, mocked: open the preview.");
+        return;
+      }
       say(`Getting core ${pick.core} and connector ${pick.connector}…`);
       const [core, connector] = await Promise.all([store.get("core", pick.core), store.get("connector", pick.connector)]);
-      const tarballs = {};
-      if (pick.engine) tarballs.engine = (await engineBuild(pick.engine)).tarball;
-      if (pick.voice) tarballs.voice = (await voiceBuild(pick.voice)).tarball;
+      const tarballs = await picked(pick);
       say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
       const { sha, site } = await builds.get(pick.web, tarballs);
       say(`Starting ${pick.scenario.title}: core ${core.tag}${core.source ? ` (${core.source.slice(0, 7)})` : ""}…`);
@@ -73,6 +89,14 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       job = { state: "failed", error: error.message };
       say(`Failed: ${error.message}`);
     }
+  }
+
+  /** The tarballs of the engine and voice builds picked for the web's unpublished pins. */
+  async function picked(pick) {
+    const tarballs = {};
+    if (pick.engine) tarballs.engine = (await engineBuild(pick.engine)).tarball;
+    if (pick.voice) tarballs.voice = (await voiceBuild(pick.voice)).tarball;
+    return tarballs;
   }
 
   async function body(req) {
