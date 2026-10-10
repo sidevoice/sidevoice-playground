@@ -27,6 +27,7 @@ import { parseSpec } from "./engine/spec.mjs";
 import { connectorSection } from "./connector.mjs";
 import { turnsScreen } from "./turns.mjs";
 import { voiceSection } from "./voice.mjs";
+import { previewSection } from "./preview.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const CAPABILITIES = ["tts", "stt"];
@@ -701,11 +702,12 @@ if (app) {
 
 fillChoices();
 
-// --- The sections: Engine above, Voice (voice.mjs) and Connector (connector.mjs).
+// --- The sections: Engine above, Voice (voice.mjs), Connector (connector.mjs) and Web preview (preview.mjs).
 
 const sections = {
   voice: voiceSection({ currentEngine: () => engines.get(active) ?? null, servedBuild, inApp: Boolean(app) }),
   connector: connectorSection({ inApp: Boolean(app) }),
+  preview: previewSection({ inApp: Boolean(app) }),
 };
 for (const button of document.querySelectorAll("#sections button")) {
   button.onclick = () => {

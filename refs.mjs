@@ -146,7 +146,7 @@ export function refBuilds({
       sha256: await sha256Hex(tarball),
       prefix: `${prefix}${sha}/`,
     });
-    const result = { ...served, sha, verified: Boolean(expected) };
+    const result = { ...served, sha, verified: Boolean(expected), tarball: join(dir, name) };
     installed.set(sha, result);
     return result;
   }

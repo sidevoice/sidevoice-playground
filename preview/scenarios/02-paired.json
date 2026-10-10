@@ -1,0 +1,12 @@
+{
+  "id": "paired",
+  "title": "Paired, no agents",
+  "summary": "A device already paired with this machine, whose core runs with no agent connected. Its state is kept between its runs: pair once in its first run (or after Forget), and every later run starts paired.",
+  "state": "kept",
+  "steps": [
+    "First run only: pair with a code from Pairing code, below, as in Fresh install.",
+    "Run it again: the page opens paired, on the empty room (no conversation: no agent is connected).",
+    "Settings → Machines lists this machine; Settings → Voz and Proveedores are this device's.",
+    "Starting a fresh scenario empties the browser here, so this one asks to pair again afterwards; its machine still knows the old device."
+  ]
+}

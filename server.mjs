@@ -16,14 +16,23 @@
 // The voice module (`@sidevoice/voice`, sidevoice-voice) the same way: /voice-builds lists its pull requests and
 // branches, /voice-build?ref=<ref> fetches and installs one CI build, /voices/<sha>/ serves it.
 //
+// Web preview (preview/): /preview/… runs the real sidevoice-web, built by checkout per commit, against the real core
+// and connector of a picked release, in a scenario of preview/scenarios/. The web is served on a second listener, the
+// preview origin (--preview-port, PORT + 1 by default; --preview-origin is its public address, behind a tunnel say),
+// so its storage is its own; that origin passes the core's routes to the running core. Builds, archives and the
+// scenarios' profiles live in --cache-dir (~/.cache/sidevoice-playground by default).
+//
 // /connector/ is the connector's test bench (`cargo xtask bench` in sidevoice-connector), reached through this server:
 // a reverse proxy to --bench-url (http://127.0.0.1:4477 by default), so the bench's page and logic stay in the connector
 // and only one copy of them exists. The bench answers only requests naming its own host, which the proxy does.
 //
 //   node server.mjs [--access-file FILE] [--github-token-file FILE] [--bench-url URL]
+//                   [--preview-port PORT] [--preview-origin URL] [--cache-dir DIR]
 //                   [--engine-tarball FILE [--engine-label TEXT] [--engine-sha256 HEX]]      PORT=5174 by default
 
 import { createServer } from "node:http";
+import { previewSection } from "./preview/index.mjs";
+import { previewOrigin } from "./preview/proxy.mjs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
@@ -66,6 +75,8 @@ let voiceListing = null;
 let bench = DEFAULT_BENCH_URL;
 /** Whether a request may go through: every route needs it. Set when the server starts. */
 let access = null;
+/** The Web preview's routes (preview/index.mjs). Set when the server starts. */
+let preview = null;
 
 /** The import map for the served builds: the local one's names at the top level, each other build's in its scope. */
 export function importMapFor(localBuild, others) {
@@ -103,6 +114,15 @@ async function handle(req, res) {
     return res.end();
   }
   if (url.pathname.startsWith("/connector/")) return proxyBench(req, res, bench, url);
+  if (url.pathname.startsWith("/preview/") && preview) {
+    try {
+      const answer = await preview.route(req, url);
+      if (answer !== undefined) return sendJson(res, answer);
+    } catch (error) {
+      if (error instanceof RefError) return send(res, error.status, error.message);
+      throw error;
+    }
+  }
   if (url.pathname === "/local-engine.json") {
     if (!local) return send(res, 404, "no local engine build: start the server with --engine-tarball");
     return sendJson(res, describe(local));
@@ -195,9 +215,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       "engine-tarball": { type: "string" },
       "engine-label": { type: "string" },
       "engine-sha256": { type: "string" },
+      "preview-port": { type: "string" },
+      "preview-origin": { type: "string" },
+      "cache-dir": { type: "string" },
     },
   });
-  access = gate(await accessToken(values["access-file"] ?? DEFAULT_ACCESS_FILE));
+  const token = await accessToken(values["access-file"] ?? DEFAULT_ACCESS_FILE);
+  access = gate(token);
   const githubToken = await readToken(values["github-token-file"] ?? DEFAULT_GITHUB_TOKEN_FILE);
   if (!githubToken) console.log("no GitHub token: builds of git refs cannot be fetched (--github-token-file)");
   refs = refBuilds({ token: githubToken });
@@ -214,7 +238,31 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     });
     console.log(`local engine: ${local.label}, version ${local.version}, sha256 ${local.sha256}, in ${local.site}`);
   }
+  const previewPort = Number(values["preview-port"] ?? PORT + 1);
+  const previewAt = values["preview-origin"] ?? `http://localhost:${previewPort}`;
+  preview = await previewSection({
+    api: githubApi({ token: githubToken }).api,
+    engineBuild: (ref) => (/^(v\d|nightly$|latest$)/.test(ref) ? releases.get(ref) : refs.get(ref)),
+    voiceBuild: (ref) => voices.get(ref),
+    cache: values["cache-dir"] ?? join(homedir(), ".cache/sidevoice-playground"),
+    origin: previewAt,
+    // The preview origin is behind the same gate, with a cookie of its own: the page, already let in, gets the link.
+    link: `${previewAt}/?access=${encodeURIComponent(token)}`,
+  });
   createServer((req, res) => handle(req, res).catch((e) => send(res, 500, String(e)))).listen(PORT, "127.0.0.1", () =>
     console.log(`sidevoice-playground on http://localhost:${PORT}`),
   );
+  // The preview origin: the same access gate, its own cookie (another origin), the web and the core behind it.
+  const origin = previewOrigin({ runs: preview.runs });
+  const previewServer = createServer((req, res) => {
+    const verdict = access.check(req);
+    if (verdict.redirect) {
+      res.writeHead(303, { location: verdict.redirect, "set-cookie": verdict.cookie, "cache-control": "no-store" });
+      return res.end();
+    }
+    if (!verdict.ok) return send(res, 401, "unauthorized: open the preview with the link the playground gives");
+    origin.handle(req, res).catch((e) => send(res, 500, String(e)));
+  });
+  previewServer.on("upgrade", (req, socket, head) => (access.check(req).ok ? origin.upgrade(req, socket, head) : socket.destroy()));
+  previewServer.listen(previewPort, "127.0.0.1", () => console.log(`web preview on ${previewAt} (port ${previewPort})`));
 }

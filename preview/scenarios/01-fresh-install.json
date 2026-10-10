@@ -1,0 +1,12 @@
+{
+  "id": "fresh-install",
+  "title": "Fresh install",
+  "summary": "A device that never saw Sidevoice, and a machine whose core runs but has paired nothing: the first screen a person sees, and pairing from it.",
+  "state": "fresh",
+  "steps": [
+    "The page opens on a device paired with nothing: it says so and offers to pair.",
+    "Ask the machine for a code (Pairing code, below): the real connector asks the real core for one.",
+    "Paste it where the page asks for a code, and name this device.",
+    "The machine shows as paired and reachable; with no agent connected, the room has no conversation yet."
+  ]
+}
