@@ -67,11 +67,13 @@ test("web builds replace only the pins npm lacks, and say which have no build pi
 
 test("a start names a web, a core, a connector and a known scenario", () => {
   const scenarios = [{ id: "fresh-install" }];
-  const pick = validStart({ web: "pull/63/head", core: "nightly", connector: "v0.7.1", engine: null, scenario: "fresh-install" }, scenarios);
+  const pick = validStart({ mode: "real", web: "pull/63/head", core: "nightly", connector: "v0.7.1", engine: null, scenario: "fresh-install" }, scenarios);
   assert.equal(pick.scenario, scenarios[0]);
   assert.throws(() => validStart({ web: "../x", core: "nightly", connector: "v0.7.1", scenario: "fresh-install" }, scenarios), /web/);
-  assert.throws(() => validStart({ web: "main", core: "a b", connector: "v0.7.1", scenario: "fresh-install" }, scenarios), /core/);
-  assert.throws(() => validStart({ web: "main", core: "nightly", connector: "v0.7.1", scenario: "nope" }, scenarios), /scenario/);
+  assert.throws(() => validStart({ mode: "real", web: "main", core: "a b", connector: "v0.7.1", scenario: "fresh-install" }, scenarios), /core/);
+  assert.throws(() => validStart({ mode: "real", web: "main", core: "nightly", connector: "v0.7.1", scenario: "nope" }, scenarios), /scenario/);
+  assert.deepEqual(validStart({ web: "main" }, scenarios), { mode: "mock", web: "main", engine: null, voice: null });
+  assert.throws(() => validStart({ mode: "fake", web: "main" }, scenarios), /mode/);
 });
 
 test("the web listing keeps releases that are not drafts", async () => {
@@ -162,7 +164,7 @@ test("a run starts the core in its scenario's profile, pairs through the connect
     assert.equal(await manager.kept(kept), false);
     await manager.stop();
     assert.equal(manager.current, null);
-    await assert.rejects(manager.pairingCode(), /no preview is running/);
+    await assert.rejects(manager.pairingCode(), /no preview with a real core is running/);
   } finally {
     await rm(cache, { recursive: true, force: true });
   }

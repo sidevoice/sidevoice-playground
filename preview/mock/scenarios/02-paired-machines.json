@@ -1,0 +1,51 @@
+{
+  "id": "paired-machines",
+  "title": "Paired machines",
+  "summary": "This device is paired with three machines: the NUC (in use), a workstation and an old laptop. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
+  "view": "browser",
+  "world": {
+    "page": "room",
+    "machines": {
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
+        "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }, { "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 }],
+        "participants": [] },
+      "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "devices": [], "participants": [
+        { "title": "Codex · infra", "harness": "codex", "reach": "listening" }
+      ] },
+      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90, "devices": [], "participants": [] }
+    },
+    "local": null
+  },
+  "options": [
+    { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
+      { "value": "nuc", "label": "the NUC", "set": { "machines.nuc.inUse": true, "machines.workstation.inUse": false } },
+      { "value": "workstation", "label": "the workstation", "set": { "machines.nuc.inUse": false, "machines.workstation.inUse": true } }
+    ] },
+    { "id": "nucReach", "group": "Machines", "label": "The NUC answers", "values": [
+      { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
+      { "value": "room", "label": "only through the room", "set": { "machines.nuc.reach": "room" } },
+      { "value": "offline", "label": "not at all (off, says the room)", "set": { "machines.nuc.reach": "offline" } },
+      { "value": "away", "label": "not at all (nobody knows)", "set": { "machines.nuc.reach": "away" } }
+    ] },
+    { "id": "nucToken", "group": "Machines", "label": "The NUC's pairing", "values": [
+      { "value": "valid", "label": "valid", "set": { "machines.nuc.revoked": false } },
+      { "value": "revoked", "label": "revoked on the NUC", "set": { "machines.nuc.revoked": true } }
+    ] },
+    { "id": "workstationReach", "group": "Machines", "label": "The workstation answers", "values": [
+      { "value": "room", "label": "through the room", "set": { "machines.workstation.reach": "room" } },
+      { "value": "direct", "label": "directly", "set": { "machines.workstation.reach": "direct" } },
+      { "value": "offline", "label": "not at all", "set": { "machines.workstation.reach": "offline" } }
+    ] },
+    { "id": "nucAgents", "group": "Agents on the NUC", "label": "Conversations", "values": [
+      { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },
+      { "value": "one", "label": "one listening", "set": { "machines.nuc.participants": [
+        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" }
+      ] } },
+      { "value": "mixed", "label": "listening, holding, offline", "set": { "machines.nuc.participants": [
+        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" },
+        { "title": "Codex · release", "harness": "codex", "reach": "holding", "detail": "Waiting for its turn to listen" },
+        { "title": "Cursor · notes", "harness": "cursor", "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
+      ] } }
+    ] }
+  ]
+}

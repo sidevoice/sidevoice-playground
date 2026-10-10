@@ -4,13 +4,19 @@
 // `npm run build`, then `node scripts/assemble-static-web.mjs <site>`. Only the site is kept, per commit, and at
 // most KEPT of them: the oldest go first. The sources and node_modules go once the site is there.
 //
+// The mocked preview's modules (mock/) are checked against the web's own types once the web is built: they are
+// copied into the checkout and its TypeScript checks them (mock/web-types.d.ts names what they answer with). What
+// it says is kept beside the site (MOCK_CHECK), and a site is built again when the mocks change.
+//
 // Pins the registry does not have yet (`@sidevoice/voice`, `@sidevoice/engine` before their first release) are
 // installed from the CI tarballs of the engine and voice builds the page picked, never invented: a web that pins one
 // with none picked says which.
 
 import { execFile, spawn } from "node:child_process";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { RefError } from "../refs.mjs";
 
@@ -19,6 +25,26 @@ export const WEB_REPO = "sidevoice/sidevoice-web";
 export const KEPT = 3;
 /** The packages a web's pins may name that the page can supply as CI builds, by the build each one comes from. */
 export const SUPPLIED = { "@sidevoice/engine": "engine", "@sidevoice/voice": "voice" };
+/** The mocked preview's modules, and those of them checked against the web's types. */
+export const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
+export const MOCK_CHECKED = ["world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "web-types.d.ts"];
+/** Where a site keeps what checking the mocks against its web said: `{ ok, errors }`. */
+export const MOCK_CHECK = ".preview-mock-check.json";
+const MOCK_TSCONFIG = {
+  compilerOptions: {
+    allowJs: true, checkJs: true, noEmit: true, strict: false, skipLibCheck: true, types: [],
+    target: "ES2022", module: "ESNext", moduleResolution: "bundler", allowImportingTsExtensions: true,
+    lib: ["ES2022", "DOM", "DOM.Iterable"],
+  },
+  include: ["*.mjs", "*.d.ts"],
+};
+
+/** A short digest of the checked mock modules: a site is built again when they change. */
+export async function mockDigest() {
+  const hash = createHash("sha256");
+  for (const name of MOCK_CHECKED) hash.update(name).update(await readFile(join(MOCK_DIR, name)));
+  return hash.digest("hex").slice(0, 12);
+}
 
 /** What a web's `apps/web/package.json` pins of ours, other than its own workspace packages. */
 export function ourPins(manifest, workspaces = []) {
@@ -139,11 +165,30 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
         await exec("npm", ["ci", "--no-audit", "--no-fund"], { cwd: work });
       }
       await exec("npm", ["run", "build"], { cwd: work });
+      const mocks = await checkMocks(work);
       await evict();
       await exec("node", ["scripts/assemble-static-web.mjs", site], { cwd: work });
+      await writeFile(join(site, MOCK_CHECK), JSON.stringify(mocks));
       return site;
     } finally {
       await rm(work, { recursive: true, force: true });
+    }
+  }
+
+  /** The web's TypeScript on the mock modules, in the checkout: `{ ok, errors }`. */
+  async function checkMocks(work) {
+    const dir = join(work, ".preview-mock");
+    await mkdir(dir, { recursive: true });
+    for (const name of MOCK_CHECKED) await copyFile(join(MOCK_DIR, name), join(dir, name));
+    await writeFile(join(dir, "tsconfig.json"), JSON.stringify(MOCK_TSCONFIG, null, 2));
+    const tsc = (await exists(join(work, "node_modules/typescript/bin/tsc")))
+      ? "node_modules/typescript/bin/tsc" : "apps/web/node_modules/typescript/bin/tsc";
+    log("Checking the mocks against this web's types…");
+    try {
+      await exec("node", [tsc, "-p", ".preview-mock/tsconfig.json"], { cwd: work });
+      return { ok: true, errors: "" };
+    } catch (error) {
+      return { ok: false, errors: error.message };
     }
   }
 
@@ -157,13 +202,15 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
       const sha = await resolve(ref);
       // The same commit with other picked builds is another site.
       const picked = [tarballs.engine ?? null, tarballs.voice ?? null];
-      const key = picked.some(Boolean) ? `${sha}-${shortHash(JSON.stringify(picked))}` : sha;
+      const key = `${picked.some(Boolean) ? `${sha}-${shortHash(JSON.stringify(picked))}` : sha}-m${await mockDigest()}`;
       if (!pending.has(key)) {
         const promise = build(sha, key, tarballs);
         pending.set(key, promise);
         promise.catch(() => pending.delete(key));
       }
-      return { sha, site: await pending.get(key) };
+      const site = await pending.get(key);
+      const mocks = JSON.parse(await readFile(join(site, MOCK_CHECK), "utf8").catch(() => '{"ok":false,"errors":"not checked"}'));
+      return { sha, site, mocks };
     },
   };
 }

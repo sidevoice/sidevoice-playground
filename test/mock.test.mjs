@@ -1,0 +1,260 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mockFile, loadMockScenarios } from "../preview/proxy.mjs";
+import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScenario } from "../preview/mock/world.mjs";
+import {
+  LOCAL_ID, LOCAL_URL, ROOM_URL, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
+} from "../preview/mock/machines.mjs";
+import { desktopHost, localStatus } from "../preview/mock/bridge.mjs";
+import { readParams, writeParams } from "../preview/mock/shell.mjs";
+
+const PAGE = "https://preview.example";
+const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+const instant = { tick: () => new Promise((r) => setImmediate(r)) };
+
+const scenario = {
+  id: "s", title: "S", summary: "s",
+  world: {
+    page: "room",
+    machines: {
+      nuc: { host: "NUC", reach: "direct", paired: true, inUse: true, devices: [], participants: [{ title: "Claude", reach: "listening" }] },
+      ws: { host: "WS", reach: "room", paired: false, devices: [], participants: [] },
+    },
+    local: { computerName: "Mac", state: "absent", installed: false, reach: "local-only", install: "ok" },
+  },
+  options: [
+    { id: "nucReach", label: "NUC", group: "M", values: [
+      { value: "direct", label: "d", set: { "machines.nuc.reach": "direct" } },
+      { value: "offline", label: "o", set: { "machines.nuc.reach": "offline" } },
+    ] },
+    { id: "inUse", label: "In use", group: "M", reload: true, values: [
+      { value: "nuc", label: "n", set: { "machines.nuc.inUse": true } },
+      { value: "none", label: "-", set: { "machines.nuc.inUse": false } },
+    ] },
+  ],
+};
+
+async function setup(chosen = {}) {
+  const world = createWorld(scenario, chosen, instant);
+  const identities = await makeIdentities(world.state);
+  const ask = (url, init = {}) => answer(world, identities, { pageOrigin: PAGE, url, ...init });
+  return { world, identities, ask };
+}
+
+test("a world is its scenario with the chosen values set over it", () => {
+  const target = {};
+  deepSet(target, "a.b.c", [1]);
+  assert.deepEqual(target, { a: { b: { c: [1] } } });
+  assert.deepEqual(choicesFor(scenario, { nucReach: "offline", inUse: "nope" }), { nucReach: "offline", inUse: "nuc" });
+  assert.equal(stateFor(scenario, choicesFor(scenario, { nucReach: "offline" })).machines.nuc.reach, "offline");
+  const world = createWorld(scenario, {}, instant);
+  let heard = 0;
+  world.subscribe(() => heard++);
+  assert.equal(world.choose("nucReach", "offline"), false, "a live option");
+  assert.equal(world.state.machines.nuc.reach, "offline");
+  assert.equal(world.choose("inUse", "none"), true, "a reload option");
+  assert.equal(world.choose("inUse", "unknown"), false);
+  assert.equal(heard, 2);
+  assert.equal(changedCount(scenario, world.choices), 2);
+});
+
+test("a world's delays follow its speed, and hold at 0", async () => {
+  let ticked = 0;
+  const world = createWorld(scenario, {}, { tick: () => new Promise((r) => setImmediate(() => r(ticked++))) });
+  world.speed = 4;
+  await world.delay(400);
+  assert.equal(ticked, 2, "400 ms at ×4: two steps of 50 ms");
+  world.speed = 0;
+  const held = world.delay(100);
+  await new Promise((r) => setTimeout(r, 20));
+  const before = ticked;
+  world.speed = 1;
+  await held;
+  assert.ok(before > 2 && ticked > before);
+});
+
+test("the page loads with the pairings the world says it has", async () => {
+  const { world, identities } = await setup();
+  const local = seededStorage(world.state, identities, Date.parse("2026-10-11T00:00:00Z"));
+  const stored = JSON.parse(local["sidevoice.pairings"]);
+  assert.equal(stored.in_use, identities.nuc.fingerprint);
+  assert.deepEqual(stored.pairings.map((p) => p.host), ["NUC"]);
+  assert.deepEqual(stored.pairings[0].urls, [directUrl("nuc")]);
+  assert.deepEqual(stored.pairings[0].rv, { url: ROOM_URL, node: "nuc" });
+  assert.equal(local["sidevoice.local-host-selected"], undefined);
+  world.state.local.inUse = true;
+  world.state.language = "en";
+  const desktop = seededStorage(world.state, identities, 0, { desktop: true });
+  assert.equal(JSON.parse(desktop["sidevoice.pairings"]).in_use, identities[LOCAL_ID].fingerprint);
+  assert.equal(desktop["sidevoice.local-host-selected"], "true");
+  assert.equal(desktop["sidevoice.settings"], '{"ui_language":"en"}');
+});
+
+test("addresses: a machine directly, through the room (its own origin or the page's), the local host", () => {
+  assert.deepEqual(placeOf(`${directUrl("nuc")}/api/x?a=1`, PAGE), { id: "nuc", via: "direct", path: "/api/x", query: "?a=1" });
+  assert.deepEqual(placeOf(`${ROOM_URL}/nodes/nuc/api/x`, PAGE), { id: "nuc", via: "room", path: "/api/x", query: "" });
+  assert.deepEqual(placeOf("/nodes/nuc/api/x", PAGE), { id: "nuc", via: "room", path: "/api/x", query: "", onPage: true });
+  assert.equal(placeOf(`${LOCAL_URL}/api/x`, PAGE).id, LOCAL_ID);
+  assert.deepEqual(placeOf("/api/rendezvous", PAGE), { page: true, path: "/api/rendezvous", query: "" });
+  assert.equal(placeOf("https://elsewhere.example/api/x", PAGE), null);
+  assert.equal(placeOf("http://nuc.machines.sidevoice.example/api/x", PAGE), null, "only https is a machine's address");
+});
+
+test("a machine proves its identity with a real signature, where the world lets it answer", async () => {
+  const { world, identities, ask } = await setup();
+  const asked = nonce();
+  const proof = await ask(`${directUrl("nuc")}/api/device/identity?nonce=${asked}`);
+  assert.equal(proof.status, 200);
+  assert.equal(proof.body.public_key, identities.nuc.publicKey);
+  const key = await crypto.subtle.importKey("spki", Buffer.from(proof.body.public_key, "base64"), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+  assert.ok(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, Buffer.from(proof.body.signature, "base64url"),
+    new TextEncoder().encode(`sidevoice-node-identity:${asked}`)));
+  assert.equal((await ask(`${directUrl("nuc")}/api/device/identity?nonce=short`)).status, 400);
+  // The workstation answers only through the room; an address that does not answer is no answer.
+  assert.deepEqual(await ask(`${directUrl("ws")}/api/rendezvous`), { unreachable: true });
+  assert.equal((await ask(`${ROOM_URL}/nodes/ws/api/rendezvous`)).status, 200);
+  assert.equal((await ask("/nodes/ws/api/rendezvous")).status, 200, "the page a room serves relays too");
+  world.choose("nucReach", "offline");
+  assert.equal((await ask(`${ROOM_URL}/nodes/nuc/api/rendezvous`)).status, 503);
+  assert.deepEqual((await ask(`${ROOM_URL}/api/rendezvous?nodes=nuc`)).body, { nodes: [{ id: "nuc", connected: false }] });
+  world.patch({ "machines.nuc.reach": "away" });
+  assert.deepEqual((await ask(`${ROOM_URL}/api/rendezvous?nodes=nuc`)).body, { nodes: [] });
+  assert.deepEqual((await ask("/api/rendezvous")).body, { kind: "room" });
+  world.patch({ page: "none" });
+  assert.equal((await ask("/api/rendezvous")).status, 404);
+});
+
+test("codes: redeemed once, refused after, and an impostor answers with another key", async () => {
+  const { world, identities, ask } = await setup();
+  const decode = (code) => JSON.parse(Buffer.from(code.slice(4), "base64url"));
+  const pair = (code) => ask(`${directUrl("ws")}/api/device/pair`.replace(directUrl("ws"), `${ROOM_URL}/nodes/ws`), {
+    method: "POST", body: JSON.stringify({ secret: decode(code).secret, name: "Phone" }),
+  });
+  const code = mintCode(world, identities, "ws");
+  const payload = decode(code);
+  assert.equal(payload.v, 1);
+  assert.equal(payload.fp, identities.ws.fingerprint);
+  assert.ok(payload.exp > Date.now() / 1000);
+  const paired = await pair(code);
+  assert.equal(paired.status, 200);
+  assert.equal(paired.body.token, identities.ws.token);
+  assert.equal(paired.body.node.public_key, identities.ws.publicKey);
+  assert.equal(world.state.machines.ws.devices.at(-1).name, "Phone");
+  assert.equal((await pair(code)).status, 403);
+  assert.equal((await pair(mintCode(world, identities, "ws", "used"))).status, 403);
+  assert.notEqual((await pair(mintCode(world, identities, "ws", "impostor"))).body.node.public_key, identities.ws.publicKey);
+  assert.ok(decode(mintCode(world, identities, "ws", "expired")).exp < Date.now() / 1000);
+  assert.deepEqual(decode(mintCode(world, identities, "ws", "plaintext")).urls, ["http://192.168.1.20:8765"]);
+  assert.throws(() => decode(mintCode(world, identities, "ws", "damaged")));
+});
+
+test("a machine's own routes take this device's token, and refuse it once revoked", async () => {
+  const { world, identities, ask } = await setup();
+  const auth = { headers: { authorization: `Bearer ${identities.nuc.token}` } };
+  const base = directUrl("nuc");
+  assert.equal((await ask(`${base}/api/presentation/participants`)).status, 401);
+  const people = await ask(`${base}/api/presentation/participants`, auth);
+  assert.deepEqual(people.body.participants[0], {
+    thread_id: "nuc-thread-1", title: "Claude", harness: null, available: true, selected: false,
+    machine: { id: "nuc-connector", host: "NUC" },
+    capabilities: { deliver: "supported", inspectInbound: "supported", working: "supported", endOfTurn: "supported", sessionIdentity: "supported" },
+    engine: null, route: null,
+    reach: { state: "listening", detail: null, remedy: null },
+  });
+  assert.deepEqual((await ask(`${base}/api/presentation/history`, auth)).body, { messages: [] });
+  assert.equal((await ask(`${base}/api/presentation/admission`, auth)).body.admitted, true);
+  assert.equal((await ask(`${base}/api/presentation/latency`, auth)).status, 404);
+  world.patch({ "machines.nuc.devices": [{ name: "Mac", mine: true }, { name: "iPhone", id: "phone" }] });
+  const devices = (await ask(`${base}/api/device/devices`, auth)).body.devices;
+  assert.deepEqual(devices.map((d) => [d.name, d.current]), [["Mac", true], ["iPhone", false]]);
+  assert.equal((await ask(`${base}/api/device/devices/phone`, { method: "DELETE", ...auth })).status, 200);
+  assert.equal(world.state.machines.nuc.devices.length, 1);
+  world.patch({ "machines.nuc.revoked": true });
+  assert.equal((await ask(`${base}/api/presentation`, auth)).status, 401);
+});
+
+test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {
+  const { world, identities } = await setup();
+  const host = desktopHost(world, identities);
+  const local = host.localHost;
+  assert.equal(local.state().state, "absent");
+  assert.equal(local.pairing(), null);
+  const seen = [];
+  const unsubscribe = local.subscribe((status) => seen.push(status.state));
+  const steps = [];
+  const install = local.install((event) => steps.push(event.step));
+  assert.match(install.job, /^install-/);
+  const status = await install;
+  assert.equal(status.state, "running");
+  assert.equal(status.reachable, true);
+  assert.deepEqual([...new Set(steps)], ["download", "verification", "staging", "service-start"]);
+  assert.deepEqual(seen.filter((state, i) => state !== seen[i - 1]), ["installing", "starting", "running"]);
+  assert.equal(local.pairing().urls[0], LOCAL_URL);
+  assert.equal(local.pairing().fp, identities[LOCAL_ID].fingerprint);
+  const code = await local.pairingCode();
+  assert.equal(code.reach, "local-only");
+  assert.equal(JSON.parse(Buffer.from(code.code.slice(4), "base64url")).rv, null);
+  await local.stop();
+  assert.equal(local.state().state, "stopped-by-person");
+  assert.equal(local.pairing(), null);
+  await local.restart();
+  assert.equal(local.state().state, "running");
+  unsubscribe();
+  assert.equal((await local.version()).update, "current");
+});
+
+test("an install fails where the world says, with the key and step the page reads, and can be cancelled", async () => {
+  const { world, identities } = await setup();
+  const local = desktopHost(world, identities).localHost;
+  world.patch({ "local.install": "verification@install.checksum" });
+  await assert.rejects(local.install(), (error) => error.key === "install.checksum" && error.step === "verification");
+  assert.equal(local.state().state, "absent");
+  world.patch({ "local.install": "ok" });
+  const install = local.install();
+  assert.equal(await local.cancel(install.job), true);
+  await assert.rejects(install, (error) => error.key === "install.cancelled");
+  assert.equal(await local.cancel("nope"), false);
+});
+
+test("a backing-off local host says when it tries again", () => {
+  const status = localStatus({ state: "backoff" }, Date.parse("2026-10-11T00:00:00Z"));
+  assert.equal(status.attempts, 2);
+  assert.equal(status.next_retry_at, "2026-10-11T00:00:04.000Z");
+  assert.equal(status.reachable, false);
+});
+
+test("the card's picks round-trip through the address, defaults left out", () => {
+  const params = readParams("?s=paired-machines&view=phone&lang=en&speed=4&o.nucReach=room");
+  assert.deepEqual(params, { scenario: "paired-machines", view: "phone", language: "en", speed: 4, options: { nucReach: "room" } });
+  assert.equal(writeParams(params, { nucReach: "direct" }), "?s=paired-machines&view=phone&lang=en&speed=4&o.nucReach=room");
+  assert.equal(writeParams({ ...params, view: null, language: "", speed: 1, options: { nucReach: "direct" } }, { nucReach: "direct" }), "?s=paired-machines");
+  assert.equal(readParams("?speed=0").speed, 0);
+  assert.equal(readParams("?view=tv").view, null);
+});
+
+test("the shipped scenarios are valid, and every option's fields land in their world", async () => {
+  const scenarios = await loadMockScenarios();
+  assert.ok(scenarios.length >= 3);
+  for (const s of scenarios) {
+    assert.ok(validMockScenario(s), s.id);
+    for (const option of s.options) {
+      for (const value of option.values) {
+        const state = stateFor(s, choicesFor(s, { [option.id]: value.value }));
+        for (const path of Object.keys(value.set)) {
+          const parent = path.split(".").slice(0, -1).reduce((at, key) => at?.[key], state);
+          assert.ok(parent && typeof parent === "object", `${s.id}: ${option.id}=${value.value} sets ${path}`);
+        }
+      }
+    }
+  }
+});
+
+test("a mocked run serves the shell, the mocks' target.js, its modules and scenarios, and nothing else of mock/", async () => {
+  assert.match(String((await mockFile("/")).body), /preview-mock\/shell\.mjs/);
+  assert.match(String((await mockFile("/voice/target.js")).body), /__sidevoicePreview/);
+  assert.ok(JSON.parse((await mockFile("/preview-mock/scenarios.json")).body).length >= 3);
+  assert.equal((await mockFile("/preview-mock/machines.mjs")).type, "text/javascript");
+  assert.equal(await mockFile("/preview-mock/web-types.d.ts"), null);
+  assert.equal(await mockFile("/preview-mock/scenarios/01-first-visit.json"), null);
+  assert.equal(await mockFile("/voice/index.html"), null);
+});

@@ -170,26 +170,49 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 ## Web preview
 
-The real sidevoice-web, at a release, `main`, a branch or a pull request, on the real core and connector of a picked
-release, in a scenario. Nothing is faked and no model runs: the core offered is the room-only one (`rust-native-v2`,
-the nightly today).
+The real sidevoice-web, at a release, `main`, a branch or a pull request, built by checkout and opened on an origin
+of its own. **Mocked** (the default) for UX: everything it talks to answers from a scenario, picked with its options
+in a card over the page and switched live. Or on the **real core and connector** of a picked release, in a scenario
+of its own: nothing faked, and no model runs (the core offered is the room-only one, `rust-native-v2`).
 
 - **The web** is built by checkout, once per commit: a bare mirror of the repository (`git archive` of the commit),
   then the web's own build (`npm ci`, `npm run build`, `node scripts/assemble-static-web.mjs`). Only the site is
   kept, the 3 newest. A web that pins an `@sidevoice/*` version npm does not have yet takes it from the engine or
   voice build picked for it (their CI tarballs); with none picked, the start says which.
-- **The core and the connector** are the archives their releases publish for linux-x86_64 (the core's, the one the
-  connector fetches), checked against `SHA256SUMS` and unpacked once per digest.
-- **A run** starts the core in the scenario's own profile, told to answer the preview origin
-  (`SIDEVOICE_ALLOWED_HOSTS`, `SIDEVOICE_ALLOWED_ORIGINS`). *Pairing code* asks the connector, in the same
-  profile, for a one-time code (`pair-device`). One run at a time: a start stops the last one.
 - **The preview origin** is a listener of its own (`--preview-port`, PORT+1 by default; `--preview-origin` is its
   public address, behind a tunnel), so the web's storage there is never the playground's. It is behind the same
-  access gate (the page links to it with the token), serves the site as a deployment does, and passes `/api/…` and
-  socket upgrades to the core as they came.
-- **Scenarios** are `preview/scenarios/*.json`: *Fresh install* empties its profile and, on the first page, the
-  browser's storage for the preview origin (`/preview-reset`); *Paired* keeps both, so it is paired once (*Forget*
-  starts it over). What is built, unpacked and kept lives under `--cache-dir` (`~/.cache/sidevoice-playground`).
+  access gate (the page links to it with the token). What is built, unpacked and kept lives under `--cache-dir`
+  (`~/.cache/sidevoice-playground`).
+
+**Mocked** (`preview/mock/`). The origin's `/` is a shell: the web in a frame sized by the view (browser, the
+desktop app's window, a phone), and the card. The site's `/voice/target.js` — the classic script a deployment puts
+before the web's module — hands the page to the shell, which puts in its mocks through the seams the web already has:
+`fetch` (the machines, the room and the page's own origin answer the routes the web asks: rendezvous, identity,
+pairing, devices, the presentation's reads) and, in the app view, `window.__sidevoiceDesktop.host` (the desktop
+bridge, with its local host). Identities are real P-256 keys and codes are real `SV1.` codes, so the web pairs with
+its own code.
+
+- **Scenarios** are `preview/mock/scenarios/*.json`: a world (the page's target, the machines this device knows or
+  could pair with, the desktop app's local host) and options, each value a set of fields it changes. An option marked
+  ↻ reloads the page from the storage the world says it had; any other one is live.
+- **The card** (Alt+Shift+P, or its header, shows and hides it) picks the scenario, view, language and options; gives
+  pairing codes for each machine (valid, expired, used, plain http, damaged, another machine answering) to paste into
+  the page; runs the world's time at ×1, ×4 or paused; and lists what the mocks were asked. Everything it picks is in
+  the address: a link opens the same screen.
+- **Faithful to the web**: once a web commit is built, its own TypeScript checks the mocks against its types
+  (`@sidevoice/protocol`, the desktop bridge's, the pairing's; `preview/mock/web-types.d.ts`), and a mocked start
+  of a commit they do not match says where. **Faithful to the core**: `test/mock-conformance.test.mjs` asks the
+  nightly core and the newest connector what the mocks answer, and checks every status and field
+  (`PLAYGROUND_CONFORMANCE=1`, on in CI).
+
+**Real core and connector.** The core and the connector are the archives their releases publish for linux-x86_64
+(the core's, the one the connector fetches), checked against `SHA256SUMS` and unpacked once per digest. A run starts
+the core in the scenario's own profile, told to answer the preview origin (`SIDEVOICE_ALLOWED_HOSTS`,
+`SIDEVOICE_ALLOWED_ORIGINS`); the origin serves the site and passes `/api/…` and socket upgrades to the core as
+they came. *Pairing code* asks the connector, in the same profile, for a one-time code (`pair-device`). Its
+scenarios are `preview/scenarios/*.json`: *Fresh install* empties its profile and, on the first page, the browser's
+storage for the preview origin (`/preview-reset`); *Paired* keeps both (*Forget* starts it over). One run at a time,
+mocked or real: a start stops the last one.
 
 ## Layout
 
@@ -214,7 +237,8 @@ served-engine.mjs  an engine or voice tarball installed and served under a prefi
 engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
 preview/        the Web preview: web-build.mjs (by checkout), archives.mjs (core, connector), runs.mjs,
-                proxy.mjs (the preview origin), index.mjs (its routes), scenarios/
+                proxy.mjs (the preview origin), index.mjs (its routes), scenarios/ (real core);
+                mock/: world.mjs, machines.mjs, bridge.mjs, attach.mjs (the mocks), shell + card, scenarios/
 refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

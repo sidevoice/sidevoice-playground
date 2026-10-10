@@ -1,0 +1,152 @@
+// The mocked preview's shell: the real web in a frame sized by the view (browser, the desktop app's window, a
+// phone), the world its mocks answer from, and the card that picks the scenario and its options. Everything the
+// card picks is in this page's address, so a link opens the same screen. A scenario, a view, a language or an
+// option marked ↻ loads the page again, from the storage the world says it had; any other option is live.
+
+import { createWorld, changedCount } from "./world.mjs";
+import { makeIdentities, seededStorage } from "./machines.mjs";
+import { attach } from "./attach.mjs";
+import { renderCard, updateActivity } from "./card.mjs";
+
+export const VIEWS = ["browser", "app", "phone"];
+export const LANGUAGES = ["", "es", "en"];
+export const SPEEDS = [1, 4, 0];
+
+/** The card's picks in an address's query: `s`, `view` (null: the scenario's own), `lang`, `speed`, and `o.<option>`. */
+export function readParams(search) {
+  const query = new URLSearchParams(search);
+  const options = {};
+  for (const [key, value] of query) if (key.startsWith("o.")) options[key.slice(2)] = value;
+  const speed = Number(query.get("speed"));
+  return {
+    scenario: query.get("s") ?? "",
+    view: VIEWS.includes(query.get("view")) ? query.get("view") : null,
+    language: LANGUAGES.includes(query.get("lang")) ? query.get("lang") : "",
+    speed: SPEEDS.includes(speed) && query.has("speed") ? speed : 1,
+    options,
+  };
+}
+
+/** The query for `params`, leaving out what is at its default (options at their first value included). */
+export function writeParams({ scenario, view, language, speed, options }, defaults = {}) {
+  const query = new URLSearchParams();
+  if (scenario) query.set("s", scenario);
+  if (view) query.set("view", view);
+  if (language) query.set("lang", language);
+  if (speed !== 1) query.set("speed", String(speed));
+  for (const [id, value] of Object.entries(options)) if (defaults[id] !== value) query.set(`o.${id}`, value);
+  const text = query.toString();
+  return text ? `?${text}` : "";
+}
+
+/** Empties what the page keeps on this origin, then writes `local` into its localStorage. */
+async function seed(local) {
+  localStorage.clear();
+  sessionStorage.clear();
+  try {
+    for (const db of (await indexedDB.databases?.()) ?? []) {
+      if (db.name) await new Promise((resolve) => Object.assign(indexedDB.deleteDatabase(db.name), { onsuccess: resolve, onerror: resolve, onblocked: resolve }));
+    }
+  } catch {}
+  try {
+    for (const key of await caches.keys()) await caches.delete(key);
+  } catch {}
+  for (const [key, value] of Object.entries(local)) localStorage.setItem(key, value);
+}
+
+async function main() {
+  const scenarios = await (await fetch("/preview-mock/scenarios.json", { cache: "no-store" })).json();
+  const frame = document.getElementById("app");
+  const device = document.getElementById("device");
+  const card = document.getElementById("card");
+  let params = readParams(location.search);
+  let world = null;
+  let identities = null;
+  let open = matchMedia("(min-width: 761px)").matches;
+
+  const scenario = () => scenarios.find((s) => s.id === params.scenario) ?? scenarios[0];
+  const firstValues = () => Object.fromEntries(scenario().options.map((o) => [o.id, o.values[0].value]));
+  const view = () => params.view ?? scenario().view ?? "browser";
+  const remember = () => history.replaceState(null, "", location.pathname + writeParams({ ...params, scenario: scenario().id, options: world.choices }, firstValues()));
+
+  window.__sidevoicePreview = {
+    attach: (win) => attach(win, { world, identities, desktop: view() === "app", onKey: shortcut }),
+  };
+
+  /** Loads the page again from the storage the world says it had; `fresh` makes the world (and its machines) anew. */
+  async function load({ fresh = false } = {}) {
+    if (fresh || !world) {
+      world = createWorld(scenario(), params.options);
+      identities = await makeIdentities(world.state);
+      // The card follows the world: its activity on every answer, all of it when the codes it can give change.
+      let running = world.state.local?.state === "running";
+      world.subscribe(() => {
+        const now = world.state.local?.state === "running";
+        if (now !== running) {
+          running = now;
+          render();
+        } else updateActivity(card, world);
+      });
+    }
+    world.speed = params.speed;
+    world.state.language = params.language;
+    device.className = `device ${view()}`;
+    frame.src = "about:blank";
+    await seed(seededStorage(world.state, identities, world.now(), { desktop: view() === "app" }));
+    frame.src = "/voice/";
+    remember();
+    render();
+  }
+
+  function shortcut(event) {
+    if (event.altKey && event.shiftKey && event.code === "KeyP") {
+      event.preventDefault();
+      open = !open;
+      render();
+    }
+  }
+  addEventListener("keydown", shortcut, true);
+
+  function render() {
+    renderCard(card, {
+      scenarios, scenario: scenario(), world, identities, params: { ...params, view: view() }, open,
+      count: changedCount(scenario(), world.choices),
+      frame,
+      toggle() {
+        open = !open;
+        render();
+      },
+      pick(next) {
+        // Another scenario starts from its own view and options.
+        params = next.scenario ? { ...params, view: null, ...next, options: {} } : { ...params, ...next };
+        load({ fresh: !!next.scenario });
+      },
+      choose(id, value) {
+        const reload = world.choose(id, value);
+        params.options = world.choices;
+        if (reload) load();
+        else {
+          remember();
+          render();
+        }
+      },
+      speed(value) {
+        params.speed = value;
+        world.speed = value;
+        remember();
+        render();
+      },
+      restart() {
+        load({ fresh: true });
+      },
+      clear() {
+        params.options = {};
+        load({ fresh: true });
+      },
+    });
+  }
+
+  await load({ fresh: true });
+}
+
+if (typeof document !== "undefined") main();

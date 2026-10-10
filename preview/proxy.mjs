@@ -6,11 +6,34 @@
 //
 // `/preview-reset` is this origin's one page of its own: it empties what the browser keeps here (storage, IndexedDB,
 // caches) and goes on to the web, so a fresh scenario starts as on a device that never saw it.
+//
+// A mocked run serves no core: `/` is the shell (mock/shell.html), with the card, that holds the web in a frame;
+// `/preview-mock/…` its modules and its scenarios; and the site's `/voice/target.js` is the mocks' (mock/frame.js),
+// which hands the page to the shell before the web starts. The rest of the site is served as it was built.
 
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { validMockScenario } from "./mock/world.mjs";
+
+const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
+/** What the shell loads from mock/, by name: nothing else there is served. */
+const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "shell.css"]);
+export const MOCK_PATH = "/preview-mock/";
+
+/** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order. */
+export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
+  const files = (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
+  const scenarios = [];
+  for (const file of files) {
+    const value = JSON.parse(await readFile(join(dir, file), "utf8"));
+    if (!validMockScenario(value)) throw new Error(`${file} is not a mocked scenario`);
+    scenarios.push(value);
+  }
+  return scenarios;
+}
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -65,6 +88,14 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
     const url = new URL(req.url, "http://preview");
     const run = runs.current;
     if (!run) return send(res, 503, "No preview is running: start one from the playground's Web preview section.");
+    if (run.mode === "mock") {
+      const served = await mockFile(url.pathname);
+      if (served) {
+        res.writeHead(200, { "content-type": served.type, "cache-control": "no-store" });
+        return res.end(served.body);
+      }
+      if (coreRoute(url.pathname)) return send(res, 404, "a mocked preview has no core: its page asks its mocks");
+    }
     if (url.pathname === RESET_PATH) {
       onReset();
       res.writeHead(200, { "content-type": TYPES[".html"], "cache-control": "no-store" });
@@ -72,7 +103,7 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
     }
     if (coreRoute(url.pathname)) return proxy(req, res, run.port);
     // A fresh run's first page goes through the reset page, once.
-    if (run.reset && (url.pathname === "/" || url.pathname.startsWith("/voice/")) && !extname(url.pathname)) {
+    if (run.mode !== "mock" && run.reset && (url.pathname === "/" || url.pathname.startsWith("/voice/")) && !extname(url.pathname)) {
       res.writeHead(303, { location: `${RESET_PATH}?next=${encodeURIComponent(url.pathname + url.search)}`, "cache-control": "no-store" });
       return res.end();
     }
@@ -112,7 +143,7 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
   function upgrade(req, socket, head) {
     const run = runs.current;
     const url = new URL(req.url, "http://preview");
-    if (!run || !coreRoute(url.pathname)) return socket.destroy();
+    if (!run || run.mode === "mock" || !coreRoute(url.pathname)) return socket.destroy();
     const core = connect(run.port, "127.0.0.1", () => {
       const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
       for (let i = 0; i < req.rawHeaders.length; i += 2) lines.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
@@ -130,6 +161,17 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
   }
 
   return { handle, upgrade };
+}
+
+/** What a mocked run serves of its own at `pathname`: `{ type, body }`, or null for the site's files. */
+export async function mockFile(pathname) {
+  if (pathname === "/") return { type: TYPES[".html"], body: await readFile(join(MOCK_DIR, "shell.html")) };
+  if (pathname === "/voice/target.js") return { type: TYPES[".js"], body: await readFile(join(MOCK_DIR, "frame.js")) };
+  if (pathname === `${MOCK_PATH}scenarios.json`) return { type: TYPES[".json"], body: JSON.stringify(await loadMockScenarios()) };
+  if (!pathname.startsWith(MOCK_PATH)) return null;
+  const name = pathname.slice(MOCK_PATH.length);
+  if (!MOCK_FILES.has(name)) return null;
+  return { type: TYPES[extname(name)], body: await readFile(join(MOCK_DIR, name)) };
 }
 
 function send(res, status, text) {

@@ -1,0 +1,52 @@
+{
+  "id": "desktop-local-host",
+  "title": "Desktop app with its local host",
+  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach.",
+  "view": "app",
+  "world": {
+    "page": "none",
+    "machines": {
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12, "devices": [], "participants": [] }
+    },
+    "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
+      "inUse": true, "version": "0.3.0", "bundledVersion": "0.3.0", "update": "current",
+      "devices": [], "participants": [
+        { "title": "Claude Code · sidevoice-core", "harness": "claude-code", "reach": "listening" }
+      ] }
+  },
+  "options": [
+    { "id": "localState", "group": "Local host", "label": "State", "values": [
+      { "value": "running", "label": "running", "set": { "local.state": "running", "local.failure": null } },
+      { "value": "starting", "label": "starting", "set": { "local.state": "starting", "local.failure": null } },
+      { "value": "backoff", "label": "retrying (backoff)", "set": { "local.state": "backoff", "local.failure": { "key": "import.missing-module", "step": "service-start" } } },
+      { "value": "failed", "label": "failed: missing module", "set": { "local.state": "failed", "local.failure": { "key": "import.missing-module", "step": "service-start" } } },
+      { "value": "service-failed", "label": "service failed: start limit", "set": { "local.state": "service-failed", "local.failure": { "key": "start-limit", "step": "service" } } },
+      { "value": "stopped", "label": "stopped by the person", "set": { "local.state": "stopped-by-person", "local.failure": null } },
+      { "value": "not-installed", "label": "not installed as a service", "set": { "local.state": "not-installed", "local.installed": false, "local.failure": null } },
+      { "value": "refused", "label": "refuses this app", "set": { "local.state": "refused", "local.failure": null } },
+      { "value": "incompatible", "label": "incompatible", "set": { "local.state": "incompatible", "local.failure": null } }
+    ] },
+    { "id": "startsAs", "group": "Local host", "label": "A start ends", "values": [
+      { "value": "running", "label": "running", "set": { "local.startsAs": "running" } },
+      { "value": "failed", "label": "failed", "set": { "local.startsAs": "failed", "local.startFailure": { "key": "launch.exited", "step": "service-start" } } }
+    ] },
+    { "id": "reach", "group": "Local host", "label": "Reach of its codes", "values": [
+      { "value": "local-only", "label": "this computer only", "set": { "local.reach": "local-only" } },
+      { "value": "room", "label": "through the room", "set": { "local.reach": "room" } }
+    ] },
+    { "id": "update", "group": "Version", "label": "Update", "values": [
+      { "value": "current", "label": "current", "set": { "local.update": "current", "local.bundledVersion": "0.3.0" } },
+      { "value": "available", "label": "available (0.4.0)", "set": { "local.update": "available", "local.bundledVersion": "0.4.0" } },
+      { "value": "newer-installed", "label": "the installed one is newer", "set": { "local.update": "newer-installed", "local.version": "0.5.0" } },
+      { "value": "incompatible", "label": "incompatible", "set": { "local.update": "incompatible" } }
+    ] },
+    { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
+      { "value": "local", "label": "this computer", "set": { "local.inUse": true, "machines.nuc.inUse": false } },
+      { "value": "nuc", "label": "the NUC", "set": { "local.inUse": false, "machines.nuc.inUse": true } }
+    ] },
+    { "id": "nucReach", "group": "Machines", "label": "The NUC answers", "values": [
+      { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
+      { "value": "offline", "label": "not at all", "set": { "machines.nuc.reach": "offline" } }
+    ] }
+  ]
+}

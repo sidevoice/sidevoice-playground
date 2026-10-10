@@ -1,7 +1,7 @@
-// The Web preview section: the real sidevoice-web at a picked commit, on the real core and connector of a picked
-// release, in a scenario (the server's preview/: built by checkout, run per scenario, served on an origin of its own).
-// This page picks, starts and stops; the preview itself opens in its own tab. Not in the macOS app, which has no
-// server to build or run anything.
+// The Web preview section: the real sidevoice-web at a picked commit (the server's preview/: built by checkout, served
+// on an origin of its own), mocked — its scenarios and options are then picked in the preview's own card — or on the
+// real core and connector of a picked release, in a scenario. This page picks, starts and stops; the preview itself
+// opens in its own tab. Not in the macOS app, which has no server to build or run anything.
 
 import { archiveChoices, buildChoices, webChoices } from "./preview/choices.mjs";
 
@@ -32,6 +32,14 @@ export function previewSection({ inApp }) {
     return res.json();
   }
 
+  function renderMode() {
+    const real = $("#preview-mode").value === "real";
+    $("#preview-real").hidden = !real;
+    $("#preview-real-scenario").hidden = !real;
+    if (real) renderScenario();
+    else $("#preview-forget").hidden = true;
+  }
+
   function renderScenario() {
     const picked = scenario();
     $("#preview-summary").textContent = picked
@@ -56,7 +64,7 @@ export function previewSection({ inApp }) {
       fill($("#preview-engine"), buildChoices(engines));
       fill($("#preview-voice"), buildChoices(voices));
       fill($("#preview-scenario"), listed.scenarios.map((s) => ({ value: s.id, label: s.title })));
-      renderScenario();
+      renderMode();
       status("#preview-status", "");
     } catch (error) {
       status("#preview-status", `Could not list: ${error.message}`, true);
@@ -74,8 +82,11 @@ export function previewSection({ inApp }) {
     else status("#preview-status", "Nothing running.");
     $("#preview-start").disabled = job.state === "starting";
     $("#preview-live").hidden = !current;
+    $("#preview-pair").hidden = current?.mode !== "real";
     if (current) {
-      $("#preview-running").textContent = `${current.scenario}: web ${current.web}, core ${current.core}, connector ${current.connector}.`;
+      $("#preview-running").textContent = current.mode === "mock"
+        ? `Mocked: web ${current.web}. Pick scenarios and options in the preview's card (Alt+Shift+P).`
+        : `${current.scenario}: web ${current.web}, core ${current.core}, connector ${current.connector}.`;
       $("#preview-open").href = link;
     }
     if (job.state !== "starting") stopPolling();
@@ -100,10 +111,12 @@ export function previewSection({ inApp }) {
   }
 
   $("#preview-scenario").onchange = renderScenario;
+  $("#preview-mode").onchange = renderMode;
   $("#preview-start").onclick = async () => {
     $("#preview-code").hidden = true;
     try {
       await ask("/preview/start", {
+        mode: $("#preview-mode").value,
         web: $("#preview-web").value,
         core: $("#preview-core").value,
         connector: $("#preview-connector").value,
