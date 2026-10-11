@@ -203,6 +203,20 @@ function roomRendezvous(state, query) {
   return json(200, { nodes });
 }
 
+/** A machine's agents as its connector lists them: the scenario's, else one connected, one found and not yet connected,
+ *  and one to connect by hand. */
+const DEFAULT_AGENTS = [
+  { id: "claude", label: "Claude Code", present: true, version: "2.1.4", registration: "connected", connect: "auto", actionable: false,
+    instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" } },
+  { id: "codex", label: "Codex", present: true, version: "0.48.0", registration: "not-connected", connect: "auto", actionable: true,
+    instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" } },
+  { id: "cursor", label: "Cursor", present: true, version: "1.7", registration: "not-connected", connect: "manual", actionable: false,
+    instructions: { file: "~/.cursor/mcp.json", snippet: '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }' } },
+];
+function agentsListing(world, machine) {
+  return { agents: machine.agents ?? DEFAULT_AGENTS, scanned_at: new Date(world.now()).toISOString() };
+}
+
 async function machineAnswer(world, identities, id, { method, path, query, headers, body }) {
   const state = world.state;
   const machine = machineOf(state, id);
@@ -240,6 +254,19 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   const token = /^Bearer (.+)$/.exec(headers.authorization ?? headers.Authorization ?? "")?.[1];
   if (token !== identity.token || machine.revoked) return refuse(401, NOT_PAIRED);
   const now = Math.floor(world.now() / 1000);
+  // The coding agents this machine found (sidevoice-web HostAgentsPanel): a listing, and connect / disconnect / dismiss,
+  // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents`.
+  if (method === "GET" && path === "/api/host/agents") return json(200, agentsListing(world, machine));
+  const agentAction = /^\/api\/host\/agents\/([^/]+)\/(connect|disconnect|dismiss)$/.exec(path);
+  if (method === "POST" && agentAction) {
+    const [, rawId, action] = agentAction;
+    const agentId = decodeURIComponent(rawId);
+    const agents = agentsListing(world, machine).agents.map((agent) => agent.id !== agentId ? agent
+      : action === "dismiss" ? { ...agent, dismissed: true, actionable: false }
+      : { ...agent, registration: action === "connect" ? "connected" : "not-connected", actionable: action !== "connect" });
+    if (id !== LOCAL_ID) world.patch({ [`machines.${id}.agents`]: agents });
+    return json(200, { agents, scanned_at: new Date(world.now()).toISOString() });
+  }
   if (method === "GET" && path === "/api/device/devices") {
     const devices = (machine.devices ?? []).map((device, i) => ({
       id: device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`,
