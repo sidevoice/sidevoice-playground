@@ -26,6 +26,9 @@ export const CODE_VARIANTS = ["valid", "expired", "used", "plaintext", "damaged"
 const API = 1;
 const IDENTITY_PREFIX = "sidevoice-node-identity:";
 const NOT_PAIRED = "This device is not paired with the core.";
+const NOT_A_DEVICE = "That device is not paired with the core.";
+/** The longest name a device may be given. */
+const DEVICE_NAME_MAX = 60;
 const DAY = 86_400;
 
 /** @param {ArrayBuffer | Uint8Array} bytes */
@@ -382,23 +385,38 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     world.patch({ [`${statePath(id)}.agents`]: agents });
     return json(200, { agents: agentRows(agents), scanned_at: new Date(world.now()).toISOString() });
   }
+  // A device's id: this device's is its pairing's, any other the scenario's, or one by its place in the list.
+  const deviceIdOf = (device, i) => (device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`);
   if (method === "GET" && path === "/api/device/devices") {
     const devices = (machine.devices ?? []).map((device, i) => ({
-      id: device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`,
+      id: deviceIdOf(device, i),
       name: device.name, kind: device.kind ?? "code",
       created: now - Math.round((device.daysAgo ?? 0) * DAY), last_seen: now - Math.round((device.seenDaysAgo ?? 0) * DAY),
       current: !!device.mine,
     }));
     return json(200, { devices });
   }
-  const revoke = path.match(/^\/api\/device\/devices\/([^/]+)$/);
-  if (method === "DELETE" && revoke) {
-    const deviceId = decodeURIComponent(revoke[1]);
+  const oneDevice = path.match(/^\/api\/device\/devices\/([^/]+)$/);
+  if (method === "DELETE" && oneDevice) {
+    const deviceId = decodeURIComponent(oneDevice[1]);
     const devices = machine.devices ?? [];
-    const kept = devices.filter((device, i) => (device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`) !== deviceId);
-    if (kept.length === devices.length) return refuse(404, "That device is not paired with the core.");
+    const kept = devices.filter((device, i) => deviceIdOf(device, i) !== deviceId);
+    if (kept.length === devices.length) return refuse(404, NOT_A_DEVICE);
     world.patch({ [`${statePath(id)}.devices`]: kept });
     return json(200, { ok: true });
+  }
+  // Renaming a device, this one too (sidevoice-web's renameMachineDevice and renameLocalHostDevice): `{ name }`, kept
+  // trimmed, 1 to 60 characters.
+  if (method === "PATCH" && oneDevice) {
+    const deviceId = decodeURIComponent(oneDevice[1]);
+    const asked = parsed(body).name;
+    const name = typeof asked === "string" ? asked.trim() : "";
+    if (!name || [...name].length > DEVICE_NAME_MAX) return refuse(400, `The device name must be 1 to ${DEVICE_NAME_MAX} characters.`);
+    const devices = machine.devices ?? [];
+    const at = devices.findIndex((device, i) => deviceIdOf(device, i) === deviceId);
+    if (at < 0) return refuse(404, NOT_A_DEVICE);
+    world.patch({ [`${statePath(id)}.devices`]: devices.map((device, i) => (i === at ? { ...device, name } : device)) });
+    return json(200, { device_id: deviceId, name });
   }
   // The presentation's routes are the room's: each one about the call its `session_id` names, when it is one.
   if (path.startsWith("/api/presentation")) {

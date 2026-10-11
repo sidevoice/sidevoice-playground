@@ -189,6 +189,7 @@ test("a machine's own routes take this device's token, and refuse it once revoke
   assert.equal((await ask(`${base}/api/device/devices/phone`, { method: "DELETE", ...auth })).status, 200);
   assert.equal(world.state.machines.nuc.devices.length, 1);
   world.patch({ "machines.nuc.revoked": true });
+  assert.equal((await ask(`${base}/api/device/devices/phone`, { method: "PATCH", body: '{"name":"x"}', ...auth })).status, 401);
   assert.equal((await ask(`${base}/api/presentation`, auth)).status, 401);
 });
 
@@ -214,6 +215,32 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.equal((await desktopHost(world, identities).localHost.agents()).agents[0].label, "Codex");
   assert.equal((await ask(`${LOCAL_URL}/api/device/devices/phone`, { method: "DELETE", ...as(LOCAL_ID) })).status, 200);
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
+});
+
+test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {
+  const { world, identities, ask } = await setup();
+  const as = (id) => ({ headers: { authorization: `Bearer ${identities[id].token}` } });
+  const rename = (base, id, deviceId, body) =>
+    ask(`${base}/api/device/devices/${encodeURIComponent(deviceId)}`, { method: "PATCH", body: typeof body === "string" ? body : JSON.stringify(body), ...as(id) });
+  const names = async (base, id) => (await ask(`${base}/api/device/devices`, as(id))).body.devices.map((d) => d.name);
+  const base = directUrl("nuc");
+  world.patch({ "machines.nuc.devices": [{ name: "Chrome on Mac", mine: true }, { name: "Safari on iPhone", id: "phone" }] });
+
+  assert.deepEqual(await rename(base, "nuc", "phone", { name: "  Ana's iPhone " }), { status: 200, body: { device_id: "phone", name: "Ana's iPhone" } });
+  assert.deepEqual(await rename(base, "nuc", identities.nuc.deviceId, { name: "Work Mac" }),
+    { status: 200, body: { device_id: identities.nuc.deviceId, name: "Work Mac" } });
+  assert.deepEqual(await names(base, "nuc"), ["Work Mac", "Ana's iPhone"]);
+  assert.equal((await rename(base, "nuc", "phone", { name: "x".repeat(60) })).status, 200);
+  for (const refused of [{ name: "" }, { name: "   " }, { name: "x".repeat(61) }, { name: 7 }, {}, "not json"]) {
+    assert.equal((await rename(base, "nuc", "phone", refused)).status, 400, JSON.stringify(refused));
+  }
+  assert.equal((await rename(base, "nuc", "nobody", { name: "Tablet" })).status, 404);
+  assert.equal((await names(base, "nuc"))[1], "x".repeat(60));
+
+  // This computer's host is asked the same at its loopback address (the page's localHostApi).
+  world.patch({ "local.state": "running", "local.devices": [{ name: "Sidevoice app on Mac", kind: "local", mine: true }, { name: "Chrome on Mac", id: "chrome" }] });
+  assert.equal((await rename(LOCAL_URL, LOCAL_ID, "chrome", { name: "Chrome (work)" })).status, 200);
+  assert.deepEqual(world.state.local.devices.map((d) => d.name), ["Sidevoice app on Mac", "Chrome (work)"]);
 });
 
 test("a named list of agents has one in every state; a Connect may take its time or fail, and a scan may fail", async () => {
