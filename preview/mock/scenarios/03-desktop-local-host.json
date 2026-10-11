@@ -1,20 +1,45 @@
 {
   "id": "desktop-local-host",
   "title": "Desktop app with its local host",
-  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach.",
+  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: two other devices on this computer's host and two on the NUC (Revoke); the NUC and an old laptop (off) paired (Forget); agents connected, not connected, by hand only (Cursor on the NUC) and foreign (Cursor here); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. New: Codex just found here and on the NUC, an update of this computer's host (0.4.0), and a setting from What's new (set up on the release before).",
   "view": "app",
+  "defaults": { "setup": "earlier", "update": "available", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
     "page": "none",
+    "setup": "earlier",
     "machines": {
-      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12, "devices": [], "participants": [] }
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12,
+        "devices": [
+          { "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true },
+          { "id": "nuc-iphone", "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 30, "seenDaysAgo": 1 },
+          { "id": "nuc-android", "name": "Sidevoice en Android", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
+        ],
+        "participants": [] },
+      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90,
+        "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 90, "mine": true }], "participants": [] }
     },
     "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
       "inUse": true, "version": "0.3.0", "bundledVersion": "0.3.0", "update": "current",
-      "devices": [], "participants": [
+      "devices": [
+        { "name": "Sidevoice en Mac", "kind": "local", "daysAgo": 30, "mine": true },
+        { "id": "local-iphone", "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 20, "seenDaysAgo": 1 },
+        { "id": "local-ipad", "name": "Sidevoice en iPad", "kind": "code", "daysAgo": 55, "seenDaysAgo": 30 }
+      ],
+      "agents": [
+        { "id": "claude", "registration": "connected", "actionable": false },
+        { "id": "codex", "registration": "not-connected", "actionable": true },
+        { "id": "cursor", "registration": "foreign", "actionable": false }
+      ],
+      "participants": [
         { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening" }
       ] }
   },
   "options": [
+    { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
+      { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
+      { "value": "earlier", "label": "done on the release before: what's new shows", "set": { "setup": "earlier" } },
+      { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
+    ] },
     { "id": "localState", "group": "Local host", "label": "State", "values": [
       { "value": "running", "label": "running", "set": { "local.state": "running", "local.failure": null } },
       { "value": "starting", "label": "starting", "set": { "local.state": "starting", "local.failure": null } },

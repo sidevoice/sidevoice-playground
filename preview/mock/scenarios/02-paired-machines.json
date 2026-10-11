@@ -1,29 +1,46 @@
 {
   "id": "paired-machines",
   "title": "Paired machines",
-  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
+  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live. Seeded, to try removing them: three other devices on the NUC and one on the workstation (Revoke); agents connected, not connected, by hand only (Cursor) and foreign (Claude Code on the workstation); the models in use and three not used for 12, 45 and 120 days (Delete); ElevenLabs' key connected, OpenAI's not. New: Codex just found on the NUC, and a setting from What's new (set up on the release before).",
   "view": "browser",
+  "defaults": { "setup": "earlier", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
     "page": "room",
-    "setup": "done",
+    "setup": "earlier",
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
-        "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }, { "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 }],
+        "devices": [
+          { "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true },
+          { "id": "nuc-iphone", "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 },
+          { "id": "nuc-windows", "name": "Sidevoice en Windows", "kind": "code", "daysAgo": 64, "seenDaysAgo": 9 },
+          { "id": "nuc-android", "name": "Sidevoice en Android", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
+        ],
         "participants": [
           { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
           { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
         ] },
-      "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "devices": [], "participants": [
+      "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40,
+        "devices": [
+          { "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 40, "mine": true },
+          { "id": "workstation-ipad", "name": "Sidevoice en iPad", "kind": "code", "daysAgo": 100, "seenDaysAgo": 21 }
+        ],
+        "agents": [
+          { "id": "claude", "registration": "foreign", "actionable": false },
+          { "id": "codex", "registration": "connected", "actionable": false },
+          { "id": "cursor", "registration": "not-connected", "actionable": false }
+        ],
+        "participants": [
         { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] },
-      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90, "devices": [], "participants": [] }
+      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90,
+        "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 90, "mine": true }], "participants": [] }
     },
     "local": null
   },
   "options": [
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
-      { "value": "done", "label": "done: opens on the room", "set": { "setup": "done" } },
-      { "value": "earlier", "label": "done on an earlier release: what's new shows", "set": { "setup": "earlier" } },
+      { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
+      { "value": "earlier", "label": "done on the release before: what's new shows", "set": { "setup": "earlier" } },
       { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
     ] },
     { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
