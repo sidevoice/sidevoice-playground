@@ -1,14 +1,14 @@
 {
   "id": "desktop-local-host",
   "title": "Desktop app with its local host",
-  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: two other devices on this computer's host and two on the NUC (Revoke); the NUC and an old laptop (off) paired (Forget); agents connected, not connected, by hand only (Cursor on the NUC) and foreign (Cursor here); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. New: Codex just found here and on the NUC, an update of this computer's host (0.4.0), and a setting from What's new (set up on the release before).",
+  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: two other devices on this computer's host and two on the NUC (Revoke); the NUC and an old laptop (off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search fails (timed out; the card makes it Sidevoice not running, or finds its three). New: Codex just found here, an update of this computer's host (0.4.0), and a setting from What's new (set up on the release before).",
   "view": "app",
   "defaults": { "setup": "earlier", "update": "available", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
     "page": "none",
     "setup": "earlier",
     "machines": {
-      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12,
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12, "agentsFail": "connector-timeout",
         "devices": [
           { "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true },
           { "id": "nuc-iphone", "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 30, "seenDaysAgo": 1 },
@@ -25,11 +25,7 @@
         { "id": "local-iphone", "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 20, "seenDaysAgo": 1 },
         { "id": "local-ipad", "name": "Sidevoice en iPad", "kind": "code", "daysAgo": 55, "seenDaysAgo": 30 }
       ],
-      "agents": [
-        { "id": "claude", "registration": "connected", "actionable": false },
-        { "id": "codex", "registration": "not-connected", "actionable": true },
-        { "id": "cursor", "registration": "foreign", "actionable": false }
-      ],
+      "agents": "every-state",
       "participants": [
         { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening" }
       ] }
@@ -72,6 +68,11 @@
     { "id": "nucReach", "group": "Machines", "label": "The NUC answers", "values": [
       { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
       { "value": "offline", "label": "not at all", "set": { "machines.nuc.reach": "offline" } }
+    ] },
+    { "id": "nucAgents", "group": "Machines", "label": "The NUC's agent search", "values": [
+      { "value": "timeout", "label": "fails: timed out", "set": { "machines.nuc.agentsFail": "connector-timeout" } },
+      { "value": "no-connector", "label": "fails: Sidevoice not running", "set": { "machines.nuc.agentsFail": "no-connector" } },
+      { "value": "found", "label": "finds three (connected, new, by hand)", "set": { "machines.nuc.agentsFail": null } }
     ] }
   ]
 }

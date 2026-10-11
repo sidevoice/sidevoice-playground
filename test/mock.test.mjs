@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { mockFile, loadMockScenarios } from "../preview/proxy.mjs";
 import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScenario } from "../preview/mock/world.mjs";
 import {
-  LOCAL_ID, LOCAL_URL, ROOM_URL, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
+  LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
 import { desktopHost, localStatus } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
@@ -328,6 +328,23 @@ test("the shipped scenarios are valid, and every option's fields land in their w
         }
       }
     }
+  }
+});
+
+test("Room ready and Desktop local host each show every agent state on one machine, and an agent search failing on another", async () => {
+  const scenarios = await loadMockScenarios();
+  for (const [id, shows] of [["room-ready", "machines.nuc"], ["desktop-local-host", "local"]]) {
+    const state = stateFor(scenarios.find((s) => s.id === id), {});
+    const machine = shows.split(".").reduce((at, key) => at[key], state);
+    const rows = agentRows(agentsOf(machine));
+    for (const registration of ["connected", "not-connected", "outdated", "foreign", "invalid", "unknown"]) {
+      assert.ok(rows.some((a) => a.registration === registration), `${id}: ${registration}`);
+    }
+    assert.ok(rows.some((a) => a.actionable && a.present), `${id}: new`);
+    assert.ok(rows.some((a) => a.connect === "manual"), `${id}: by hand`);
+    assert.ok(rows.some((a) => a.present === false && a.registration === "connected"), `${id}: connected, not installed`);
+    assert.ok(agentsOf(machine).some((a) => a.connectMs >= 8000) && agentsOf(machine).some((a) => a.connectFails), `${id}: slow, failing`);
+    assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
   }
 });
 
