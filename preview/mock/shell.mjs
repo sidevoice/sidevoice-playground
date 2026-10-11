@@ -21,6 +21,12 @@ const VARIANTS = [
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "panel", label: "B · a section of the updates' list" }] },
+  { name: "where", label: "Where your agents are", note: "The setup's choice of this computer or another machine (the desktop app).",
+    values: [{ value: "steps", label: "A · separate steps" }, { value: "cards", label: "B · one step, its choices opening in place" }] },
+  { name: "agent-actions", label: "An agent's other actions", note: "In the agents list: what a row offers besides Connect or Disconnect.",
+    values: [{ value: "menu", label: "A · a ⋯ menu beside the button" }, { value: "split", label: "B · a split button, its chevron joined" }] },
+  { name: "ready", label: "The setup's last step", note: "Ready: what was set up, what to tell an agent, and Enter Sidevoice.",
+    values: [{ value: "a", label: "A · in the setup's frame" }, { value: "b", label: "B · on the stage, the frame stepped back" }] },
 ]
 
 function readVariants() {
