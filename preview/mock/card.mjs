@@ -100,12 +100,14 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         }
         if (!simulateAgent(frame, sampleAgent.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
-      el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds", onclick: () => {
+      el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds, then it answers with the reply above", onclick: () => {
         if (liveCall(world)) {
-          if (!agentWorks(world)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
+          if (!agentWorks(world, WORKING_MS)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
+          else void world.delay(WORKING_MS).then(() => agentSpeaks(world, sampleAgent.value));
           return;
         }
         if (!simulateWorking(frame)) voiceNote.textContent = "Open a conversation in the page first.";
+        else setTimeout(() => simulateAgent(frame, sampleAgent.value), WORKING_MS);
       } })));
   const voiceSection = el("fieldset", {},
     el("legend", { textContent: "Voice (mocked: no microphone)" }),
@@ -244,12 +246,15 @@ function simulateAgent(frame, text) {
   return true;
 }
 
-/** The agent working for a few seconds, then idle again. */
+/** How long "Agent working" keeps the agent busy before it answers. */
+const WORKING_MS = 5000;
+
+/** The agent working for a few seconds, then idle again (the card then has it answer). */
 function simulateWorking(frame) {
   const page = pageConversation(frame);
   if (!page) return false;
   const { store, thread } = page;
   store.patch({ harness: { ...store.getState().facts.harness, [thread]: true } });
-  setTimeout(() => store.patch({ harness: { ...store.getState().facts.harness, [thread]: false } }), 5000);
+  setTimeout(() => store.patch({ harness: { ...store.getState().facts.harness, [thread]: false } }), WORKING_MS);
   return true;
 }
