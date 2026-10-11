@@ -97,6 +97,12 @@ export function desktopHost(world, identities) {
       // A service not set up at all yet is set up and started (the card's Start in that state).
       if (!wasSetUp) await starting();
     },
+    /** Whether the service starts at the next sign-in, only that (sidevoice-web #75's LocalHostBridge.setStartAtLogin; the
+     *  real bridge and connector lack it: their service uninstall also stops the service). @param {boolean} enabled */
+    async setStartAtLogin(enabled) {
+      await world.delay(400);
+      set({ service: "launchd", installed: !!enabled });
+    },
     async serviceUninstall() {
       await world.delay(800);
       set({ installed: false });
