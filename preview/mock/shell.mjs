@@ -21,12 +21,17 @@ const VARIANTS = [
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "panel", label: "B · a section of the updates' list" }] },
-  { name: "agent-actions", label: "An agent's other actions", note: "In the agents list: what a row offers besides Connect or Disconnect.",
-    values: [{ value: "split", label: "A · a split button, its chevron joined" }, { value: "original", label: "B · every action a button on the row (the original)" }] },
 ]
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
+}
+
+/** Choices kept for variants the panel no longer offers (decided ones) go: the page then shows what was decided. */
+function pruneVariants() {
+  const kept = readVariants();
+  const open = Object.fromEntries(Object.entries(kept).filter(([name]) => VARIANTS.some((variant) => variant.name === name)));
+  if (Object.keys(open).length !== Object.keys(kept).length) localStorage.setItem(VARIANTS_KEY, JSON.stringify(open));
 }
 
 /** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
@@ -296,6 +301,7 @@ async function run(card) {
   // The variants' panel opens and closes on its header, or Alt+Shift+V, and picks what the page shows (variants.mjs).
   const variants = document.getElementById("variants");
   const variantsBody = variants?.querySelector(".card-body");
+  pruneVariants();
   if (variantsBody) drawVariants(variantsBody);
   const flipVariants = () => {
     const closed = variants.classList.toggle("closed");

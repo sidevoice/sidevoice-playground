@@ -225,14 +225,16 @@ function roomRendezvous(state, query) {
 }
 
 /** A machine's agents as its connector lists them: the scenario's, else one connected, one found and not yet connected,
- *  and one to connect by hand. */
+ *  and one to connect by hand. Each says how to add Sidevoice by hand and how to take it out (`removal`: sidevoice-web
+ *  #75's DetectedAgent.removal, a gap in the real connector). */
 const DEFAULT_AGENTS = [
   { id: "claude", label: "Claude Code", present: true, version: "2.1.4", registration: "connected", connect: "auto", actionable: false,
-    instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" } },
+    instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "claude mcp remove sidevoice" } },
   { id: "codex", label: "Codex", present: true, version: "0.48.0", registration: "not-connected", connect: "auto", actionable: true,
-    instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" } },
+    instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "codex mcp remove sidevoice" } },
   { id: "cursor", label: "Cursor", present: true, version: "1.7", registration: "not-connected", connect: "manual", actionable: false,
-    instructions: { file: "~/.cursor/mcp.json", snippet: '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }' } },
+    instructions: { file: "~/.cursor/mcp.json", snippet: '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }' },
+    removal: { file: "~/.cursor/mcp.json", snippet: "Delete the \"sidevoice\" entry under \"mcpServers\"." } },
 ];
 function agentsListing(world, machine) {
   return { agents: machine.agents ?? DEFAULT_AGENTS, scanned_at: new Date(world.now()).toISOString() };
