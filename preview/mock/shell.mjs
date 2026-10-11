@@ -5,7 +5,7 @@
 
 import { createWorld, changedCount } from "./world.mjs";
 import { makeIdentities, seededStorage } from "./machines.mjs";
-import { attach } from "./attach.mjs";
+import { attach, mockModule } from "./attach.mjs";
 import { renderCard, updateActivity } from "./card.mjs";
 
 export const VIEWS = ["browser", "app", "phone"];
@@ -104,6 +104,7 @@ async function run(card) {
 
   window.__sidevoicePreview = {
     attach: (win) => attach(win, { world, identities, desktop: view() === "app", onKey: shortcut }),
+    module: (kind) => mockModule(kind, world),
   };
 
   /** Loads the page again from the storage the world says it had; `fresh` makes the world (and its machines) anew. */

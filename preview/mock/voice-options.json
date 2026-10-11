@@ -1,0 +1,39 @@
+[
+  { "id": "mic", "group": "Voice", "label": "Microphone", "values": [
+    { "value": "granted", "label": "works", "set": { "voice.mic": "granted" } },
+    { "value": "denied", "label": "denied", "set": { "voice.mic": "denied" } },
+    { "value": "missing", "label": "none connected", "set": { "voice.mic": "missing" } }
+  ] },
+  { "id": "stt", "group": "Voice", "label": "What you say", "values": [
+    { "value": "ok", "label": "is transcribed", "set": { "voice.stt": "ok" } },
+    { "value": "silence", "label": "is not heard (nothing usable)", "set": { "voice.stt": "silence" } },
+    { "value": "error", "label": "fails to transcribe", "set": { "voice.stt": "error" } }
+  ] },
+  { "id": "tts", "group": "Voice", "label": "What it says", "values": [
+    { "value": "ok", "label": "is heard", "set": { "voice.tts": "ok" } },
+    { "value": "error", "label": "fails to synthesize", "set": { "voice.tts": "error" } }
+  ] },
+  { "id": "installed", "group": "Models", "label": "Installed on this device", "values": [
+    { "value": "vad", "label": "only the speech detector", "set": { "voice.installed": { "silero-vad": true } } },
+    { "value": "set", "label": "Whisper base and Kokoro too", "set": { "voice.installed": { "silero-vad": true, "whisper-base": true, "kokoro-82m-v1.0": true } } }
+  ] },
+  { "id": "install", "group": "Models", "label": "A model's download", "values": [
+    { "value": "ok", "label": "works", "set": { "voice.install": "ok", "voice.installSlow": false } },
+    { "value": "slow", "label": "works, slowly", "set": { "voice.install": "ok", "voice.installSlow": true } },
+    { "value": "fail", "label": "fails half way", "set": { "voice.install": "fail", "voice.installSlow": false } }
+  ] },
+  { "id": "voices", "group": "Models", "label": "A local model's voices", "values": [
+    { "value": "installed", "label": "listed once installed", "set": { "voice.voicesOnceInstalled": true } },
+    { "value": "always", "label": "always listed", "set": { "voice.voicesOnceInstalled": false } }
+  ] },
+  { "id": "keys", "group": "Models", "label": "Provider keys", "reload": true, "values": [
+    { "value": "none", "label": "none", "set": { "voice.keys": {} } },
+    { "value": "openai", "label": "OpenAI's, accepted", "set": { "voice.keys": { "openai": "sk-preview-accepted" } } },
+    { "value": "openai-rejected", "label": "OpenAI's, rejected", "set": { "voice.keys": { "openai": "sk-preview-rejected" } } },
+    { "value": "both", "label": "OpenAI's and ElevenLabs', accepted", "set": { "voice.keys": { "openai": "sk-preview-accepted", "elevenlabs": "sk-preview-accepted" } } }
+  ] },
+  { "id": "providers", "group": "Models", "label": "Providers", "values": [
+    { "value": "ok", "label": "answer", "set": { "voice.providers": "ok" } },
+    { "value": "unreachable", "label": "cannot be reached", "set": { "voice.providers": "unreachable" } }
+  ] }
+]

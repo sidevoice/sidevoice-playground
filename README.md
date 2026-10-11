@@ -192,6 +192,16 @@ pairing, devices, the presentation's reads) and, in the app view, `window.__side
 bridge, with its local host). Identities are real P-256 keys and codes are real `SV1.` codes, so the web pairs with
 its own code.
 
+- **The voice and the models** are mocked through the two interfaces the web takes them by: `VoiceHost` and
+  `ModelCatalogs`. In the app view they are the bridge's `host.voice` and `host.engine`; in the browser view the
+  origin serves the web's own `@sidevoice/voice` and `@sidevoice/engine` chunks (told by their exports) as the
+  mocks' `createVoiceHost` and `WebEngine`, so the web's own catalogue and model-source code runs on them. The
+  catalogues are the local one (a few of sidevoice-engine's `catalog/families`, with their builds by place) and
+  OpenAI's and ElevenLabs' (listed with an accepted key; refused, missing or unreachable otherwise). Installs report
+  progress and can be cancelled or fail; a local model's voices are listed once it is installed. No microphone is
+  used: the card's **Speak** says its text into whatever listens (a transcription test, a call), and options make
+  the microphone denied or missing, the transcription silent or failing, and speech fail. Every scenario has these
+  options (`preview/mock/voice-options.json`).
 - **Scenarios** are `preview/mock/scenarios/*.json`: a world (the page's target, the machines this device knows or
   could pair with, the desktop app's local host) and options, each value a set of fields it changes. An option marked
   ↻ reloads the page from the storage the world says it had; any other one is live.
@@ -238,7 +248,8 @@ engine-builds.mjs  the releases, pull requests and branches to pick from, listed
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
 preview/        the Web preview: web-build.mjs (by checkout), archives.mjs (core, connector), runs.mjs,
                 proxy.mjs (the preview origin), index.mjs (its routes), scenarios/ (real core);
-                mock/: world.mjs, machines.mjs, bridge.mjs, attach.mjs (the mocks), shell + card, scenarios/
+                mock/: world.mjs, machines.mjs, bridge.mjs, models.mjs, voice.mjs, attach.mjs, chunks.mjs (the mocks),
+                shell + card, scenarios/, voice-options.json
 refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served
 test/           node --test
 ```

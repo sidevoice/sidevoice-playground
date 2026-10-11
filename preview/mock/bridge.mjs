@@ -8,6 +8,8 @@
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
 
 import { LOCAL_ID, LOCAL_URL, mintCode } from "./machines.mjs";
+import { desktopEngine } from "./models.mjs";
+import { fakeVoice } from "./voice.mjs";
 
 /** The local host's status (desktop-host.ts `LocalHostStatus`), from the world's `local`.
  * @returns {LocalHostStatus} */
@@ -37,7 +39,8 @@ const INSTALL_STEPS = [
   { step: "service-start", total: null },
 ];
 
-/** The desktop host for the world: `{ app, version, computerName, localHost }`, as the bridge gives it. */
+/** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost? }`, as the bridge gives it:
+ *  the app's voice and engine (voice.mjs, models.mjs), and its local host when the world has one. */
 export function desktopHost(world, identities) {
   const local = () => world.state.local;
   const status = () => localStatus(local(), world.now());
@@ -154,11 +157,15 @@ export function desktopHost(world, identities) {
       return status();
     },
   };
+  const voice = fakeVoice(world);
+  world.voiceRuntime = voice;
   return {
     app: "sidevoice-desktop",
     version: "0.0.0-preview",
     computerName: local()?.computerName ?? "Mac de Ana",
-    localHost,
+    voice: voice.host,
+    engine: desktopEngine(world),
+    ...(local() ? { localHost } : {}),
   };
 }
 

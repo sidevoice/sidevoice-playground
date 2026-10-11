@@ -4,6 +4,7 @@
 // were asked. Rendered again whole on each change: it is small.
 
 import { CODE_VARIANTS, LOCAL_ID, mintCode } from "./machines.mjs";
+import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
 const LANGUAGE_LABELS = { "": "System", es: "Español", en: "English" };
@@ -69,6 +70,20 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       note.textContent = "Copied.";
     } }));
 
+  const voiceNote = el("p", { className: "note voice-state", textContent: voiceLine(world) });
+  const said = el("input", { type: "text", value: root.dataset.said ?? voiceState(world).transcript, oninput: () => (root.dataset.said = said.value) });
+  const voiceSection = el("fieldset", {},
+    el("legend", { textContent: "Voice (mocked: no microphone)" }),
+    voiceNote,
+    el("label", {}, "You say", said),
+    el("div", { className: "actions" },
+      el("button", { type: "button", textContent: "Speak", title: "As if said into the microphone, while the page listens", onclick: async () => {
+        const heard = await world.voiceRuntime?.speak(said.value);
+        if (!heard) voiceNote.textContent = "The page is not listening: start what listens first (a call, or a transcription test).";
+      } }),
+      el("button", { type: "button", textContent: "Copy accepted key", onclick: () => navigator.clipboard.writeText(SAMPLE_KEYS.accepted) }),
+      el("button", { type: "button", textContent: "Copy rejected key", onclick: () => navigator.clipboard.writeText(SAMPLE_KEYS.rejected) })));
+
   root.replaceChildren(
     header,
     el("div", { className: "card-body" },
@@ -82,6 +97,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
           option.reload ? `${option.label} ↻` : option.label,
           select(option.values, world.choices[option.id], (value) => choose(option.id, value)))),
       )),
+      voiceSection,
       machines.length ? el("fieldset", {},
         el("legend", { textContent: "Pairing codes" }),
         el("label", {}, "Code", select(CODE_VARIANTS.map((v) => ({ value: v, label: VARIANT_LABELS[v] })), variant, (v) => {
@@ -104,8 +120,17 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   );
 }
 
+/** Where the mocked voice is, in a line. */
+function voiceLine(world) {
+  const state = world.voiceRuntime?.state;
+  if (!state?.started) return "The page's voice is not listening.";
+  return `Listening: ${state.listening}${state.recognising ? ", transcribing" : ""}${state.playback !== "idle" ? `, speaking (${state.playback})` : ""}.`;
+}
+
 /** Brings the list of what the mocks were asked up to date, leaving the rest of the card as it is. */
 export function updateActivity(root, world) {
+  const voice = root.querySelector(".voice-state");
+  if (voice) voice.textContent = voiceLine(world);
   const list = root.querySelector(".activity ol");
   if (!list) return;
   root.querySelector(".activity summary").textContent = `What the mocks were asked (${world.activity.length})`;

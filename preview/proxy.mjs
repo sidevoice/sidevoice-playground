@@ -19,18 +19,22 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validMockScenario } from "./mock/world.mjs";
+import { chunkFor } from "./mock/chunks.mjs";
 
 const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
 /** What the shell loads from mock/, by name: nothing else there is served. */
-const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "shell.css"]);
+const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "models.mjs", "voice.mjs", "shell.css"]);
 export const MOCK_PATH = "/preview-mock/";
 
-/** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order. */
+/** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order, each with the voice's and the
+ *  models' options (mock/voice-options.json) after its own. */
 export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
   const files = (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
+  const shared = JSON.parse(await readFile(join(MOCK_DIR, "voice-options.json"), "utf8"));
   const scenarios = [];
   for (const file of files) {
     const value = JSON.parse(await readFile(join(dir, file), "utf8"));
+    value.options = [...(value.options ?? []), ...shared.filter((option) => !value.options?.some((own) => own.id === option.id))];
     if (!validMockScenario(value)) throw new Error(`${file} is not a mocked scenario`);
     scenarios.push(value);
   }
@@ -122,9 +126,17 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
       return res.end();
     }
     if (target.forbidden) return send(res, 403, "outside the site");
+    // Mocked, the web's voice and engine packages are the mocks' (mock/chunks.mjs).
+    const chunk = run.mode === "mock" && url.pathname.startsWith("/voice/assets/") ? await chunkFor(target.path) : null;
+    if (chunk) {
+      res.writeHead(200, { "content-type": TYPES[".js"], "cache-control": "no-store" });
+      return res.end(chunk);
+    }
     try {
       const body = await readFile(target.path);
-      const noStore = target.fallback || target.path.endsWith("target.js") || target.path.endsWith("index.html");
+      // Mocked, scripts are never kept: a package chunk the browser kept from a run with the real one would win.
+      const noStore = target.fallback || target.path.endsWith("target.js") || target.path.endsWith("index.html") ||
+        (run.mode === "mock" && target.path.endsWith(".js"));
       res.writeHead(200, {
         "content-type": TYPES[extname(target.path)] ?? "application/octet-stream",
         "cache-control": noStore ? "no-store" : "public, max-age=3600",

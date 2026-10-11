@@ -86,6 +86,8 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
+  // In the browser the page keeps the provider keys (the app keeps its own).
+  if (!desktop) for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) if (key) local[`sidevoice.provider-key.${provider}`] = key;
   return local;
 }
 
