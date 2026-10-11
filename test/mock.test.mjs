@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { mockFile, loadMockScenarios } from "../preview/proxy.mjs";
 import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScenario } from "../preview/mock/world.mjs";
 import {
@@ -286,6 +289,30 @@ test("the shipped scenarios are valid, and every option's fields land in their w
         }
       }
     }
+  }
+});
+
+test("a scenario starts a shared option where its defaults say, and only its own copy of it", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "scenarios-"));
+  try {
+    const plain = { id: "plain", title: "P", summary: "p", world: { machines: {} }, options: [] };
+    await writeFile(join(dir, "1.json"), JSON.stringify({ ...plain, id: "seeded", defaults: { installed: "seeded", keys: "elevenlabs" } }));
+    await writeFile(join(dir, "2.json"), JSON.stringify(plain));
+    const [seeded, other] = await loadMockScenarios(dir);
+    assert.equal("defaults" in seeded, false);
+    const first = (s, id) => s.options.find((o) => o.id === id).values[0].value;
+    assert.deepEqual([first(seeded, "installed"), first(seeded, "keys")], ["seeded", "elevenlabs"]);
+    assert.deepEqual([first(other, "installed"), first(other, "keys")], ["vad", "none"]);
+    assert.equal(seeded.options.find((o) => o.id === "installed").values.length, other.options.find((o) => o.id === "installed").values.length);
+    const state = stateFor(seeded, choicesFor(seeded));
+    assert.equal(state.voice.installed["whisper-small"], true);
+    assert.equal(state.voice.lastUsedDaysAgo["whisper-small"], 120);
+    assert.deepEqual(state.voice.keys, { elevenlabs: "sk-preview-accepted" });
+
+    await writeFile(join(dir, "3.json"), JSON.stringify({ ...plain, id: "typo", defaults: { keys: "nope" } }));
+    await assert.rejects(loadMockScenarios(dir), /keys=nope/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 });
 

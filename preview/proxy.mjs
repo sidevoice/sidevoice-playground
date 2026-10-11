@@ -27,15 +27,23 @@ const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "world.mjs", "machines.mjs"
 export const MOCK_PATH = "/preview-mock/";
 
 /** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order, each with the voice's and the
- *  models' options (mock/voice-options.json) after its own. */
+ *  models' options (mock/voice-options.json) after its own. An option starts at its first value, or at the one the
+ *  scenario's `defaults` names for it (`{ "<option>": "<value>" }`): a shared option seeded per scenario. */
 export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
   const files = (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
   const shared = JSON.parse(await readFile(join(MOCK_DIR, "voice-options.json"), "utf8"));
   const scenarios = [];
   for (const file of files) {
-    const value = JSON.parse(await readFile(join(dir, file), "utf8"));
+    const { defaults = {}, ...value } = JSON.parse(await readFile(join(dir, file), "utf8"));
     value.options = [...(value.options ?? []), ...shared.filter((option) => !value.options?.some((own) => own.id === option.id))];
     if (!validMockScenario(value)) throw new Error(`${file} is not a mocked scenario`);
+    for (const [id, start] of Object.entries(defaults)) {
+      const at = value.options.findIndex((o) => o.id === id);
+      const first = value.options[at]?.values.find((v) => v.value === start);
+      if (!first) throw new Error(`${file}: its defaults name ${id}=${start}, which no option offers`);
+      // A copy: the shared options are every scenario's.
+      value.options[at] = { ...value.options[at], values: [first, ...value.options[at].values.filter((v) => v !== first)] };
+    }
     scenarios.push(value);
   }
   return scenarios;
