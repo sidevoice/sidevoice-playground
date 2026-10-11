@@ -216,6 +216,45 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
 });
 
+test("a named list of agents has one in every state; a Connect may take its time or fail, and a scan may fail", async () => {
+  const { world, identities, ask } = await setup();
+  const auth = { headers: { authorization: `Bearer ${identities.nuc.token}` } };
+  const base = directUrl("nuc");
+  world.patch({ "machines.nuc.agents": "every-state" });
+  const listed = (await ask(`${base}/api/host/agents`, auth)).body.agents;
+  assert.deepEqual(new Set(listed.map((a) => a.registration)), new Set(["connected", "not-connected", "outdated", "foreign", "invalid", "unknown"]));
+  assert.ok(listed.some((a) => a.connect === "manual"));
+  assert.ok(listed.some((a) => a.registration === "not-connected" && a.actionable && a.present));
+  assert.ok(listed.some((a) => a.registration === "connected" && a.present === false));
+  assert.ok(listed.every((a) => a.label && a.instructions && !("connectMs" in a) && !("connectFails" in a)));
+  assert.equal(listed.find((a) => a.registration === "invalid").instructions.file, "~/.config/zed/settings.json");
+
+  // Amp's Connect takes 8 s of the world's time: held while the clock is paused.
+  world.speed = 0;
+  let done = false;
+  const connecting = ask(`${base}/api/host/agents/amp/connect`, { method: "POST", ...auth }).then((r) => ((done = true), r));
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(done, false);
+  world.speed = 1;
+  const connected = await connecting;
+  assert.equal(connected.body.agents.find((a) => a.id === "amp").registration, "connected");
+  // What the mock alone knows of a row stays with it: disconnected, it takes its time again.
+  assert.equal(world.state.machines.nuc.agents.find((a) => a.id === "amp").connectMs, 8000);
+
+  const failed = await ask(`${base}/api/host/agents/copilot/connect`, { method: "POST", ...auth });
+  assert.equal(failed.status, 409);
+  assert.deepEqual(failed.body, { error: { key: "connect-failed", params: { id: "copilot", agent: "GitHub Copilot CLI" } } });
+  assert.equal(world.state.machines.nuc.agents.find((a) => a.id === "copilot").registration, "not-connected");
+
+  // A scan that fails answers as the core does: its own refusals by key, the connector's errors with 409.
+  world.patch({ "machines.nuc.agentsFail": "connector-timeout" });
+  assert.deepEqual(await ask(`${base}/api/host/agents`, auth), { status: 504, body: { key: "connector-timeout" } });
+  world.patch({ "machines.nuc.agentsFail": "agents.busy" });
+  assert.deepEqual(await ask(`${base}/api/host/agents`, auth), { status: 409, body: { error: { key: "agents.busy" } } });
+  world.patch({ "local.state": "running", "local.agentsFail": "no-connector" });
+  await assert.rejects(desktopHost(world, identities).localHost.agents(), { key: "no-connector" });
+});
+
 test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {
   const { world, identities } = await setup();
   const host = desktopHost(world, identities);
