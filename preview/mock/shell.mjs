@@ -23,6 +23,8 @@ const VARIANTS = [
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
   { name: "new-dismiss", label: "Clearing “New”", note: "Whether each “New” also has a × to clear it without looking.",
     values: [{ value: "with", label: "A · with a ×" }, { value: "without", label: "B · without" }] },
+  { name: "models-list", label: "Downloaded models", note: "How Settings › Advanced organises the models on this device (in use first in all).",
+    values: [{ value: "grouped", label: "A · in use / not in use" }, { value: "plain", label: "B · one plain list" }, { value: "purpose", label: "C · by purpose" }, { value: "cards", label: "D · cards" }] },
 ]
 
 function readVariants() {
