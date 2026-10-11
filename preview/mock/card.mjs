@@ -93,7 +93,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       el("div", { className: "actions" },
         el("button", { type: "button", textContent: "Restart scenario", onclick: restart }),
         el("button", { type: "button", textContent: "Copy link", onclick: () => navigator.clipboard.writeText(location.href) }),
-        el("button", { type: "button", textContent: "Reset options", onclick: clear })),
+        el("button", { type: "button", textContent: "Reset options", onclick: clear }),
+        el("button", { type: "button", textContent: "Reset preview", title: "Clears what this browser keeps for the preview, and starts it over",
+          onclick: () => location.assign("/preview-reset") })),
       el("details", { className: "activity" },
         el("summary", { textContent: `What the mocks were asked (${world.activity.length})` }),
         el("ol", {}, world.activity.slice(-12).reverse().map((a) =>

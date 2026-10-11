@@ -258,3 +258,42 @@ test("a mocked run serves the shell, the mocks' target.js, its modules and scena
   assert.equal(await mockFile("/preview-mock/scenarios/01-first-visit.json"), null);
   assert.equal(await mockFile("/voice/index.html"), null);
 });
+
+test("a storage step that never answers holds the preview up for its bound only", async () => {
+  const { bounded } = await import("../preview/mock/shell.mjs");
+  const started = Date.now();
+  assert.equal(await bounded(new Promise(() => {}), 50), undefined);
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(await bounded(Promise.resolve(3), 1000), 3);
+  assert.equal(await bounded(Promise.reject(new Error("x")), 1000), undefined);
+});
+
+test("the shell shows the way out before its script runs", async () => {
+  const html = String((await mockFile("/")).body);
+  assert.match(html, /<aside id="card"[^]*href="\/preview-reset"/);
+  assert.match(html, /allow="microphone;[^"]*autoplay;[^"]*speaker-selection/);
+});
+
+test("the reset page clears the origin's data, with or without a run, and only goes on to this origin", async () => {
+  const { createServer } = await import("node:http");
+  const { previewOrigin } = await import("../preview/proxy.mjs");
+  let current = null;
+  const origin = previewOrigin({ runs: { get current() { return current; }, resetDone() {} } });
+  const server = createServer((req, res) => origin.handle(req, res));
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const none = await fetch(`${base}/preview-reset`);
+    assert.equal(none.status, 200);
+    assert.equal(none.headers.get("clear-site-data"), '"cache", "storage"');
+    assert.match(await none.text(), /location\.replace\("\/"\)/);
+    assert.match(await (await fetch(`${base}/preview-reset?next=//evil.example`)).text(), /location\.replace\("\/"\)/);
+    current = { mode: "real", reset: true };
+    assert.match(await (await fetch(`${base}/preview-reset`)).text(), /location\.replace\("\/voice\/"\)/);
+    current = { mode: "mock" };
+    assert.match(await (await fetch(`${base}/preview-reset`)).text(), /location\.replace\("\/"\)/);
+    assert.equal((await fetch(`${base}/`)).status, 200);
+  } finally {
+    server.close();
+  }
+});

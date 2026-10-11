@@ -39,26 +39,59 @@ export function writeParams({ scenario, view, language, speed, options }, defaul
   return text ? `?${text}` : "";
 }
 
-/** Empties what the page keeps on this origin, then writes `local` into its localStorage. */
+/** `promise`, or undefined once `ms` passed: a browser's storage that does not answer never holds the preview up. */
+export function bounded(promise, ms) {
+  let timer;
+  return Promise.race([Promise.resolve(promise).catch(() => undefined), new Promise((resolve) => (timer = setTimeout(resolve, ms)))])
+    .finally(() => clearTimeout(timer));
+}
+
+/** Empties what the page keeps on this origin, then writes `local` into its localStorage; each step bounded in time. */
 async function seed(local) {
-  localStorage.clear();
-  sessionStorage.clear();
   try {
-    for (const db of (await indexedDB.databases?.()) ?? []) {
-      if (db.name) await new Promise((resolve) => Object.assign(indexedDB.deleteDatabase(db.name), { onsuccess: resolve, onerror: resolve, onblocked: resolve }));
-    }
+    localStorage.clear();
+    sessionStorage.clear();
   } catch {}
-  try {
+  const databases = (await bounded(indexedDB.databases?.(), 2000)) ?? [];
+  await Promise.all(databases.filter((db) => db.name).map((db) => bounded(new Promise((resolve) =>
+    Object.assign(indexedDB.deleteDatabase(db.name), { onsuccess: resolve, onerror: resolve, onblocked: resolve })), 2000)));
+  await bounded((async () => {
     for (const key of await caches.keys()) await caches.delete(key);
-  } catch {}
-  for (const [key, value] of Object.entries(local)) localStorage.setItem(key, value);
+  })(), 3000);
+  for (const [key, value] of Object.entries(local)) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  }
+}
+
+/** What went wrong, in the card, with the way out: the card itself must survive anything. */
+function problem(card, message) {
+  let note = card.querySelector(".problem");
+  if (!note) {
+    note = Object.assign(document.createElement("p"), { className: "problem" });
+    (card.querySelector(".card-body") ?? card).prepend(note);
+  }
+  note.replaceChildren(`The preview hit a problem: ${message} `, Object.assign(document.createElement("a"), {
+    href: "/preview-reset", textContent: "Reset the preview",
+  }), " (clears what this browser keeps for it).");
 }
 
 async function main() {
+  const card = document.getElementById("card");
+  addEventListener("error", (event) => problem(card, String(event.message ?? event.error)));
+  addEventListener("unhandledrejection", (event) => problem(card, String(event.reason?.message ?? event.reason)));
+  try {
+    await run(card);
+  } catch (error) {
+    problem(card, String(error?.message ?? error));
+  }
+}
+
+async function run(card) {
   const scenarios = await (await fetch("/preview-mock/scenarios.json", { cache: "no-store" })).json();
   const frame = document.getElementById("app");
   const device = document.getElementById("device");
-  const card = document.getElementById("card");
   let params = readParams(location.search);
   let world = null;
   let identities = null;
@@ -91,11 +124,12 @@ async function main() {
     world.speed = params.speed;
     world.state.language = params.language;
     device.className = `device ${view()}`;
+    // The card first: whatever the page's storage does next, the card is there to change it or reset it.
+    remember();
+    render();
     frame.src = "about:blank";
     await seed(seededStorage(world.state, identities, world.now(), { desktop: view() === "app" }));
     frame.src = "/voice/";
-    remember();
-    render();
   }
 
   function shortcut(event) {
@@ -108,6 +142,14 @@ async function main() {
   addEventListener("keydown", shortcut, true);
 
   function render() {
+    try {
+      draw();
+    } catch (error) {
+      problem(card, String(error?.message ?? error));
+    }
+  }
+
+  function draw() {
     renderCard(card, {
       scenarios, scenario: scenario(), world, identities, params: { ...params, view: view() }, open,
       count: changedCount(scenario(), world.choices),

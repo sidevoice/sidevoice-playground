@@ -36,5 +36,6 @@ html, body { margin: 0; height: 100%; background: #2b2b2b; font: 14px/1.4 system
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 button { cursor: pointer; }
 .note { margin: 0; font-size: 12px; color: #8a5a00; }
+.problem { margin: 0; padding: 6px 8px; border-radius: 6px; background: #f7d9c4; color: #7a2a00; font-size: 12px; }
 .activity summary { cursor: pointer; font-size: 12px; }
 .activity ol { margin: 6px 0 0; padding-left: 18px; font: 11px/1.4 ui-monospace, monospace; word-break: break-all; }
