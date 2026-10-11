@@ -238,9 +238,9 @@ test("a device paired with a machine, this one too, is renamed there: 1 to 60 ch
   assert.equal((await names(base, "nuc"))[1], "x".repeat(60));
 
   // This computer's host is asked the same at its loopback address (the page's localHostApi).
-  world.patch({ "local.state": "running", "local.devices": [{ name: "Sidevoice app on Mac", kind: "local", mine: true }, { name: "Chrome on Mac", id: "chrome" }] });
+  world.patch({ "local.state": "running", "local.devices": [{ name: "Mac de Ana", kind: "local", mine: true }, { name: "Chrome on Mac", id: "chrome" }] });
   assert.equal((await rename(LOCAL_URL, LOCAL_ID, "chrome", { name: "Chrome (work)" })).status, 200);
-  assert.deepEqual(world.state.local.devices.map((d) => d.name), ["Sidevoice app on Mac", "Chrome (work)"]);
+  assert.deepEqual(world.state.local.devices.map((d) => d.name), ["Mac de Ana", "Chrome (work)"]);
 });
 
 test("a named list of agents has one in every state; a Connect may take its time or fail, and a scan may fail", async () => {

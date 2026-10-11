@@ -1,7 +1,7 @@
 {
   "id": "paired-machines",
   "title": "Paired machines",
-  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live. Seeded, to try removing them: this device, Chrome on Mac, and four others on the NUC (Safari on iPhone, Sidevoice app on Mac, Firefox on Windows, Edge on Windows) and one on the workstation (Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); agents connected, not connected, by hand only (Cursor) and foreign (Claude Code on the workstation); the models in use and three not used for 12, 45 and 120 days (Delete); ElevenLabs' key connected, OpenAI's not. New: Codex just found on the NUC, and a setting from What's new (set up on the release before).",
+  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live. Seeded, to try removing them: this device, Chrome on Mac, and four others on the NUC (Safari on iPhone, Mac de Ana, Firefox on Windows, Edge on Windows) and one on the workstation (Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); in each machine's list its own Sidevoice too, paired with itself: nuc-salon on the NUC and ana-workstation on the workstation (This machine, not revocable); agents connected, not connected, by hand only (Cursor) and foreign (Claude Code on the workstation); the models in use and three not used for 12, 45 and 120 days (Delete); ElevenLabs' key connected, OpenAI's not. New: Codex just found on the NUC, and a setting from What's new (set up on the release before).",
   "view": "browser",
   "defaults": { "setup": "earlier", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
@@ -10,9 +10,10 @@
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
         "devices": [
+          { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
           { "name": "Chrome on Mac", "kind": "code", "daysAgo": 12, "mine": true },
           { "id": "nuc-iphone", "name": "Safari on iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 },
-          { "id": "nuc-app", "name": "Sidevoice app on Mac", "kind": "code", "daysAgo": 20, "seenDaysAgo": 0.1 },
+          { "id": "nuc-app", "name": "Mac de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 0.1 },
           { "id": "nuc-windows", "name": "Firefox on Windows", "kind": "code", "daysAgo": 64, "seenDaysAgo": 9 },
           { "id": "nuc-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
         ],
@@ -22,6 +23,7 @@
         ] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40,
         "devices": [
+          { "id": "workstation-self", "name": "ana-workstation", "kind": "local", "daysAgo": 240, "seenDaysAgo": 0 },
           { "name": "Chrome on Mac", "kind": "code", "daysAgo": 40, "mine": true },
           { "id": "workstation-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 100, "seenDaysAgo": 21 }
         ],
