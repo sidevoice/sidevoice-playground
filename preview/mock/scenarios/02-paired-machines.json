@@ -1,7 +1,7 @@
 {
   "id": "paired-machines",
   "title": "Paired machines",
-  "summary": "This device is paired with three machines: the NUC (in use), a workstation and an old laptop. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
+  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
   "view": "browser",
   "world": {
     "page": "room",
@@ -9,7 +9,10 @@
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
         "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }, { "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 }],
-        "participants": [] },
+        "participants": [
+          { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+          { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
+        ] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "devices": [], "participants": [
         { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] },
@@ -42,6 +45,10 @@
       { "value": "offline", "label": "not at all", "set": { "machines.workstation.reach": "offline" } }
     ] },
     { "id": "nucAgents", "group": "Agents on the NUC", "label": "Conversations", "values": [
+      { "value": "two", "label": "two listening (Claude Code, Codex)", "set": { "machines.nuc.participants": [
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
+      ] } },
       { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },
       { "value": "one", "label": "one listening", "set": { "machines.nuc.participants": [
         { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" }
