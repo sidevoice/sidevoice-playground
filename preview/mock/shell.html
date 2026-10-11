@@ -10,10 +10,13 @@
   <main id="stage">
     <div id="device" class="device browser">
       <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="title">Sidevoice</span></div>
-      <iframe id="app" title="Sidevoice" allow="microphone; clipboard-write"></iframe>
+      <iframe id="app" title="Sidevoice" allow="microphone; camera; autoplay; speaker-selection; clipboard-read; clipboard-write"></iframe>
     </div>
   </main>
-  <aside id="card" aria-label="Preview controls"></aside>
+  <!-- What shows until the shell's script draws the card, and stays if it never does: the way out. -->
+  <aside id="card" aria-label="Preview controls"><div class="card-header"><strong>PREVIEW</strong></div>
+    <div class="card-body"><p class="summary">Loading the preview… If this stays, <a href="/preview-reset">reset the preview</a>
+      (it clears what this browser keeps for the preview).</p></div></aside>
   <script type="module" src="/preview-mock/shell.mjs"></script>
 </body>
 </html>

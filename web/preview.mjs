@@ -72,6 +72,10 @@ export function previewSection({ inApp }) {
   }
 
   function render({ job, log, current, link }) {
+    // The preview's reset page, past its gate like the link: it works with or without a run.
+    const reset = new URL(link);
+    reset.pathname = "/preview-reset";
+    $("#preview-reset").href = reset.href;
     const log$ = $("#preview-log");
     log$.hidden = !log.length;
     log$.textContent = log.join("\n");

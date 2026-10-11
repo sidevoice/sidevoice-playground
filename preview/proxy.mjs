@@ -5,7 +5,9 @@
 // answers this origin because the run told it to, so nothing is rewritten.
 //
 // `/preview-reset` is this origin's one page of its own: it empties what the browser keeps here (storage, IndexedDB,
-// caches) and goes on to the web, so a fresh scenario starts as on a device that never saw it.
+// caches, service workers; with `Clear-Site-Data` too, so it works whatever the page's own script can still do) and
+// goes on to the web — or, mocked, to the shell with nothing picked — so a preview starts as on a device that never
+// saw it. The access cookie stays.
 //
 // A mocked run serves no core: `/` is the shell (mock/shell.html), with the card, that holds the web in a frame;
 // `/preview-mock/…` its modules and its scenarios; and the site's `/voice/target.js` is the mocks' (mock/frame.js),
@@ -54,11 +56,16 @@ export const RESET_PATH = "/preview-reset";
 export function resetPage(next = "/voice/") {
   return `<!doctype html><meta charset="utf-8"><title>Resetting the preview</title><p>Starting from a device that never saw this…</p>
 <script>
+// Each step bounded, and the page goes on in 4 s whatever: a storage that never answers is no reason to stay here.
+const go = () => location.replace(${JSON.stringify(next)});
+setTimeout(go, 4000);
+const bounded = (work) => Promise.race([Promise.resolve().then(work).catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
 (async () => {
   try { localStorage.clear(); sessionStorage.clear(); } catch {}
-  try { for (const db of (await indexedDB.databases?.()) ?? []) if (db.name) indexedDB.deleteDatabase(db.name); } catch {}
-  try { for (const key of await caches.keys()) await caches.delete(key); } catch {}
-  location.replace(${JSON.stringify(next)});
+  await bounded(async () => { for (const db of (await indexedDB.databases?.()) ?? []) if (db.name) indexedDB.deleteDatabase(db.name); });
+  await bounded(async () => { for (const key of await caches.keys()) await caches.delete(key); });
+  await bounded(async () => { for (const worker of await navigator.serviceWorker.getRegistrations()) await worker.unregister(); });
+  go();
 })();
 </script>`;
 }
@@ -87,6 +94,13 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
   async function handle(req, res) {
     const url = new URL(req.url, "http://preview");
     const run = runs.current;
+    // The way out works with or without a run: it is what a browser stuck on this origin is sent to.
+    if (url.pathname === RESET_PATH) {
+      if (run) onReset();
+      const next = url.searchParams.get("next") ?? (run?.mode === "real" ? "/voice/" : "/");
+      res.writeHead(200, { "content-type": TYPES[".html"], "cache-control": "no-store", "clear-site-data": '"cache", "storage"' });
+      return res.end(resetPage(next.startsWith("/") && !next.startsWith("//") ? next : "/"));
+    }
     if (!run) return send(res, 503, "No preview is running: start one from the playground's Web preview section.");
     if (run.mode === "mock") {
       const served = await mockFile(url.pathname);
@@ -95,11 +109,6 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
         return res.end(served.body);
       }
       if (coreRoute(url.pathname)) return send(res, 404, "a mocked preview has no core: its page asks its mocks");
-    }
-    if (url.pathname === RESET_PATH) {
-      onReset();
-      res.writeHead(200, { "content-type": TYPES[".html"], "cache-control": "no-store" });
-      return res.end(resetPage(url.searchParams.get("next") ?? "/voice/"));
     }
     if (coreRoute(url.pathname)) return proxy(req, res, run.port);
     // A fresh run's first page goes through the reset page, once.
