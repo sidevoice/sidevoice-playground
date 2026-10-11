@@ -109,6 +109,21 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         if (!simulateWorking(frame)) voiceNote.textContent = "Open a conversation in the page first.";
         else setTimeout(() => simulateAgent(frame, sampleAgent.value), WORKING_MS);
       } })));
+  // The microphone and the speaker the page's voice offers (its device bar, by the microphone): a headset to plug in and
+  // out, and a speaker that cannot be chosen (a browser without setSinkId).
+  const devicesNote = el("p", { className: "note" });
+  const describe = () => {
+    const now = world.voiceRuntime?.devices;
+    devicesNote.textContent = now ? `Headset ${now.headset ? "plugged in" : "unplugged"}; the speaker ${now.outputSelectable ? "can" : "cannot"} be chosen.`
+      : "The page's voice is not made yet: join the call, or open the microphone's device bar.";
+    plug.textContent = now?.headset === false ? "Plug the headset in" : "Unplug the headset";
+    sink.textContent = now?.outputSelectable === false ? "Let the speaker be chosen" : "Speaker cannot be chosen";
+  };
+  const plug = el("button", { type: "button", onclick: () => { world.voiceRuntime?.plugHeadset(!world.voiceRuntime.devices.headset); describe(); } });
+  const sink = el("button", { type: "button", onclick: () => { world.voiceRuntime?.outputSelectable(!world.voiceRuntime.devices.outputSelectable); describe(); } });
+  describe();
+  const devicesSection = el("fieldset", {},
+    el("legend", { textContent: "Microphone and speaker (mocked)" }), devicesNote, el("div", { className: "actions" }, plug, sink));
   const voiceSection = el("fieldset", {},
     el("legend", { textContent: "Voice (mocked: no microphone)" }),
     voiceNote,
@@ -136,6 +151,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       )),
       conversationSection,
       voiceSection,
+      devicesSection,
       machines.length ? el("fieldset", {},
         el("legend", { textContent: "Pairing codes" }),
         el("label", {}, "Code", select(CODE_VARIANTS.map((v) => ({ value: v, label: VARIANT_LABELS[v] })), variant, (v) => {

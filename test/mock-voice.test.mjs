@@ -185,3 +185,21 @@ test("every scenario offers the voice's and the models' options", async () => {
     for (const id of ["mic", "stt", "tts", "installed", "install", "keys"]) assert.ok(s.options.some((o) => o.id === id), `${s.id}: ${id}`);
   }
 });
+
+test("the mocked voice's microphone and speaker: chosen by id, followed as the headset comes and goes, the speaker sometimes fixed", async () => {
+  const voice = fakeVoice(world());
+  const seen = [];
+  voice.host.onAudioDevices((devices) => seen.push(devices));
+  const first = await voice.host.audioDevices();
+  assert.deepEqual([first.inputs.map((d) => d.id), first.input, first.output, first.outputSelectable], [["mic-builtin", "mic-headset"], null, null, true]);
+  assert.equal((await voice.host.setAudioDevices({ input: "mic-headset", output: "out-headset" })).input, "mic-headset");
+  await assert.rejects(voice.host.setAudioDevices({ input: "mic-gone" }), { code: "microphone-unavailable" });
+  // The headset unplugged: what was chosen of it is lost, the default in use, said once.
+  voice.plugHeadset(false);
+  assert.deepEqual([seen.at(-1).input, seen.at(-1).output, seen.at(-1).lost], [null, null, { input: "mic-headset", output: "out-headset" }]);
+  voice.plugHeadset(true);
+  assert.equal(seen.at(-1).lost, undefined);
+  voice.outputSelectable(false);
+  assert.equal(seen.at(-1).outputSelectable, false);
+  await assert.rejects(voice.host.setAudioDevices({ output: "out-builtin" }), { code: "audio-output-unselectable" });
+});
