@@ -7,7 +7,7 @@
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
 
-import { LOCAL_ID, LOCAL_URL, mintCode } from "./machines.mjs";
+import { LOCAL_ID, LOCAL_URL, agentRows, mintCode } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
 
@@ -141,7 +141,7 @@ export function desktopHost(world, identities) {
       return true;
     },
     async agents() {
-      return { agents: local()?.agents ?? [], scanned_at: new Date(world.now()).toISOString() };
+      return { agents: agentRows(local()?.agents ?? []), scanned_at: new Date(world.now()).toISOString() };
     },
     async version() {
       const bundled = { version: local()?.bundledVersion ?? "0.3.0" };

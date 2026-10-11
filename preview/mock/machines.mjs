@@ -224,21 +224,37 @@ function roomRendezvous(state, query) {
   return json(200, { nodes });
 }
 
-/** A machine's agents as its connector lists them: the scenario's, else one connected, one found and not yet connected,
- *  and one to connect by hand. Each says how to add Sidevoice by hand and how to take it out (`removal`: sidevoice-web
- *  #75's DetectedAgent.removal, a gap in the real connector). */
-const DEFAULT_AGENTS = [
-  { id: "claude", label: "Claude Code", present: true, version: "2.1.4", registration: "connected", connect: "auto", actionable: false,
+/** The agents the connector knows (sidevoice-connector's AgentId), as it finds them installed: each says how to add
+ *  Sidevoice by hand and how to take it out (`removal`: sidevoice-web #75's DetectedAgent.removal, a gap in the real
+ *  connector). Where each one stands is the machine's. */
+const KNOWN_AGENTS = {
+  claude: { id: "claude", label: "Claude Code", present: true, version: "2.1.4", connect: "auto",
     instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "claude mcp remove sidevoice" } },
-  { id: "codex", label: "Codex", present: true, version: "0.48.0", registration: "not-connected", connect: "auto", actionable: true,
+  codex: { id: "codex", label: "Codex", present: true, version: "0.48.0", connect: "auto",
     instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "codex mcp remove sidevoice" } },
-  { id: "cursor", label: "Cursor", present: true, version: "1.7", registration: "not-connected", connect: "manual", actionable: false,
+  cursor: { id: "cursor", label: "Cursor", present: true, version: "1.7", connect: "manual",
     instructions: { file: "~/.cursor/mcp.json", snippet: '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }' },
     removal: { file: "~/.cursor/mcp.json", snippet: "Delete the \"sidevoice\" entry under \"mcpServers\"." } },
+};
+/** A machine's agents when its scenario names none: one connected, one just found and not yet connected (new), and
+ *  one to connect by hand. */
+const DEFAULT_AGENTS = [
+  { id: "claude", registration: "connected", actionable: false },
+  { id: "codex", registration: "not-connected", actionable: true },
+  { id: "cursor", registration: "not-connected", actionable: false },
 ];
-function agentsListing(world, machine) {
-  return { agents: machine.agents ?? DEFAULT_AGENTS, scanned_at: new Date(world.now()).toISOString() };
+
+/** Agents as the connector lists them: each row a scenario (or an action) gives — at least its `id` and
+ *  `registration` — over what the connector knows of that agent. */
+export function agentRows(agents) {
+  return agents.map((agent) => ({ ...KNOWN_AGENTS[agent.id], ...agent }));
 }
+function agentsListing(world, machine) {
+  return { agents: agentRows(machine.agents ?? DEFAULT_AGENTS), scanned_at: new Date(world.now()).toISOString() };
+}
+
+/** Where machine `id` is in the world's state: what a mock's action on it patches. */
+const statePath = (id) => (id === LOCAL_ID ? "local" : `machines.${id}`);
 
 async function machineAnswer(world, identities, id, { method, path, query, headers, body }) {
   const state = world.state;
@@ -278,7 +294,7 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   if (token !== identity.token || machine.revoked) return refuse(401, NOT_PAIRED);
   const now = Math.floor(world.now() / 1000);
   // The coding agents this machine found (sidevoice-web HostAgentsPanel): a listing, and connect / disconnect / dismiss,
-  // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents`.
+  // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents` (`local.agents`).
   if (method === "GET" && path === "/api/host/agents") return json(200, agentsListing(world, machine));
   const agentAction = /^\/api\/host\/agents\/([^/]+)\/(connect|disconnect|dismiss)$/.exec(path);
   if (method === "POST" && agentAction) {
@@ -287,7 +303,7 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const agents = agentsListing(world, machine).agents.map((agent) => agent.id !== agentId ? agent
       : action === "dismiss" ? { ...agent, dismissed: true, actionable: false }
       : { ...agent, registration: action === "connect" ? "connected" : "not-connected", actionable: action !== "connect" });
-    if (id !== LOCAL_ID) world.patch({ [`machines.${id}.agents`]: agents });
+    world.patch({ [`${statePath(id)}.agents`]: agents });
     return json(200, { agents, scanned_at: new Date(world.now()).toISOString() });
   }
   if (method === "GET" && path === "/api/device/devices") {
@@ -305,7 +321,7 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const devices = machine.devices ?? [];
     const kept = devices.filter((device, i) => (device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`) !== deviceId);
     if (kept.length === devices.length) return refuse(404, "That device is not paired with the core.");
-    if (id !== LOCAL_ID) world.patch({ [`machines.${id}.devices`]: kept });
+    world.patch({ [`${statePath(id)}.devices`]: kept });
     return json(200, { ok: true });
   }
   // The presentation's routes are the room's: each one about the call its `session_id` names, when it is one.

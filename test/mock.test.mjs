@@ -184,6 +184,30 @@ test("a machine's own routes take this device's token, and refuse it once revoke
   assert.equal((await ask(`${base}/api/presentation`, auth)).status, 401);
 });
 
+test("a machine's agents are a scenario's rows over the connector's own, and what is done to them stays, here too", async () => {
+  const { world, identities, ask } = await setup();
+  const as = (id) => ({ headers: { authorization: `Bearer ${identities[id].token}` } });
+  const agents = async (base, id) => (await ask(`${base}/api/host/agents`, as(id))).body.agents;
+  const found = await agents(directUrl("nuc"), "nuc");
+  assert.deepEqual(found.map((a) => [a.id, a.registration, a.actionable]),
+    [["claude", "connected", false], ["codex", "not-connected", true], ["cursor", "not-connected", false]]);
+  assert.ok(found.every((a) => a.label && a.connect && a.instructions && a.removal));
+  world.patch({ "machines.nuc.agents": [{ id: "claude", registration: "foreign" }] });
+  assert.deepEqual((await agents(directUrl("nuc"), "nuc")).map((a) => [a.id, a.label, a.registration, a.removal.command]),
+    [["claude", "Claude Code", "foreign", "claude mcp remove sidevoice"]]);
+
+  // This computer's host keeps them as a remote one does: its agents (the bridge's too) and its devices.
+  world.patch({
+    "local.state": "running", "local.agents": [{ id: "codex", registration: "not-connected", actionable: true }],
+    "local.devices": [{ name: "App", kind: "local", mine: true }, { name: "Phone", id: "phone" }],
+  });
+  assert.equal((await ask(`${LOCAL_URL}/api/host/agents/codex/connect`, { method: "POST", ...as(LOCAL_ID) })).status, 200);
+  assert.equal(world.state.local.agents[0].registration, "connected");
+  assert.equal((await desktopHost(world, identities).localHost.agents()).agents[0].label, "Codex");
+  assert.equal((await ask(`${LOCAL_URL}/api/device/devices/phone`, { method: "DELETE", ...as(LOCAL_ID) })).status, 200);
+  assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
+});
+
 test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {
   const { world, identities } = await setup();
   const host = desktopHost(world, identities);
