@@ -203,7 +203,7 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.ok(found.every((a) => a.label && a.connect && a.instructions && a.removal));
   world.patch({ "machines.nuc.agents": [{ id: "claude", registration: "foreign" }] });
   assert.deepEqual((await agents(directUrl("nuc"), "nuc")).map((a) => [a.id, a.label, a.registration, a.removal.command]),
-    [["claude", "Claude Code", "foreign", "claude mcp remove sidevoice"]]);
+    [["claude", "Claude Code", "foreign", "claude mcp remove --scope user sidevoice"]]);
 
   // This computer's host keeps them as a remote one does: its agents (the bridge's too) and its devices.
   world.patch({

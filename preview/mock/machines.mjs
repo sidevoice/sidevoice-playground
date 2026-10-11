@@ -232,39 +232,42 @@ function roomRendezvous(state, query) {
   return json(200, { nodes });
 }
 
-/** An agent that takes Sidevoice in an MCP configuration file: how to add it there by hand, and take it out. */
-const byFile = (file, snippet, under) => ({
-  instructions: { file, snippet }, removal: { file, snippet: `Delete the "sidevoice" entry under "${under}".` },
-});
+/* How each agent takes Sidevoice, as the real connector handles them (sidevoice-connector agents.rs, agents/*.rs): an
+ * agent with a CLI is connected through it (`<cli> mcp add`), and the connector can act only where that CLI is found;
+ * one configured by a file (Cursor's mcp.json, …) is edited by the connector itself, so it can always act. Each says
+ * how to do it by hand (sidevoice-web #75's DetectedAgent.manual: connect, disconnect, replace — a gap in the real
+ * connector), in order. */
+const OURS = "npx sidevoice@latest mcp";
+/** An agent connected through its CLI (`scope`: Claude Code's user scope). */
+const byCli = (cli, scope = "") => {
+  const add = { command: `${cli} mcp add${scope} sidevoice -- ${OURS}` }, remove = { command: `${cli} mcp remove${scope} sidevoice` };
+  return { cli, manual: { connect: [add], disconnect: [remove], replace: [remove, add] }, instructions: add, removal: remove };
+};
+/** An agent configured by a file the connector edits itself. */
+const byFile = (file, snippet, under) => {
+  const add = { file, snippet }, remove = { file, snippet: `Delete the "sidevoice" entry under "${under}".` };
+  return { manual: { connect: [add], disconnect: [remove], replace: [{ file, snippet: `Delete the other "sidevoice" entry under "${under}".` }, add] }, instructions: add, removal: remove };
+};
 const MCP_SERVERS = '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }';
-/** The agents the connector knows (sidevoice-connector's AgentId: Claude Code, Codex, Cursor) and more harnesses a
- *  person may have, which the web shows as any other (MCP's mark for one it has no mark of), as the connector finds
- *  them installed: each says how to add Sidevoice by hand and how to take it out (`removal`: sidevoice-web #75's
- *  DetectedAgent.removal, a gap in the real connector). Where each one stands is the machine's. */
+/** The agents the connector knows (Claude Code, Codex, Cursor) and more harnesses a person may have, as found
+ *  installed. Where each one stands is the machine's. */
 const KNOWN_AGENTS = {
-  claude: { id: "claude", label: "Claude Code", present: true, version: "2.1.4", connect: "auto",
-    instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "claude mcp remove sidevoice" } },
-  codex: { id: "codex", label: "Codex", present: true, version: "0.48.0", connect: "auto",
-    instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "codex mcp remove sidevoice" } },
-  cursor: { id: "cursor", label: "Cursor", present: true, version: "1.7", connect: "manual",
-    ...byFile("~/.cursor/mcp.json", MCP_SERVERS, "mcpServers") },
-  gemini: { id: "gemini", label: "Gemini CLI", present: true, version: "0.9.0", connect: "auto",
-    instructions: { command: "gemini mcp add sidevoice npx sidevoice@latest mcp" }, removal: { command: "gemini mcp remove sidevoice" } },
-  opencode: { id: "opencode", label: "OpenCode", present: true, version: "0.15.2", connect: "auto",
+  claude: { id: "claude", label: "Claude Code", present: true, version: "2.1.4", ...byCli("claude", " --scope user") },
+  codex: { id: "codex", label: "Codex", present: true, version: "0.48.0", ...byCli("codex") },
+  cursor: { id: "cursor", label: "Cursor", present: true, version: "1.7", ...byFile("~/.cursor/mcp.json", MCP_SERVERS, "mcpServers") },
+  gemini: { id: "gemini", label: "Gemini CLI", present: true, version: "0.9.0", ...byCli("gemini") },
+  opencode: { id: "opencode", label: "OpenCode", present: true, version: "0.15.2",
     ...byFile("~/.config/opencode/opencode.json", '{ "mcp": { "sidevoice": { "type": "local", "command": ["npx", "sidevoice@latest", "mcp"] } } }', "mcp") },
-  windsurf: { id: "windsurf", label: "Windsurf", present: true, version: "1.12.4", connect: "auto",
-    ...byFile("~/.codeium/windsurf/mcp_config.json", MCP_SERVERS, "mcpServers") },
-  zed: { id: "zed", label: "Zed", present: true, version: "0.208.4", connect: "auto",
+  windsurf: { id: "windsurf", label: "Windsurf", present: true, version: "1.12.4", ...byFile("~/.codeium/windsurf/mcp_config.json", MCP_SERVERS, "mcpServers") },
+  zed: { id: "zed", label: "Zed", present: true, version: "0.208.4",
     ...byFile("~/.config/zed/settings.json", '"context_servers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } }', "context_servers") },
-  goose: { id: "goose", label: "Goose", present: true, version: "1.9.3", connect: "auto",
+  goose: { id: "goose", label: "Goose", present: true, version: "1.9.3",
     ...byFile("~/.config/goose/config.yaml", "extensions:\n  sidevoice:\n    type: stdio\n    cmd: npx\n    args: [sidevoice@latest, mcp]\n    enabled: true", "extensions") },
-  amp: { id: "amp", label: "Amp", present: true, version: "0.0.1760", connect: "auto",
-    instructions: { command: "amp mcp add sidevoice -- npx sidevoice@latest mcp" }, removal: { command: "amp mcp remove sidevoice" } },
-  copilot: { id: "copilot", label: "GitHub Copilot CLI", present: true, version: "0.0.339", connect: "auto",
+  amp: { id: "amp", label: "Amp", present: true, version: "0.0.1760", ...byCli("amp") },
+  copilot: { id: "copilot", label: "GitHub Copilot CLI", present: true, version: "0.0.339",
     ...byFile("~/.copilot/mcp-config.json", '{ "mcpServers": { "sidevoice": { "type": "local", "command": "npx", "args": ["sidevoice@latest", "mcp"], "tools": ["*"] } } }', "mcpServers") },
-  kiro: { id: "kiro", label: "Kiro", present: true, version: "0.4.0", connect: "auto",
-    ...byFile("~/.kiro/settings/mcp.json", MCP_SERVERS, "mcpServers") },
-  continue: { id: "continue", label: "Continue", present: true, version: "1.2.0", connect: "auto",
+  kiro: { id: "kiro", label: "Kiro", present: true, version: "0.4.0", ...byFile("~/.kiro/settings/mcp.json", MCP_SERVERS, "mcpServers") },
+  continue: { id: "continue", label: "Continue", present: true, version: "1.2.0",
     ...byFile("~/.continue/config.yaml", "mcpServers:\n  - name: sidevoice\n    command: npx\n    args: [sidevoice@latest, mcp]", "mcpServers") },
 };
 /** A machine's agents when its scenario names none: one connected, one just found and not yet connected (new), and
@@ -274,6 +277,8 @@ const DEFAULT_AGENTS = [
   { id: "codex", registration: "not-connected", actionable: true },
   { id: "cursor", registration: "not-connected", actionable: false },
 ];
+// (Cursor is connected by the connector editing its file: never by hand only. By hand only is an agent whose CLI the
+// connector cannot find — `cliFound: false`.)
 /** Lists a scenario names (`"agents": "<name>"`) instead of giving its rows. `every-state`: one agent in each state the
  *  web shows one in — connected; not connected; just found (new); set up by an older Sidevoice (outdated); another
  *  "sidevoice" entry (foreign); MCP settings it cannot read (invalid); unknown; by hand only; one whose Connect takes
@@ -281,8 +286,8 @@ const DEFAULT_AGENTS = [
 const AGENT_LISTS = {
   "every-state": [
     { id: "claude", registration: "connected", actionable: false },
-    { id: "codex", registration: "not-connected", actionable: true },
-    { id: "gemini", registration: "not-connected", actionable: false },
+    { id: "gemini", registration: "not-connected", actionable: true },
+    { id: "codex", registration: "not-connected", actionable: false, cliFound: false },
     { id: "opencode", registration: "outdated", actionable: false },
     { id: "windsurf", registration: "foreign", actionable: false },
     { id: "zed", registration: "invalid", actionable: false },
@@ -305,7 +310,12 @@ export function agentsOf(machine) {
 /** Agents as the connector lists them: each row a scenario (or an action) gives over what the connector knows of
  *  that agent, without what is the mock's alone. */
 export function agentRows(agents) {
-  return agents.map(({ connectMs, connectFails, ...agent }) => ({ ...KNOWN_AGENTS[agent.id], ...agent }));
+  return agents.map(({ connectMs, connectFails, cliFound = true, ...agent }) => {
+    const { cli, ...known } = KNOWN_AGENTS[agent.id] ?? {};
+    // The connector acts where it can reach the agent: its CLI found, or its file.
+    const able = !cli || cliFound;
+    return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent };
+  });
 }
 
 /** How the core refuses an agents request its connector could not answer (sidevoice-core connector_routes), by key;
@@ -376,6 +386,8 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const agentId = decodeURIComponent(rawId);
     const asked = agentsOf(machine).find((agent) => agent.id === agentId);
     // A Connect takes what the agent's row says, and may fail as the connector says it (409, its key and the agent).
+    // Its CLI not found: the connector cannot act on it (the page offers the steps by hand instead).
+    if (asked?.cliFound === false && action !== "dismiss") return agentFailure("agents.cli-missing", { id: agentId, agent: agentRows([asked])[0].label ?? agentId });
     if (action === "connect" && asked?.connectMs) await world.delay(asked.connectMs);
     if (action === "connect" && asked?.connectFails) {
       return agentFailure(asked.connectFails, { id: agentId, agent: agentRows([asked])[0].label ?? agentId });
