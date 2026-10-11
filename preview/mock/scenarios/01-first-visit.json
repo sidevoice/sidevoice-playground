@@ -7,7 +7,7 @@
     "page": "room",
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": false, "devices": [], "participants": [
-        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" }
+        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" }
       ] }
     },
     "local": { "computerName": "Mac de Ana", "state": "absent", "installed": false, "reach": "local-only", "install": "ok", "participants": [] }

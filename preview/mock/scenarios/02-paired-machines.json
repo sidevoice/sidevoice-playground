@@ -5,18 +5,23 @@
   "view": "browser",
   "world": {
     "page": "room",
+    "setup": "done",
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
         "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }, { "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 }],
         "participants": [] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "devices": [], "participants": [
-        { "title": "Codex · infra", "harness": "codex", "reach": "listening" }
+        { "title": "infra", "harness": "codex", "reach": "listening" }
       ] },
       "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90, "devices": [], "participants": [] }
     },
     "local": null
   },
   "options": [
+    { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
+      { "value": "done", "label": "done: opens on the room", "set": { "setup": "done" } },
+      { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
+    ] },
     { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
       { "value": "nuc", "label": "the NUC", "set": { "machines.nuc.inUse": true, "machines.workstation.inUse": false } },
       { "value": "workstation", "label": "the workstation", "set": { "machines.nuc.inUse": false, "machines.workstation.inUse": true } }
@@ -39,12 +44,12 @@
     { "id": "nucAgents", "group": "Agents on the NUC", "label": "Conversations", "values": [
       { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },
       { "value": "one", "label": "one listening", "set": { "machines.nuc.participants": [
-        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" }
+        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" }
       ] } },
       { "value": "mixed", "label": "listening, holding, offline", "set": { "machines.nuc.participants": [
-        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" },
-        { "title": "Codex · release", "harness": "codex", "reach": "holding", "detail": "Waiting for its turn to listen" },
-        { "title": "Cursor · notes", "harness": "cursor", "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
+        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" },
+        { "title": "release", "harness": "codex", "reach": "holding", "detail": "Waiting for its turn to listen" },
+        { "title": "notes", "harness": "cursor", "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
       ] } }
     ] }
   ]

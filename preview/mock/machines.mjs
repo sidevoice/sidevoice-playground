@@ -74,7 +74,8 @@ export function storedPairing(state, identities, id, now) {
   };
 }
 
-/** What the page keeps in its storage when it loads in `state`: its pairings, the one in use, the local host's choice. */
+/** What the page keeps in its storage when it loads in `state`: its pairings, the one in use, the local host's choice,
+ *  and whether its first-run setup was done. */
 export function seededStorage(state, identities, now, { desktop = false } = {}) {
   const paired = Object.keys(state.machines ?? {}).filter((id) => state.machines[id].paired);
   const inUse = paired.find((id) => state.machines[id].inUse) ?? paired[0] ?? null;
@@ -85,6 +86,12 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
     }),
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
+  // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device, so the page opens
+  // on the room; anything else leaves the page to run it.
+  if (state.setup === "done") local["sidevoice.onboarding"] = JSON.stringify({
+    version: 1, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, deferred_at: null,
+    completed_at: now - DAY * 1000, trials: {},
+  });
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
   // In the browser the page keeps the provider keys (the app keeps its own).
   if (!desktop) for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) if (key) local[`sidevoice.provider-key.${provider}`] = key;

@@ -11,7 +11,7 @@
     "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
       "inUse": true, "version": "0.3.0", "bundledVersion": "0.3.0", "update": "current",
       "devices": [], "participants": [
-        { "title": "Claude Code · sidevoice-core", "harness": "claude-code", "reach": "listening" }
+        { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening" }
       ] }
   },
   "options": [
