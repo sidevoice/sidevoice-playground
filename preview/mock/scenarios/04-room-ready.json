@@ -10,8 +10,8 @@
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
         "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }],
         "participants": [
-          { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" },
-          { "title": "release", "harness": "codex", "reach": "listening" }
+          { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+          { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
         ] }
     },
     "local": null
@@ -19,16 +19,16 @@
   "options": [
     { "id": "agents", "group": "Agents on the NUC", "label": "Conversations", "values": [
       { "value": "two", "label": "two listening", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" },
-        { "title": "release", "harness": "codex", "reach": "listening" }
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] } },
       { "value": "none", "label": "none yet", "set": { "machines.nuc.participants": [] } },
       { "value": "many", "label": "many, mixed states", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" },
-        { "title": "release", "harness": "codex", "reach": "holding", "detail": "Waiting for its turn to listen" },
-        { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening" },
-        { "title": "notes", "harness": "cursor", "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" },
-        { "title": "infra", "harness": "codex", "reach": "listening" }
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "holding", "detail": "Waiting for its turn to listen" },
+        { "title": "sidevoice-core", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "notes", "harness": "cursor", "engine": {"model": "claude-sonnet-5-5", "effort": null}, "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" },
+        { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] } }
     ] },
     { "id": "nucReach", "group": "The NUC", "label": "Answers", "values": [
