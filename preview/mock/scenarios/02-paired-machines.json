@@ -23,6 +23,7 @@
   "options": [
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
       { "value": "done", "label": "done: opens on the room", "set": { "setup": "done" } },
+      { "value": "earlier", "label": "done on an earlier release: what's new shows", "set": { "setup": "earlier" } },
       { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
     ] },
     { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [

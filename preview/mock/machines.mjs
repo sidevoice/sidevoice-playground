@@ -80,6 +80,9 @@ export function storedPairing(state, identities, id, now) {
 
 /** What the page keeps in its storage when it loads in `state`: its pairings, the one in use, the local host's choice,
  *  and whether its first-run setup was done. */
+/** The web's release counter (sidevoice-web features/whats-new/catalogue.ts RELEASE): a setup done on it has nothing new. */
+const WEB_RELEASE = 2;
+
 export function seededStorage(state, identities, now, { desktop = false } = {}) {
   const paired = Object.keys(state.machines ?? {}).filter((id) => state.machines[id].paired);
   const inUse = paired.find((id) => state.machines[id].inUse) ?? paired[0] ?? null;
@@ -90,11 +93,12 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
     }),
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
-  // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device, so the page opens
-  // on the room; anything else leaves the page to run it.
-  if (state.setup === "done") local["sidevoice.onboarding"] = JSON.stringify({
-    version: 1, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, deferred_at: null,
-    completed_at: now - DAY * 1000, trials: {},
+  // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device on this release, so the
+  // page opens on the room; "earlier" finished it on an earlier release, so the room shows what is new since (whats-new);
+  // anything else leaves the page to run it.
+  if (state.setup === "done" || state.setup === "earlier") local["sidevoice.onboarding"] = JSON.stringify({
+    version: 1, basics_done: true, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, turn_done: true,
+    deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? 0 : WEB_RELEASE,
   });
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
   // In the browser the page keeps the provider keys (the app keeps its own).
