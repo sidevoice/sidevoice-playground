@@ -42,9 +42,10 @@ const utf8 = (text) => new TextEncoder().encode(text);
 const randomId = () => crypto.randomUUID();
 const secretText = () => base64url(crypto.getRandomValues(new Uint8Array(24)));
 
-/** A node's identity: a P-256 key pair, its SPKI (base64) and fingerprint (base64url of its SHA-256). */
+/** A node's identity: a P-256 key pair, its SPKI (base64) and fingerprint (base64url of its SHA-256). Its private key
+ *  can be exported (`saveIdentities`): the page keeps pairings with it, and a preview reloaded keeps them. */
 export async function makeIdentity(subtle = crypto.subtle) {
-  const keys = await subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+  const keys = await subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
   const spki = await subtle.exportKey("spki", keys.publicKey);
   return {
     privateKey: keys.privateKey,
@@ -59,6 +60,18 @@ export async function makeIdentity(subtle = crypto.subtle) {
 export async function makeIdentities(state, subtle = crypto.subtle) {
   const ids = [...Object.keys(state.machines ?? {}), LOCAL_ID, "stranger"];
   return Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await makeIdentity(subtle)])));
+}
+
+/** `identities` as plain data (JSON), each private key as a JWK: what `loadIdentities` makes them again from. */
+export async function saveIdentities(identities, subtle = crypto.subtle) {
+  return Object.fromEntries(await Promise.all(Object.entries(identities).map(async ([id, { privateKey, ...rest }]) =>
+    [id, { ...rest, privateJwk: await subtle.exportKey("jwk", privateKey) }])));
+}
+
+/** The identities `saveIdentities` gave. */
+export async function loadIdentities(saved, subtle = crypto.subtle) {
+  return Object.fromEntries(await Promise.all(Object.entries(saved).map(async ([id, { privateJwk, ...rest }]) =>
+    [id, { ...rest, privateKey: await subtle.importKey("jwk", privateJwk, { name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]) }])));
 }
 
 /** The machine `id` of `state`: one of its machines, or the local host while the app has one. */

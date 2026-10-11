@@ -1,7 +1,7 @@
 // The mocked preview's card: a panel over the page that is plainly not the product, shown and hidden with its
 // header (or Alt+Shift+P). It picks the scenario, the view, the language and the scenario's options; gives pairing
-// codes for the machines, to paste into the page; sets how fast the world's time runs; and lists what the mocks
-// were asked. Rendered again whole on each change: it is small.
+// codes for the machines, to paste into the page; sets how fast the world's time runs and whether a reload keeps
+// the state; and lists what the mocks were asked. Rendered again whole on each change: it is small.
 
 import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, liveCall, mintCode } from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
@@ -41,7 +41,7 @@ function paste(frame, code) {
   return true;
 }
 
-export function renderCard(root, { scenarios, scenario, world, identities, params, open, count, frame, toggle, pick, choose, speed, restart, clear }) {
+export function renderCard(root, { scenarios, scenario, world, identities, params, open, keeping, count, frame, toggle, pick, choose, speed, restart, clear, keep }) {
   root.classList.toggle("closed", !open);
   const header = el("button", { type: "button", className: "card-header", onclick: toggle, title: "Alt+Shift+P" },
     el("strong", { textContent: "PREVIEW" }), count ? el("span", { className: "count", textContent: String(count) }) : null,
@@ -160,8 +160,10 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         })),
         machines.map(codeRow), note) : null,
       el("div", { className: "row" }, "Time", segmented(Object.keys(SPEED_LABELS).map(Number), SPEED_LABELS, params.speed, speed)),
+      el("label", { className: "check", title: "A reload, a view, a language or a ↻ option keeps where the page is: what it stored, the machines paired. Restart scenario starts over." },
+        el("input", { type: "checkbox", checked: keeping, onchange: (event) => keep(event.target.checked) }), "Keep state on reload"),
       el("div", { className: "actions" },
-        el("button", { type: "button", textContent: "Restart scenario", onclick: restart }),
+        el("button", { type: "button", textContent: "Restart scenario", title: "Starts the scenario over, the page's storage cleared (what was kept too)", onclick: restart }),
         el("button", { type: "button", textContent: "Copy link", onclick: () => navigator.clipboard.writeText(location.href) }),
         el("button", { type: "button", textContent: "Reset options", onclick: clear }),
         el("button", { type: "button", textContent: "Reset preview", title: "Clears what this browser keeps for the preview, and starts it over",
