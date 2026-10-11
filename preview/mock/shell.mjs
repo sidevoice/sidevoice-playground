@@ -15,10 +15,12 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 const VARIANTS = [
+  { name: "layout", label: "Layout (desktop)", note: "A header across the top, or Meet-style: the conversations from the top, the brand at their head, the conversation named above its tile.",
+    values: [{ value: "header", label: "Header (current)" }, { value: "meet", label: "Meet-style" }] },
   { name: "machines", label: "Settings → Machines", note: "How the machines are laid out.",
-    values: [{ value: "a", label: "A · picker + add" }, { value: "b", label: "B · list → page" }] },
-  { name: "settings-gear", label: "Settings button (desktop)", note: "Where Settings sits; with B, New conversation follows the last conversation.",
-    values: [{ value: "top", label: "A · header, top right" }, { value: "sidebar", label: "B · foot of the conversations" }] },
+    values: [{ value: "a", label: "A · picker + add" }, { value: "b", label: "B · list, opens in place" }, { value: "c", label: "C · Paseo-style, in the nav" }] },
+  { name: "voice-models", label: "Voice models in the call", note: "Where the call shows its speech-to-text and text-to-speech models.",
+    values: [{ value: "tile", label: "A · in the tile" }, { value: "bar", label: "B · call bar chips" }, { value: "title", label: "C · by the title" }] },
   { name: "settings-header", label: "Settings header", note: "Settings with a header of its own, or the room header kept: Sidevoice · Settings.",
     values: [{ value: "own", label: "A · its own header" }, { value: "app", label: "B · Sidevoice · Settings" }] },
   { name: "header-avatars", label: "Phone header avatars", note: "Where the other conversations sit in a phone's header.",
