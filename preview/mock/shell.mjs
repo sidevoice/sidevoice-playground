@@ -15,8 +15,6 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 const VARIANTS = [
-  { name: "transcript-entry", label: "Transcript entry", note: "How the transcript opens from the call, phone and desktop.",
-    values: [{ value: "peek", label: "A · peek strip, latest line" }, { value: "button", label: "B · button in the tile" }, { value: "turn", label: "C · 'Send a message' in your turn's place" }] },
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
