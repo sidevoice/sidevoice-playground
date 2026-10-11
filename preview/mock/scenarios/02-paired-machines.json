@@ -12,9 +12,9 @@
         "devices": [
           { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
           { "name": "Chrome on Mac", "kind": "code", "daysAgo": 12, "mine": true },
-          { "id": "nuc-iphone", "name": "Safari on iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 },
+          { "id": "nuc-iphone", "name": "iPhone de Ana", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 },
           { "id": "nuc-app", "name": "Mac de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 0.1 },
-          { "id": "nuc-windows", "name": "Firefox on Windows", "kind": "code", "daysAgo": 64, "seenDaysAgo": 9 },
+          { "id": "nuc-windows", "name": "Chrome on Windows", "kind": "code", "daysAgo": 64, "seenDaysAgo": 9 },
           { "id": "nuc-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
         ],
         "participants": [

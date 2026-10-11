@@ -109,6 +109,9 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
     }),
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
+  // This device's name (sidevoice-web's device-name setting): the one this device has in its machines' lists.
+  const mine = Object.values(state.machines ?? {}).flatMap((machine) => machine.devices ?? []).find((device) => device.mine)?.name;
+  if (mine) local["sidevoice.deviceName"] = mine;
   // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device on this release, so the
   // page opens on the room; "earlier" finished it on the release before, so the room shows what is new since
   // (whats-new); anything else leaves the page to run it.
