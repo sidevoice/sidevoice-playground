@@ -19,6 +19,8 @@ const VARIANTS = [
     values: [{ value: "a", label: "A · picker + add" }, { value: "b", label: "B · list → page" }] },
   { name: "settings-gear", label: "Settings button (desktop)", note: "Where Settings sits; with B, New conversation follows the last conversation.",
     values: [{ value: "top", label: "A · header, top right" }, { value: "sidebar", label: "B · foot of the conversations" }] },
+  { name: "settings-header", label: "Settings header", note: "Settings with a header of its own, or the room header kept: Sidevoice · Settings.",
+    values: [{ value: "own", label: "A · its own header" }, { value: "app", label: "B · Sidevoice · Settings" }] },
   { name: "header-avatars", label: "Phone header avatars", note: "Where the other conversations sit in a phone's header.",
     values: [{ value: "left", label: "Left" }, { value: "centre", label: "Centre" }, { value: "right", label: "Right" }] },
 ];
