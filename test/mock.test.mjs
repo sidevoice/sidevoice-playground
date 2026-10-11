@@ -99,6 +99,11 @@ test("a world whose first-run setup is done opens the page on the room; any othe
   assert.equal(record.version, 1);
   assert.equal(record.agents_done, true);
   assert.ok(record.completed_at > 0 && record.completed_at < now);
+  // Done on the release before this one: what came since is new.
+  world.state.setup = "earlier";
+  const earlier = JSON.parse(seededStorage(world.state, identities, now)["sidevoice.onboarding"]);
+  assert.equal(earlier.baseline_release, record.baseline_release - 1);
+  assert.ok(earlier.baseline_release > 0);
 });
 
 test("addresses: a machine directly, through the room (its own origin or the page's), the local host", () => {

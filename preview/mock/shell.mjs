@@ -100,7 +100,7 @@ const parse = (text, fallback) => {
   try { return JSON.parse(text) ?? fallback; } catch { return fallback; }
 };
 /** Keys only the world writes: the page's own copy goes when the world no longer has one. */
-const worldOwned = (key) => key === "sidevoice.local-host-selected" || key.startsWith("sidevoice.provider-key.");
+const worldOwned = (key) => key === "sidevoice.local-host-selected" || key.startsWith("sidevoice.provider-key.") || key.startsWith("sidevoice.provider-key-hint.");
 
 /**
  * The page's localStorage `current` brought to what the world now says (`seeded`, machines.mjs `seededStorage`)

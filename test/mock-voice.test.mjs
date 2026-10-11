@@ -190,6 +190,11 @@ test("the browser keeps the provider keys the world says; the app keeps its own"
   const ids = await makeIdentities({ machines: {} });
   assert.equal(seededStorage(w.state, ids, 0)["sidevoice.provider-key.openai"], SAMPLE_KEYS.accepted);
   assert.equal(seededStorage(w.state, ids, 0, { desktop: true })["sidevoice.provider-key.openai"], undefined);
+  // Its note of the key's last four is the page's, in both.
+  for (const desktop of [false, true]) {
+    assert.equal(JSON.parse(seededStorage(w.state, ids, 0, { desktop })["sidevoice.provider-key-hint.openai"]).last4, SAMPLE_KEYS.accepted.slice(-4));
+  }
+  assert.equal(seededStorage(w.state, ids, 0)["sidevoice.provider-key-hint.elevenlabs"], undefined);
 });
 
 test("every scenario offers the voice's and the models' options", async () => {

@@ -107,15 +107,20 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
   // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device on this release, so the
-  // page opens on the room; "earlier" finished it on an earlier release, so the room shows what is new since (whats-new);
-  // anything else leaves the page to run it.
+  // page opens on the room; "earlier" finished it on the release before, so the room shows what is new since
+  // (whats-new); anything else leaves the page to run it.
   if (state.setup === "done" || state.setup === "earlier") local["sidevoice.onboarding"] = JSON.stringify({
     version: 1, basics_done: true, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, turn_done: true,
-    deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? 0 : WEB_RELEASE,
+    deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? WEB_RELEASE - 1 : WEB_RELEASE,
   });
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
-  // In the browser the page keeps the provider keys (the app keeps its own).
-  if (!desktop) for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) if (key) local[`sidevoice.provider-key.${provider}`] = key;
+  for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) {
+    if (!key) continue;
+    // In the browser the page keeps the provider keys (the app keeps its own); in both, its note of the last four of
+    // each key it connected (sidevoice-web ProviderKeys' hint).
+    if (!desktop) local[`sidevoice.provider-key.${provider}`] = key;
+    local[`sidevoice.provider-key-hint.${provider}`] = JSON.stringify({ last4: key.slice(-4), addedAt: now - 20 * DAY * 1000 });
+  }
   return local;
 }
 

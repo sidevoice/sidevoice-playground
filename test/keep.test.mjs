@@ -46,6 +46,7 @@ test("a view, language or ↻ option changes only what the world owns of the pag
     "sidevoice.settings": JSON.stringify({ ui_language: "en", theme: "dark" }),
     "sidevoice.local-host-selected": "true",
     "sidevoice.provider-key.openai": "sk-old",
+    "sidevoice.provider-key-hint.openai": JSON.stringify({ last4: "-old", addedAt: 1 }),
     "sidevoice.voice": "{}",
   };
   const seeded = {
@@ -57,7 +58,7 @@ test("a view, language or ↻ option changes only what the world owns of the pag
   assert.equal(set["sidevoice.onboarding"], undefined, "the page's progress stays");
   assert.deepEqual(JSON.parse(set["sidevoice.pairings"]), { in_use: "nuc", pairings: [mine, { fp: "nuc", host: "NUC" }] });
   assert.deepEqual(JSON.parse(set["sidevoice.settings"]), { theme: "dark", ui_language: "es" });
-  assert.deepEqual(remove.sort(), ["sidevoice.local-host-selected", "sidevoice.provider-key.openai"]);
+  assert.deepEqual(remove.sort(), ["sidevoice.local-host-selected", "sidevoice.provider-key-hint.openai", "sidevoice.provider-key.openai"]);
   assert.equal("sidevoice.voice" in set || remove.includes("sidevoice.voice"), false);
 
   // A language back to the system's drops it; settings left empty go.
