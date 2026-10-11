@@ -318,6 +318,11 @@ export function desktopEngine(world) {
     async hasCredential(provider) {
       return !!keys()[provider];
     },
+    /** Takes a model off the computer, every build of it. The real bridge's engine has no `uninstall` yet (sidevoice-web
+     *  #75's contract gaps): the mock offers it, so Delete and Remove all can be seen in the app too. @param {string} model */
+    async uninstall(model) {
+      world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: false } });
+    },
   };
   /** @type {ModelCatalogs} The web's own interface: a member it needs that this lacks fails the check. */
   const typed = engine;
