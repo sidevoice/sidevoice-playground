@@ -23,6 +23,8 @@ const VARIANTS = [
     values: [{ value: "tile", label: "A · in the tile" }, { value: "bar", label: "B · call bar chips" }, { value: "title", label: "C · by the title" }] },
   { name: "settings-header", label: "Settings header", note: "Settings with a header of its own, or the room header kept: Sidevoice · Settings.",
     values: [{ value: "own", label: "A · its own header" }, { value: "app", label: "B · Sidevoice · Settings" }] },
+  { name: "phone-brand", label: "Phone brand", note: "Whether a phone's header shows Sidevoice; hidden, the avatars and the chevron get the room.",
+    values: [{ value: "shown", label: "Shown" }, { value: "hidden", label: "Hidden" }] },
   { name: "header-avatars", label: "Phone header avatars", note: "Where the other conversations sit in a phone's header.",
     values: [{ value: "left", label: "Left" }, { value: "centre", label: "Centre" }, { value: "right", label: "Right" }] },
 ];
