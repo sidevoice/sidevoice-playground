@@ -48,3 +48,10 @@ button { cursor: pointer; }
 #variants .variant legend { padding: 0 4px; font-weight: 700; font-size: 13px; }
 #variants .variant-note { margin: 0 0 6px; font-size: 12px; opacity: .8; }
 #variants .variant label { display: block; padding: 2px 0; font-size: 13px; cursor: pointer; }
+/* Nothing in the card runs past its right edge: rows wrap, segmented controls shrink and wrap, fields fit. */
+#card, #variants { box-sizing: border-box; overflow-x: hidden; }
+#card *, #variants * { box-sizing: border-box; }
+.row { flex-wrap: wrap; }
+.segmented { flex-wrap: wrap; max-width: 100%; }
+.segmented button { flex: 1 1 auto; white-space: nowrap; }
+.card-body select, .card-body input { width: 100%; max-width: 100%; }
