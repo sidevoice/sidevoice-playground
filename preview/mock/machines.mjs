@@ -404,7 +404,8 @@ export function roomOf(world, id) {
   if (!rooms.has(world)) rooms.set(world, new Map());
   const all = rooms.get(world);
   if (!all.has(id)) {
-    const room = { id, calls: new Set(), rows: [], seq: 0, working: {}, spells: {}, seen: new Set() };
+    const room = { id, calls: new Set(), rows: seededRows(world, id), seq: 0, working: {}, spells: {}, seen: new Set() };
+    room.seq = room.rows.length;
     all.set(id, room);
     // A call ends as the world changes under it: its device revoked (4401), or its machine no longer answering
     // where the call reached it (dropped, as a network drops it).
@@ -416,6 +417,21 @@ export function roomOf(world, id) {
     });
   }
   return all.get(id);
+}
+
+/** What machine `id`'s room already said before the page came, oldest first: each conversation's `history` in the
+ *  scenario (`{ role: "user" | "assistant", text, minutesAgo, status? }`), as rows of no call. Each machine keeps its
+ *  own, at its own address: a page watching every machine merges them. */
+function seededRows(world, id) {
+  const machine = machineOf(world.state, id);
+  const said = participantsOf(machine, id).flatMap((conversation, i) =>
+    (machine.participants[i].history ?? []).map((entry) => ({ conversation, entry })));
+  return said.sort((a, b) => b.entry.minutesAgo - a.entry.minutesAgo).map(({ conversation, entry }, n) => ({
+    seq: n + 1, id: `${id}-said-${n + 1}`, thread: conversation.thread_id, role: entry.role, text: entry.text,
+    name: entry.role === "user" ? "You" : conversation.title, session: null, revision: 0,
+    time: world.now() - Math.round(entry.minutesAgo * 60_000),
+    status: entry.status ?? (entry.role === "user" ? "read" : "playback_finished"), audio_reason: null, heard_chars: null, offline: null,
+  }));
 }
 
 /** Whether machine `id` answers at `via` (on the page's own origin only when a room serves the page). */
