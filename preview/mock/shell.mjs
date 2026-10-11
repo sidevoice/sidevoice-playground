@@ -29,6 +29,8 @@ const VARIANTS = [
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "row", label: "B · in the card's row" }, { value: "popover", label: "C · a popover by the button" }] },
   { name: "try-result", label: "Trying a model", note: "Where a transcription or voice try runs and shows its result (Settings and the setup).",
     values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
+  { name: "pair-machine", label: "Connecting another machine", note: "The screen that pairs this device with a machine (the setup and Settings › Machines).",
+    values: [{ value: "code", label: "A · code first" }, { value: "steps", label: "B · two numbered steps" }, { value: "split", label: "C · machine | this device, side by side" }] },
 ]
 
 function readVariants() {
