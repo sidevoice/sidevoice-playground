@@ -88,14 +88,18 @@ export function desktopHost(world, identities) {
       await world.delay(600);
       set({ state: "stopped-by-person", failure: null });
     },
+    // Start at sign-in only says whether the service starts at the next sign-in: turning it on or off leaves a
+    // running service running and a stopped one stopped (Start, Stop and Restart are their own).
     async serviceInstall() {
       await world.delay(800);
+      const wasSetUp = local()?.state !== "not-installed";
       set({ service: "launchd", installed: true });
-      await starting();
+      // A service not set up at all yet is set up and started (the card's Start in that state).
+      if (!wasSetUp) await starting();
     },
     async serviceUninstall() {
       await world.delay(800);
-      set({ installed: false, state: "not-installed" });
+      set({ installed: false });
     },
     revealLog: () => world.log({ method: "BRIDGE", url: "localHost.revealLog()", status: "shown", mocked: true }),
     async pairingCode() {
