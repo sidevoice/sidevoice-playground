@@ -6,3 +6,8 @@ export type {
   LocalHostBridge, LocalHostInstallProgress, LocalHostPairing, LocalHostStatus, LocalHostVersion, LocalPairingCode,
 } from "../apps/web/src/services/desktop-host";
 export type { Pairing, PairingCodePayload } from "../apps/web/src/services/device-pairing";
+export type { ModelCatalogs } from "../apps/web/src/services/model-catalogs.js";
+export type {
+  VoiceCallState, VoiceHost, VoiceSayEvent, VoiceSaying, VoiceSayOutcome, VoiceSettings, VoiceTurnEvent,
+} from "@sidevoice/voice";
+export type { CatalogStatus, LocalModelInfo, Progress, RemoteModelInfo, Voice } from "@sidevoice/engine";
