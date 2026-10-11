@@ -25,6 +25,8 @@ const VARIANTS = [
     values: [{ value: "with", label: "A · with a ×" }, { value: "without", label: "B · without" }] },
   { name: "models-list", label: "Downloaded models", note: "How Settings › Advanced organises the models on this device (in use first in all).",
     values: [{ value: "grouped", label: "A · in use / not in use" }, { value: "plain", label: "B · one plain list" }, { value: "purpose", label: "C · by purpose" }, { value: "cards", label: "D · cards" }] },
+  { name: "provider-connect", label: "Connecting a provider", note: "How a provider's API key is entered (Settings › Providers, and where a voice slot needs a key).",
+    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "row", label: "B · in the card's row" }, { value: "popover", label: "C · a popover by the button" }] },
 ]
 
 function readVariants() {
