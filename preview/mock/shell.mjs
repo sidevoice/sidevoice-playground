@@ -31,6 +31,8 @@ const VARIANTS = [
     values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
   { name: "pair-machine", label: "Connecting another machine", note: "The screen that pairs this device with a machine (the setup and Settings › Machines).",
     values: [{ value: "code", label: "A · code first" }, { value: "steps", label: "B · two numbered steps" }, { value: "split", label: "C · machine | this device, side by side" }] },
+  { name: "copy-button", label: "Copy buttons", note: "How the copy button of a command or a phrase to say shows.",
+    values: [{ value: "visible", label: "A · always visible" }, { value: "faint", label: "B · faint, solid on hover/focus" }, { value: "hover", label: "C · only on hover/focus (always on touch)" }] },
 ]
 
 function readVariants() {
