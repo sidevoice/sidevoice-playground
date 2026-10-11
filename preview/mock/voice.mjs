@@ -23,7 +23,9 @@ const refusal = (code) => Object.assign(new Error(code), { code });
 /** The voice host of `world`; `source` is the page's model source (browser), or none (the desktop app's). */
 export function fakeVoice(world, { source = null } = {}) {
   /** @type {Record<string, Set<Function>>} */
-  const listeners = { turn: new Set(), state: new Set(), level: new Set(), error: new Set() };
+  const listeners = { turn: new Set(), state: new Set(), level: new Set(), error: new Set(), devices: new Set() };
+  // The devices: the headset plugged in, nothing chosen (the system's defaults), the speaker choosable.
+  const devices = { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
   const emit = (kind, value) => {
     for (const listener of [...listeners[kind]]) listener(value);
   };
@@ -134,6 +136,22 @@ export function fakeVoice(world, { source = null } = {}) {
       if (started) setState({ listening: next ? "muted" : "listening" });
     },
     cancelInput() {},
+    // The microphone and the speaker (@sidevoice/voice 0.3.0): what there is, which are chosen (null: the system's
+    // default), whether the speaker can be chosen, and the list as it changes (the card plugs a headset in and out).
+    audioDevices: async () => deviceList(),
+    async setAudioDevices(choice) {
+      if ("output" in choice && choice.output != null && !devices.outputSelectable) throw Object.assign(new Error("audio-output-unselectable"), { code: "audio-output-unselectable" });
+      for (const kind of /** @type {const} */ (["input", "output"])) {
+        if (!(kind in choice)) continue;
+        const id = choice[kind] ?? null;
+        const list = kind === "input" ? present().inputs : present().outputs;
+        if (id !== null && !list.some((device) => device.id === id)) throw Object.assign(new Error(kind === "input" ? "microphone-unavailable" : "audio-output-failed"), { code: kind === "input" ? "microphone-unavailable" : "audio-output-failed" });
+        devices[kind] = id;
+      }
+      world.log({ method: "VOICE", url: "setAudioDevices(" + JSON.stringify(choice) + ")", status: "ok", mocked: true });
+      return deviceList();
+    },
+    onAudioDevices: on("devices"),
     onTurn: on("turn"),
     onState: on("state"),
     onLevel: on("level"),
@@ -178,5 +196,29 @@ export function fakeVoice(world, { source = null } = {}) {
     return true;
   }
 
-  return { host, speak, get state() { return { ...state, started }; } };
+  /** The headset (the card plugs it in and out): its microphone and its speaker, beside the computer's own. */
+  function present() {
+    const inputs = [{ id: "mic-builtin", label: "MacBook Pro Microphone" }, ...(devices.headset ? [{ id: "mic-headset", label: "AirPods Pro" }] : [])];
+    const outputs = [{ id: "out-builtin", label: "MacBook Pro Speakers" }, ...(devices.headset ? [{ id: "out-headset", label: "AirPods Pro" }] : [])];
+    return { inputs, outputs };
+  }
+  function deviceList(lost) {
+    return { ...present(), input: devices.input, output: devices.output, outputSelectable: devices.outputSelectable, ...(lost ? { lost } : {}) };
+  }
+  /** Plugs the headset in or out: a chosen headset device that goes is lost, the default in use from then on. */
+  function plugHeadset(plugged) {
+    devices.headset = plugged;
+    const lost = {};
+    if (!plugged && devices.input === "mic-headset") { lost.input = devices.input; devices.input = null; }
+    if (!plugged && devices.output === "out-headset") { lost.output = devices.output; devices.output = null; }
+    emit("devices", deviceList(Object.keys(lost).length ? lost : undefined));
+  }
+  /** Whether the speaker can be chosen (a browser without setSinkId cannot). */
+  function outputSelectable(selectable) {
+    devices.outputSelectable = selectable;
+    if (!selectable) devices.output = null;
+    emit("devices", deviceList());
+  }
+
+  return { host, speak, plugHeadset, outputSelectable, get devices() { return { ...devices }; }, get state() { return { ...state, started }; } };
 }
