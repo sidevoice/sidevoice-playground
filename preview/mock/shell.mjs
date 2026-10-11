@@ -6,6 +6,54 @@
 import { createWorld, changedCount } from "./world.mjs";
 import { makeIdentities, seededStorage } from "./machines.mjs";
 import { attach, mockModule } from "./attach.mjs";
+
+// The design alternatives the web offers to compare (VARIANTS), and the panel that picks them (drawVariants). The page reads what is picked from
+// localStorage `sidevoice.variants` (`{ name: value }`; sidevoice-web src/lib/variants.ts), the same origin as this
+// shell, and follows it live; a variant the page no longer has is simply never read. Each entry names the page's
+// variant and its values, the first being the page's default.
+const VARIANTS_KEY = "sidevoice.variants";
+
+/** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
+const VARIANTS = [
+  { name: "machines", label: "Settings → Machines", note: "How the machines are laid out.",
+    values: [{ value: "a", label: "A · picker + add" }, { value: "b", label: "B · list → page" }] },
+  { name: "header-avatars", label: "Phone header avatars", note: "Where the other conversations sit in a phone's header.",
+    values: [{ value: "left", label: "Left" }, { value: "centre", label: "Centre" }, { value: "right", label: "Right" }] },
+];
+
+function readVariants() {
+  try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
+}
+
+/** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
+function drawVariants(body) {
+  const picked = readVariants();
+  body.replaceChildren(...VARIANTS.map((variant) => {
+    const group = document.createElement("fieldset");
+    group.className = "variant";
+    const legend = document.createElement("legend");
+    legend.textContent = variant.label;
+    const note = document.createElement("p");
+    note.className = "variant-note";
+    note.textContent = variant.note;
+    group.append(legend, note);
+    const current = variant.values.some((option) => option.value === picked[variant.name]) ? picked[variant.name] : variant.values[0].value;
+    for (const option of variant.values) {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "variant-" + variant.name;
+      input.value = option.value;
+      input.checked = option.value === current;
+      input.addEventListener("change", () => {
+        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...readVariants(), [variant.name]: option.value }));
+      });
+      label.append(input, " " + option.label);
+      group.append(label);
+    }
+    return group;
+  }));
+}
 import { renderCard, updateActivity } from "./card.mjs";
 
 export const VIEWS = ["browser", "app", "phone"];
@@ -142,8 +190,10 @@ async function run(card) {
   }
   addEventListener("keydown", shortcut, true);
 
-  // The variants' panel opens and closes on its header, or Alt+Shift+V; it has nothing to pick yet.
+  // The variants' panel opens and closes on its header, or Alt+Shift+V, and picks what the page shows (variants.mjs).
   const variants = document.getElementById("variants");
+  const variantsBody = variants?.querySelector(".card-body");
+  if (variantsBody) drawVariants(variantsBody);
   const flipVariants = () => {
     const closed = variants.classList.toggle("closed");
     variants.querySelector(".chevron").textContent = closed ? "▸" : "▾";
