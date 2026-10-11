@@ -94,11 +94,15 @@ export function bounded(promise, ms) {
     .finally(() => clearTimeout(timer));
 }
 
-/** Empties what the page keeps on this origin, then writes `local` into its localStorage; each step bounded in time. */
+/** Empties what the page keeps on this origin, then writes `local` into its localStorage; each step bounded in time. The
+ *  variants picked stay: they are the person comparing designs, not the page's state. */
 async function seed(local) {
+  let picked = null;
   try {
+    picked = localStorage.getItem(VARIANTS_KEY);
     localStorage.clear();
     sessionStorage.clear();
+    if (picked) localStorage.setItem(VARIANTS_KEY, picked);
   } catch {}
   const databases = (await bounded(indexedDB.databases?.(), 2000)) ?? [];
   await Promise.all(databases.filter((db) => db.name).map((db) => bounded(new Promise((resolve) =>
