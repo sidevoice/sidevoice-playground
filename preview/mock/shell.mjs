@@ -1,10 +1,12 @@
 // The mocked preview's shell: the real web in a frame sized by the view (browser, the desktop app's window, a
 // phone), the world its mocks answer from, and the card that picks the scenario and its options. Everything the
 // card picks is in this page's address, so a link opens the same screen. A scenario, a view, a language or an
-// option marked ↻ loads the page again, from the storage the world says it had; any other option is live.
+// option marked ↻ loads the page again, from the storage the world says it had; any other option is live. While
+// "Keep state on reload" is on, a reload of this page restores the world and leaves the page's storage as
+// it was, and a view, a language or a ↻ option changes only what the world owns of it (`mergeSeed`).
 
 import { createWorld, changedCount } from "./world.mjs";
-import { makeIdentities, seededStorage } from "./machines.mjs";
+import { loadIdentities, makeIdentities, saveIdentities, seededStorage } from "./machines.mjs";
 import { attach, mockModule } from "./attach.mjs";
 
 // The design alternatives the web offers to compare (VARIANTS), and the panel that picks them (drawVariants). The page reads what is picked from
@@ -56,6 +58,70 @@ function drawVariants(body) {
 }
 import { renderCard, updateActivity } from "./card.mjs";
 
+// What a reload keeps, while "Keep state on reload" is on (the default): the world as it stood (its state, choices
+// and the machines' identities, which the page's pairings name) and the page's own storage, so a person comparing
+// designs halfway through a flow is not sent back to its start. The snapshot is this tab's (sessionStorage), and only
+// for the address it was taken at: a link opened elsewhere, or another scenario, starts from the scenario as written.
+// "Restart scenario" and "Reset preview" start over.
+
+/** localStorage: "off" while reloads start the scenario over; anything else keeps. */
+export const KEEP_KEY = "sidevoice-preview.keep";
+/** sessionStorage: the world as it last stood (`snapshotOf`). */
+export const SNAPSHOT_KEY = "sidevoice-preview.snapshot";
+
+/** Whether reloads keep the state, from the shell's `storage`. */
+export function keeping(storage) {
+  try { return storage.getItem(KEEP_KEY) !== "off"; } catch { return true; }
+}
+
+/** What a reload at `search` restores `world` from; `identities` as `saveIdentities` gave them. */
+export function snapshotOf(world, identities, search) {
+  return { scenario: world.scenario.id, search, choices: world.choices, state: world.state, identities };
+}
+
+/** The snapshot in `text` when it was taken at `search` on scenario `id`; else null. */
+export function restorable(text, id, search) {
+  try {
+    const snapshot = JSON.parse(text ?? "null");
+    return snapshot?.scenario === id && snapshot.search === search && snapshot.state && snapshot.identities ? snapshot : null;
+  } catch {
+    return null;
+  }
+}
+
+const parse = (text, fallback) => {
+  try { return JSON.parse(text) ?? fallback; } catch { return fallback; }
+};
+/** Keys only the world writes: the page's own copy goes when the world no longer has one. */
+const worldOwned = (key) => key === "sidevoice.local-host-selected" || key.startsWith("sidevoice.provider-key.");
+
+/**
+ * The page's localStorage `current` brought to what the world now says (`seeded`, machines.mjs `seededStorage`)
+ * while keeping what the page did itself: its first-run progress, the pairings it made, its other settings.
+ * Returns the keys to `set` and to `remove`.
+ */
+export function mergeSeed(current, seeded) {
+  const set = {};
+  const remove = Object.keys(current).filter((key) => worldOwned(key) && !(key in seeded));
+  for (const [key, value] of Object.entries(seeded)) {
+    if (key === "sidevoice.onboarding" && key in current) continue;
+    if (key === "sidevoice.pairings" && key in current) {
+      const kept = parse(current[key], {}), now = parse(value, {});
+      const fresh = now.pairings ?? [];
+      set[key] = JSON.stringify({ ...kept, in_use: now.in_use ?? null,
+        pairings: [...(kept.pairings ?? []).filter((p) => !fresh.some((f) => f.fp === p.fp)), ...fresh] });
+    } else set[key] = value;
+  }
+  // The interface's language is the world's (the card's Language); the rest of the settings are the page's.
+  const settings = { ...parse(current["sidevoice.settings"] ?? "{}", {}) };
+  delete settings.ui_language;
+  const language = parse(seeded["sidevoice.settings"] ?? "{}", {}).ui_language;
+  if (language) settings.ui_language = language;
+  if (Object.keys(settings).length) set["sidevoice.settings"] = JSON.stringify(settings);
+  else if ("sidevoice.settings" in current) remove.push("sidevoice.settings");
+  return { set, remove };
+}
+
 export const VIEWS = ["browser", "app", "phone"];
 export const LANGUAGES = ["", "es", "en"];
 export const SPEEDS = [1, 4, 0];
@@ -95,14 +161,13 @@ export function bounded(promise, ms) {
 }
 
 /** Empties what the page keeps on this origin, then writes `local` into its localStorage; each step bounded in time. The
- *  variants picked stay: they are the person comparing designs, not the page's state. */
+ *  variants picked and whether reloads keep the state stay: they are the person comparing designs, not the page's state. */
 async function seed(local) {
-  let picked = null;
   try {
-    picked = localStorage.getItem(VARIANTS_KEY);
+    const kept = [VARIANTS_KEY, KEEP_KEY].map((key) => [key, localStorage.getItem(key)]);
     localStorage.clear();
     sessionStorage.clear();
-    if (picked) localStorage.setItem(VARIANTS_KEY, picked);
+    for (const [key, value] of kept) if (value != null) localStorage.setItem(key, value);
   } catch {}
   const databases = (await bounded(indexedDB.databases?.(), 2000)) ?? [];
   await Promise.all(databases.filter((db) => db.name).map((db) => bounded(new Promise((resolve) =>
@@ -115,6 +180,15 @@ async function seed(local) {
       localStorage.setItem(key, value);
     } catch {}
   }
+}
+
+/** Brings the page's localStorage to `local` as `mergeSeed` says, leaving the rest of what it keeps as it is. */
+function overlay(local) {
+  try {
+    const { set, remove } = mergeSeed({ ...localStorage }, local);
+    for (const key of remove) localStorage.removeItem(key);
+    for (const [key, value] of Object.entries(set)) localStorage.setItem(key, value);
+  } catch {}
 }
 
 /** What went wrong, in the card, with the way out: the card itself must survive anything. */
@@ -147,23 +221,40 @@ async function run(card) {
   let params = readParams(location.search);
   let world = null;
   let identities = null;
+  let saved = null;
+  let keep = keeping(localStorage);
   let open = matchMedia("(min-width: 761px)").matches;
 
   const scenario = () => scenarios.find((s) => s.id === params.scenario) ?? scenarios[0];
   const firstValues = () => Object.fromEntries(scenario().options.map((o) => [o.id, o.values[0].value]));
   const view = () => params.view ?? scenario().view ?? "browser";
-  const remember = () => history.replaceState(null, "", location.pathname + writeParams({ ...params, scenario: scenario().id, options: world.choices }, firstValues()));
+  // The address is what a snapshot is for: it is taken again whenever the address changes.
+  const remember = () => {
+    history.replaceState(null, "", location.pathname + writeParams({ ...params, scenario: scenario().id, options: world.choices }, firstValues()));
+    save();
+  };
 
   window.__sidevoicePreview = {
     attach: (win) => attach(win, { world, identities, desktop: view() === "app", onKey: shortcut }),
     module: (kind) => mockModule(kind, world),
   };
 
-  /** Loads the page again from the storage the world says it had; `fresh` makes the world (and its machines) anew. */
-  async function load({ fresh = false } = {}) {
-    if (fresh || !world) {
-      world = createWorld(scenario(), params.options);
-      identities = await makeIdentities(world.state);
+  /** The world as it stands, for a reload to restore. */
+  function save() {
+    try {
+      if (keep && saved) sessionStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshotOf(world, saved, location.search)));
+    } catch {}
+  }
+
+  /** Loads the page again from the storage the world says it had; `fresh` makes the world (and its machines) anew,
+   *  from `snapshot` when there is one, the page's storage then left as it is. */
+  async function load({ fresh = false, snapshot = null } = {}) {
+    const remake = fresh || !world;
+    if (remake) {
+      world = createWorld(scenario(), snapshot?.choices ?? params.options);
+      if (snapshot) world.state = snapshot.state;
+      identities = snapshot ? await loadIdentities(snapshot.identities) : await makeIdentities(world.state);
+      saved = snapshot?.identities ?? await saveIdentities(identities);
       // The card follows the world: its activity on every answer, all of it when the codes it can give change.
       let running = world.state.local?.state === "running";
       world.subscribe(() => {
@@ -172,6 +263,7 @@ async function run(card) {
           running = now;
           render();
         } else updateActivity(card, world);
+        save();
       });
     }
     world.speed = params.speed;
@@ -181,7 +273,12 @@ async function run(card) {
     remember();
     render();
     frame.src = "about:blank";
-    await seed(seededStorage(world.state, identities, world.now(), { desktop: view() === "app" }));
+    const local = seededStorage(world.state, identities, world.now(), { desktop: view() === "app" });
+    if (!snapshot) {
+      if (keep && !remake) overlay(local);
+      else await seed(local);
+    }
+    save();
     frame.src = "/voice/";
   }
 
@@ -220,7 +317,7 @@ async function run(card) {
 
   function draw() {
     renderCard(card, {
-      scenarios, scenario: scenario(), world, identities, params: { ...params, view: view() }, open,
+      scenarios, scenario: scenario(), world, identities, params: { ...params, view: view() }, open, keeping: keep,
       count: changedCount(scenario(), world.choices),
       frame,
       toggle() {
@@ -254,10 +351,23 @@ async function run(card) {
         params.options = {};
         load({ fresh: true });
       },
+      keep(on) {
+        keep = on;
+        try {
+          localStorage.setItem(KEEP_KEY, on ? "on" : "off");
+          if (on) save();
+          else sessionStorage.removeItem(SNAPSHOT_KEY);
+        } catch {}
+        render();
+      },
     });
   }
 
-  await load({ fresh: true });
+  let snapshot = null;
+  try {
+    if (keep) snapshot = restorable(sessionStorage.getItem(SNAPSHOT_KEY), scenario().id, location.search);
+  } catch {}
+  await load({ fresh: true, snapshot });
 }
 
 if (typeof document !== "undefined") main();
