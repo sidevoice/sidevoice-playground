@@ -292,7 +292,12 @@
           <label class="field"><span class="label">Mode</span><select id="preview-mode">
             <option value="mock">Mocked: scenarios and options in the preview's card</option>
             <option value="real">Real core and connector</option>
+            <option value="dev">Dev: a sidevoice-web worktree, live (Vite, hot reload), mocked</option>
           </select></label>
+          <div id="preview-dev" hidden>
+            <label class="field"><span class="label">Worktree</span><select id="preview-worktree"></select></label>
+            <p id="preview-dev-note" class="muted"></p>
+          </div>
           <div class="field-row" id="preview-real">
             <label class="field grow"><span class="label">Core</span><select id="preview-core"></select></label>
             <label class="field grow"><span class="label">Connector</span><select id="preview-connector"></select></label>

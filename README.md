@@ -215,6 +215,23 @@ its own code.
   nightly core and the newest connector what the mocks answer, and checks every status and field
   (`PLAYGROUND_CONFORMANCE=1`, on in CI).
 
+**Dev mode, live.** A sidevoice-web worktree of this machine, served by its own Vite dev server (`npm run dev`,
+on a free port) behind the preview origin and its gate, with the mocked preview's shell, card and mocks around it:
+an edit saved in the worktree reaches the browser by Vite's hot reload, whose socket the origin passes on (the web's
+own Vite config points it at `wss://<page host>:443`, so it works through the tunnel, not at `http://localhost`).
+In dev the web's `@sidevoice/voice` and `@sidevoice/engine` modules are the mocks' as in a build (told by their
+exports). The worktrees offered are those of the checkout `--dev-repo` names (`/workspace/sidevoice/sidevoice-web` by
+default), each with its dependencies installed; nothing is ever installed into one.
+
+1. Make the worktree, once, and install its dependencies:
+   `git -C /workspace/sidevoice/sidevoice-web worktree add /workspace/sidevoice/worktrees/web-onboarding feat/onboarding`,
+   then `npm ci` in it.
+2. Start it: the playground's Web preview section, *Mode: Dev*, pick the worktree, *Start*, then *Open the preview*.
+   From the pod, the same with the access cookie: `POST /preview/start` with `{"mode":"dev","worktree":"<path>"}` on the
+   playground's port (`/preview/status` says how it goes, and the dev server's output).
+3. Edit the worktree: each save shows in the open preview. Nothing restarts.
+4. Stop it with *Stop* (`POST /preview/stop`); starting another preview stops it too, and so does the server exiting.
+
 **Real core and connector.** The core and the connector are the archives their releases publish for linux-x86_64
 (the core's, the one the connector fetches), checked against `SHA256SUMS` and unpacked once per digest. A run starts
 the core in the scenario's own profile, told to answer the preview origin (`SIDEVOICE_ALLOWED_HOSTS`,
@@ -247,7 +264,7 @@ served-engine.mjs  an engine or voice tarball installed and served under a prefi
 engine-builds.mjs  the releases, pull requests and branches to pick from, listed through the GitHub API
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
 preview/        the Web preview: web-build.mjs (by checkout), archives.mjs (core, connector), runs.mjs,
-                proxy.mjs (the preview origin), index.mjs (its routes), scenarios/ (real core);
+                proxy.mjs (the preview origin), index.mjs (its routes), dev.mjs (dev mode), scenarios/ (real core);
                 mock/: world.mjs, machines.mjs, bridge.mjs, models.mjs, voice.mjs, attach.mjs, chunks.mjs (the mocks),
                 shell + card, scenarios/, voice-options.json
 refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served

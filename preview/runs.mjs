@@ -5,7 +5,8 @@
 // SIDEVOICE_ALLOWED_ORIGINS). Starting a run ends the one before: its processes stop, and a scenario that does not
 // keep its state starts from an empty profile.
 //
-// A mocked run (the preview's main use) runs nothing here: the web build alone, its mocks in the page (mock/).
+// A mocked run (the preview's main use) runs nothing here: the web build alone, its mocks in the page (mock/). A dev
+// run runs a worktree's Vite dev server (dev.mjs), the mocks around it the same way.
 
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
@@ -124,6 +125,7 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
     if (!run) return;
     // What the connector runs on demand stops the way a person stops it; then the core this run started.
     if (run.connectorUsed) await connector(run, ["service", "stop"]).catch(() => {});
+    if (run.stopDev) await run.stopDev();
     if (!run.process) return;
     run.process.kill("SIGTERM");
     await new Promise((resolve) => (run.process.exitCode !== null ? resolve() : run.process.once("exit", resolve)));
@@ -181,6 +183,13 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
       current = { mode: "mock", web, process: null, port: null, reset: false };
       return this.current;
     },
+    /** Starts the dev run of a worktree: `start()` starts its dev server (`{ port, stop }`), after whatever ran stopped. */
+    async dev({ label, start }) {
+      await stopCurrent();
+      const server = await start();
+      current = { mode: "dev", web: { label, site: null }, process: null, port: server.port, stopDev: server.stop, killDev: server.kill, reset: false };
+      return this.current;
+    },
     /** A one-time pairing code from the real connector, linked to this run's core: `{code, expires_in, reach}`. */
     async pairingCode() {
       if (current?.mode !== "real") throw new RefError(409, "no preview with a real core is running");
@@ -194,6 +203,11 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
       if (current) current.reset = false;
     },
     stop: stopCurrent,
+    /** Ends what runs now, synchronously: for a server that is exiting, which cannot wait. */
+    killNow() {
+      current?.killDev?.();
+      current?.process?.kill("SIGTERM");
+    },
     /** Whether `scenario`'s kept profile is there. */
     kept: (scenario) => stat(join(profileOf(join(cache, "profiles", scenario.id)).core, "node-identity.json")).then(() => true, () => false),
     /** Forgets `scenario`'s kept state: its profile goes, and its next run starts as from scratch. */
