@@ -20,7 +20,9 @@ const VARIANTS = [
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
-    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "panel", label: "B · a section of the updates' list" }] },
+    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
+  { name: "new-dismiss", label: "Clearing “New”", note: "Whether each “New” also has a × to clear it without looking.",
+    values: [{ value: "with", label: "A · with a ×" }, { value: "without", label: "B · without" }] },
 ]
 
 function readVariants() {
