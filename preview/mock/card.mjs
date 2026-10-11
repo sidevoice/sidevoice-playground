@@ -3,7 +3,7 @@
 // codes for the machines, to paste into the page; sets how fast the world's time runs; and lists what the mocks
 // were asked. Rendered again whole on each change: it is small.
 
-import { CODE_VARIANTS, LOCAL_ID, mintCode } from "./machines.mjs";
+import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, liveCall, mintCode } from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
@@ -72,10 +72,12 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
 
   const voiceNote = el("p", { className: "note voice-state", textContent: voiceLine(world) });
   const said = el("input", { type: "text", value: root.dataset.said ?? voiceState(world).transcript, oninput: () => (root.dataset.said = said.value) });
-  // The conversation as the page would show it: you speaking, the agent speaking, the agent working. While the page
-  // listens (a call, a transcription test), "You speak" goes through the mocked voice as said into the microphone;
-  // otherwise, and for the agent, the card plays the turn into the page's own store (window.sidevoiceUI.store), the
-  // facts the room would have sent, so the bubbles, the karaoke and the transcript show as they would.
+  // The conversation as the page shows it: you speaking, the agent speaking, the agent working. In a call it is the
+  // call's own: you speak into the mocked voice, as into the microphone, and the page sends your turn to the machine's
+  // mocked room; the agent speaks and works through that room, as its connector would (machines.mjs `agentSpeaks`,
+  // `agentWorks`), and the page plays the reply with the mocked voice. With no call, a transcription test still hears
+  // "You speak"; anything else the card plays into the page's own store (window.sidevoiceUI.store), the facts the
+  // room would have sent, so the bubbles, the karaoke and the transcript show as they would.
   const sampleUser = el("select", {}, CONVERSATION_SAMPLES.user.map((text) => el("option", { value: text, textContent: text })));
   const sampleAgent = el("select", {}, CONVERSATION_SAMPLES.agent.map((text) => el("option", { value: text, textContent: text })));
   const conversationSection = el("fieldset", {},
@@ -84,13 +86,25 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
     el("label", {}, "The agent says", sampleAgent),
     el("div", { className: "actions" },
       el("button", { type: "button", textContent: "You speak", title: "Listening, then transcribing, then your words sent", onclick: async () => {
+        if (liveCall(world)) {
+          if (!(await world.voiceRuntime?.speak(sampleUser.value))) voiceNote.textContent = "The call does not hear you: unmute it, and pick a conversation in the page.";
+          return;
+        }
         if (world.voiceRuntime?.state?.started && await world.voiceRuntime.speak(sampleUser.value)) return;
         if (!simulateUser(frame, sampleUser.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
+        if (liveCall(world)) {
+          if (!agentSpeaks(world, sampleAgent.value)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
+          return;
+        }
         if (!simulateAgent(frame, sampleAgent.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
       el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds", onclick: () => {
+        if (liveCall(world)) {
+          if (!agentWorks(world)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
+          return;
+        }
         if (!simulateWorking(frame)) voiceNote.textContent = "Open a conversation in the page first.";
       } })));
   const voiceSection = el("fieldset", {},
@@ -142,11 +156,13 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   );
 }
 
-/** Where the mocked voice is, in a line. */
+/** Where the page's call and the mocked voice are, in a line. */
 function voiceLine(world) {
+  const call = liveCall(world);
+  const where = call ? `In a call ${call.thread ? `on ${call.title ?? call.thread}` : "on no conversation"}. ` : "";
   const state = world.voiceRuntime?.state;
-  if (!state?.started) return "The page's voice is not listening.";
-  return `Listening: ${state.listening}${state.recognising ? ", transcribing" : ""}${state.playback !== "idle" ? `, speaking (${state.playback})` : ""}.`;
+  if (!state?.started) return `${where}The page's voice is not listening.`;
+  return `${where}Listening: ${state.listening}${state.recognising ? ", transcribing" : ""}${state.playback !== "idle" ? `, speaking (${state.playback})` : ""}.`;
 }
 
 /** Brings the list of what the mocks were asked up to date, leaving the rest of the card as it is. */
@@ -160,8 +176,8 @@ export function updateActivity(root, world) {
 }
 
 function shortUrl(url) {
-  return String(url).replace(/^https:\/\/([a-z0-9-]+)\.machines\.sidevoice\.example/, "[$1]").replace("https://room.sidevoice.example", "[room]")
-    .replace("http://127.0.0.1:47123", "[local]");
+  return String(url).replace(/^(?:https|wss):\/\/([a-z0-9-]+)\.machines\.sidevoice\.example/, "[$1]")
+    .replace(/^(?:https|wss):\/\/room\.sidevoice\.example/, "[room]").replace(/^(?:http|ws):\/\/127\.0\.0\.1:47123/, "[local]");
 }
 
 /** Sample lines for the conversation's buttons. */
