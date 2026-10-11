@@ -142,6 +142,20 @@ async function run(card) {
   }
   addEventListener("keydown", shortcut, true);
 
+  // The variants' panel opens and closes on its header, or Alt+Shift+V; it has nothing to pick yet.
+  const variants = document.getElementById("variants");
+  const flipVariants = () => {
+    const closed = variants.classList.toggle("closed");
+    variants.querySelector(".chevron").textContent = closed ? "▸" : "▾";
+  };
+  variants?.querySelector(".card-header").addEventListener("click", flipVariants);
+  addEventListener("keydown", (event) => {
+    if (variants && event.altKey && event.shiftKey && event.code === "KeyV") {
+      event.preventDefault();
+      flipVariants();
+    }
+  }, true);
+
   function render() {
     try {
       draw();

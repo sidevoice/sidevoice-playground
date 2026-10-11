@@ -18,6 +18,11 @@ html, body { margin: 0; height: 100%; background: #2b2b2b; font: 14px/1.4 system
 #card { position: fixed; top: 12px; right: 12px; width: 21rem; max-height: calc(100% - 24px); overflow: auto; z-index: 10;
   background: #fbf4dc; color: #2a2414; border: 2px dashed #c79a1e; border-radius: 10px; box-shadow: 0 8px 30px #0006; }
 #card.closed { width: auto; }
+/* The variants' panel: the card's look, at the bottom left, out of the card's way. */
+#variants { position: fixed; left: 12px; bottom: 12px; width: 18rem; max-height: calc(100% - 24px); overflow: auto; z-index: 10;
+  background: #fbf4dc; color: #2a2414; border: 2px dashed #c79a1e; border-radius: 10px; box-shadow: 0 8px 30px #0006; }
+#variants.closed { width: auto; }
+#variants.closed .card-body { display: none; }
 .card-header { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: 0; background: none; font: inherit; cursor: pointer; color: inherit; }
 .card-header .count { background: #c79a1e; color: #fff; border-radius: 9px; padding: 0 7px; font-size: 12px; }
 .card-header .chevron { margin-left: auto; }
