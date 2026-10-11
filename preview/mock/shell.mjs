@@ -23,8 +23,6 @@ const VARIANTS = [
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "panel", label: "B · a section of the updates' list" }] },
   { name: "agent-actions", label: "An agent's other actions", note: "In the agents list: what a row offers besides Connect or Disconnect.",
     values: [{ value: "split", label: "A · a split button, its chevron joined" }, { value: "original", label: "B · every action a button on the row (the original)" }] },
-  { name: "ready", label: "The setup's last step", note: "Ready: what was set up, what to tell an agent, and Enter Sidevoice.",
-    values: [{ value: "a", label: "A · in the setup's frame" }, { value: "b", label: "B · on the stage, the frame stepped back" }] },
 ]
 
 function readVariants() {
