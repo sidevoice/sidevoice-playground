@@ -367,6 +367,8 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   // The coding agents this machine found (sidevoice-web HostAgentsPanel): a listing, and connect / disconnect / dismiss,
   // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents` (`local.agents`): its
   // rows, or the name of a list (`AGENT_LISTS`); and `agentsFail`, a key the scan fails with.
+  // Its Sidevoice's version and active calls (sidevoice-web #75's machine card; core has no such route yet).
+  if (method === "GET" && path === "/api/host/status") return json(200, { version: machine.productVersion ?? "0.8.1", calls: machine.calls ?? 0 });
   if (method === "GET" && path === "/api/host/agents") return agentsListing(world, machine);
   const agentAction = /^\/api\/host\/agents\/([^/]+)\/(connect|disconnect|dismiss)$/.exec(path);
   if (method === "POST" && agentAction) {
