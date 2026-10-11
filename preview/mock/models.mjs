@@ -171,6 +171,9 @@ const PROVIDER_MODELS = {
  * browser with WebGPU. */
 export const VOICE_DEFAULTS = {
   installed: { "silero-vad": true },
+  // When each local model was last loaded (ms since the epoch), as the engine would say (sidevoice-web CatalogModel.lastUsedAt):
+  // an install and every call that loads it set it; a scenario may date one back.
+  lastUsed: {},
   keys: {},
   install: "ok", installSlow: false, voicesOnceInstalled: true, providers: "ok", webgpu: true,
   mic: "granted", transcript: "Hola, ¿me oyes bien?", stt: "ok", tts: "ok",
@@ -228,6 +231,7 @@ export function localModels(world, place) {
       ...model,
       voices: voice.voicesOnceInstalled && !installed ? [] : model.voices,
       installed, builds, ...(recommended ? { recommendedBuild: recommended.id } : {}),
+      ...(installed ? { lastUsedAt: voice.lastUsed?.[model.id] ?? null } : {}),
     };
   });
 }
@@ -274,7 +278,7 @@ async function installing(world, place, model, wanted, onProgress, signal) {
     await world.delay(voice.installSlow ? 900 : 150);
   }
   // A model's id may hold dots (kokoro-82m-v1.0): the map is set whole, never by a dotted path.
-  world.patch({ "voice.installed": { ...voice.installed, [model]: true } });
+  world.patch({ "voice.installed": { ...voice.installed, [model]: true }, "voice.lastUsed": { ...voice.lastUsed, [model]: Date.now() } });
 }
 
 /** The desktop app's `host.engine`: the catalogues, installs (with their own progress and cancel) and keys. */
