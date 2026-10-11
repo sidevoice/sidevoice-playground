@@ -10,6 +10,7 @@
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12, "agentsFail": "connector-timeout",
         "devices": [
+          { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
           { "name": "Mac de Ana", "kind": "code", "daysAgo": 12, "mine": true },
           { "id": "nuc-iphone", "name": "Safari on iPhone", "kind": "code", "daysAgo": 30, "seenDaysAgo": 1 },
           { "id": "nuc-windows", "name": "Firefox on Windows", "kind": "code", "daysAgo": 64, "seenDaysAgo": 9 },

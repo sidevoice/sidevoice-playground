@@ -10,6 +10,7 @@
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12, "agents": "every-state",
         "devices": [
+          { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
           { "name": "Chrome on Mac", "kind": "code", "daysAgo": 12, "mine": true },
           { "id": "nuc-iphone", "name": "Safari on iPhone", "kind": "code", "daysAgo": 30, "seenDaysAgo": 1 },
           { "id": "nuc-app", "name": "Mac de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 0.1 },
@@ -22,6 +23,7 @@
         ] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "agentsFail": "connector-timeout",
         "devices": [
+          { "id": "workstation-self", "name": "ana-workstation", "kind": "local", "daysAgo": 240, "seenDaysAgo": 0 },
           { "name": "Chrome on Mac", "kind": "code", "daysAgo": 40, "mine": true },
           { "id": "workstation-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 100, "seenDaysAgo": 21 }
         ],
