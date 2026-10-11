@@ -212,7 +212,8 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   });
   assert.equal((await ask(`${LOCAL_URL}/api/host/agents/codex/connect`, { method: "POST", ...as(LOCAL_ID) })).status, 200);
   assert.equal(world.state.local.agents[0].registration, "connected");
-  assert.equal((await desktopHost(world, identities).localHost.agents()).agents[0].label, "Codex");
+  // The page reads the local host's agents over its own route (the bridge has no agents()).
+  assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, as(LOCAL_ID))).body.agents[0].label, "Codex");
   assert.equal((await ask(`${LOCAL_URL}/api/device/devices/phone`, { method: "DELETE", ...as(LOCAL_ID) })).status, 200);
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
 });
@@ -279,7 +280,7 @@ test("a named list of agents has one in every state; a Connect may take its time
   world.patch({ "machines.nuc.agentsFail": "agents.busy" });
   assert.deepEqual(await ask(`${base}/api/host/agents`, auth), { status: 409, body: { error: { key: "agents.busy" } } });
   world.patch({ "local.state": "running", "local.agentsFail": "no-connector" });
-  await assert.rejects(desktopHost(world, identities).localHost.agents(), { key: "no-connector" });
+  assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } })).body.key, "no-connector");
 });
 
 test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {

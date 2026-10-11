@@ -40,7 +40,7 @@ export function fakeVoice(world, { source = null } = {}) {
   let turns = 0;
   let says = 0;
   /** @type {VoiceCallState} */
-  let state = { listening: "idle", recognising: 0, playback: "idle" };
+  let state = { listening: "idle", recognising: 0, playback: "idle", microphone: /** @type {"live" | "muted"} */ ("live") };
   const setState = (patch) => {
     state = { ...state, ...patch };
     emit("state", state);

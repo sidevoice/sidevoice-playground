@@ -7,7 +7,7 @@
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
 
-import { LOCAL_ID, LOCAL_URL, agentsListing, mintCode } from "./machines.mjs";
+import { LOCAL_ID, LOCAL_URL, mintCode } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
 
@@ -152,15 +152,6 @@ export function desktopHost(world, identities) {
       if (!running) return false;
       running.cancelled = true;
       return true;
-    },
-    // Its agents as its own route lists them; a scan the world makes fail throws its key.
-    async agents() {
-      const { status, body } = await agentsListing(world, local());
-      if (status !== 200) {
-        const key = body.key ?? body.error.key;
-        throw Object.assign(new Error(key), { key });
-      }
-      return body;
     },
     async version() {
       const bundled = { version: local()?.bundledVersion ?? "0.3.0" };
