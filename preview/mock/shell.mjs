@@ -15,19 +15,9 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 const VARIANTS = [
-  { name: "layout", label: "Layout (desktop)", note: "A header across the top, or Meet-style: the conversations from the top, the brand at their head, the conversation named above its tile.",
-    values: [{ value: "header", label: "Header (current)" }, { value: "meet", label: "Meet-style" }] },
-  { name: "machines", label: "Settings → Machines", note: "How the machines are laid out.",
-    values: [{ value: "a", label: "A · picker + add" }, { value: "b", label: "B · list, opens in place" }, { value: "c", label: "C · Paseo-style, in the nav" }] },
-  { name: "voice-models", label: "Voice models in the call", note: "Where the call shows its speech-to-text and text-to-speech models.",
-    values: [{ value: "tile", label: "A · in the tile" }, { value: "bar", label: "B · call bar chips" }, { value: "title", label: "C · by the title" }] },
-  { name: "settings-header", label: "Settings header", note: "Settings with a header of its own, or the room header kept: Sidevoice · Settings.",
-    values: [{ value: "own", label: "A · its own header" }, { value: "app", label: "B · Sidevoice · Settings" }] },
-  { name: "phone-brand", label: "Phone brand", note: "Whether a phone's header shows Sidevoice; hidden, the avatars and the chevron get the room.",
-    values: [{ value: "shown", label: "Shown" }, { value: "hidden", label: "Hidden" }] },
-  { name: "header-avatars", label: "Phone header avatars", note: "Where the other conversations sit in a phone's header.",
-    values: [{ value: "left", label: "Left" }, { value: "centre", label: "Centre" }, { value: "right", label: "Right" }] },
-];
+  { name: "transcript-entry", label: "Transcript entry", note: "How the transcript opens from the call, phone and desktop.",
+    values: [{ value: "peek", label: "A · peek strip, latest line" }, { value: "button", label: "B · button in the tile" }, { value: "turn", label: "C · 'Send a message' in your turn's place" }] },
+]
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
