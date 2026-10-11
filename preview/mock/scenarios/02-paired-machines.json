@@ -1,7 +1,7 @@
 {
   "id": "paired-machines",
   "title": "Paired machines",
-  "summary": "This device is paired with three machines: the NUC (in use), a workstation and an old laptop. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
+  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
   "view": "browser",
   "world": {
     "page": "room",
@@ -9,9 +9,12 @@
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
         "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }, { "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 }],
-        "participants": [] },
+        "participants": [
+          { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+          { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
+        ] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "devices": [], "participants": [
-        { "title": "infra", "harness": "codex", "reach": "listening" }
+        { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] },
       "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90, "devices": [], "participants": [] }
     },
@@ -20,6 +23,7 @@
   "options": [
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
       { "value": "done", "label": "done: opens on the room", "set": { "setup": "done" } },
+      { "value": "earlier", "label": "done on an earlier release: what's new shows", "set": { "setup": "earlier" } },
       { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
     ] },
     { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
@@ -42,14 +46,18 @@
       { "value": "offline", "label": "not at all", "set": { "machines.workstation.reach": "offline" } }
     ] },
     { "id": "nucAgents", "group": "Agents on the NUC", "label": "Conversations", "values": [
+      { "value": "two", "label": "two listening (Claude Code, Codex)", "set": { "machines.nuc.participants": [
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
+      ] } },
       { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },
       { "value": "one", "label": "one listening", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" }
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" }
       ] } },
       { "value": "mixed", "label": "listening, holding, offline", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" },
-        { "title": "release", "harness": "codex", "reach": "holding", "detail": "Waiting for its turn to listen" },
-        { "title": "notes", "harness": "cursor", "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "holding", "detail": "Waiting for its turn to listen" },
+        { "title": "notes", "harness": "cursor", "engine": {"model": "claude-sonnet-5-5", "effort": null}, "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
       ] } }
     ] }
   ]

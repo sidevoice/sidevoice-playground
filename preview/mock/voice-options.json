@@ -13,6 +13,10 @@
     { "value": "ok", "label": "is heard", "set": { "voice.tts": "ok" } },
     { "value": "error", "label": "fails to synthesize", "set": { "voice.tts": "error" } }
   ] },
+  { "id": "webgpu", "group": "Models", "label": "This browser's WebGPU", "values": [
+    { "value": "present", "label": "is there (WebGPU builds run)", "set": { "voice.webgpu": true } },
+    { "value": "missing", "label": "is missing (WebAssembly only)", "set": { "voice.webgpu": false } }
+  ] },
   { "id": "installed", "group": "Models", "label": "Installed on this device", "values": [
     { "value": "vad", "label": "only the speech detector", "set": { "voice.installed": { "silero-vad": true } } },
     { "value": "set", "label": "Whisper base and Kokoro too", "set": { "voice.installed": { "silero-vad": true, "whisper-base": true, "kokoro-82m-v1.0": true } } }

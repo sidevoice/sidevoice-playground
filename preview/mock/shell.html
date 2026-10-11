@@ -17,6 +17,12 @@
   <aside id="card" aria-label="Preview controls"><div class="card-header"><strong>PREVIEW</strong></div>
     <div class="card-body"><p class="summary">Loading the preview… If this stays, <a href="/preview-reset">reset the preview</a>
       (it clears what this browser keeps for the preview).</p></div></aside>
+  <!-- Variants: the A/B/C alternatives of a design to compare on the page (variants.mjs draws them). -->
+  <aside id="variants" class="closed" aria-label="Design variants">
+    <button type="button" class="card-header" title="Alt+Shift+V"><strong>VARIANTS</strong><span class="chevron">▸</span></button>
+    <div class="card-body"><p class="summary">No variants to compare yet. When a design has alternatives (A, B, C…), they are
+      picked here and the page shows the one picked.</p></div>
+  </aside>
   <script type="module" src="/preview-mock/shell.mjs"></script>
 </body>
 </html>

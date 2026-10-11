@@ -15,14 +15,64 @@ test("local models run by place, list their voices once installed, and say which
   const w = world();
   const kokoro = (place) => localModels(w, place).find((m) => m.id === "kokoro-82m-v1.0");
   assert.deepEqual(kokoro("browser").voices, []);
-  assert.equal(kokoro("browser").recommendedBuild, "kokoro-82m-v1.0/transformers-js-q8");
+  assert.equal(kokoro("browser").recommendedBuild, "kokoro-82m-v1.0/transformers-js-fp32");
   assert.equal(kokoro("desktop").recommendedBuild, "kokoro-82m-v1.0/sherpa-onnx-int8");
   assert.equal(localModels(w, "browser").find((m) => m.id === "piper-es_ES-carlfm-x_low").builds[0].available, false);
   w.patch({ "voice.installed": { "silero-vad": true, "kokoro-82m-v1.0": true } });
   assert.equal(kokoro("browser").installed, true);
+  assert.deepEqual(kokoro("browser").builds.filter((b) => b.installed).map((b) => b.id), ["kokoro-82m-v1.0/transformers-js-fp32"]);
   assert.ok(kokoro("browser").voices.length > 0);
   w.patch({ "voice.installed": { "silero-vad": true }, "voice.voicesOnceInstalled": false });
   assert.ok(localModels(w, "browser").find((m) => m.id === "kokoro-82m-v1.0").voices.length > 0);
+});
+
+test("the local catalogue is the engine's v0.3.1, each build placed as the engine's resolver places it", async () => {
+  const w = world();
+  assert.deepEqual(localModels(w, "browser").map((m) => m.id), [
+    "canary-180m-flash", "fastconformer-es-large", "kokoro-82m-v0.19", "kokoro-82m-v1.0", "parakeet-tdt-0.6b-v3",
+    "piper-es_ES-carlfm-x_low", "piper-en_US-ljspeech-medium", "qwen3-asr-0.6b", "silero-vad", "smart-turn-v3.2",
+    "supertonic-3", "supertonic-2", "whisper-tiny", "whisper-base", "whisper-small", "whisper-large-v3", "whisper-large-v3-turbo",
+  ]);
+  const model = (place, id) => localModels(w, place).find((m) => m.id === id);
+  const placed = (place, id) => Object.fromEntries(model(place, id).builds.map((b) => [b.id.split("/")[1], b.accelerator ?? b.reasons.map((r) => r.code).join()]));
+  assert.deepEqual(await webEngine(w, {}).backends(), ["transformers-js"]);
+
+  // A browser with WebGPU: transformers.js takes it first, wherever a build does not ask for WebAssembly.
+  assert.deepEqual(placed("browser", "whisper-tiny"), {
+    "transformers-js-fp16": "webgpu", "transformers-js-q8": "webgpu",
+    "mlx-fp16": "backend-not-in-this-build", "sherpa-onnx-int8": "backend-not-in-this-build", "whisper-cpp-q5_1": "backend-not-in-this-build",
+  });
+  assert.equal(placed("browser", "kokoro-82m-v1.0")["transformers-js-q8"], "wasm");
+  assert.equal(placed("browser", "smart-turn-v3.2")["onnxruntime-int8"], "backend-not-in-this-build");
+  const large = model("browser", "whisper-large-v3");
+  assert.equal(large.recommendedBuild, "whisper-large-v3/transformers-js-fp16");
+  assert.deepEqual(large.builds.find((b) => b.id.endsWith("q8")).reasons, [{ code: "wasm-memory", params: { needs: 2260, has: 2048 } }]);
+
+  // Without WebGPU, its builds do not run, and the large model has none that does.
+  w.patch({ "voice.webgpu": false });
+  assert.deepEqual(placed("browser", "kokoro-82m-v1.0")["transformers-js-fp32"], "build-accelerator");
+  assert.equal(model("browser", "kokoro-82m-v1.0").recommendedBuild, "kokoro-82m-v1.0/transformers-js-q8");
+  assert.equal(model("browser", "whisper-tiny").recommendedBuild, "whisper-tiny/transformers-js-q8");
+  assert.equal(model("browser", "whisper-large-v3").recommendedBuild, undefined);
+  await assert.rejects(webEngine(w, {}).install("whisper-large-v3"), (e) => e.code === "no-build-available");
+  await assert.rejects(webEngine(w, {}).install("whisper-base", "whisper-base/transformers-js-fp16"), (e) => e.code === "build-accelerator");
+
+  // The Mac: MLX and whisper.cpp on Metal, sherpa-onnx and ONNX Runtime on the CPU, transformers.js not there.
+  assert.deepEqual(placed("desktop", "whisper-base"), {
+    "mlx-fp16": "metal", "sherpa-onnx-int8": "cpu", "whisper-cpp-q5_1": "metal",
+    "transformers-js-fp16": "backend-not-in-this-build", "transformers-js-q8": "backend-not-in-this-build",
+  });
+  assert.equal(model("desktop", "smart-turn-v3.2").recommendedBuild, "smart-turn-v3.2/onnxruntime-fp32");
+});
+
+test("an install downloads the build it installs", async () => {
+  const w = world();
+  const sizes = [];
+  await webEngine(w, {}).install("whisper-small", undefined, (p) => sizes.push(p.size));
+  assert.equal(sizes.at(-1), 488e6, "transformers.js fp16, the first that runs in a browser with WebGPU");
+  sizes.length = 0;
+  await desktopEngine(w).install("whisper-small", { build: "whisper-small/whisper-cpp-q5_1", onProgress: (p) => sizes.push(p.total) });
+  assert.equal(sizes.at(-1), 190e6);
 });
 
 test("providers: no key, a rejected one, an accepted one, none reachable", () => {

@@ -6,6 +6,54 @@
 import { createWorld, changedCount } from "./world.mjs";
 import { makeIdentities, seededStorage } from "./machines.mjs";
 import { attach, mockModule } from "./attach.mjs";
+
+// The design alternatives the web offers to compare (VARIANTS), and the panel that picks them (drawVariants). The page reads what is picked from
+// localStorage `sidevoice.variants` (`{ name: value }`; sidevoice-web src/lib/variants.ts), the same origin as this
+// shell, and follows it live; a variant the page no longer has is simply never read. Each entry names the page's
+// variant and its values, the first being the page's default.
+const VARIANTS_KEY = "sidevoice.variants";
+
+/** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
+const VARIANTS = [
+  { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
+    values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
+  { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
+    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "panel", label: "B · a section of the updates' list" }] },
+]
+
+function readVariants() {
+  try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
+}
+
+/** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
+function drawVariants(body) {
+  const picked = readVariants();
+  body.replaceChildren(...VARIANTS.map((variant) => {
+    const group = document.createElement("fieldset");
+    group.className = "variant";
+    const legend = document.createElement("legend");
+    legend.textContent = variant.label;
+    const note = document.createElement("p");
+    note.className = "variant-note";
+    note.textContent = variant.note;
+    group.append(legend, note);
+    const current = variant.values.some((option) => option.value === picked[variant.name]) ? picked[variant.name] : variant.values[0].value;
+    for (const option of variant.values) {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "variant-" + variant.name;
+      input.value = option.value;
+      input.checked = option.value === current;
+      input.addEventListener("change", () => {
+        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...readVariants(), [variant.name]: option.value }));
+      });
+      label.append(input, " " + option.label);
+      group.append(label);
+    }
+    return group;
+  }));
+}
 import { renderCard, updateActivity } from "./card.mjs";
 
 export const VIEWS = ["browser", "app", "phone"];
@@ -46,11 +94,15 @@ export function bounded(promise, ms) {
     .finally(() => clearTimeout(timer));
 }
 
-/** Empties what the page keeps on this origin, then writes `local` into its localStorage; each step bounded in time. */
+/** Empties what the page keeps on this origin, then writes `local` into its localStorage; each step bounded in time. The
+ *  variants picked stay: they are the person comparing designs, not the page's state. */
 async function seed(local) {
+  let picked = null;
   try {
+    picked = localStorage.getItem(VARIANTS_KEY);
     localStorage.clear();
     sessionStorage.clear();
+    if (picked) localStorage.setItem(VARIANTS_KEY, picked);
   } catch {}
   const databases = (await bounded(indexedDB.databases?.(), 2000)) ?? [];
   await Promise.all(databases.filter((db) => db.name).map((db) => bounded(new Promise((resolve) =>
@@ -141,6 +193,22 @@ async function run(card) {
     }
   }
   addEventListener("keydown", shortcut, true);
+
+  // The variants' panel opens and closes on its header, or Alt+Shift+V, and picks what the page shows (variants.mjs).
+  const variants = document.getElementById("variants");
+  const variantsBody = variants?.querySelector(".card-body");
+  if (variantsBody) drawVariants(variantsBody);
+  const flipVariants = () => {
+    const closed = variants.classList.toggle("closed");
+    variants.querySelector(".chevron").textContent = closed ? "▸" : "▾";
+  };
+  variants?.querySelector(".card-header").addEventListener("click", flipVariants);
+  addEventListener("keydown", (event) => {
+    if (variants && event.altKey && event.shiftKey && event.code === "KeyV") {
+      event.preventDefault();
+      flipVariants();
+    }
+  }, true);
 
   function render() {
     try {

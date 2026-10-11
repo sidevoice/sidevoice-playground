@@ -3,7 +3,8 @@
 // has: directly (`https://<id>.machines.sidevoice.example`), through the room's relay (`<room>/nodes/<id>`), and,
 // for the desktop app's own host, its per-launch proxy on loopback. Identities are real P-256 keys, made per
 // load: the web proves them, and redeems codes for them, with its own code. Where the world says a machine cannot
-// be reached at an address, asking it there fails as a network does.
+// be reached at an address, asking it there fails as a network does. Each machine's presentation room holds the
+// page's calls too (`callSocket`, behind the page's mocked WebSocket in attach.mjs): see "the room" below.
 //
 // The shapes are the core's: the conformance test (test/mock-conformance.test.mjs) asks the real one the same.
 // The web's own types for them (web-types.d.ts) check these modules against each web commit built (web-build.mjs).
@@ -12,6 +13,9 @@
 /** @typedef {import("./web-types").Pairing} Pairing */
 /** @typedef {import("./web-types").PairingCodePayload} PairingCodePayload */
 /** @typedef {import("./web-types").Participant} Participant */
+/** @typedef {import("./web-types").RoomBinding} RoomBinding */
+/** @typedef {import("./web-types").VoiceReply} VoiceReply */
+/** @typedef {import("./web-types").VoiceSession} VoiceSession */
 
 export const ROOM_URL = "https://room.sidevoice.example";
 export const LOCAL_ID = "local";
@@ -76,6 +80,9 @@ export function storedPairing(state, identities, id, now) {
 
 /** What the page keeps in its storage when it loads in `state`: its pairings, the one in use, the local host's choice,
  *  and whether its first-run setup was done. */
+/** The web's release counter (sidevoice-web features/whats-new/catalogue.ts RELEASE): a setup done on it has nothing new. */
+const WEB_RELEASE = 2;
+
 export function seededStorage(state, identities, now, { desktop = false } = {}) {
   const paired = Object.keys(state.machines ?? {}).filter((id) => state.machines[id].paired);
   const inUse = paired.find((id) => state.machines[id].inUse) ?? paired[0] ?? null;
@@ -86,11 +93,12 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
     }),
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
-  // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device, so the page opens
-  // on the room; anything else leaves the page to run it.
-  if (state.setup === "done") local["sidevoice.onboarding"] = JSON.stringify({
-    version: 1, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, deferred_at: null,
-    completed_at: now - DAY * 1000, trials: {},
+  // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device on this release, so the
+  // page opens on the room; "earlier" finished it on an earlier release, so the room shows what is new since (whats-new);
+  // anything else leaves the page to run it.
+  if (state.setup === "done" || state.setup === "earlier") local["sidevoice.onboarding"] = JSON.stringify({
+    version: 1, basics_done: true, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, turn_done: true,
+    deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? 0 : WEB_RELEASE,
   });
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
   // In the browser the page keeps the provider keys (the app keeps its own).
@@ -203,6 +211,20 @@ function roomRendezvous(state, query) {
   return json(200, { nodes });
 }
 
+/** A machine's agents as its connector lists them: the scenario's, else one connected, one found and not yet connected,
+ *  and one to connect by hand. */
+const DEFAULT_AGENTS = [
+  { id: "claude", label: "Claude Code", present: true, version: "2.1.4", registration: "connected", connect: "auto", actionable: false,
+    instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" } },
+  { id: "codex", label: "Codex", present: true, version: "0.48.0", registration: "not-connected", connect: "auto", actionable: true,
+    instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" } },
+  { id: "cursor", label: "Cursor", present: true, version: "1.7", registration: "not-connected", connect: "manual", actionable: false,
+    instructions: { file: "~/.cursor/mcp.json", snippet: '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }' } },
+];
+function agentsListing(world, machine) {
+  return { agents: machine.agents ?? DEFAULT_AGENTS, scanned_at: new Date(world.now()).toISOString() };
+}
+
 async function machineAnswer(world, identities, id, { method, path, query, headers, body }) {
   const state = world.state;
   const machine = machineOf(state, id);
@@ -240,6 +262,19 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   const token = /^Bearer (.+)$/.exec(headers.authorization ?? headers.Authorization ?? "")?.[1];
   if (token !== identity.token || machine.revoked) return refuse(401, NOT_PAIRED);
   const now = Math.floor(world.now() / 1000);
+  // The coding agents this machine found (sidevoice-web HostAgentsPanel): a listing, and connect / disconnect / dismiss,
+  // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents`.
+  if (method === "GET" && path === "/api/host/agents") return json(200, agentsListing(world, machine));
+  const agentAction = /^\/api\/host\/agents\/([^/]+)\/(connect|disconnect|dismiss)$/.exec(path);
+  if (method === "POST" && agentAction) {
+    const [, rawId, action] = agentAction;
+    const agentId = decodeURIComponent(rawId);
+    const agents = agentsListing(world, machine).agents.map((agent) => agent.id !== agentId ? agent
+      : action === "dismiss" ? { ...agent, dismissed: true, actionable: false }
+      : { ...agent, registration: action === "connect" ? "connected" : "not-connected", actionable: action !== "connect" });
+    if (id !== LOCAL_ID) world.patch({ [`machines.${id}.agents`]: agents });
+    return json(200, { agents, scanned_at: new Date(world.now()).toISOString() });
+  }
   if (method === "GET" && path === "/api/device/devices") {
     const devices = (machine.devices ?? []).map((device, i) => ({
       id: device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`,
@@ -258,20 +293,33 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     if (id !== LOCAL_ID) world.patch({ [`machines.${id}.devices`]: kept });
     return json(200, { ok: true });
   }
-  if (method === "GET" && path === "/api/presentation") {
-    return json(200, {
-      binding: null,
-      room: { revision: 0, speaking: false, switching: false, clients: 0, utterances: [], client_errors: [] },
-      clients: [], call: null,
-    });
+  // The presentation's routes are the room's: each one about the call its `session_id` names, when it is one.
+  if (path.startsWith("/api/presentation")) {
+    const room = roomOf(world, id);
+    const call = callOf(room, new URLSearchParams(query).get("session_id"));
+    if (method === "GET" && path === "/api/presentation") return json(200, snapshot(room, call, identity));
+    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: room.rows.map(rowView) });
+    if (method === "GET" && path === "/api/presentation/participants") {
+      return json(200, { participants: participantsOf(machine, id, call?.binding?.thread_id) });
+    }
+    if (method === "GET" && path === "/api/presentation/admission") {
+      return json(200, { admitted: true, reason: null, message: null, clients: seated(room).length, max: 8 });
+    }
+    if (method === "POST" && path === "/api/presentation/select") return select(world, room, machine, parsed(body));
+    if (method === "POST" && path === "/api/presentation/text") return typed(world, room, parsed(body));
+    if (method === "GET" && path === "/api/presentation/latency") return refuse(404, "That browser is not in the room.");
   }
-  if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: [] });
-  if (method === "GET" && path === "/api/presentation/participants") return json(200, { participants: participantsOf(machine, id) });
-  if (method === "GET" && path === "/api/presentation/admission") {
-    return json(200, { admitted: true, reason: null, message: null, clients: 0, max: 8 });
-  }
-  if (method === "GET" && path === "/api/presentation/latency") return refuse(404, "That browser is not in the room.");
   return refuse(404, "The requested resource was not found.");
+}
+
+/** A request's JSON body, or an empty object. */
+function parsed(body) {
+  try {
+    const value = JSON.parse(body ?? "");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
 }
 
 /** What a harness says it can do, as the room passes it on (sidevoice-core control/room/declaration.rs). */
@@ -279,14 +327,450 @@ const CAPABILITIES = ["deliver", "inspectInbound", "working", "endOfTurn", "sess
 
 /** Machine `id`'s conversations, as the room lists them (protocol `Participant`, and the room's own fields:
  * the machine, what the harness can do, its engine and route; sidevoice-core control/room/participants.rs).
+ * `selected` is the conversation the asking call is on, if any.
  * @returns {Participant[]} */
-export function participantsOf(machine, id) {
+export function participantsOf(machine, id, selected = null) {
   return (machine?.participants ?? []).map((p, i) => ({
     thread_id: p.thread_id ?? `${id}-thread-${i + 1}`, title: p.title, harness: p.harness ?? null,
-    available: p.reach !== "offline", selected: false,
+    available: p.reach !== "offline", selected: !!selected && (p.thread_id ?? `${id}-thread-${i + 1}`) === selected,
     machine: { id: `${id}-connector`, host: machine.host ?? null },
     capabilities: p.capabilities ?? Object.fromEntries(CAPABILITIES.map((key) => [key, "supported"])),
     engine: p.engine ?? null, route: p.route ?? null,
     reach: { state: p.reach ?? "listening", detail: p.detail ?? null, remedy: p.remedy ?? null },
   }));
+}
+
+/* ----- the room: the calls a machine's presentation room holds, and what it keeps of their conversations -----
+ * As sidevoice-core speaks to a call (rust/server/call, rust/control/room). The socket is the page's own mocked one
+ * (attach.mjs); this is the machine's end of it. It opens where the machine answers, carrying this device's token as
+ * its second subprotocol: a token it does not know is a close with 4401, a relay whose machine is away says so and
+ * closes with 1013, and an address that does not answer never opens. The page's hello is answered with its session,
+ * landing the call on the conversation it names; every message of the page's (a turn of the person's, how a reply
+ * played) is taken once, acknowledged with `voice-ack` and answered as the room answers it; every frame after the
+ * session is numbered (`seq`). The person's words become rows of the room's history, `pending` until the agent's
+ * connector takes them, then `delivered` and `read` while their conversation listens. The agent is the card's: it
+ * speaks (`agentSpeaks`) and works (`agentWorks`) as a connector reports it, to every call on its conversation.
+ * Not mocked: a dropped call taken back (a new session answers instead), the room asking a quiet page if it is still
+ * there, replays, latency. */
+
+const CALL_PATH = "/api/presentation/ws";
+const TOKEN_PREFIX = "sidevoice.token.";
+/** The close of a call whose device the machine does not know (sidevoice-core server/call.rs). */
+const UNPAIRED = 4401;
+/** How many of a call's turns may wait for their words at once (sidevoice-core control/room/browsers.rs). */
+const MAX_OPEN_TURNS = 8;
+/** The room's refusals, in English as the core words them (rust/messages/en.json). */
+const REFUSALS = {
+  "room.request_invalid": "Invalid room request.",
+  "room.turns_full": "Too many turns are still being transcribed. Wait for one to finish.",
+  "room.input_ended": "The message has already ended; it cannot be cancelled.",
+  "room.receipt_invalid": "Invalid playback state.",
+  "room.stale_utterance": "Stale utterance.",
+  "room.thread_invalid": "Invalid conversation identifier.",
+  "room.browser_absent": "That browser is not in the room.",
+  "room.focus_changed": "The connection or conversation changed. The text was not sent.",
+  "room.message_conflict": "That identifier already belongs to another message.",
+  "room.text_empty": "Write a message.",
+};
+/** How a call's report of a reply's playback leaves the reply: its status and, when it ended short, why. */
+const PLAYBACK = {
+  playing: ["playing", null], heard: ["playback_finished", null], interrupted: ["interrupted", "user_interrupted"],
+  unplayed: ["interrupted", "newer_turn"], failed: ["failed", "playback_failed"],
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The rooms of each world, by machine. */
+const rooms = new WeakMap();
+let seats = 0;
+
+/**
+ * Machine `id`'s room in `world`: its calls (`calls`, seated once the page said hello), its history (`rows`, the
+ * journal's rows), what each conversation's harness last said about working, and the page's messages already taken.
+ */
+export function roomOf(world, id) {
+  if (!rooms.has(world)) rooms.set(world, new Map());
+  const all = rooms.get(world);
+  if (!all.has(id)) {
+    const room = { id, calls: new Set(), rows: [], seq: 0, working: {}, spells: {}, seen: new Set() };
+    all.set(id, room);
+    // A call ends as the world changes under it: its device revoked (4401), or its machine no longer answering
+    // where the call reached it (dropped, as a network drops it).
+    world.subscribe(() => {
+      for (const call of [...room.calls]) {
+        if (machineOf(world.state, id)?.revoked) end(world, room, call, { code: UNPAIRED, reason: NOT_PAIRED });
+        else if (!reachable(world.state, id, call.via, call.onPage)) end(world, room, call, { code: 1006 });
+      }
+    });
+  }
+  return all.get(id);
+}
+
+/** Whether machine `id` answers at `via` (on the page's own origin only when a room serves the page). */
+function reachable(state, id, via, onPage) {
+  return (!onPage || state.page === "room") && answers(state, id, via);
+}
+
+/** The calls of `room` the page said hello on. */
+const seated = (room) => [...room.calls].filter((call) => call.session);
+/** The call of `room` with session `sid`, if it is one. */
+const callOf = (room, sid) => (sid ? seated(room).find((call) => call.session === sid) : undefined);
+/** What the room's history says of a row: all of it but the turn it was said in. */
+const rowView = ({ turn_id, ...row }) => row;
+const refusal = (key, id = null) => ({ type: "error", data: { key, message: REFUSALS[key], ...(id ? { client_msg_id: id } : {}) } });
+
+/** Whether `url` is a mocked machine's call socket. */
+export function isCallSocket(url, pageOrigin) {
+  try {
+    const place = placeOf(String(url).replace(/^ws/, "http"), pageOrigin);
+    return !!place?.id && place.path === CALL_PATH;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The machine's end of a call socket the page opens at `url` (a mocked machine's, `isCallSocket`) with `protocols`.
+ * `peer` is how the room speaks to the page: `open(protocol)`, `message(text)`, `close(code, reason)` once open,
+ * `fail()` when it never opens. What it gives back is how the page speaks to the room: `send(text)`, and `close(code)`
+ * for a socket the page closed (or left with the page).
+ */
+export function callSocket(world, identities, { url, protocols = [], pageOrigin }, peer) {
+  const place = placeOf(String(url).replace(/^ws/, "http"), pageOrigin);
+  const { id, via } = place;
+  const state = world.state;
+  const machine = machineOf(state, id);
+  const log = (status) => world.log({ method: "WS", url, status, mocked: true });
+  const nothing = { send() {}, close() {} };
+  const protocol = protocols.includes("sidevoice") ? "sidevoice" : "";
+  if (!reachable(state, id, via, place.onPage)) {
+    if (via !== "room" || (place.onPage && state.page !== "room")) {
+      log("no answer");
+      peer.fail();
+      return nothing;
+    }
+    // The room's relay answers for a machine it cannot reach: it says why, then closes as a full room does.
+    log("machine away");
+    peer.open(protocol);
+    peer.message(JSON.stringify({ type: "error", data: { reason: "node_offline", message: "That machine is not connected to the room." } }));
+    peer.close(1013, "node_offline");
+    return nothing;
+  }
+  const token = protocols.find((offered) => offered.startsWith(TOKEN_PREFIX))?.slice(TOKEN_PREFIX.length);
+  if (token !== identities[id].token || machine.revoked) {
+    log(UNPAIRED);
+    peer.open(protocol);
+    peer.close(UNPAIRED, NOT_PAIRED);
+    return nothing;
+  }
+  log(101);
+  const room = roomOf(world, id);
+  const call = {
+    url, via, onPage: !!place.onPage, peer, session: null, since: 0, binding: /** @type {RoomBinding | null} */ (null),
+    revision: 0, frames: 0, turns: [], speaking: false, replies: new Map(), ended: false,
+  };
+  room.calls.add(call);
+  peer.open(protocol);
+  return {
+    send: (text) => take(world, room, call, text),
+    close: (code) => end(world, room, call, { code, byPage: true }),
+  };
+}
+
+/** A frame for the page on `call`, numbered as every frame after the session is. */
+function send(call, event) {
+  if (!call.ended) call.peer.message(JSON.stringify({ ...event, seq: ++call.frames }));
+}
+
+/** What the page sent on `call`: its hello first, then its messages, each about the call's own session. Its interface
+ *  language (`voice-settings`) changes nothing here: the mocks speak English. */
+function take(world, room, call, text) {
+  if (call.ended) return;
+  let frame = null;
+  try {
+    frame = JSON.parse(text);
+  } catch {}
+  if (!call.session) return seat(world, room, call, frame ?? {});
+  const data = frame?.data && typeof frame.data === "object" ? frame.data : {};
+  if (data.session_id !== call.session) return;
+  if (frame.type === "voice-user-turn") once(world, room, call, data, userTurn);
+  else if (frame.type === "voice-playback") once(world, room, call, data, playback);
+}
+
+/** The hello: the call gets its session, and lands on the conversation the hello names while it is in the room. */
+function seat(world, room, call, hello) {
+  const data = hello.data && typeof hello.data === "object" ? hello.data : {};
+  call.session = randomId();
+  call.since = ++seats;
+  const named = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === data.conversation);
+  if (named) call.binding = { thread_id: named.thread_id, title: named.title, binding_id: randomId() };
+  /** @type {VoiceSession & { room: { api: number, version: string }, resume_refused?: string }} */
+  const session = {
+    session_id: call.session, room: { api: API, version: "mock" }, resume: { token: secretText(), seconds: 60 }, resumed: false,
+    // A call taken back is not mocked: the room answers with a new session, as for a ticket it no longer knows.
+    ...(data.resume ? { resume_refused: "unknown" } : {}),
+  };
+  // The session frame is the one frame not numbered.
+  call.peer.message(JSON.stringify({ type: "voice-session", data: session }));
+  reportWorking(room, call);
+  world.changed();
+}
+
+/** A message of the page's, taken once by its `client_msg_id`: applied, acknowledged, then answered. Sent again after
+ *  a drop it is only acknowledged. */
+function once(world, room, call, data, apply) {
+  const id = typeof data.client_msg_id === "string" && data.client_msg_id ? data.client_msg_id : null;
+  if (!id) return send(call, refusal("room.request_invalid"));
+  const fresh = !room.seen.has(id);
+  room.seen.add(id);
+  const events = fresh ? apply(world, room, call, data, id) : [];
+  send(call, { type: "voice-ack", data: { session_id: call.session, client_msg_id: id } });
+  for (const event of events) send(call, event);
+}
+
+/** The person's turn: its start takes the call's next revision and the conversation the call is on; its end brings
+ *  its words (or none); words said while the call had no room come finished, as a row of their own. */
+function userTurn(world, room, call, data, id) {
+  const turnId = typeof data.turn_id === "string" ? data.turn_id : "";
+  const started = (revision, thread) => ({
+    type: "voice-user-turn", data: { session_id: call.session, phase: "started", turn_id: turnId, revision, thread_id: thread },
+  });
+  const words = typeof data.text === "string" && data.text.trim() ? data.text : null;
+  if (data.phase === "started") {
+    if (!turnId || call.turns.some((turn) => turn.turn_id === turnId)) return [refusal("room.request_invalid", id)];
+    if (call.turns.length >= MAX_OPEN_TURNS) return [refusal("room.turns_full", id)];
+    const turn = { turn_id: turnId, revision: ++call.revision, binding: call.binding?.thread_id ? call.binding : null };
+    call.turns.push(turn);
+    call.speaking = true;
+    return [started(turn.revision, turn.binding?.thread_id ?? null)];
+  }
+  if (data.phase === "finished" && data.offline === true) {
+    if (!turnId || !words) return [refusal("room.request_invalid", id)];
+    const revision = ++call.revision;
+    const row = input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision, binding: call.binding, turnId, offline: true });
+    return row ? [started(revision, row.thread)] : [];
+  }
+  if (data.phase === "finished" || data.phase === "cancelled") {
+    const turn = call.turns.find((open) => open.turn_id === turnId);
+    if (!turn) return [refusal("room.input_ended", id)];
+    call.turns = call.turns.filter((open) => open !== turn);
+    call.speaking = false;
+    if (data.phase === "finished" && words) {
+      input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision: turn.revision, binding: turn.binding, turnId });
+    }
+    return [];
+  }
+  return [refusal("room.request_invalid", id)];
+}
+
+/**
+ * The person's words, as a row of the room's history for the conversation `binding` names: `pending`, told to the call
+ * at once, and on their way to the agent. With no conversation they are never sent (`not_sent`, and no row).
+ */
+function input(world, room, call, { id, text, revision, binding, turnId = null, offline = false }) {
+  const kept = room.rows.find((row) => row.id === id);
+  if (kept) return kept;
+  if (!binding?.thread_id) {
+    receipt(call, { id, thread: null, session: call.session, revision, turn_id: turnId }, "not_sent");
+    return null;
+  }
+  const row = {
+    seq: ++room.seq, id, thread: binding.thread_id, role: "user", text, name: "You", session: call.session, revision,
+    time: world.now(), status: "pending", audio_reason: null, heard_chars: null, offline: offline || null, turn_id: turnId,
+  };
+  room.rows.push(row);
+  receipt(call, row, "pending");
+  void deliver(world, room, row);
+  return row;
+}
+
+/** What became of the person's words, told to the call that sent them. */
+function receipt(call, row, status) {
+  send(call, {
+    type: "voice-input-receipt",
+    data: { revision: row.revision, history_id: row.id, thread_id: row.thread, session_id: row.session, status, ...(row.turn_id ? { turn_id: row.turn_id } : {}) },
+  });
+}
+
+/** The words reach the agent while its conversation listens: its connector takes them, then the agent reads them and
+ *  its harness starts working on them. One that does not listen leaves them pending. */
+async function deliver(world, room, row) {
+  for (const [status, ms] of /** @type {const} */ ([["delivered", 400], ["read", 900]])) {
+    await world.delay(ms);
+    const conversation = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === row.thread);
+    if (conversation?.reach.state !== "listening") return;
+    row.status = status;
+    const call = callOf(room, row.session);
+    if (call) receipt(call, row, status);
+  }
+  working(room, row.thread, true, { turn_phase: "start", session_id: row.session, revision: row.revision });
+}
+
+/** A call's report of how a reply played: the reply's row says it, while the reply is still queued or playing. */
+function playback(world, room, call, data, id) {
+  const report = PLAYBACK[data.status];
+  if (!report || (data.heard_chars != null && !Number.isInteger(data.heard_chars))) return [refusal("room.receipt_invalid", id)];
+  const reply = call.replies.get(data.utterance_id);
+  if (!reply) return [refusal("room.stale_utterance", id)];
+  if (!["queued", "playing"].includes(reply.status)) return [];
+  const [status, reason] = report;
+  reply.status = status;
+  reply.row.status = status;
+  reply.row.audio_reason = status === "interrupted" && typeof data.reason === "string" ? data.reason : reason;
+  reply.row.heard_chars = data.status === "interrupted" ? data.heard_chars ?? null : null;
+  return [];
+}
+
+/** A call leaves the room: the page closed it (or went), or the room closed it (`code`, told to the page). What was
+ *  still to play for it is not heard. */
+function end(world, room, call, { code = 1000, reason = "", byPage = false }) {
+  if (!room.calls.delete(call)) return;
+  stopReplies(call, "call_ended");
+  call.ended = true;
+  if (!byPage) call.peer.close(code, reason);
+  world.log({ method: "WS", url: call.url, status: `closed ${code}`, mocked: true });
+}
+
+/** The replies `call` has not finished end there, unheard, for `reason`; the ids of those that did. */
+function stopReplies(call, reason) {
+  const stopped = [];
+  for (const [uid, reply] of call.replies) {
+    if (!["queued", "playing"].includes(reply.status)) continue;
+    reply.status = reply.row.status = "interrupted";
+    reply.row.audio_reason = reason;
+    stopped.push(uid);
+  }
+  return stopped;
+}
+
+/** `POST /api/presentation/select`: the call goes on to another conversation, what it was saying of the last one is
+ *  taken back, and it is told whether its harness is working. */
+function select(world, room, machine, body) {
+  const thread = body.thread_id;
+  if (typeof thread !== "string" || !thread) return refuse(400, REFUSALS["room.thread_invalid"]);
+  const call = callOf(room, body.session_id);
+  if (!call) return refuse(409, REFUSALS["room.browser_absent"]);
+  if (call.binding?.thread_id === thread) return json(200, { status: "already_active", binding: call.binding });
+  const title = participantsOf(machine, room.id).find((p) => p.thread_id === thread)?.title ?? null;
+  call.binding = { thread_id: thread, title, binding_id: randomId() };
+  const withdrawn = stopReplies(call, "focus_changed");
+  if (withdrawn.length) send(call, { type: "voice-reply-withdrawn", data: { session_id: call.session, utterance_ids: withdrawn, reason: "focus_changed" } });
+  reportWorking(room, call);
+  world.changed();
+  return json(200, { status: "activated", binding: call.binding });
+}
+
+/** `POST /api/presentation/text`: words typed in the call, for the conversation it is on, as said ones go. */
+function typed(world, room, body) {
+  const mid = body.message_id;
+  if (typeof mid !== "string" || !UUID.test(mid)) return refuse(422, REFUSALS["room.request_invalid"]);
+  const id = `${body.session_id}:user-text:${mid}`;
+  const kept = room.rows.find((row) => row.id === id);
+  if (kept) {
+    return kept.text === body.text && kept.thread === body.thread_id
+      ? json(200, { accepted: true, id, revision: kept.revision, thread_id: kept.thread }) : refuse(409, REFUSALS["room.message_conflict"]);
+  }
+  const call = callOf(room, body.session_id);
+  if (!call || call.binding?.thread_id !== body.thread_id || call.binding?.binding_id !== body.binding_id) {
+    return refuse(409, REFUSALS["room.focus_changed"]);
+  }
+  if (typeof body.text !== "string" || !body.text.trim()) return refuse(422, REFUSALS["room.text_empty"]);
+  const row = input(world, room, call, { id, text: body.text, revision: call.revision, binding: call.binding });
+  return json(200, { accepted: true, id, revision: row.revision, thread_id: row.thread });
+}
+
+/** `GET /api/presentation`: the room, and the asking call as the room sees it. */
+function snapshot(room, call, identity) {
+  const calls = seated(room);
+  return {
+    binding: call?.binding?.thread_id ? call.binding : null,
+    room: { revision: call?.revision ?? 0, speaking: !!call?.speaking, switching: false, clients: calls.length, utterances: [], client_errors: [] },
+    clients: calls.map((c) => ({ id: c.session, device_id: identity.deviceId, connected: true, user_speaking: c.speaking, turn_revision: c.revision })),
+    call: call ? {
+      id: call.session, target: call.binding ?? {}, connected: true, user_speaking: call.speaking, error: null, sent: 0,
+      last_delivery: null, revision: call.revision, utterances: [],
+    } : null,
+  };
+}
+
+/** What the conversation's harness says about working, passed on to every call on it as the room does. Each report
+ *  starts a spell of its own: a later end ends only its own. */
+function working(room, thread, value, turn = {}) {
+  room.working[thread] = value;
+  const spell = (room.spells[thread] = (room.spells[thread] ?? 0) + 1);
+  for (const call of seated(room)) {
+    if (call.binding?.thread_id === thread) send(call, { type: "voice-conversation", data: { thread_id: thread, working: value, ...turn } });
+  }
+  return spell;
+}
+
+/** A call landing on a conversation is told what its harness last said about working. */
+function reportWorking(room, call) {
+  const thread = call.binding?.thread_id;
+  if (thread && typeof room.working[thread] === "boolean") {
+    send(call, { type: "voice-conversation", data: { thread_id: thread, working: room.working[thread] } });
+  }
+}
+
+/** The newest call in `world` on a conversation: `{ room, call }`, or null. */
+function newestCall(world) {
+  const found = [...(rooms.get(world)?.values() ?? [])]
+    .flatMap((room) => seated(room).map((call) => ({ room, call })))
+    .sort((a, b) => b.call.since - a.call.since);
+  return found[0] ?? null;
+}
+
+/** The page's call in `world`, as the card names it: `{ machine, session, thread, title }` (no conversation: null
+ *  thread), or null when the page is in no call. */
+export function liveCall(world) {
+  const on = newestCall(world);
+  if (!on) return null;
+  return { machine: on.room.id, session: on.call.session, thread: on.call.binding?.thread_id ?? null, title: on.call.binding?.title ?? null };
+}
+
+/** The newest revision the person said something at on `thread` in `call`: what the agent's next reply answers. */
+function answering(room, call, thread) {
+  return room.rows.filter((row) => row.role === "user" && row.thread === thread && row.session === call.session).at(-1)?.revision ?? call.revision;
+}
+
+/**
+ * The agent of the conversation the page's call is on says `text`, as its connector publishes a reply: a row of the
+ * room's history, and a `voice-reply` to every call on that conversation, whose voice says it and reports how it
+ * played. Its harness's turn ends with it. Whether there was a call on a conversation to say it to.
+ */
+export function agentSpeaks(world, text) {
+  const on = newestCall(world);
+  const thread = on?.call.binding?.thread_id;
+  if (!thread) return false;
+  const { room, call } = on;
+  const uid = randomId();
+  const revision = answering(room, call, thread);
+  const row = {
+    seq: ++room.seq, id: `${call.session}:voice:${uid}`, thread, role: "assistant", text, name: call.binding.title ?? null,
+    session: call.session, revision, time: world.now(), status: "queued", audio_reason: null, heard_chars: null, offline: null,
+  };
+  room.rows.push(row);
+  for (const listener of seated(room)) {
+    if (listener.binding?.thread_id !== thread) continue;
+    listener.replies.set(uid, { row, status: "queued" });
+    /** @type {VoiceReply} */
+    const reply = { session_id: listener.session, utterance_id: uid, revision, reply_revision: revision, thread_id: thread, history_id: row.id, text, language: null };
+    send(listener, { type: "voice-reply", data: reply });
+  }
+  if (room.working[thread]) working(room, thread, false, { turn_phase: "end", session_id: call.session, revision });
+  return true;
+}
+
+/** The agent of the conversation the page's call is on works for `ms` of the world's time, as its harness reports a
+ *  turn's start and end. Whether there was a call on a conversation to tell. */
+export function agentWorks(world, ms = 5000) {
+  const on = newestCall(world);
+  const thread = on?.call.binding?.thread_id;
+  if (!thread) return false;
+  const { room, call } = on;
+  const turn = { session_id: call.session, revision: answering(room, call, thread) };
+  const spell = working(room, thread, true, { turn_phase: "start", ...turn });
+  void world.delay(ms).then(() => {
+    if (room.spells[thread] === spell) working(room, thread, false, { turn_phase: "end", ...turn });
+  });
+  return true;
 }

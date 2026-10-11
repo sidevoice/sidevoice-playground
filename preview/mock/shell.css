@@ -18,6 +18,11 @@ html, body { margin: 0; height: 100%; background: #2b2b2b; font: 14px/1.4 system
 #card { position: fixed; top: 12px; right: 12px; width: 21rem; max-height: calc(100% - 24px); overflow: auto; z-index: 10;
   background: #fbf4dc; color: #2a2414; border: 2px dashed #c79a1e; border-radius: 10px; box-shadow: 0 8px 30px #0006; }
 #card.closed { width: auto; }
+/* The variants' panel: the card's look, at the bottom left, out of the card's way. */
+#variants { position: fixed; left: 12px; bottom: 12px; width: 18rem; max-height: calc(100% - 24px); overflow: auto; z-index: 10;
+  background: #fbf4dc; color: #2a2414; border: 2px dashed #c79a1e; border-radius: 10px; box-shadow: 0 8px 30px #0006; }
+#variants.closed { width: auto; }
+#variants.closed .card-body { display: none; }
 .card-header { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: 0; background: none; font: inherit; cursor: pointer; color: inherit; }
 .card-header .count { background: #c79a1e; color: #fff; border-radius: 9px; padding: 0 7px; font-size: 12px; }
 .card-header .chevron { margin-left: auto; }
@@ -39,3 +44,14 @@ button { cursor: pointer; }
 .problem { margin: 0; padding: 6px 8px; border-radius: 6px; background: #f7d9c4; color: #7a2a00; font-size: 12px; }
 .activity summary { cursor: pointer; font-size: 12px; }
 .activity ol { margin: 6px 0 0; padding-left: 18px; font: 11px/1.4 ui-monospace, monospace; word-break: break-all; }
+#variants .variant { margin: 0 0 10px; padding: 6px 10px 8px; border: 1px solid #e2c56d; border-radius: 8px; }
+#variants .variant legend { padding: 0 4px; font-weight: 700; font-size: 13px; }
+#variants .variant-note { margin: 0 0 6px; font-size: 12px; opacity: .8; }
+#variants .variant label { display: block; padding: 2px 0; font-size: 13px; cursor: pointer; }
+/* Nothing in the card runs past its right edge: rows wrap, segmented controls shrink and wrap, fields fit. */
+#card, #variants { box-sizing: border-box; overflow-x: hidden; }
+#card *, #variants * { box-sizing: border-box; }
+.row { flex-wrap: wrap; }
+.segmented { flex-wrap: wrap; max-width: 100%; }
+.segmented button { flex: 1 1 auto; white-space: nowrap; }
+.card-body select, .card-body input { width: 100%; max-width: 100%; }
