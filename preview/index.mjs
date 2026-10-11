@@ -8,6 +8,7 @@ import { RefError } from "../refs.mjs";
 import { archives as archiveStore, listArchives } from "./archives.mjs";
 import { loadScenarios, runs as runStore } from "./runs.mjs";
 import { WEB_REPO, webBuilds } from "./web-build.mjs";
+import { listWorktrees, startDevServer } from "./dev.mjs";
 
 /** How many log lines a job keeps for the page. */
 export const LOG_LINES = 200;
@@ -32,6 +33,11 @@ export async function listWeb(api) {
  */
 export function validStart(body, scenarios) {
   const ref = (value) => typeof value === "string" && /^[\w.\/-]+$/.test(value) && !value.includes("..");
+  // A dev run names a worktree, not a version.
+  if (body?.mode === "dev") {
+    if (typeof body.worktree !== "string" || !body.worktree.startsWith("/")) throw new RefError(400, "pick a worktree");
+    return { mode: "dev", worktree: body.worktree };
+  }
   if (!body || !ref(body.web)) throw new RefError(400, "pick a web version");
   for (const name of ["engine", "voice"]) {
     if (body[name] != null && !ref(body[name])) throw new RefError(400, `not a build: ${body[name]}`);
@@ -50,7 +56,7 @@ export function validStart(body, scenarios) {
  * `voiceBuild(ref)` get a picked build (its `tarball` among what they give); `cache` holds what it builds and runs;
  * `origin` is the preview origin's public address, and `link` the first address of it the page opens (past its gate).
  */
-export async function previewSection({ api, engineBuild, voiceBuild, cache, origin, link = origin, web = null, archives = null, runs = null }) {
+export async function previewSection({ api, engineBuild, voiceBuild, cache, origin, link = origin, web = null, archives = null, runs = null, devRepo = null, devServer = startDevServer }) {
   const scenarios = await loadScenarios();
   const store = archives ?? archiveStore({ cache: `${cache}/archives`, api });
   const manager = runs ?? runStore({ cache, origin });
@@ -66,6 +72,16 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     log.length = 0;
     job = { state: "starting", error: null };
     try {
+      if (pick.mode === "dev") {
+        // Only a worktree of the dev checkout, as it lists them now.
+        const worktree = (await listWorktrees(devRepo)).find((w) => w.path === pick.worktree);
+        if (!worktree) throw new RefError(404, `${pick.worktree} is not a sidevoice-web worktree of ${devRepo}`);
+        say(`Starting the dev server of ${worktree.branch ?? "a detached head"} in ${worktree.path}…`);
+        await manager.dev({ label: `dev: ${worktree.branch ?? worktree.head?.slice(0, 7)} (${worktree.path})`, start: () => devServer(worktree, { log: say }) });
+        job = { state: "running", error: null };
+        say("Running, live: edits to the worktree reach the preview as they are saved.");
+        return;
+      }
       if (pick.mode === "mock") {
         const tarballs = await picked(pick);
         say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
@@ -116,9 +132,11 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   async function route(req, url) {
     const path = url.pathname;
     if (path === "/preview/options" && req.method === "GET") {
-      const [web, core, connector] = await Promise.all([listWeb(api), listArchives(api, "core"), listArchives(api, "connector")]);
+      const [web, core, connector, worktrees] = await Promise.all([
+        listWeb(api), listArchives(api, "core"), listArchives(api, "connector"), devRepo ? listWorktrees(devRepo) : [],
+      ]);
       const kept = await Promise.all(scenarios.map((s) => manager.kept(s)));
-      return { web, core, connector, scenarios: scenarios.map((s, i) => ({ ...s, kept: kept[i] })), origin };
+      return { web, core, connector, worktrees, devRepo, scenarios: scenarios.map((s, i) => ({ ...s, kept: kept[i] })), origin };
     }
     if (path === "/preview/status" && req.method === "GET") return { job, log: [...log], current: manager.current, origin, link };
     if (req.method !== "POST") return undefined;

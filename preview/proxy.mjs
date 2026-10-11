@@ -19,7 +19,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validMockScenario } from "./mock/world.mjs";
-import { chunkFor } from "./mock/chunks.mjs";
+import { chunkFor, exportedNames, mockChunk, packageOf } from "./mock/chunks.mjs";
 
 const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
 /** What the shell loads from mock/, by name: nothing else there is served. */
@@ -106,7 +106,7 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
       return res.end(resetPage(next.startsWith("/") && !next.startsWith("//") ? next : "/"));
     }
     if (!run) return send(res, 503, "No preview is running: start one from the playground's Web preview section.");
-    if (run.mode === "mock") {
+    if (run.mode === "mock" || run.mode === "dev") {
       const served = await mockFile(url.pathname);
       if (served) {
         res.writeHead(200, { "content-type": served.type, "cache-control": "no-store" });
@@ -114,6 +114,7 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
       }
       if (coreRoute(url.pathname)) return send(res, 404, "a mocked preview has no core: its page asks its mocks");
     }
+    if (run.mode === "dev") return devProxy(req, res, run.port, url);
     if (coreRoute(url.pathname)) return proxy(req, res, run.port);
     // A fresh run's first page goes through the reset page, once.
     if (run.mode !== "mock" && run.reset && (url.pathname === "/" || url.pathname.startsWith("/voice/")) && !extname(url.pathname)) {
@@ -160,11 +161,46 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
     req.pipe(upstream);
   }
 
-  /** A socket upgrade (the call's) passed to the core, bytes both ways. */
+  /**
+   * A dev run's request passed to its dev server; a module of the web's voice or engine package (told by its exports,
+   * as a build's chunks are) answered with the mocks' instead.
+   */
+  function devProxy(req, res, port, url) {
+    const maybePackage = req.method === "GET" && /sidevoice/i.test(url.pathname);
+    const headers = { ...req.headers };
+    if (maybePackage) delete headers["accept-encoding"];
+    const upstream = httpRequest({ host: "127.0.0.1", port, method: req.method, path: req.url, headers }, (answer) => {
+      const type = String(answer.headers["content-type"] ?? "");
+      if (!maybePackage || !/javascript/.test(type)) {
+        res.writeHead(answer.statusCode ?? 502, answer.headers);
+        return answer.pipe(res);
+      }
+      const chunks = [];
+      answer.on("data", (chunk) => chunks.push(chunk));
+      answer.on("end", () => {
+        const code = Buffer.concat(chunks);
+        const names = exportedNames(code.toString("utf8"));
+        const kind = packageOf(names);
+        if (!kind) {
+          res.writeHead(answer.statusCode ?? 502, answer.headers);
+          return res.end(code);
+        }
+        res.writeHead(200, { "content-type": TYPES[".js"], "cache-control": "no-store" });
+        res.end(mockChunk(kind, names));
+      });
+    });
+    upstream.on("error", () => {
+      if (!res.headersSent) send(res, 502, "the dev server does not answer");
+      else res.destroy();
+    });
+    req.pipe(upstream);
+  }
+
+  /** A socket upgrade passed on, bytes both ways: the call's to the core, or, in a dev run, the hot reload's to Vite. */
   function upgrade(req, socket, head) {
     const run = runs.current;
     const url = new URL(req.url, "http://preview");
-    if (!run || run.mode === "mock" || !coreRoute(url.pathname)) return socket.destroy();
+    if (!run || run.mode === "mock" || (run.mode === "real" && !coreRoute(url.pathname))) return socket.destroy();
     const core = connect(run.port, "127.0.0.1", () => {
       const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
       for (let i = 0; i < req.rawHeaders.length; i += 2) lines.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
@@ -187,7 +223,10 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
 /** What a mocked run serves of its own at `pathname`: `{ type, body }`, or null for the site's files. */
 export async function mockFile(pathname) {
   if (pathname === "/") return { type: TYPES[".html"], body: await readFile(join(MOCK_DIR, "shell.html")) };
-  if (pathname === "/voice/target.js") return { type: TYPES[".js"], body: await readFile(join(MOCK_DIR, "frame.js")) };
+  // A dev server writes the page's `/voice/target.js` under its base again: `/voice/voice/target.js`.
+  if (pathname === "/voice/target.js" || pathname === "/voice/voice/target.js") {
+    return { type: TYPES[".js"], body: await readFile(join(MOCK_DIR, "frame.js")) };
+  }
   if (pathname === `${MOCK_PATH}scenarios.json`) return { type: TYPES[".json"], body: JSON.stringify(await loadMockScenarios()) };
   if (!pathname.startsWith(MOCK_PATH)) return null;
   const name = pathname.slice(MOCK_PATH.length);

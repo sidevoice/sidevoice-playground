@@ -49,6 +49,8 @@ import { VOICE } from "./web/sources.mjs";
 
 const ROOT = fileURLToPath(new URL("./web/", import.meta.url));
 const PORT = Number(process.env.PORT ?? 5174);
+/** The sidevoice-web checkout whose worktrees the Web preview's dev mode offers (`--dev-repo`). */
+const DEFAULT_DEV_REPO = "/workspace/sidevoice/sidevoice-web";
 const DEFAULT_GITHUB_TOKEN_FILE = join(homedir(), ".agent/secrets/github.token");
 const DEFAULT_BENCH_URL = "http://127.0.0.1:4477";
 const TYPES = {
@@ -218,6 +220,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       "preview-port": { type: "string" },
       "preview-origin": { type: "string" },
       "cache-dir": { type: "string" },
+      "dev-repo": { type: "string" },
     },
   });
   const token = await accessToken(values["access-file"] ?? DEFAULT_ACCESS_FILE);
@@ -245,6 +248,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     engineBuild: (ref) => (/^(v\d|nightly$|latest$)/.test(ref) ? releases.get(ref) : refs.get(ref)),
     voiceBuild: (ref) => voices.get(ref),
     cache: values["cache-dir"] ?? join(homedir(), ".cache/sidevoice-playground"),
+    // The sidevoice-web checkout whose worktrees the dev mode offers.
+    devRepo: values["dev-repo"] ?? DEFAULT_DEV_REPO,
     origin: previewAt,
     // The preview origin is behind the same gate, with a cookie of its own: the page, already let in, gets the link.
     link: `${previewAt}/?access=${encodeURIComponent(token)}`,
@@ -264,5 +269,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     origin.handle(req, res).catch((e) => send(res, 500, String(e)));
   });
   previewServer.on("upgrade", (req, socket, head) => (access.check(req).ok ? origin.upgrade(req, socket, head) : socket.destroy()));
+  // What a run started (a dev server in its own process group, a core) ends with this server.
+  process.on("exit", () => preview.runs.killNow());
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(0));
   previewServer.listen(previewPort, "127.0.0.1", () => console.log(`web preview on ${previewAt} (port ${previewPort})`));
 }

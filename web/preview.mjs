@@ -34,6 +34,9 @@ export function previewSection({ inApp }) {
 
   function renderMode() {
     const real = $("#preview-mode").value === "real";
+    const dev = $("#preview-mode").value === "dev";
+    $("#preview-dev").hidden = !dev;
+    $("#preview-web").closest(".field").hidden = dev;
     $("#preview-real").hidden = !real;
     $("#preview-real-scenario").hidden = !real;
     if (real) renderScenario();
@@ -64,6 +67,11 @@ export function previewSection({ inApp }) {
       fill($("#preview-engine"), buildChoices(engines));
       fill($("#preview-voice"), buildChoices(voices));
       fill($("#preview-scenario"), listed.scenarios.map((s) => ({ value: s.id, label: s.title })));
+      fill($("#preview-worktree"), (listed.worktrees ?? []).map((w) => ({
+        value: w.path, label: `${w.branch ?? `detached ${w.head?.slice(0, 7)}`} — ${w.path}${w.ready ? "" : " (npm ci first)"}`,
+      })));
+      $("#preview-dev-note").textContent = `The worktrees of ${listed.devRepo ?? "no checkout"} (git worktree add there to offer another). ` +
+        "Its dev server runs until another preview starts or Stop; edits show as they are saved.";
       renderMode();
       status("#preview-status", "");
     } catch (error) {
@@ -88,7 +96,9 @@ export function previewSection({ inApp }) {
     $("#preview-live").hidden = !current;
     $("#preview-pair").hidden = current?.mode !== "real";
     if (current) {
-      $("#preview-running").textContent = current.mode === "mock"
+      $("#preview-running").textContent = current.mode === "dev"
+        ? `Live: ${current.web}. Edits to the worktree show as they are saved; scenarios and options in the card (Alt+Shift+P).`
+        : current.mode === "mock"
         ? `Mocked: web ${current.web}. Pick scenarios and options in the preview's card (Alt+Shift+P).`
         : `${current.scenario}: web ${current.web}, core ${current.core}, connector ${current.connector}.`;
       $("#preview-open").href = link;
@@ -121,6 +131,7 @@ export function previewSection({ inApp }) {
     try {
       await ask("/preview/start", {
         mode: $("#preview-mode").value,
+        worktree: $("#preview-worktree").value || null,
         web: $("#preview-web").value,
         core: $("#preview-core").value,
         connector: $("#preview-connector").value,
