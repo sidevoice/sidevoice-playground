@@ -90,6 +90,17 @@ test("the page loads with the pairings the world says it has", async () => {
   assert.equal(desktop["sidevoice.settings"], '{"ui_language":"en"}');
 });
 
+test("a world whose first-run setup is done opens the page on the room; any other leaves the setup to run", async () => {
+  const { world, identities } = await setup();
+  const now = Date.parse("2026-10-11T00:00:00Z");
+  assert.equal(seededStorage(world.state, identities, now)["sidevoice.onboarding"], undefined);
+  world.state.setup = "done";
+  const record = JSON.parse(seededStorage(world.state, identities, now)["sidevoice.onboarding"]);
+  assert.equal(record.version, 1);
+  assert.equal(record.agents_done, true);
+  assert.ok(record.completed_at > 0 && record.completed_at < now);
+});
+
 test("addresses: a machine directly, through the room (its own origin or the page's), the local host", () => {
   assert.deepEqual(placeOf(`${directUrl("nuc")}/api/x?a=1`, PAGE), { id: "nuc", via: "direct", path: "/api/x", query: "?a=1" });
   assert.deepEqual(placeOf(`${ROOM_URL}/nodes/nuc/api/x`, PAGE), { id: "nuc", via: "room", path: "/api/x", query: "" });

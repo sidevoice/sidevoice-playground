@@ -1,0 +1,40 @@
+{
+  "id": "room-ready",
+  "title": "Room ready: paired, set up, agents listening",
+  "summary": "Everyday use: this device finished its first-run setup and is paired with the NUC, whose agents are in the room. The page opens on the room; pick a conversation and talk.",
+  "view": "browser",
+  "world": {
+    "page": "room",
+    "setup": "done",
+    "machines": {
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
+        "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }],
+        "participants": [
+          { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" },
+          { "title": "Codex · release", "harness": "codex", "reach": "listening" }
+        ] }
+    },
+    "local": null
+  },
+  "options": [
+    { "id": "agents", "group": "Agents on the NUC", "label": "Conversations", "values": [
+      { "value": "two", "label": "two listening", "set": { "machines.nuc.participants": [
+        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" },
+        { "title": "Codex · release", "harness": "codex", "reach": "listening" }
+      ] } },
+      { "value": "none", "label": "none yet", "set": { "machines.nuc.participants": [] } },
+      { "value": "many", "label": "many, mixed states", "set": { "machines.nuc.participants": [
+        { "title": "Claude Code · sidevoice-web", "harness": "claude-code", "reach": "listening" },
+        { "title": "Codex · release", "harness": "codex", "reach": "holding", "detail": "Waiting for its turn to listen" },
+        { "title": "Claude Code · sidevoice-core", "harness": "claude-code", "reach": "listening" },
+        { "title": "Cursor · notes", "harness": "cursor", "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" },
+        { "title": "Codex · infra", "harness": "codex", "reach": "listening" }
+      ] } }
+    ] },
+    { "id": "nucReach", "group": "The NUC", "label": "Answers", "values": [
+      { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
+      { "value": "room", "label": "only through the room", "set": { "machines.nuc.reach": "room" } },
+      { "value": "offline", "label": "not at all", "set": { "machines.nuc.reach": "offline" } }
+    ] }
+  ]
+}

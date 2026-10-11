@@ -5,6 +5,7 @@
   "view": "browser",
   "world": {
     "page": "room",
+    "setup": "done",
     "machines": {
       "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
         "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }, { "name": "Sidevoice en iPhone", "kind": "code", "daysAgo": 3, "seenDaysAgo": 1 }],
@@ -17,6 +18,10 @@
     "local": null
   },
   "options": [
+    { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
+      { "value": "done", "label": "done: opens on the room", "set": { "setup": "done" } },
+      { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
+    ] },
     { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
       { "value": "nuc", "label": "the NUC", "set": { "machines.nuc.inUse": true, "machines.workstation.inUse": false } },
       { "value": "workstation", "label": "the workstation", "set": { "machines.nuc.inUse": false, "machines.workstation.inUse": true } }
