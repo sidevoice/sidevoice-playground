@@ -40,7 +40,7 @@ export function fakeVoice(world, { source = null } = {}) {
   let turns = 0;
   let says = 0;
   /** @type {VoiceCallState} */
-  let state = { listening: "idle", recognising: 0, playback: "idle" };
+  let state = { listening: "idle", recognising: 0, playback: "idle", microphone: /** @type {"live" | "muted"} */ ("live") };
   const setState = (patch) => {
     state = { ...state, ...patch };
     emit("state", state);
@@ -73,6 +73,9 @@ export function fakeVoice(world, { source = null } = {}) {
       if (voice.mic === "denied") throw refusal("microphone-denied");
       if (voice.mic === "missing") throw refusal("microphone-unavailable");
       started = true;
+      // The models a call loads were just used: this device's transcriber and voice, and the voice detector.
+      const used = [settings.stt?.catalog === LOCAL ? settings.stt.model : null, settings.tts?.catalog === LOCAL ? settings.tts.model : null, "silero-vad"].filter(Boolean);
+      world.patch({ "voice.lastUsed": { ...voice.lastUsed, ...Object.fromEntries(used.map((model) => [String(model), Date.now()])) } });
       setState({ listening: muted ? "muted" : "listening" });
     },
     async stop() {

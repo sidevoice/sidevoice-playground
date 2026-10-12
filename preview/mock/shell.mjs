@@ -20,13 +20,32 @@ const VARIANTS = [
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
-    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "panel", label: "B · a section of the updates' list" }] },
+    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
+  { name: "new-dismiss", label: "Clearing “New”", note: "Whether each “New” also has a × to clear it without looking.",
+    values: [{ value: "with", label: "A · with a ×" }, { value: "without", label: "B · without" }] },
+  { name: "models-list", label: "Downloaded models", note: "How Settings › Advanced organises the models on this device (in use first in all).",
+    values: [{ value: "grouped", label: "A · in use / not in use" }, { value: "plain", label: "B · one plain list" }, { value: "purpose", label: "C · by purpose" }, { value: "cards", label: "D · cards" }] },
+  { name: "provider-connect", label: "Connecting a provider", note: "How a provider's API key is entered (Settings › Providers, and where a voice slot needs a key).",
+    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "row", label: "B · in the card's row" }, { value: "popover", label: "C · a popover by the button" }] },
+  { name: "try-result", label: "Trying a model", note: "Where a transcription or voice try runs and shows its result (Settings and the setup).",
+    values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
+  { name: "pair-machine", label: "Connecting another machine", note: "The screen that pairs this device with a machine (the setup and Settings › Machines).",
+    values: [{ value: "code", label: "A · code first" }, { value: "steps", label: "B · two numbered steps" }, { value: "split", label: "C · machine | this device, side by side" }] },
+  { name: "copy-button", label: "Copy buttons", note: "How the copy button of a command or a phrase to say shows.",
+    values: [{ value: "visible", label: "A · always visible" }, { value: "faint", label: "B · faint, solid on hover/focus" }, { value: "hover", label: "C · only on hover/focus (always on touch)" }] },
   { name: "agent-actions", label: "An agent's other actions", note: "In the agents list: what a row offers besides Connect or Disconnect.",
     values: [{ value: "split", label: "A · a split button, its chevron joined" }, { value: "original", label: "B · every action a button on the row (the original)" }] },
 ]
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
+}
+
+/** Choices kept for variants the panel no longer offers (decided ones) go: the page then shows what was decided. */
+function pruneVariants() {
+  const kept = readVariants();
+  const open = Object.fromEntries(Object.entries(kept).filter(([name]) => VARIANTS.some((variant) => variant.name === name)));
+  if (Object.keys(open).length !== Object.keys(kept).length) localStorage.setItem(VARIANTS_KEY, JSON.stringify(open));
 }
 
 /** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
@@ -95,7 +114,7 @@ const parse = (text, fallback) => {
   try { return JSON.parse(text) ?? fallback; } catch { return fallback; }
 };
 /** Keys only the world writes: the page's own copy goes when the world no longer has one. */
-const worldOwned = (key) => key === "sidevoice.local-host-selected" || key.startsWith("sidevoice.provider-key.");
+const worldOwned = (key) => key === "sidevoice.local-host-selected" || key.startsWith("sidevoice.provider-key.") || key.startsWith("sidevoice.provider-key-hint.");
 
 /**
  * The page's localStorage `current` brought to what the world now says (`seeded`, machines.mjs `seededStorage`)
@@ -296,6 +315,7 @@ async function run(card) {
   // The variants' panel opens and closes on its header, or Alt+Shift+V, and picks what the page shows (variants.mjs).
   const variants = document.getElementById("variants");
   const variantsBody = variants?.querySelector(".card-body");
+  pruneVariants();
   if (variantsBody) drawVariants(variantsBody);
   const flipVariants = () => {
     const closed = variants.classList.toggle("closed");

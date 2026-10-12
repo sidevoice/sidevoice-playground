@@ -65,6 +65,18 @@ test("the local catalogue is the engine's v0.3.1, each build placed as the engin
   assert.equal(model("desktop", "smart-turn-v3.2").recommendedBuild, "smart-turn-v3.2/onnxruntime-fp32");
 });
 
+test("a model's last use: dated back in days by the scenario, until the world sees a newer one", () => {
+  const now = Date.parse("2026-10-11T12:00:00Z");
+  const voice = { installed: { "silero-vad": true, "whisper-small": true }, lastUsedDaysAgo: { "whisper-small": 45, "whisper-tiny": 3 } };
+  const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice } }, {}, { ...instant, now: () => now });
+  const model = (id) => localModels(w, "browser").find((m) => m.id === id);
+  assert.equal(model("whisper-small").lastUsedAt, now - 45 * 86_400_000);
+  assert.equal(model("silero-vad").lastUsedAt, null, "installed, never dated nor used");
+  assert.equal("lastUsedAt" in model("whisper-tiny"), false, "not installed: nothing to say");
+  w.patch({ "voice.lastUsed": { "whisper-small": now - 1000 } });
+  assert.equal(model("whisper-small").lastUsedAt, now - 1000);
+});
+
 test("an install downloads the build it installs", async () => {
   const w = world();
   const sizes = [];
@@ -178,6 +190,11 @@ test("the browser keeps the provider keys the world says; the app keeps its own"
   const ids = await makeIdentities({ machines: {} });
   assert.equal(seededStorage(w.state, ids, 0)["sidevoice.provider-key.openai"], SAMPLE_KEYS.accepted);
   assert.equal(seededStorage(w.state, ids, 0, { desktop: true })["sidevoice.provider-key.openai"], undefined);
+  // Its note of the key's last four is the page's, in both.
+  for (const desktop of [false, true]) {
+    assert.equal(JSON.parse(seededStorage(w.state, ids, 0, { desktop })["sidevoice.provider-key-hint.openai"]).last4, SAMPLE_KEYS.accepted.slice(-4));
+  }
+  assert.equal(seededStorage(w.state, ids, 0)["sidevoice.provider-key-hint.elevenlabs"], undefined);
 });
 
 test("every scenario offers the voice's and the models' options", async () => {

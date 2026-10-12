@@ -26,6 +26,9 @@ export const CODE_VARIANTS = ["valid", "expired", "used", "plaintext", "damaged"
 const API = 1;
 const IDENTITY_PREFIX = "sidevoice-node-identity:";
 const NOT_PAIRED = "This device is not paired with the core.";
+const NOT_A_DEVICE = "That device is not paired with the core.";
+/** The longest name a device may be given. */
+const DEVICE_NAME_MAX = 60;
 const DAY = 86_400;
 
 /** @param {ArrayBuffer | Uint8Array} bytes */
@@ -106,16 +109,24 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
     }),
   };
   if (desktop && state.local?.inUse) local["sidevoice.local-host-selected"] = "true";
+  // This device's name (sidevoice-web's device-name setting): the one this device has in its machines' lists.
+  const mine = Object.values(state.machines ?? {}).flatMap((machine) => machine.devices ?? []).find((device) => device.mine)?.name;
+  if (mine) local["sidevoice.deviceName"] = mine;
   // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device on this release, so the
-  // page opens on the room; "earlier" finished it on an earlier release, so the room shows what is new since (whats-new);
-  // anything else leaves the page to run it.
+  // page opens on the room; "earlier" finished it on the release before, so the room shows what is new since
+  // (whats-new); anything else leaves the page to run it.
   if (state.setup === "done" || state.setup === "earlier") local["sidevoice.onboarding"] = JSON.stringify({
     version: 1, basics_done: true, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, turn_done: true,
-    deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? 0 : WEB_RELEASE,
+    deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? WEB_RELEASE - 1 : WEB_RELEASE,
   });
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
-  // In the browser the page keeps the provider keys (the app keeps its own).
-  if (!desktop) for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) if (key) local[`sidevoice.provider-key.${provider}`] = key;
+  for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) {
+    if (!key) continue;
+    // In the browser the page keeps the provider keys (the app keeps its own); in both, its note of the last four of
+    // each key it connected (sidevoice-web ProviderKeys' hint).
+    if (!desktop) local[`sidevoice.provider-key.${provider}`] = key;
+    local[`sidevoice.provider-key-hint.${provider}`] = JSON.stringify({ last4: key.slice(-4), addedAt: now - 20 * DAY * 1000 });
+  }
   return local;
 }
 
@@ -224,19 +235,110 @@ function roomRendezvous(state, query) {
   return json(200, { nodes });
 }
 
-/** A machine's agents as its connector lists them: the scenario's, else one connected, one found and not yet connected,
- *  and one to connect by hand. */
+/* How each agent takes Sidevoice, as the real connector handles them (sidevoice-connector agents.rs, agents/*.rs): an
+ * agent with a CLI is connected through it (`<cli> mcp add`), and the connector can act only where that CLI is found;
+ * one configured by a file (Cursor's mcp.json, …) is edited by the connector itself, so it can always act. Each says
+ * how to do it by hand (sidevoice-web #75's DetectedAgent.manual: connect, disconnect, replace — a gap in the real
+ * connector), in order. */
+const OURS = "npx sidevoice@latest mcp";
+/** An agent connected through its CLI (`scope`: Claude Code's user scope). */
+const byCli = (cli, scope = "") => {
+  const add = { command: `${cli} mcp add${scope} sidevoice -- ${OURS}` }, remove = { command: `${cli} mcp remove${scope} sidevoice` };
+  return { cli, manual: { connect: [add], disconnect: [remove], replace: [remove, add] }, instructions: add, removal: remove };
+};
+/** An agent configured by a file the connector edits itself. */
+const byFile = (file, snippet, under) => {
+  const add = { file, snippet }, remove = { file, snippet: `Delete the "sidevoice" entry under "${under}".` };
+  return { manual: { connect: [add], disconnect: [remove], replace: [{ file, snippet: `Delete the other "sidevoice" entry under "${under}".` }, add] }, instructions: add, removal: remove };
+};
+const MCP_SERVERS = '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }';
+/** The agents the connector knows (Claude Code, Codex, Cursor) and more harnesses a person may have, as found
+ *  installed. Where each one stands is the machine's. */
+const KNOWN_AGENTS = {
+  claude: { id: "claude", label: "Claude Code", present: true, version: "2.1.4", ...byCli("claude", " --scope user") },
+  codex: { id: "codex", label: "Codex", present: true, version: "0.48.0", ...byCli("codex") },
+  cursor: { id: "cursor", label: "Cursor", present: true, version: "1.7", ...byFile("~/.cursor/mcp.json", MCP_SERVERS, "mcpServers") },
+  gemini: { id: "gemini", label: "Gemini CLI", present: true, version: "0.9.0", ...byCli("gemini") },
+  opencode: { id: "opencode", label: "OpenCode", present: true, version: "0.15.2",
+    ...byFile("~/.config/opencode/opencode.json", '{ "mcp": { "sidevoice": { "type": "local", "command": ["npx", "sidevoice@latest", "mcp"] } } }', "mcp") },
+  windsurf: { id: "windsurf", label: "Windsurf", present: true, version: "1.12.4", ...byFile("~/.codeium/windsurf/mcp_config.json", MCP_SERVERS, "mcpServers") },
+  zed: { id: "zed", label: "Zed", present: true, version: "0.208.4",
+    ...byFile("~/.config/zed/settings.json", '"context_servers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } }', "context_servers") },
+  goose: { id: "goose", label: "Goose", present: true, version: "1.9.3",
+    ...byFile("~/.config/goose/config.yaml", "extensions:\n  sidevoice:\n    type: stdio\n    cmd: npx\n    args: [sidevoice@latest, mcp]\n    enabled: true", "extensions") },
+  amp: { id: "amp", label: "Amp", present: true, version: "0.0.1760", ...byCli("amp") },
+  copilot: { id: "copilot", label: "GitHub Copilot CLI", present: true, version: "0.0.339",
+    ...byFile("~/.copilot/mcp-config.json", '{ "mcpServers": { "sidevoice": { "type": "local", "command": "npx", "args": ["sidevoice@latest", "mcp"], "tools": ["*"] } } }', "mcpServers") },
+  kiro: { id: "kiro", label: "Kiro", present: true, version: "0.4.0", ...byFile("~/.kiro/settings/mcp.json", MCP_SERVERS, "mcpServers") },
+  continue: { id: "continue", label: "Continue", present: true, version: "1.2.0",
+    ...byFile("~/.continue/config.yaml", "mcpServers:\n  - name: sidevoice\n    command: npx\n    args: [sidevoice@latest, mcp]", "mcpServers") },
+};
+/** A machine's agents when its scenario names none: one connected, one just found and not yet connected (new), and
+ *  one to connect by hand. */
 const DEFAULT_AGENTS = [
-  { id: "claude", label: "Claude Code", present: true, version: "2.1.4", registration: "connected", connect: "auto", actionable: false,
-    instructions: { command: "claude mcp add sidevoice -- npx sidevoice@latest mcp" } },
-  { id: "codex", label: "Codex", present: true, version: "0.48.0", registration: "not-connected", connect: "auto", actionable: true,
-    instructions: { command: "codex mcp add sidevoice -- npx sidevoice@latest mcp" } },
-  { id: "cursor", label: "Cursor", present: true, version: "1.7", registration: "not-connected", connect: "manual", actionable: false,
-    instructions: { file: "~/.cursor/mcp.json", snippet: '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }' } },
+  { id: "claude", registration: "connected", actionable: false },
+  { id: "codex", registration: "not-connected", actionable: true },
+  { id: "cursor", registration: "not-connected", actionable: false },
 ];
-function agentsListing(world, machine) {
-  return { agents: machine.agents ?? DEFAULT_AGENTS, scanned_at: new Date(world.now()).toISOString() };
+// (Cursor is connected by the connector editing its file: never by hand only. By hand only is an agent whose CLI the
+// connector cannot find — `cliFound: false`.)
+/** Lists a scenario names (`"agents": "<name>"`) instead of giving its rows. `every-state`: one agent in each state the
+ *  web shows one in — connected; not connected; just found (new); set up by an older Sidevoice (outdated); another
+ *  "sidevoice" entry (foreign); MCP settings it cannot read (invalid); unknown; by hand only; one whose Connect takes
+ *  8 s; one whose Connect fails; connected but no longer installed; and one not installed, which the web hides. */
+const AGENT_LISTS = {
+  "every-state": [
+    { id: "claude", registration: "connected", actionable: false },
+    { id: "gemini", registration: "not-connected", actionable: true },
+    { id: "codex", registration: "not-connected", actionable: false, cliFound: false },
+    { id: "opencode", registration: "outdated", actionable: false },
+    { id: "windsurf", registration: "foreign", actionable: false },
+    { id: "zed", registration: "invalid", actionable: false },
+    { id: "goose", registration: "unknown", actionable: false },
+    { id: "cursor", registration: "not-connected", actionable: false },
+    { id: "amp", registration: "not-connected", actionable: false, connectMs: 8000 },
+    { id: "copilot", registration: "not-connected", actionable: false, connectMs: 1500, connectFails: "connect-failed" },
+    { id: "kiro", registration: "connected", actionable: false, present: false, version: null },
+    { id: "continue", registration: "not-connected", actionable: false, present: false, version: null },
+  ],
+};
+
+/** A machine's agents as its scenario (or an action) left them: rows of at least `id` and `registration`, and, for the
+ *  mock alone, how long its Connect takes (`connectMs`) and the error key it fails with (`connectFails`). */
+export function agentsOf(machine) {
+  const agents = machine?.agents ?? DEFAULT_AGENTS;
+  return typeof agents === "string" ? AGENT_LISTS[agents] ?? [] : agents;
 }
+
+/** Agents as the connector lists them: each row a scenario (or an action) gives over what the connector knows of
+ *  that agent, without what is the mock's alone. */
+export function agentRows(agents) {
+  return agents.map(({ connectMs, connectFails, cliFound = true, ...agent }) => {
+    const { cli, ...known } = KNOWN_AGENTS[agent.id] ?? {};
+    // The connector acts where it can reach the agent: its CLI found, or its file.
+    const able = !cli || cliFound;
+    return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent };
+  });
+}
+
+/** How the core refuses an agents request its connector could not answer (sidevoice-core connector_routes), by key;
+ *  any other key is the connector's own error, which the core passes on with 409. */
+const AGENT_FAILURES = { "no-connector": 503, "connector-unavailable": 502, "connector-timeout": 504 };
+const agentFailure = (key, params) =>
+  key in AGENT_FAILURES ? json(AGENT_FAILURES[key], { key }) : json(409, { error: { key, ...(params ? { params } : {}) } });
+
+/** Machine `machine`'s agents as `GET /api/host/agents` answers: the listing, or, where the scenario makes the scan
+ *  fail (`agentsFail`: a key), that failure after a moment of searching. */
+export async function agentsListing(world, machine) {
+  if (machine?.agentsFail) {
+    await world.delay(1500);
+    return agentFailure(machine.agentsFail);
+  }
+  return json(200, { agents: agentRows(agentsOf(machine)), scanned_at: new Date(world.now()).toISOString() });
+}
+
+/** Where machine `id` is in the world's state: what a mock's action on it patches. */
+const statePath = (id) => (id === LOCAL_ID ? "local" : `machines.${id}`);
 
 async function machineAnswer(world, identities, id, { method, path, query, headers, body }) {
   const state = world.state;
@@ -276,35 +378,62 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   if (token !== identity.token || machine.revoked) return refuse(401, NOT_PAIRED);
   const now = Math.floor(world.now() / 1000);
   // The coding agents this machine found (sidevoice-web HostAgentsPanel): a listing, and connect / disconnect / dismiss,
-  // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents`.
-  if (method === "GET" && path === "/api/host/agents") return json(200, agentsListing(world, machine));
+  // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents` (`local.agents`): its
+  // rows, or the name of a list (`AGENT_LISTS`); and `agentsFail`, a key the scan fails with.
+  // Its Sidevoice's version (sidevoice-web #75's machine card; core has no such route yet).
+  if (method === "GET" && path === "/api/host/status") return json(200, { version: machine.productVersion ?? "0.8.1" });
+  if (method === "GET" && path === "/api/host/agents") return agentsListing(world, machine);
   const agentAction = /^\/api\/host\/agents\/([^/]+)\/(connect|disconnect|dismiss)$/.exec(path);
   if (method === "POST" && agentAction) {
     const [, rawId, action] = agentAction;
     const agentId = decodeURIComponent(rawId);
-    const agents = agentsListing(world, machine).agents.map((agent) => agent.id !== agentId ? agent
+    const asked = agentsOf(machine).find((agent) => agent.id === agentId);
+    // A Connect takes what the agent's row says, and may fail as the connector says it (409, its key and the agent).
+    // Its CLI not found: the connector cannot act on it (the page offers the steps by hand instead).
+    if (asked?.cliFound === false && action !== "dismiss") return agentFailure("agents.cli-missing", { id: agentId, agent: agentRows([asked])[0].label ?? agentId });
+    if (action === "connect" && asked?.connectMs) await world.delay(asked.connectMs);
+    if (action === "connect" && asked?.connectFails) {
+      return agentFailure(asked.connectFails, { id: agentId, agent: agentRows([asked])[0].label ?? agentId });
+    }
+    // The rows as they are now: others may have changed them while this one took its time.
+    const agents = agentsOf(machineOf(world.state, id)).map((agent) => agent.id !== agentId ? agent
       : action === "dismiss" ? { ...agent, dismissed: true, actionable: false }
       : { ...agent, registration: action === "connect" ? "connected" : "not-connected", actionable: action !== "connect" });
-    if (id !== LOCAL_ID) world.patch({ [`machines.${id}.agents`]: agents });
-    return json(200, { agents, scanned_at: new Date(world.now()).toISOString() });
+    world.patch({ [`${statePath(id)}.agents`]: agents });
+    return json(200, { agents: agentRows(agents), scanned_at: new Date(world.now()).toISOString() });
   }
+  // A device's id: this device's is its pairing's, any other the scenario's, or one by its place in the list.
+  const deviceIdOf = (device, i) => (device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`);
   if (method === "GET" && path === "/api/device/devices") {
     const devices = (machine.devices ?? []).map((device, i) => ({
-      id: device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`,
+      id: deviceIdOf(device, i),
       name: device.name, kind: device.kind ?? "code",
       created: now - Math.round((device.daysAgo ?? 0) * DAY), last_seen: now - Math.round((device.seenDaysAgo ?? 0) * DAY),
       current: !!device.mine,
     }));
     return json(200, { devices });
   }
-  const revoke = path.match(/^\/api\/device\/devices\/([^/]+)$/);
-  if (method === "DELETE" && revoke) {
-    const deviceId = decodeURIComponent(revoke[1]);
+  const oneDevice = path.match(/^\/api\/device\/devices\/([^/]+)$/);
+  if (method === "DELETE" && oneDevice) {
+    const deviceId = decodeURIComponent(oneDevice[1]);
     const devices = machine.devices ?? [];
-    const kept = devices.filter((device, i) => (device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`) !== deviceId);
-    if (kept.length === devices.length) return refuse(404, "That device is not paired with the core.");
-    if (id !== LOCAL_ID) world.patch({ [`machines.${id}.devices`]: kept });
+    const kept = devices.filter((device, i) => deviceIdOf(device, i) !== deviceId);
+    if (kept.length === devices.length) return refuse(404, NOT_A_DEVICE);
+    world.patch({ [`${statePath(id)}.devices`]: kept });
     return json(200, { ok: true });
+  }
+  // Renaming a device, this one too (sidevoice-web's renameMachineDevice and renameLocalHostDevice): `{ name }`, kept
+  // trimmed, 1 to 60 characters.
+  if (method === "PATCH" && oneDevice) {
+    const deviceId = decodeURIComponent(oneDevice[1]);
+    const asked = parsed(body).name;
+    const name = typeof asked === "string" ? asked.trim() : "";
+    if (!name || [...name].length > DEVICE_NAME_MAX) return refuse(400, `The device name must be 1 to ${DEVICE_NAME_MAX} characters.`);
+    const devices = machine.devices ?? [];
+    const at = devices.findIndex((device, i) => deviceIdOf(device, i) === deviceId);
+    if (at < 0) return refuse(404, NOT_A_DEVICE);
+    world.patch({ [`${statePath(id)}.devices`]: devices.map((device, i) => (i === at ? { ...device, name } : device)) });
+    return json(200, { device_id: deviceId, name });
   }
   // The presentation's routes are the room's: each one about the call its `session_id` names, when it is one.
   if (path.startsWith("/api/presentation")) {

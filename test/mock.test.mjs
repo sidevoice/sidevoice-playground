@@ -1,9 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { mockFile, loadMockScenarios } from "../preview/proxy.mjs";
 import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScenario } from "../preview/mock/world.mjs";
 import {
-  LOCAL_ID, LOCAL_URL, ROOM_URL, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
+  LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
 import { desktopHost, localStatus } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
@@ -99,6 +102,11 @@ test("a world whose first-run setup is done opens the page on the room; any othe
   assert.equal(record.version, 1);
   assert.equal(record.agents_done, true);
   assert.ok(record.completed_at > 0 && record.completed_at < now);
+  // Done on the release before this one: what came since is new.
+  world.state.setup = "earlier";
+  const earlier = JSON.parse(seededStorage(world.state, identities, now)["sidevoice.onboarding"]);
+  assert.equal(earlier.baseline_release, record.baseline_release - 1);
+  assert.ok(earlier.baseline_release > 0);
 });
 
 test("addresses: a machine directly, through the room (its own origin or the page's), the local host", () => {
@@ -181,7 +189,98 @@ test("a machine's own routes take this device's token, and refuse it once revoke
   assert.equal((await ask(`${base}/api/device/devices/phone`, { method: "DELETE", ...auth })).status, 200);
   assert.equal(world.state.machines.nuc.devices.length, 1);
   world.patch({ "machines.nuc.revoked": true });
+  assert.equal((await ask(`${base}/api/device/devices/phone`, { method: "PATCH", body: '{"name":"x"}', ...auth })).status, 401);
   assert.equal((await ask(`${base}/api/presentation`, auth)).status, 401);
+});
+
+test("a machine's agents are a scenario's rows over the connector's own, and what is done to them stays, here too", async () => {
+  const { world, identities, ask } = await setup();
+  const as = (id) => ({ headers: { authorization: `Bearer ${identities[id].token}` } });
+  const agents = async (base, id) => (await ask(`${base}/api/host/agents`, as(id))).body.agents;
+  const found = await agents(directUrl("nuc"), "nuc");
+  assert.deepEqual(found.map((a) => [a.id, a.registration, a.actionable]),
+    [["claude", "connected", false], ["codex", "not-connected", true], ["cursor", "not-connected", false]]);
+  assert.ok(found.every((a) => a.label && a.connect && a.instructions && a.removal));
+  world.patch({ "machines.nuc.agents": [{ id: "claude", registration: "foreign" }] });
+  assert.deepEqual((await agents(directUrl("nuc"), "nuc")).map((a) => [a.id, a.label, a.registration, a.removal.command]),
+    [["claude", "Claude Code", "foreign", "claude mcp remove --scope user sidevoice"]]);
+
+  // This computer's host keeps them as a remote one does: its agents (the bridge's too) and its devices.
+  world.patch({
+    "local.state": "running", "local.agents": [{ id: "codex", registration: "not-connected", actionable: true }],
+    "local.devices": [{ name: "App", kind: "local", mine: true }, { name: "Phone", id: "phone" }],
+  });
+  assert.equal((await ask(`${LOCAL_URL}/api/host/agents/codex/connect`, { method: "POST", ...as(LOCAL_ID) })).status, 200);
+  assert.equal(world.state.local.agents[0].registration, "connected");
+  // The page reads the local host's agents over its own route (the bridge has no agents()).
+  assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, as(LOCAL_ID))).body.agents[0].label, "Codex");
+  assert.equal((await ask(`${LOCAL_URL}/api/device/devices/phone`, { method: "DELETE", ...as(LOCAL_ID) })).status, 200);
+  assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
+});
+
+test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {
+  const { world, identities, ask } = await setup();
+  const as = (id) => ({ headers: { authorization: `Bearer ${identities[id].token}` } });
+  const rename = (base, id, deviceId, body) =>
+    ask(`${base}/api/device/devices/${encodeURIComponent(deviceId)}`, { method: "PATCH", body: typeof body === "string" ? body : JSON.stringify(body), ...as(id) });
+  const names = async (base, id) => (await ask(`${base}/api/device/devices`, as(id))).body.devices.map((d) => d.name);
+  const base = directUrl("nuc");
+  world.patch({ "machines.nuc.devices": [{ name: "Chrome on Mac", mine: true }, { name: "Safari on iPhone", id: "phone" }] });
+
+  assert.deepEqual(await rename(base, "nuc", "phone", { name: "  Ana's iPhone " }), { status: 200, body: { device_id: "phone", name: "Ana's iPhone" } });
+  assert.deepEqual(await rename(base, "nuc", identities.nuc.deviceId, { name: "Work Mac" }),
+    { status: 200, body: { device_id: identities.nuc.deviceId, name: "Work Mac" } });
+  assert.deepEqual(await names(base, "nuc"), ["Work Mac", "Ana's iPhone"]);
+  assert.equal((await rename(base, "nuc", "phone", { name: "x".repeat(60) })).status, 200);
+  for (const refused of [{ name: "" }, { name: "   " }, { name: "x".repeat(61) }, { name: 7 }, {}, "not json"]) {
+    assert.equal((await rename(base, "nuc", "phone", refused)).status, 400, JSON.stringify(refused));
+  }
+  assert.equal((await rename(base, "nuc", "nobody", { name: "Tablet" })).status, 404);
+  assert.equal((await names(base, "nuc"))[1], "x".repeat(60));
+
+  // This computer's host is asked the same at its loopback address (the page's localHostApi).
+  world.patch({ "local.state": "running", "local.devices": [{ name: "Mac de Ana", kind: "local", mine: true }, { name: "Chrome on Mac", id: "chrome" }] });
+  assert.equal((await rename(LOCAL_URL, LOCAL_ID, "chrome", { name: "Chrome (work)" })).status, 200);
+  assert.deepEqual(world.state.local.devices.map((d) => d.name), ["Mac de Ana", "Chrome (work)"]);
+});
+
+test("a named list of agents has one in every state; a Connect may take its time or fail, and a scan may fail", async () => {
+  const { world, identities, ask } = await setup();
+  const auth = { headers: { authorization: `Bearer ${identities.nuc.token}` } };
+  const base = directUrl("nuc");
+  world.patch({ "machines.nuc.agents": "every-state" });
+  const listed = (await ask(`${base}/api/host/agents`, auth)).body.agents;
+  assert.deepEqual(new Set(listed.map((a) => a.registration)), new Set(["connected", "not-connected", "outdated", "foreign", "invalid", "unknown"]));
+  assert.ok(listed.some((a) => a.connect === "manual"));
+  assert.ok(listed.some((a) => a.registration === "not-connected" && a.actionable && a.present));
+  assert.ok(listed.some((a) => a.registration === "connected" && a.present === false));
+  assert.ok(listed.every((a) => a.label && a.instructions && !("connectMs" in a) && !("connectFails" in a)));
+  assert.equal(listed.find((a) => a.registration === "invalid").instructions.file, "~/.config/zed/settings.json");
+
+  // Amp's Connect takes 8 s of the world's time: held while the clock is paused.
+  world.speed = 0;
+  let done = false;
+  const connecting = ask(`${base}/api/host/agents/amp/connect`, { method: "POST", ...auth }).then((r) => ((done = true), r));
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(done, false);
+  world.speed = 1;
+  const connected = await connecting;
+  assert.equal(connected.body.agents.find((a) => a.id === "amp").registration, "connected");
+  // What the mock alone knows of a row stays with it: disconnected, it takes its time again.
+  assert.equal(world.state.machines.nuc.agents.find((a) => a.id === "amp").connectMs, 8000);
+
+  const failed = await ask(`${base}/api/host/agents/copilot/connect`, { method: "POST", ...auth });
+  assert.equal(failed.status, 409);
+  assert.deepEqual(failed.body, { error: { key: "connect-failed", params: { id: "copilot", agent: "GitHub Copilot CLI" } } });
+  assert.equal(world.state.machines.nuc.agents.find((a) => a.id === "copilot").registration, "not-connected");
+
+  // A scan that fails answers as the core does: its own refusals by key, the connector's errors with 409.
+  world.patch({ "machines.nuc.agentsFail": "connector-timeout" });
+  assert.deepEqual(await ask(`${base}/api/host/agents`, auth), { status: 504, body: { key: "connector-timeout" } });
+  world.patch({ "machines.nuc.agentsFail": "agents.busy" });
+  assert.deepEqual(await ask(`${base}/api/host/agents`, auth), { status: 409, body: { error: { key: "agents.busy" } } });
+  world.patch({ "local.state": "running", "local.agentsFail": "no-connector" });
+  assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } })).body.key, "no-connector");
 });
 
 test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {
@@ -257,6 +356,47 @@ test("the shipped scenarios are valid, and every option's fields land in their w
         }
       }
     }
+  }
+});
+
+test("Room ready and Desktop local host each show every agent state on one machine, and an agent search failing on another", async () => {
+  const scenarios = await loadMockScenarios();
+  for (const [id, shows] of [["room-ready", "machines.nuc"], ["desktop-local-host", "local"]]) {
+    const state = stateFor(scenarios.find((s) => s.id === id), {});
+    const machine = shows.split(".").reduce((at, key) => at[key], state);
+    const rows = agentRows(agentsOf(machine));
+    for (const registration of ["connected", "not-connected", "outdated", "foreign", "invalid", "unknown"]) {
+      assert.ok(rows.some((a) => a.registration === registration), `${id}: ${registration}`);
+    }
+    assert.ok(rows.some((a) => a.actionable && a.present), `${id}: new`);
+    assert.ok(rows.some((a) => a.connect === "manual"), `${id}: by hand`);
+    assert.ok(rows.some((a) => a.present === false && a.registration === "connected"), `${id}: connected, not installed`);
+    assert.ok(agentsOf(machine).some((a) => a.connectMs >= 8000) && agentsOf(machine).some((a) => a.connectFails), `${id}: slow, failing`);
+    assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
+  }
+});
+
+test("a scenario starts a shared option where its defaults say, and only its own copy of it", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "scenarios-"));
+  try {
+    const plain = { id: "plain", title: "P", summary: "p", world: { machines: {} }, options: [] };
+    await writeFile(join(dir, "1.json"), JSON.stringify({ ...plain, id: "seeded", defaults: { installed: "seeded", keys: "elevenlabs" } }));
+    await writeFile(join(dir, "2.json"), JSON.stringify(plain));
+    const [seeded, other] = await loadMockScenarios(dir);
+    assert.equal("defaults" in seeded, false);
+    const first = (s, id) => s.options.find((o) => o.id === id).values[0].value;
+    assert.deepEqual([first(seeded, "installed"), first(seeded, "keys")], ["seeded", "elevenlabs"]);
+    assert.deepEqual([first(other, "installed"), first(other, "keys")], ["vad", "none"]);
+    assert.equal(seeded.options.find((o) => o.id === "installed").values.length, other.options.find((o) => o.id === "installed").values.length);
+    const state = stateFor(seeded, choicesFor(seeded));
+    assert.equal(state.voice.installed["whisper-small"], true);
+    assert.equal(state.voice.lastUsedDaysAgo["whisper-small"], 120);
+    assert.deepEqual(state.voice.keys, { elevenlabs: "sk-preview-accepted" });
+
+    await writeFile(join(dir, "3.json"), JSON.stringify({ ...plain, id: "typo", defaults: { keys: "nope" } }));
+    await assert.rejects(loadMockScenarios(dir), /keys=nope/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 });
 

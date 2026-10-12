@@ -21,6 +21,9 @@ export function localStatus(local, now) {
     service: local.service ?? "launchd",
     installed: local.installed ?? !["absent", "not-installed", "installing"].includes(local.state),
     core: running ? { pid: 4242, version: local.version ?? "0.3.0", api: 1, launch_id: "preview" } : null,
+    // The installed Sidevoice's version (the `sidevoice` package, bundling the core): sidevoice-web #75's
+    // LocalHostStatus.product_version, which the real bridge does not report yet.
+    product_version: local.productVersion ?? "0.8.1",
     calls: running ? 0 : null,
     reachable: running,
     attempts: null, limit: null, since: null, window_started: null, next_retry_at: null,
@@ -85,14 +88,24 @@ export function desktopHost(world, identities) {
       await world.delay(600);
       set({ state: "stopped-by-person", failure: null });
     },
+    // Start at sign-in only says whether the service starts at the next sign-in: turning it on or off leaves a
+    // running service running and a stopped one stopped (Start, Stop and Restart are their own).
     async serviceInstall() {
       await world.delay(800);
+      const wasSetUp = local()?.state !== "not-installed";
       set({ service: "launchd", installed: true });
-      await starting();
+      // A service not set up at all yet is set up and started (the card's Start in that state).
+      if (!wasSetUp) await starting();
+    },
+    /** Whether the service starts at the next sign-in, only that (sidevoice-web #75's LocalHostBridge.setStartAtLogin; the
+     *  real bridge and connector lack it: their service uninstall also stops the service). @param {boolean} enabled */
+    async setStartAtLogin(enabled) {
+      await world.delay(400);
+      set({ service: "launchd", installed: !!enabled });
     },
     async serviceUninstall() {
       await world.delay(800);
-      set({ installed: false, state: "not-installed" });
+      set({ installed: false });
     },
     revealLog: () => world.log({ method: "BRIDGE", url: "localHost.revealLog()", status: "shown", mocked: true }),
     async pairingCode() {
@@ -139,9 +152,6 @@ export function desktopHost(world, identities) {
       if (!running) return false;
       running.cancelled = true;
       return true;
-    },
-    async agents() {
-      return { agents: local()?.agents ?? [], scanned_at: new Date(world.now()).toISOString() };
     },
     async version() {
       const bundled = { version: local()?.bundledVersion ?? "0.3.0" };

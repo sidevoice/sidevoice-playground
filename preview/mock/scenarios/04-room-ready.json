@@ -1,22 +1,50 @@
 {
   "id": "room-ready",
   "title": "Room ready: paired, set up, agents listening",
-  "summary": "Everyday use: this device finished its first-run setup and is paired with the NUC, whose agents are in the room. The page opens on the room; pick a conversation and talk.",
+  "summary": "Everyday use: this device finished its first-run setup and is paired with the NUC, whose agents are in the room. The page opens on the room; pick a conversation and talk. Seeded, to try removing them: this device, Chrome on Mac, and four others on the NUC (Safari on iPhone, Mac de Ana, Firefox on Windows, Edge on Windows) and one on the workstation (Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); a workstation (through the room) and an old laptop (off) paired too (Forget); the models in use and three not used for 12, 45 and 120 days (Delete); ElevenLabs' key connected, OpenAI's not. Agents on the NUC, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The workstation's agent search fails (timed out; the card makes it Sidevoice not running, or finds its three). New: Codex just found on the NUC, and a setting from What's new (set up on the release before).",
   "view": "browser",
+  "defaults": { "setup": "earlier", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
     "page": "room",
-    "setup": "done",
+    "setup": "earlier",
     "machines": {
-      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12,
-        "devices": [{ "name": "Sidevoice en Mac", "kind": "code", "daysAgo": 12, "mine": true }],
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 12, "agents": "every-state",
+        "devices": [
+          { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
+          { "name": "Chrome on Mac", "kind": "code", "daysAgo": 12, "mine": true },
+          { "id": "nuc-iphone", "name": "iPhone de Ana", "kind": "code", "daysAgo": 30, "seenDaysAgo": 1 },
+          { "id": "nuc-app", "name": "Mac de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 0.1 },
+          { "id": "nuc-windows", "name": "Chrome on Windows", "kind": "code", "daysAgo": 64, "seenDaysAgo": 9 },
+          { "id": "nuc-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
+        ],
         "participants": [
           { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
           { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
-        ] }
+        ] },
+      "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "agentsFail": "connector-timeout",
+        "devices": [
+          { "id": "workstation-self", "name": "ana-workstation", "kind": "local", "daysAgo": 240, "seenDaysAgo": 0 },
+          { "name": "Chrome on Mac", "kind": "code", "daysAgo": 40, "mine": true },
+          { "id": "workstation-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 100, "seenDaysAgo": 21 }
+        ],
+        "agents": [
+          { "id": "claude", "registration": "foreign", "actionable": false },
+          { "id": "codex", "registration": "connected", "actionable": false },
+          { "id": "cursor", "registration": "not-connected", "actionable": false }
+        ],
+        "participants": [
+          { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
+        ] },
+      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90,
+        "devices": [{ "name": "Chrome on Mac", "kind": "code", "daysAgo": 90, "mine": true }], "participants": [] }
     },
     "local": null
   },
   "options": [
+    { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
+      { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
+      { "value": "earlier", "label": "done on the release before: what's new shows", "set": { "setup": "earlier" } }
+    ] },
     { "id": "agents", "group": "Agents on the NUC", "label": "Conversations", "values": [
       { "value": "two", "label": "two listening", "set": { "machines.nuc.participants": [
         { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
@@ -35,6 +63,11 @@
       { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
       { "value": "room", "label": "only through the room", "set": { "machines.nuc.reach": "room" } },
       { "value": "offline", "label": "not at all", "set": { "machines.nuc.reach": "offline" } }
+    ] },
+    { "id": "workstationAgents", "group": "The workstation", "label": "Its agent search", "values": [
+      { "value": "timeout", "label": "fails: timed out", "set": { "machines.workstation.agentsFail": "connector-timeout" } },
+      { "value": "no-connector", "label": "fails: Sidevoice not running", "set": { "machines.workstation.agentsFail": "no-connector" } },
+      { "value": "found", "label": "finds three (foreign, connected, not connected)", "set": { "machines.workstation.agentsFail": null } }
     ] }
   ]
 }

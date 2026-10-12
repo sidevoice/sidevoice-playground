@@ -171,6 +171,11 @@ const PROVIDER_MODELS = {
  * browser with WebGPU. */
 export const VOICE_DEFAULTS = {
   installed: { "silero-vad": true },
+  // When each local model was last loaded (ms since the epoch), as the engine would say (sidevoice-web CatalogModel.lastUsedAt):
+  // an install and every call that loads it set it. A scenario dates one back in days before the world's now
+  // (`lastUsedDaysAgo`); a use since is newer and wins.
+  lastUsed: {},
+  lastUsedDaysAgo: {},
   keys: {},
   install: "ok", installSlow: false, voicesOnceInstalled: true, providers: "ok", webgpu: true,
   mic: "granted", transcript: "Hola, ¿me oyes bien?", stt: "ok", tts: "ok",
@@ -228,8 +233,17 @@ export function localModels(world, place) {
       ...model,
       voices: voice.voicesOnceInstalled && !installed ? [] : model.voices,
       installed, builds, ...(recommended ? { recommendedBuild: recommended.id } : {}),
+      ...(installed ? { lastUsedAt: lastUsedAt(world, voice, model.id) } : {}),
     };
   });
+}
+
+const DAY_MS = 86_400_000;
+
+/** When local model `id` was last loaded: the use the world saw, else the day the scenario dates it to, else unknown. */
+function lastUsedAt(world, voice, id) {
+  const days = voice.lastUsedDaysAgo?.[id];
+  return voice.lastUsed?.[id] ?? (typeof days === "number" ? world.now() - days * DAY_MS : null);
 }
 
 /** How provider `id` stands with key `key`: listed, refused, missing, or unreachable. */
@@ -274,7 +288,7 @@ async function installing(world, place, model, wanted, onProgress, signal) {
     await world.delay(voice.installSlow ? 900 : 150);
   }
   // A model's id may hold dots (kokoro-82m-v1.0): the map is set whole, never by a dotted path.
-  world.patch({ "voice.installed": { ...voice.installed, [model]: true } });
+  world.patch({ "voice.installed": { ...voice.installed, [model]: true }, "voice.lastUsed": { ...voice.lastUsed, [model]: Date.now() } });
 }
 
 /** The desktop app's `host.engine`: the catalogues, installs (with their own progress and cancel) and keys. */
@@ -303,6 +317,11 @@ export function desktopEngine(world) {
     /** @param {string} provider */
     async hasCredential(provider) {
       return !!keys()[provider];
+    },
+    /** Takes a model off the computer, every build of it. The real bridge's engine has no `uninstall` yet (sidevoice-web
+     *  #75's contract gaps): the mock offers it, so Delete and Remove all can be seen in the app too. @param {string} model */
+    async uninstall(model) {
+      world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: false } });
     },
   };
   /** @type {ModelCatalogs} The web's own interface: a member it needs that this lacks fails the check. */
