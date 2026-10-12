@@ -242,13 +242,29 @@ export function fakeVoice(world, { source = null } = {}) {
   function deviceList(lost) {
     return { ...present(), input: devices.input, output: devices.output, outputSelectable: devices.outputSelectable, ...(lost ? { lost } : {}) };
   }
-  /** Plugs the headset in or out: a chosen headset device that goes is lost, the default in use from then on. */
+  /** Plugs the headset in or out: a chosen headset device that goes is lost, the default in use from then on. With
+   *  nothing chosen, the headset was the system's default: while the voice runs, its output going is said
+   *  (`defaultLost`, which @sidevoice/voice does not have yet), and its microphone going ends the call
+   *  (`microphone-lost`), as the default microphone going away does. */
   function plugHeadset(plugged) {
+    const unplugged = devices.headset && !plugged;
+    const defaults = { input: unplugged && started && devices.input === null, output: unplugged && started && devices.output === null };
     devices.headset = plugged;
     const lost = {};
     if (!plugged && devices.input === "mic-headset") { lost.input = devices.input; devices.input = null; }
     if (!plugged && devices.output === "out-headset") { lost.output = devices.output; devices.output = null; }
-    emit("devices", deviceList(Object.keys(lost).length ? lost : undefined));
+    emit("devices", { ...deviceList(Object.keys(lost).length ? lost : undefined), ...(defaults.output ? { defaultLost: { output: true } } : {}) });
+    if (defaults.input) fail("microphone-lost");
+  }
+  /** The page's leave to use the microphone taken back while the voice runs: the call ends. */
+  function revokeMicrophone() {
+    if (started) fail("microphone-denied");
+  }
+  /** The call ends for a reason of the microphone's (`code`), said to the page. */
+  function fail(code) {
+    started = false;
+    setState({ listening: "idle", recognising: 0, playback: "idle" });
+    emit("error", { code });
   }
   /** Whether the speaker can be chosen (a browser without setSinkId cannot). */
   function outputSelectable(selectable) {
@@ -257,5 +273,5 @@ export function fakeVoice(world, { source = null } = {}) {
     emit("devices", deviceList());
   }
 
-  return { host, speak, plugHeadset, outputSelectable, get devices() { return { ...devices }; }, get state() { return { ...state, started }; } };
+  return { host, speak, plugHeadset, revokeMicrophone, outputSelectable, get devices() { return { ...devices }; }, get state() { return { ...state, started }; } };
 }
