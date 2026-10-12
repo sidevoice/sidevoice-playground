@@ -21,18 +21,12 @@ const VARIANTS = [
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
-  { name: "new-dismiss", label: "Clearing “New”", note: "Whether each “New” also has a × to clear it without looking.",
-    values: [{ value: "with", label: "A · with a ×" }, { value: "without", label: "B · without" }] },
-  { name: "models-list", label: "Downloaded models", note: "How Settings › Advanced organises the models on this device (in use first in all).",
-    values: [{ value: "grouped", label: "A · in use / not in use" }, { value: "plain", label: "B · one plain list" }, { value: "purpose", label: "C · by purpose" }, { value: "cards", label: "D · cards" }] },
   { name: "provider-connect", label: "Connecting a provider", note: "How a provider's API key is entered (Settings › Providers, and where a voice slot needs a key).",
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "row", label: "B · in the card's row" }, { value: "popover", label: "C · a popover by the button" }] },
   { name: "try-result", label: "Trying a model", note: "Where a transcription or voice try runs and shows its result (Settings and the setup).",
     values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
-  { name: "pair-machine", label: "Connecting another machine", note: "The screen that pairs this device with a machine (the setup and Settings › Machines).",
-    values: [{ value: "code", label: "A · code first" }, { value: "steps", label: "B · two numbered steps" }, { value: "split", label: "C · machine | this device, side by side" }] },
-  { name: "copy-button", label: "Copy buttons", note: "How the copy button of a command or a phrase to say shows.",
-    values: [{ value: "visible", label: "A · always visible" }, { value: "faint", label: "B · faint, solid on hover/focus" }, { value: "hover", label: "C · only on hover/focus (always on touch)" }] },
+  { name: "models-row", label: "A downloaded model's row", note: "Settings › Advanced: how each model in the list reads.",
+    values: [{ value: "two-lines", label: "A · two lines (name, then purpose and size)" }, { value: "one-line", label: "B · one line (purpose and size at its end)" }] },
 ]
 
 function readVariants() {
