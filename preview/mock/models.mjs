@@ -179,6 +179,8 @@ export const VOICE_DEFAULTS = {
   keys: {},
   install: "ok", installSlow: false, voicesOnceInstalled: true, providers: "ok", webgpu: true,
   mic: "granted", transcript: "Hola, ¿me oyes bien?", stt: "ok", tts: "ok",
+  // Whether the voice hands a try's take (sidevoice-web contract gap #40; voice.mjs): false is @sidevoice/voice 0.3.x.
+  take: true,
 };
 
 /** The world's voice state, its defaults filled in. */
