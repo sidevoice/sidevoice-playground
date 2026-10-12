@@ -19,6 +19,8 @@ const VARIANTS_KEY = "sidevoice.variants";
 const VARIANTS = [
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
+  { name: "working-badge", label: "Working, over the agent", note: "The stage: the spinner and \"Working…\" over the agent's head while it works (the desk shows it too).",
+    values: [{ value: "show", label: "A · shown" }, { value: "hide", label: "B · hidden (the desk says it)" }] },
 ]
 
 function readVariants() {
