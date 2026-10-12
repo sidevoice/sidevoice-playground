@@ -93,6 +93,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         if (world.voiceRuntime?.state?.started && await world.voiceRuntime.speak(sampleUser.value)) return;
         if (!simulateUser(frame, sampleUser.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
+      el("button", { type: "button", textContent: "You speak → sent", title: "The whole turn on the stage, on demand: your name and the bars, then what is sent, which leaves", onclick: () => {
+        if (!simulateUser(frame, sampleUser.value || "Can you check the build and tell me what failed?")) voiceNote.textContent = "Open a conversation in the page first.";
+      } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
         if (liveCall(world)) {
           if (!agentSpeaks(world, sampleAgent.value)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
