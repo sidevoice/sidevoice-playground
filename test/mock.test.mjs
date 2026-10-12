@@ -448,3 +448,25 @@ test("the reset page clears the origin's data, with or without a run, and only g
     server.close();
   }
 });
+
+test("each machine answers its own conversations and history, at its own address, with its own token", async () => {
+  const history = (text, minutesAgo, role = "assistant") => ({ role, text, minutesAgo });
+  const two = {
+    ...scenario,
+    world: { ...scenario.world, machines: {
+      nuc: { ...scenario.world.machines.nuc, participants: [{ title: "Claude", reach: "listening", history: [history("hi", 10, "user"), history("hello", 9)] }] },
+      ws: { ...scenario.world.machines.ws, paired: true, participants: [{ title: "infra", reach: "listening", history: [history("backup ok", 2)] }] },
+    } },
+  };
+  const world = createWorld(two, {}, { ...instant, now: () => 1_000_000_000 });
+  const identities = await makeIdentities(world.state);
+  const ask = (url, id) => answer(world, identities, { pageOrigin: PAGE, url, headers: { authorization: `Bearer ${identities[id].token}` } });
+  const nuc = (await ask(`${directUrl("nuc")}/api/presentation/history`, "nuc")).body.messages;
+  assert.deepEqual(nuc.map((row) => [row.thread, row.role, row.text, row.name, row.status]), [
+    ["nuc-thread-1", "user", "hi", "You", "read"], ["nuc-thread-1", "assistant", "hello", "Claude", "playback_finished"]]);
+  assert.equal(nuc[0].time, 1_000_000_000 - 10 * 60_000);
+  const ws = (await ask(`${ROOM_URL}/nodes/ws/api/presentation/history`, "ws")).body.messages;
+  assert.deepEqual(ws.map((row) => [row.thread, row.text]), [["ws-thread-1", "backup ok"]]);
+  assert.deepEqual((await ask(`${ROOM_URL}/nodes/ws/api/presentation/participants`, "ws")).body.participants.map((p) => p.title), ["infra"]);
+  assert.equal((await ask(`${ROOM_URL}/nodes/ws/api/presentation/history`, "nuc")).status, 401, "another machine's token");
+});

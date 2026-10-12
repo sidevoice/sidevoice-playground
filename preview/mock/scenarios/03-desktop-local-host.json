@@ -63,7 +63,7 @@
       { "value": "newer-installed", "label": "the installed one is newer", "set": { "local.update": "newer-installed", "local.version": "0.5.0" } },
       { "value": "incompatible", "label": "incompatible", "set": { "local.update": "incompatible" } }
     ] },
-    { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
+    { "id": "inUse", "group": "Machines", "label": "In use when the page loads (a web with one machine at a time)", "reload": true, "values": [
       { "value": "local", "label": "this computer", "set": { "local.inUse": true, "machines.nuc.inUse": false } },
       { "value": "nuc", "label": "the NUC", "set": { "local.inUse": false, "machines.nuc.inUse": true } }
     ] },
@@ -75,6 +75,12 @@
       { "value": "timeout", "label": "fails: timed out", "set": { "machines.nuc.agentsFail": "connector-timeout" } },
       { "value": "no-connector", "label": "fails: Sidevoice not running", "set": { "machines.nuc.agentsFail": "no-connector" } },
       { "value": "found", "label": "finds three (connected, new, by hand)", "set": { "machines.nuc.agentsFail": null } }
+    ] },
+    { "id": "nucConversations", "group": "Machines", "label": "Conversations on the NUC", "values": [
+      { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },
+      { "value": "one", "label": "one listening", "set": { "machines.nuc.participants": [
+        { "title": "home-server", "harness": "codex", "reach": "listening" }
+      ] } }
     ] }
   ]
 }
