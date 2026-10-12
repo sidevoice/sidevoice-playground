@@ -27,6 +27,8 @@ const VARIANTS = [
     values: [{ value: "strip", label: "A · a strip under the options" }, { value: "card", label: "B · a card of its own" }] },
   { name: "models-row", label: "A downloaded model's tags", note: "Settings › Advanced: in each model's one line, the order of its purpose chip and In use.",
     values: [{ value: "chip-first", label: "A · purpose, then In use" }, { value: "badge-first", label: "B · In use, then purpose" }] },
+  { name: "call-model", label: "Calls or a voice switch", note: "What the call button does: A joins and leaves a call; B is a voice switch in a room that is always open.",
+    values: [{ value: "a", label: "A · Call / hang up" }, { value: "b", label: "B · Voice switch" }] },
 ]
 
 function readVariants() {
