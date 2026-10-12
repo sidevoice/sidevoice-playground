@@ -21,10 +21,6 @@ const VARIANTS = [
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
-  { name: "model-step-footer", label: "The setup's model steps: their footer", note: "Transcription, Voice and End of turn in the first-run setup: how trying the model and going on are offered.",
-    values: [{ value: "try-first", label: "A · Try it in the footer" }, { value: "in-card", label: "B · try in the model's card, Continue waits" }] },
-  { name: "models-row", label: "A downloaded model's tags", note: "Settings › Advanced: in each model's one line, the order of its purpose chip and In use.",
-    values: [{ value: "chip-first", label: "A · purpose, then In use" }, { value: "badge-first", label: "B · In use, then purpose" }] },
 ]
 
 function readVariants() {
