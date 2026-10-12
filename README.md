@@ -211,6 +211,14 @@ its own code.
   pairing codes for each machine (valid, expired, used, plain http, damaged, another machine answering) to paste into
   the page; runs the world's time at ×1, ×4 or paused; and lists what the mocks were asked. Everything it picks is in
   the address: a link opens the same screen.
+- **The desktop app's floating card** stands beside the room in the app view: the web's real card page
+  (`/voice/call-controls.html`) in a frame of its own, given the app's card seam (`host.callControls`,
+  `preview/mock/card-host.mjs`) and fed from the room frame's store, level and caption, as the desktop bridge reads
+  them. It shows while the card is wanted (set up, and a call on in A or the voice on in B), stays a moment to say why
+  when the call or the voice ends by itself, and logs each command in the activity; its "Open Sidevoice" flashes the
+  room. The panel's `floating-card` picks today's card or one of the spec's options 1–4; above it, "Behind the card"
+  switches what the translucent card sits on, and "Card: always show controls" is the app's setting. The card's
+  "Floating card states" puts the idle warning, an ending by itself and the agents muted (B) in the room's facts.
 - **Faithful to the web**: once a web commit is built, its own TypeScript checks the mocks against its types
   (`@sidevoice/protocol`, the desktop bridge's, the pairing's; `preview/mock/web-types.d.ts`), and a mocked start
   of a commit they do not match says where. **Faithful to the core**: `test/mock-conformance.test.mjs` asks the
@@ -267,7 +275,7 @@ engine-builds.mjs  the releases, pull requests and branches to pick from, listed
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
 preview/        the Web preview: web-build.mjs (by checkout), archives.mjs (core, connector), runs.mjs,
                 proxy.mjs (the preview origin), index.mjs (its routes), dev.mjs (dev mode), scenarios/ (real core);
-                mock/: world.mjs, machines.mjs, bridge.mjs, models.mjs, voice.mjs, attach.mjs, chunks.mjs (the mocks),
+                mock/: world.mjs, machines.mjs, bridge.mjs, card-host.mjs, models.mjs, voice.mjs, attach.mjs, chunks.mjs (the mocks),
                 shell + card, scenarios/, voice-options.json
 refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served
 test/           node --test
