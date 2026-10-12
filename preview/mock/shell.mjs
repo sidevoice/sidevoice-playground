@@ -19,8 +19,6 @@ const VARIANTS_KEY = "sidevoice.variants";
 const VARIANTS = [
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
-  { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
-    values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
 ]
 
 function readVariants() {
