@@ -33,8 +33,6 @@ const VARIANTS = [
     values: [{ value: "code", label: "A · code first" }, { value: "steps", label: "B · two numbered steps" }, { value: "split", label: "C · machine | this device, side by side" }] },
   { name: "copy-button", label: "Copy buttons", note: "How the copy button of a command or a phrase to say shows.",
     values: [{ value: "visible", label: "A · always visible" }, { value: "faint", label: "B · faint, solid on hover/focus" }, { value: "hover", label: "C · only on hover/focus (always on touch)" }] },
-  { name: "agent-actions", label: "An agent's other actions", note: "In the agents list: what a row offers besides Connect or Disconnect.",
-    values: [{ value: "split", label: "A · a split button, its chevron joined" }, { value: "original", label: "B · every action a button on the row (the original)" }] },
 ]
 
 function readVariants() {

@@ -22,8 +22,9 @@ export function localStatus(local, now) {
     installed: local.installed ?? !["absent", "not-installed", "installing"].includes(local.state),
     core: running ? { pid: 4242, version: local.version ?? "0.3.0", api: 1, launch_id: "preview" } : null,
     // The installed Sidevoice's version (the `sidevoice` package, bundling the core): sidevoice-web #75's
-    // LocalHostStatus.product_version, which the real bridge does not report yet.
-    product_version: local.productVersion ?? "0.8.1",
+    // LocalHostStatus.product_version, which the real bridge does not report yet. The scenario's (`productVersion`), and
+    // null, unknown, when it says none.
+    product_version: local.productVersion ?? null,
     calls: running ? 0 : null,
     reachable: running,
     attempts: null, limit: null, since: null, window_started: null, next_retry_at: null,
