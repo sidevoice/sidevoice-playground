@@ -372,8 +372,17 @@ test("Room ready and Desktop local host each show every agent state on one machi
     assert.ok(rows.some((a) => a.connect === "manual"), `${id}: by hand`);
     assert.ok(rows.some((a) => a.present === false && a.registration === "connected"), `${id}: connected, not installed`);
     assert.ok(agentsOf(machine).some((a) => a.connectMs >= 8000) && agentsOf(machine).some((a) => a.connectFails), `${id}: slow, failing`);
-    assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
+    if (id === "room-ready") assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
   }
+  // Desktop local host: the remote machines answer with their agents by default; a failing search is the card's.
+  const desktop = scenarios.find((s) => s.id === "desktop-local-host");
+  const state = stateFor(desktop, {});
+  for (const id of ["nuc", "laptop"]) {
+    assert.ok(state.machines[id].reach !== "offline" && !state.machines[id].agentsFail && agentsOf(state.machines[id]).length >= 3, id);
+  }
+  assert.equal(new Set(agentsOf(state.machines.laptop).map((a) => a.registration)).size, 3, "the laptop's agents in a few states");
+  const search = desktop.options.find((o) => o.id === "nucAgents").values;
+  assert.deepEqual(search.map((v) => v.set["machines.nuc.agentsFail"]), [null, "connector-timeout", "no-connector"]);
 });
 
 test("every scenario runs in the desktop app: one with no local host gets one not installed", async () => {
