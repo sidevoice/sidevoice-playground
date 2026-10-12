@@ -212,9 +212,17 @@ function fit(spec, place, voice) {
   return { accelerator };
 }
 
+/** The builds of a model installed, from the world's `voice.installed[model]`: the ids of the builds installed, or
+ *  `true`, the build recommended here (what a scenario seeds), or nothing. */
+function installedBuilds(entry, recommended) {
+  if (Array.isArray(entry)) return entry;
+  return entry === true && recommended ? [recommended] : [];
+}
+
 /** The local catalogue's models for `place` (`browser` or `desktop`), as installed in the world: each model's builds
  * ranked as the engine ranks them (those that run here first, each on its accelerator, then the rest with why not, each
- * group in catalogue order), the first that runs recommended and, once the model is installed, the one installed.
+ * group in catalogue order), the first that runs recommended, and each build installed or not; the model is installed
+ * once one of its builds is.
  * @returns {LocalModelInfo[]} */
 export function localModels(world, place) {
   const voice = voiceState(world);
@@ -229,8 +237,9 @@ export function localModels(world, place) {
     });
     builds.sort((a, b) => Number(b.available) - Number(a.available));
     const recommended = builds.find((b) => b.available);
-    const installed = !!voice.installed[model.id] && !!recommended;
-    if (installed) recommended.installed = true;
+    const ids = installedBuilds(voice.installed[model.id], recommended?.id);
+    for (const b of builds) b.installed = ids.includes(b.id);
+    const installed = builds.some((b) => b.installed);
     return {
       ...model,
       voices: voice.voicesOnceInstalled && !installed ? [] : model.voices,
@@ -289,8 +298,10 @@ async function installing(world, place, model, wanted, onProgress, signal) {
     onProgress?.(progress);
     await world.delay(voice.installSlow ? 900 : 150);
   }
-  // A model's id may hold dots (kokoro-82m-v1.0): the map is set whole, never by a dotted path.
-  world.patch({ "voice.installed": { ...voice.installed, [model]: true } });
+  // The build chosen joins those of the model already installed. A model's id may hold dots (kokoro-82m-v1.0): the
+  // map is set whole, never by a dotted path.
+  const kept = installedBuilds(voiceState(world).installed[model], listed.recommendedBuild).filter((id) => id !== chosen.id);
+  world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: [...kept, chosen.id] } });
 }
 
 /** The desktop app's `host.engine`: the catalogues, installs (with their own progress and cancel) and keys. */
