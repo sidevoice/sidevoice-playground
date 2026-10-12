@@ -244,12 +244,12 @@ const OURS = "npx sidevoice@latest mcp";
 /** An agent connected through its CLI (`scope`: Claude Code's user scope). */
 const byCli = (cli, scope = "") => {
   const add = { command: `${cli} mcp add${scope} sidevoice -- ${OURS}` }, remove = { command: `${cli} mcp remove${scope} sidevoice` };
-  return { cli, manual: { connect: [add], disconnect: [remove], replace: [remove, add] }, instructions: add, removal: remove };
+  return { cli, manual: { connect: [add], update: [remove, add], disconnect: [remove], replace: [remove, add] }, instructions: add, removal: remove };
 };
 /** An agent configured by a file the connector edits itself. */
 const byFile = (file, snippet, under) => {
   const add = { file, snippet }, remove = { file, snippet: `Delete the "sidevoice" entry under "${under}".` };
-  return { manual: { connect: [add], disconnect: [remove], replace: [{ file, snippet: `Delete the other "sidevoice" entry under "${under}".` }, add] }, instructions: add, removal: remove };
+  return { manual: { connect: [add], update: [{ file, snippet: `Replace the "sidevoice" entry under "${under}" with:` }, add], disconnect: [remove], replace: [{ file, snippet: `Delete the other "sidevoice" entry under "${under}".` }, add] }, instructions: add, removal: remove };
 };
 const MCP_SERVERS = '{ "mcpServers": { "sidevoice": { "command": "npx", "args": ["sidevoice@latest", "mcp"] } } }';
 /** The agents the connector knows (Claude Code, Codex, Cursor) and more harnesses a person may have, as found
@@ -283,19 +283,20 @@ const DEFAULT_AGENTS = [
 // (Cursor is connected by the connector editing its file: never by hand only. By hand only is an agent whose CLI the
 // connector cannot find — `cliFound: false`.)
 /** Lists a scenario names (`"agents": "<name>"`) instead of giving its rows. `every-state`: one agent in each state the
- *  web shows one in — connected; not connected; just found (new); set up by an older Sidevoice (outdated); another
+ *  web shows one in — connected; not connected; just found (new); set up by an older Sidevoice (outdated: Claude Code
+ *  and Codex, whose Update the connector does and whose steps by hand remove the old entry, then add it); another
  *  "sidevoice" entry (foreign); MCP settings it cannot read (invalid); unknown; by hand only; one whose Connect takes
  *  8 s; one whose Connect fails; connected but no longer installed; and one not installed, which the web hides. */
 const AGENT_LISTS = {
   "every-state": [
-    { id: "claude", registration: "connected", actionable: false },
-    { id: "gemini", registration: "not-connected", actionable: true },
-    { id: "codex", registration: "not-connected", actionable: false, cliFound: false },
-    { id: "opencode", registration: "outdated", actionable: false },
+    { id: "claude", registration: "outdated", actionable: false },
+    { id: "codex", registration: "outdated", actionable: false },
+    { id: "opencode", registration: "connected", actionable: false },
+    { id: "gemini", registration: "not-connected", actionable: false, cliFound: false },
     { id: "windsurf", registration: "foreign", actionable: false },
     { id: "zed", registration: "invalid", actionable: false },
     { id: "goose", registration: "unknown", actionable: false },
-    { id: "cursor", registration: "not-connected", actionable: false },
+    { id: "cursor", registration: "not-connected", actionable: true },
     { id: "amp", registration: "not-connected", actionable: false, connectMs: 8000 },
     { id: "copilot", registration: "not-connected", actionable: false, connectMs: 1500, connectFails: "connect-failed" },
     { id: "kiro", registration: "connected", actionable: false, present: false, version: null },
