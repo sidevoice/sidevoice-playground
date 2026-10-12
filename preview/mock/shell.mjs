@@ -23,6 +23,8 @@ const VARIANTS = [
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
   { name: "model-step-footer", label: "The setup's model steps: their footer", note: "Transcription, Voice and End of turn in the first-run setup: how trying the model and going on are offered.",
     values: [{ value: "try-first", label: "A · Try it in the footer" }, { value: "in-card", label: "B · try in the model's card, Continue waits" }] },
+  { name: "voice-try", label: "Trying the voice", note: "Settings › Voice and the setup: once the try starts, the sentence to hear and its Play.",
+    values: [{ value: "row", label: "A · one row: Play and the editable text" }, { value: "player", label: "B · a small player: the text quoted with Edit, a big Play" }] },
   { name: "models-row", label: "A downloaded model's tags", note: "Settings › Advanced: in each model's one line, the order of its purpose chip and In use.",
     values: [{ value: "chip-first", label: "A · purpose, then In use" }, { value: "badge-first", label: "B · In use, then purpose" }] },
 ]
