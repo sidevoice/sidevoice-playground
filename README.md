@@ -200,8 +200,10 @@ its own code.
   OpenAI's and ElevenLabs' (listed with an accepted key; refused, missing or unreachable otherwise). Installs report
   progress and can be cancelled or fail; a local model's voices are listed once it is installed. No microphone is
   used: the card's **Speak** says its text into whatever listens (a transcription test, a call), and options make
-  the microphone denied or missing, the transcription silent or failing, and speech fail. Every scenario has these
-  options (`preview/mock/voice-options.json`).
+  the microphone denied or missing, the transcription silent or failing, and speech fail. A try that asks for its
+  take (the web's contract gap #40, pending in the voice module) is handed one as the voice stops: made up from what
+  it told — a voiced tone at its levels while the person spoke, quiet pauses, its turns' marks — or none, as the voice
+  0.3.x gives, with the option set so. Every scenario has these options (`preview/mock/voice-options.json`).
 - **Scenarios** are `preview/mock/scenarios/*.json`: a world (the page's target, the machines this device knows or
   could pair with, the desktop app's local host) and options, each value a set of fields it changes. An option marked
   ↻ reloads the page from the storage the world says it had; any other one is live.
