@@ -376,6 +376,19 @@ test("Room ready and Desktop local host each show every agent state on one machi
   }
 });
 
+test("every scenario runs in the desktop app: one with no local host gets one not installed", async () => {
+  for (const scenario of await loadMockScenarios()) {
+    const world = createWorld(scenario, {}, instant);
+    const identities = await makeIdentities(world.state);
+    const host = desktopHost(world, identities);
+    assert.ok(host.localHost, scenario.id);
+    if (!scenario.world.local) {
+      assert.equal(world.state.local.state, "absent", scenario.id);
+      assert.equal((await host.localHost.state()).installed, false, scenario.id);
+    }
+  }
+});
+
 test("a scenario starts a shared option where its defaults say, and only its own copy of it", async () => {
   const dir = await mkdtemp(join(tmpdir(), "scenarios-"));
   try {

@@ -43,9 +43,14 @@ const INSTALL_STEPS = [
   { step: "service-start", total: null },
 ];
 
-/** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost? }`, as the bridge gives it:
- *  the app's voice and engine (voice.mjs, models.mjs), and its local host when the world has one. */
+/** This computer's local host where a scenario names none: not installed yet, as on a desktop app just opened. */
+export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", install: "ok", participants: [] };
+
+/** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost }`, as the bridge gives it:
+ *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
+ *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer. */
 export function desktopHost(world, identities) {
+  if (!world.state.local) world.patch({ local: NO_LOCAL_HOST });
   const local = () => world.state.local;
   const status = () => localStatus(local(), world.now());
   const set = (fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`local.${k}`, v])));
@@ -176,7 +181,7 @@ export function desktopHost(world, identities) {
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     engine: desktopEngine(world),
-    ...(local() ? { localHost } : {}),
+    localHost,
   };
 }
 
