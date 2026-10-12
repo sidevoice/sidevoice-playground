@@ -25,8 +25,8 @@ const VARIANTS = [
     values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
   { name: "turn-try", label: "Trying the end of turn", note: "Where the end-of-turn setting is tried (Settings › Call, and the setup's turn step).",
     values: [{ value: "strip", label: "A · a strip under the options" }, { value: "card", label: "B · a card of its own" }] },
-  { name: "models-row", label: "A downloaded model's row", note: "Settings › Advanced: how each model in the list reads.",
-    values: [{ value: "two-lines", label: "A · two lines (name, then purpose and size)" }, { value: "one-line", label: "B · one line (purpose and size at its end)" }] },
+  { name: "models-row", label: "A downloaded model's tags", note: "Settings › Advanced: in each model's one line, the order of its purpose chip and In use.",
+    values: [{ value: "chip-first", label: "A · purpose, then In use" }, { value: "badge-first", label: "B · In use, then purpose" }] },
 ]
 
 function readVariants() {
