@@ -77,6 +77,22 @@ test("a model's last use: dated back in days by the scenario, until the world se
   assert.equal(model("whisper-small").lastUsedAt, now - 1000);
 });
 
+test("a model is dated as used when a call or a try loads it, not when it is installed", async () => {
+  let now = Date.parse("2026-10-12T09:00:00Z");
+  const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, { ...instant, now: () => now });
+  const model = (id) => localModels(w, "desktop").find((m) => m.id === id);
+  await desktopEngine(w).install("whisper-base");
+  assert.equal(model("whisper-base").installed, true);
+  assert.equal(model("whisper-base").lastUsedAt, null, "installed, never loaded");
+  now += 60_000;
+  const voice = fakeVoice(w);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "openai", model: "tts-1" } });
+  w.patch({ "voice.keys": { openai: "sk" } });
+  await voice.host.start();
+  assert.equal(model("whisper-base").lastUsedAt, now, "loaded by the start of a call or a try");
+  assert.equal(model("silero-vad").lastUsedAt, now);
+});
+
 test("an install downloads the build it installs", async () => {
   const w = world();
   const sizes = [];

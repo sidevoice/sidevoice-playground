@@ -172,7 +172,7 @@ const PROVIDER_MODELS = {
 export const VOICE_DEFAULTS = {
   installed: { "silero-vad": true },
   // When each local model was last loaded (ms since the epoch), as the engine would say (sidevoice-web CatalogModel.lastUsedAt):
-  // an install and every call that loads it set it. A scenario dates one back in days before the world's now
+  // every call or try that loads it sets it (an install does not: sidevoice-engine #90). A scenario dates one back in days before the world's now
   // (`lastUsedDaysAgo`); a use since is newer and wins.
   lastUsed: {},
   lastUsedDaysAgo: {},
@@ -288,7 +288,7 @@ async function installing(world, place, model, wanted, onProgress, signal) {
     await world.delay(voice.installSlow ? 900 : 150);
   }
   // A model's id may hold dots (kokoro-82m-v1.0): the map is set whole, never by a dotted path.
-  world.patch({ "voice.installed": { ...voice.installed, [model]: true }, "voice.lastUsed": { ...voice.lastUsed, [model]: Date.now() } });
+  world.patch({ "voice.installed": { ...voice.installed, [model]: true } });
 }
 
 /** The desktop app's `host.engine`: the catalogues, installs (with their own progress and cancel) and keys. */
