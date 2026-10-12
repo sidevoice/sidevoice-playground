@@ -23,6 +23,8 @@ const VARIANTS = [
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
   { name: "try-result", label: "Trying a model", note: "Where a transcription or voice try runs and shows its result (Settings and the setup).",
     values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
+  { name: "turn-try", label: "Trying the end of turn", note: "Where the end-of-turn setting is tried (Settings › Call, and the setup's turn step).",
+    values: [{ value: "strip", label: "A · a strip under the options" }, { value: "card", label: "B · a card of its own" }] },
   { name: "models-row", label: "A downloaded model's row", note: "Settings › Advanced: how each model in the list reads.",
     values: [{ value: "two-lines", label: "A · two lines (name, then purpose and size)" }, { value: "one-line", label: "B · one line (purpose and size at its end)" }] },
 ]

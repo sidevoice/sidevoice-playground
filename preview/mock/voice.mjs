@@ -21,6 +21,14 @@ import { LOCAL, voiceState } from "./models.mjs";
 const refusal = (code) => Object.assign(new Error(code), { code });
 
 /** The voice host of `world`; `source` is the page's model source (browser), or none (the desktop app's). */
+/** How long a silence ends a turn, as the settings say: the voice detector's wait alone (Silence), or shorter where
+ *  the end-of-turn model decides (Smart); longer the calmer the patience. */
+const ENDPOINT_MS = { silence: { fast: 2000, normal: 2500, calm: 3500 }, "smart-turn": { fast: 600, normal: 900, calm: 1300 } };
+function endpointMs(settings) {
+  const mode = ENDPOINT_MS[/** @type {keyof typeof ENDPOINT_MS} */ (settings?.end_of_turn ?? "smart-turn")] ?? ENDPOINT_MS["smart-turn"];
+  return mode[/** @type {keyof typeof mode} */ (settings?.patience ?? "normal")] ?? mode.normal;
+}
+
 export function fakeVoice(world, { source = null } = {}) {
   /** @type {Record<string, Set<Function>>} */
   const listeners = { turn: new Set(), state: new Set(), level: new Set(), error: new Set(), devices: new Set() };
@@ -162,23 +170,50 @@ export function fakeVoice(world, { source = null } = {}) {
   };
 
   /**
-   * The person says `text` (the card's "speak"): a turn, with its levels, recognised and told; or, as the world says,
-   * nothing heard, or a transcription that fails. Whether the call heard it: it hears only while it listens.
+   * The person says `text` (the card's "speak"): a turn, with its levels, ended once the silence after it is as long
+   * as the settings' end of turn waits (`endpointMs`), recognised and told; or, as the world says, nothing heard, or a
+   * transcription that fails. `pause`: a pause in the middle, shorter than the end of turn waits — still the turn.
+   * `cutOff`: the turn is ended after its first half, and the person goes on — a new turn, the cut one merged into
+   * it. Whether the call heard it: it hears only while it listens.
+   * @param {string} text @param {{ pause?: boolean, cutOff?: boolean }} [how]
    */
-  async function speak(text) {
+  async function speak(text, { pause = false, cutOff = false } = {}) {
     if (!started || muted) return false;
     const voice = voiceState(world);
-    const turn = `turn-${++turns}`;
+    let turn = `turn-${++turns}`;
     const startedAt = world.now();
+    const silence = endpointMs(settings);
+    const talk = async (part) => {
+      setState({ listening: "speaking" });
+      const words = Math.max(3, part.split(/\s+/).length);
+      for (let i = 0; i < words * 3; i++) {
+        emit("level", 0.25 + 0.6 * Math.abs(Math.sin(i * 1.7)));
+        await world.delay(110);
+      }
+      emit("level", 0);
+      setState({ listening: "listening" });
+    };
+    const half = (part) => { const words = part.split(/\s+/); const at = Math.max(1, Math.ceil(words.length / 2)); return [words.slice(0, at).join(" "), words.slice(at).join(" ") || part]; };
     setState({ listening: "speaking" });
     emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
-    const words = Math.max(3, text.split(/\s+/).length);
-    for (let i = 0; i < words * 3; i++) {
-      emit("level", 0.25 + 0.6 * Math.abs(Math.sin(i * 1.7)));
-      await world.delay(110);
-    }
-    emit("level", 0);
-    setState({ listening: "listening", recognising: 1 });
+    if (pause || cutOff) {
+      const [first, rest] = half(text);
+      await talk(first);
+      if (cutOff) {
+        // The end of turn decided too soon: the turn goes to be recognised, and the person goes on.
+        await world.delay(silence);
+        setState({ recognising: 1 });
+        await world.delay(400);
+        const cut = turn;
+        turn = `turn-${++turns}`;
+        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: world.now() }));
+        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: cut, merged: true }));
+        setState({ recognising: 0 });
+      } else await world.delay(Math.round(silence * 0.6));
+      await talk(rest);
+    } else await talk(text);
+    await world.delay(silence);
+    setState({ recognising: 1 });
     await world.delay(500);
     setState({ recognising: 0 });
     if (voice.stt === "silence" || !text.trim()) {
@@ -193,12 +228,11 @@ export function fakeVoice(world, { source = null } = {}) {
     const endedAt = world.now();
     emit("turn", /** @type {VoiceTurnEvent} */ ({
       phase: "finished", turn_id: turn, text, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
-      started_at: startedAt, ended_at: endedAt, merged: false,
-      timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: 600, recognition_ms: 500 },
+      started_at: startedAt, ended_at: endedAt, merged: cutOff,
+      timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: silence, recognition_ms: 500 },
     }));
     return true;
   }
-
   /** The headset (the card plugs it in and out): its microphone and its speaker, beside the computer's own. */
   function present() {
     const inputs = [{ id: "mic-builtin", label: "MacBook Pro Microphone" }, ...(devices.headset ? [{ id: "mic-headset", label: "AirPods Pro" }] : [])];
