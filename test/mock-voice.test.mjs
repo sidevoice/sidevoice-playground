@@ -93,6 +93,23 @@ test("a model is dated as used when a call or a try loads it, not when it is ins
   assert.equal(model("silero-vad").lastUsedAt, now);
 });
 
+test("a build chosen other than the recommended one is the one installed, and the model with it", async () => {
+  const w = world();
+  const model = () => localModels(w, "desktop").find((m) => m.id === "whisper-base");
+  assert.equal(model().recommendedBuild, "whisper-base/mlx-fp16");
+  await desktopEngine(w).install("whisper-base", { build: "whisper-base/sherpa-onnx-int8" });
+  assert.equal(model().installed, true);
+  assert.deepEqual(model().builds.filter((b) => b.installed).map((b) => b.id), ["whisper-base/sherpa-onnx-int8"]);
+  await desktopEngine(w).install("whisper-base", { build: "whisper-base/whisper-cpp-q5_1" });
+  assert.deepEqual(model().builds.filter((b) => b.installed).map((b) => b.id).sort(), ["whisper-base/sherpa-onnx-int8", "whisper-base/whisper-cpp-q5_1"]);
+  await desktopEngine(w).uninstall("whisper-base");
+  assert.equal(model().installed, false);
+  assert.equal(model().builds.some((b) => b.installed), false);
+  // A scenario's `true` is the recommended build.
+  w.patch({ "voice.installed": { "whisper-base": true } });
+  assert.deepEqual(model().builds.filter((b) => b.installed).map((b) => b.id), ["whisper-base/mlx-fp16"]);
+});
+
 test("an install downloads the build it installs", async () => {
   const w = world();
   const sizes = [];
