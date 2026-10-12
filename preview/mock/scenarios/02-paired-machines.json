@@ -1,7 +1,7 @@
 {
   "id": "paired-machines",
   "title": "Paired machines",
-  "summary": "This device is paired with three machines: the NUC (in use, answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
+  "summary": "This device is paired with three machines: the NUC (answering directly, two conversations), a workstation answering through the room (one) and an old laptop that is off. Each machine keeps its own conversations and history, at its own address. Change where each one answers, revoke the NUC's pairing, and change its conversations, live.",
   "view": "browser",
   "world": {
     "page": "room",
@@ -14,7 +14,10 @@
           { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
         ] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "devices": [], "participants": [
-        { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
+        { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening", "history": [
+          { "role": "user", "text": "Is the backup job still failing?", "minutesAgo": 30 },
+          { "role": "assistant", "text": "It ran fine last night: the disk had filled up, and I cleared the old snapshots.", "minutesAgo": 5 }
+        ] }
       ] },
       "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90, "devices": [], "participants": [] }
     },
@@ -26,7 +29,7 @@
       { "value": "earlier", "label": "done on an earlier release: what's new shows", "set": { "setup": "earlier" } },
       { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
     ] },
-    { "id": "inUse", "group": "Machines", "label": "In use when the page loads", "reload": true, "values": [
+    { "id": "inUse", "group": "Machines", "label": "In use when the page loads (a web with one machine at a time)", "reload": true, "values": [
       { "value": "nuc", "label": "the NUC", "set": { "machines.nuc.inUse": true, "machines.workstation.inUse": false } },
       { "value": "workstation", "label": "the workstation", "set": { "machines.nuc.inUse": false, "machines.workstation.inUse": true } }
     ] },
@@ -47,15 +50,24 @@
     ] },
     { "id": "nucAgents", "group": "Agents on the NUC", "label": "Conversations", "values": [
       { "value": "two", "label": "two listening (Claude Code, Codex)", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening", "history": [
+          { "role": "user", "text": "Can you run the tests and tell me what fails?", "minutesAgo": 50 },
+          { "role": "assistant", "text": "Two fail in the settings pane, both about the Save button that no longer exists. Shall I update them?", "minutesAgo": 49 }
+        ] },
         { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] } },
       { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },
       { "value": "one", "label": "one listening", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" }
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening", "history": [
+          { "role": "user", "text": "Can you run the tests and tell me what fails?", "minutesAgo": 50 },
+          { "role": "assistant", "text": "Two fail in the settings pane, both about the Save button that no longer exists. Shall I update them?", "minutesAgo": 49 }
+        ] }
       ] } },
       { "value": "mixed", "label": "listening, holding, offline", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening", "history": [
+          { "role": "user", "text": "Can you run the tests and tell me what fails?", "minutesAgo": 50 },
+          { "role": "assistant", "text": "Two fail in the settings pane, both about the Save button that no longer exists. Shall I update them?", "minutesAgo": 49 }
+        ] },
         { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "holding", "detail": "Waiting for its turn to listen" },
         { "title": "notes", "harness": "cursor", "engine": {"model": "claude-sonnet-5-5", "effort": null}, "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
       ] } }
