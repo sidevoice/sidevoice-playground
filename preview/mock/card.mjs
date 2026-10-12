@@ -142,6 +142,24 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       el("button", { type: "button", textContent: "Copy accepted key", onclick: () => navigator.clipboard.writeText(SAMPLE_KEYS.accepted) }),
       el("button", { type: "button", textContent: "Copy rejected key", onclick: () => navigator.clipboard.writeText(SAMPLE_KEYS.rejected) })));
 
+  // The stage avatar held in each mood it has (the page's avatarPreview fact), or Auto: the room drives it again. Pages
+  // without that fact ignore it.
+  const AVATAR_STATES = [
+    ["idle", "Idle"], ["listening", "Listening (you speak)"], ["working", "Thinking / working"], ["speaking", "Speaking"],
+    ["present", "Waiting for you"], ["attention", "Unheard (attention)"], ["offline", "Offline"],
+  ];
+  const avatarNote = el("p", { className: "note" });
+  const holdAvatar = (state) => {
+    const store = frame?.contentWindow?.sidevoiceUI?.store;
+    if (!store) { avatarNote.textContent = "The page is not loaded yet."; return; }
+    store.patch({ avatarPreview: state === null ? null : state === "attention" ? { mood: "present", unread: true } : { mood: state } });
+    avatarNote.textContent = state === null ? "The room drives the avatar." : `Held: ${AVATAR_STATES.find(([id]) => id === state)?.[1]}.`;
+  };
+  const avatarSection = el("fieldset", {},
+    el("legend", { textContent: "Stage avatar (forced state)" }), avatarNote,
+    el("div", { className: "actions" },
+      ...AVATAR_STATES.map(([id, label]) => el("button", { type: "button", textContent: label, onclick: () => holdAvatar(id) })),
+      el("button", { type: "button", textContent: "Auto", onclick: () => holdAvatar(null) })));
   root.replaceChildren(
     header,
     el("div", { className: "card-body" },
@@ -156,6 +174,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
           select(option.values, world.choices[option.id], (value) => choose(option.id, value)))),
       )),
       conversationSection,
+      avatarSection,
       voiceSection,
       devicesSection,
       machines.length ? el("fieldset", {},
