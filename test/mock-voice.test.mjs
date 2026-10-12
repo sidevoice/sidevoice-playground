@@ -145,6 +145,27 @@ test("the browser's WebEngine reads the page's keys, lists by capability, and in
   assert.equal((await engine.localCatalog().models("tts")).find((m) => m.id === "kokoro-82m-v1.0").installed, true);
 });
 
+test("a turn ends after the silence the settings wait; a pause shorter than it is still the turn; cut off, the person goes on in a new turn the cut one merges into", async () => {
+  const w = world();
+  const voice = fakeVoice(w);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "silence", patience: "calm" });
+  const turns = [];
+  const recognising = [];
+  voice.host.onTurn((t) => turns.push(t));
+  voice.host.onState((s) => recognising.push(s.recognising));
+  await voice.host.start();
+  await voice.speak("uno dos tres cuatro", { pause: true });
+  assert.deepEqual(turns.map((t) => t.phase), ["started", "finished"]);
+  assert.equal(turns[1].timings.endpoint_silence_ms, 3500);
+  assert.equal(recognising.filter((n) => n === 1).length, 1, "the pause did not end the turn");
+  turns.length = 0;
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "smart-turn", patience: "fast" });
+  await voice.speak("uno dos tres cuatro", { cutOff: true });
+  assert.deepEqual(turns.map((t) => `${t.phase}:${t.turn_id}${t.merged ? ":merged" : ""}`), ["started:turn-2", "started:turn-3", "cancelled:turn-2:merged", "finished:turn-3:merged"]);
+  assert.equal(turns.at(-1).text, "uno dos tres cuatro");
+  assert.equal(turns.at(-1).timings.endpoint_silence_ms, 600);
+});
+
 test("the voice hears what the card says while it listens, and fails as the world says", async () => {
   const w = world();
   const voice = fakeVoice(w);

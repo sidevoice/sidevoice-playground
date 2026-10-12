@@ -133,6 +133,12 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         const heard = await world.voiceRuntime?.speak(said.value);
         if (!heard) voiceNote.textContent = "The page is not listening: start what listens first (a call, or a transcription test).";
       } }),
+      el("button", { type: "button", textContent: "Speak, pausing", title: "A pause mid-sentence, shorter than the end of turn waits: still your turn", onclick: async () => {
+        if (!(await world.voiceRuntime?.speak(said.value, { pause: true }))) voiceNote.textContent = "The page is not listening: start what listens first (a call, or a try).";
+      } }),
+      el("button", { type: "button", textContent: "Speak, cut off", title: "The turn ended mid-sentence and you go on: a new turn, the cut one merged into it", onclick: async () => {
+        if (!(await world.voiceRuntime?.speak(said.value, { cutOff: true }))) voiceNote.textContent = "The page is not listening: start what listens first (a call, or a try).";
+      } }),
       el("button", { type: "button", textContent: "Copy accepted key", onclick: () => navigator.clipboard.writeText(SAMPLE_KEYS.accepted) }),
       el("button", { type: "button", textContent: "Copy rejected key", onclick: () => navigator.clipboard.writeText(SAMPLE_KEYS.rejected) })));
 
