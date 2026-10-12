@@ -19,6 +19,10 @@ const VARIANTS_KEY = "sidevoice.variants";
 const VARIANTS = [
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
+  { name: "machine-state", label: "Machine state", note: "How a machine's connection state reads beside its icon: Settings' nav, a phone's machine list, the machine's page.",
+    values: [{ value: "word", label: "A · a word under the name" }, { value: "pill", label: "B · a pill under the name" }] },
+  { name: "new-mark", label: "“New” marks", note: "What the gear, a section and a machine show when something under them is new; the thing itself always says New.",
+    values: [{ value: "sparkle", label: "A · a purple sparkle" }, { value: "pill", label: "B · a “New” pill (a count on the gear)" }, { value: "dot", label: "C · a dot in Settings' nav only (a count on the gear)" }] },
 ]
 
 function readVariants() {
