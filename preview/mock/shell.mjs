@@ -21,8 +21,6 @@ const VARIANTS = [
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "whats-new", label: "What's new", note: "How someone set up on an earlier release is told what is new.",
     values: [{ value: "dialog", label: "A · a small dialog" }, { value: "dots", label: "B · only the “new” dots on each setting" }] },
-  { name: "this-computer", label: "This computer in Settings", note: "Where this computer is set up and managed: an entry under Machines, or a section of its own above it (where this device can host).",
-    values: [{ value: "in-machines", label: "A · an entry under Machines" }, { value: "own-section", label: "B · its own section above Machines" }] },
 ]
 
 function readVariants() {
