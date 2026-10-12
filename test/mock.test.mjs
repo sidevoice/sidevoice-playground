@@ -448,3 +448,17 @@ test("the reset page clears the origin's data, with or without a run, and only g
     server.close();
   }
 });
+
+test("a machine's Sidevoice version is the scenario's, and unknown when it says none", async () => {
+  assert.equal(localStatus({ state: "running" }, 0).product_version, null);
+  assert.equal(localStatus({ state: "running", productVersion: "0.8.1" }, 0).product_version, "0.8.1");
+  const { world, identities, ask } = await setup();
+  const status = () => ask(`${directUrl("nuc")}/api/host/status`, { headers: { authorization: `Bearer ${identities.nuc.token}` } });
+  assert.deepEqual((await status()).body, { version: null });
+  world.patch({ "machines.nuc.productVersion": "0.8.1" });
+  assert.deepEqual((await status()).body, { version: "0.8.1" });
+  for (const scenario of await loadMockScenarios()) {
+    const option = scenario.options.find((o) => o.id === "productVersion");
+    assert.deepEqual(option?.values.map((v) => v.value), ["0.8.1", "unknown"], scenario.id);
+  }
+});

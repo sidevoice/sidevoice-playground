@@ -75,6 +75,10 @@
       { "value": "timeout", "label": "fails: timed out", "set": { "machines.nuc.agentsFail": "connector-timeout" } },
       { "value": "no-connector", "label": "fails: Sidevoice not running", "set": { "machines.nuc.agentsFail": "no-connector" } },
       { "value": "found", "label": "finds three (connected, new, by hand)", "set": { "machines.nuc.agentsFail": null } }
+    ] },
+    { "id": "productVersion", "group": "Version", "label": "Sidevoice installed on the machines", "values": [
+      { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1", "machines.laptop.productVersion": "0.8.1", "local.productVersion": "0.8.1" } },
+      { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null, "machines.laptop.productVersion": null, "local.productVersion": null } }
     ] }
   ]
 }

@@ -79,6 +79,10 @@
         { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "holding", "detail": "Waiting for its turn to listen" },
         { "title": "notes", "harness": "cursor", "engine": {"model": "claude-sonnet-5-5", "effort": null}, "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" }
       ] } }
+    ] },
+    { "id": "productVersion", "group": "Version", "label": "Sidevoice installed on the machines", "values": [
+      { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1", "machines.workstation.productVersion": "0.8.1", "machines.laptop.productVersion": "0.8.1" } },
+      { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null, "machines.workstation.productVersion": null, "machines.laptop.productVersion": null } }
     ] }
   ]
 }
