@@ -25,6 +25,8 @@ const VARIANTS = [
     values: [{ value: "card", label: "A · inside the model's card" }, { value: "dialog", label: "B · in a small dialog" }] },
   { name: "turn-try", label: "Trying the end of turn", note: "Where the end-of-turn setting is tried (Settings › Call, and the setup's turn step).",
     values: [{ value: "strip", label: "A · a strip under the options" }, { value: "card", label: "B · a card of its own" }] },
+  { name: "model-step-footer", label: "The setup's model steps: their footer", note: "Transcription, Voice and End of turn in the first-run setup: how trying the model and going on are offered.",
+    values: [{ value: "try-first", label: "A · Try it in the footer" }, { value: "in-card", label: "B · try in the model's card, Continue waits" }] },
   { name: "models-row", label: "A downloaded model's tags", note: "Settings › Advanced: in each model's one line, the order of its purpose chip and In use.",
     values: [{ value: "chip-first", label: "A · purpose, then In use" }, { value: "badge-first", label: "B · In use, then purpose" }] },
 ]
