@@ -78,7 +78,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   // `agentWorks`), and the page plays the reply with the mocked voice. With no call, a transcription test still hears
   // "You speak"; anything else the card plays into the page's own store (window.sidevoiceUI.store), the facts the
   // room would have sent, so the bubbles, the karaoke and the transcript show as they would.
-  const sampleUser = el("select", {}, CONVERSATION_SAMPLES.user.map((text) => el("option", { value: text, textContent: text })));
+  const sampleUser = el("select", {}, CONVERSATION_SAMPLES.user.map((text) => el("option", { value: text, textContent: sampleLabel(text) })));
   const sampleAgent = el("select", {}, CONVERSATION_SAMPLES.agent.map((text) => el("option", { value: text, textContent: text })));
   const conversationSection = el("fieldset", {},
     el("legend", { textContent: "Conversation (shown in the page)" }),
@@ -95,6 +95,10 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       } }),
       el("button", { type: "button", textContent: "You speak → sent", title: "The whole turn on the stage, on demand: your name and the bars, then what is sent, which leaves", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || "Can you check the build and tell me what failed?")) voiceNote.textContent = "Open a conversation in the page first.";
+      } }),
+      el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage", onclick: () => {
+        if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
+        else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
         if (liveCall(world)) {
@@ -272,14 +276,28 @@ function shortUrl(url) {
 }
 
 /** Sample lines for the conversation's buttons. */
-const CONVERSATION_SAMPLES = {
-  user: ["Can you run the tests and tell me what fails?", "Make the dark theme a little warmer.", "Yes, go ahead and push it."],
+export const CONVERSATION_SAMPLES = {
+  user: ["Can you run the tests and tell me what fails?", "Make the dark theme a little warmer.", "Yes, go ahead and push it.",
+    // A long dictated turn, to judge how long sent text shows (VARIANTS `sent-text`).
+    "Okay, so here's what I'd like you to do next. First, go through the settings pane and check that every toggle still " +
+    "saves when you change it, because I think the one for automatic updates stopped doing that after yesterday's refactor. " +
+    "Then look at the transcript on a phone: the bubbles get really cramped when the keyboard is open, and I'd like them to " +
+    "breathe a bit more. And when you're done with both, run the whole test suite, push it on a branch, and tell me what " +
+    "failed before you try to fix anything."],
   agent: [
     "I ran the tests: two fail in the settings pane, both about the Save button that no longer exists. Shall I update them?",
     "Done. The dark theme is a little warmer now; have a look and tell me if it is too much.",
     "Pushed. CI is running, and I will tell you as soon as it is green.",
   ],
 };
+
+/** A sample as its option shows it: a long one by its start and its length, so the card keeps its width. */
+export function sampleLabel(text) {
+  return text.length <= 60 ? text : `${text.slice(0, 44).trimEnd()}… (long, ${text.length} characters)`;
+}
+/** "You speak twice": the second turn, said this long after the first is sent (inside its moment on the stage). */
+const AGAIN_SAMPLE = "Oh, and keep the old one as a fallback.";
+const AGAIN_AFTER_MS = 700;
 
 let simulated = 0;
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
@@ -294,6 +312,10 @@ function pageConversation(frame) {
 }
 const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** How long a simulated turn listens, and how long until it is sent (listening, then transcribing). */
+const LISTENING_MS = 1600;
+const SPOKEN_TURN_MS = 2500;
+
 /** You speak: listening, then transcribing, then what you said in the conversation. */
 function simulateUser(frame, text) {
   const page = pageConversation(frame);
@@ -302,9 +324,9 @@ function simulateUser(frame, text) {
   const segment = "preview-you-" + ++simulated;
   void (async () => {
     store.patch({ userLive: true, userTurn: { id: segment, segment, thread }, pendingPhase: "listening", pendingUserText: "" });
-    await later(1600);
+    await later(LISTENING_MS);
     store.patch({ userLive: false, pendingPhase: "transcribing" });
-    await later(900);
+    await later(SPOKEN_TURN_MS - LISTENING_MS);
     const history = store.getState().facts.history;
     store.patch({ userTurn: null, pendingPhase: "", history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
   })();

@@ -28,6 +28,15 @@ export const VARIANTS = [
     values: [{ value: "word", label: "A · a word under the name" }, { value: "pill", label: "B · a pill under the name" }] },
   { name: "new-mark", label: "“New” marks", note: "What the gear, a section and a machine show when something under them is new; the thing itself always says New.",
     values: [{ value: "sparkle", label: "A · a purple sparkle" }, { value: "pill", label: "B · a “New” pill (a count on the gear)" }, { value: "dot", label: "C · a dot in Settings' nav only (a count on the gear)" }] },
+  { name: "chat-colors", label: "Chat colours", note: "The transcript's bubbles, yours and the agent's, and your bubble on the stage, in both themes: every text 4.5:1 or more on its bubble.",
+    values: [{ value: "today", label: "Today · the agent lila, you crema" }, { value: "soft", label: "A · you in a soft lila, the agent grey" },
+      { value: "filled", label: "B · you filled in lila with white text, the agent grey" }] },
+  { name: "sent-text", label: "Long sent text (stage)", note: "What you said, on the stage for its moment once sent; the transcript has all of it. Pick the long “You say” sample, then “You speak → sent”.",
+    values: [{ value: "tail", label: "Today · its last words, after “…”" }, { value: "clamp", label: "A · its first 3 lines, the last fading into “…”" },
+      { value: "shrink", label: "B · a long one smaller, 4 lines, “…”" }, { value: "line", label: "C · its first line and the sent check" }] },
+  { name: "sent-repeat", label: "Speaking again right after", note: "You speak again while what you just sent is still on the stage. Try “You speak twice”.",
+    values: [{ value: "replace", label: "Today · the bars take its place at once" }, { value: "stack", label: "A · it steps up, one line, above the bars" },
+      { value: "leave", label: "B · it lifts away as the bars come in" }] },
 ]
 
 function readVariants() {
