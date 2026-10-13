@@ -8,6 +8,7 @@ import {
   setRemoteBehind,
 } from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
+import { SPEAKING_MS, speechLevel } from "./voice.mjs";
 import { LOCAL_VERSION, UPDATER_STATES, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
@@ -109,6 +110,10 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       } }),
       el("button", { type: "button", textContent: "You speak → sent", title: "The whole turn on the stage, on demand: your name and the bars, then what is sent, which leaves", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || "Can you check the build and tell me what failed?")) voiceNote.textContent = "Open a conversation in the page first.";
+      } }),
+      el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage (VARIANTS sent-repeat)", onclick: () => {
+        if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
+        else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
         const at = where();
@@ -439,6 +444,47 @@ function pageConversation(frame) {
 }
 const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** How long a simulated turn listens (the same whatever is said, as the voice speaks), and how long until it is sent
+ *  (listening, then transcribing). */
+const LISTENING_MS = SPEAKING_MS;
+const SPOKEN_TURN_MS = LISTENING_MS + 900;
+
+/**
+ * While a simulated turn listens, the microphone the page reads speaks: its waveform (`sidevoiceAudio.readWaveform`,
+ * when the page has no voice of its own to read) and its meter (`sidevoiceUI.micLevel`) follow `speechLevel`, so the
+ * bars move as a real voice's do. Returns what stops it.
+ */
+function speakIntoPage(frame, seed) {
+  const win = frame?.contentWindow;
+  const audio = win?.sidevoiceAudio;
+  let level = 0;
+  if (audio && !audio.previewWrapped) {
+    const own = audio.readWaveform.bind(audio);
+    audio.readWaveform = () => own() ?? (audio.previewLevel ? samplesAt(audio.previewLevel) : null);
+    audio.previewWrapped = true;
+  }
+  const started = Date.now();
+  const timer = setInterval(() => {
+    level = speechLevel(Date.now() - started, seed);
+    if (audio) audio.previewLevel = level;
+    win?.sidevoiceUI?.micLevel?.publish?.(Math.round(level * 100));
+  }, 50);
+  return () => {
+    clearInterval(timer);
+    if (audio) audio.previewLevel = 0;
+    win?.sidevoiceUI?.micLevel?.publish?.(0);
+  };
+}
+
+/** Samples whose loudness the page reads as `level` (its 60 dB window: `waveColumn`). */
+function samplesAt(level) {
+  const amplitude = 10 ** ((level * 60 - 60) / 20);
+  return Float32Array.from({ length: 256 }, (_, i) => (i % 2 ? amplitude : -amplitude));
+}
+/** "You speak twice": the second turn, said this long after the first is sent (inside its moment on the stage). */
+const AGAIN_SAMPLE = "Oh, and keep the old one as a fallback.";
+const AGAIN_AFTER_MS = 700;
+
 /** You speak: listening, then transcribing, then what you said in the conversation. */
 function simulateUser(frame, text) {
   const page = pageConversation(frame);
@@ -447,9 +493,11 @@ function simulateUser(frame, text) {
   const segment = "preview-you-" + ++simulated;
   void (async () => {
     store.patch({ userLive: true, userTurn: { id: segment, segment, thread }, pendingPhase: "listening", pendingUserText: "" });
-    await later(1600);
+    const quiet = speakIntoPage(frame, simulated * 1.7);
+    await later(LISTENING_MS);
+    quiet();
     store.patch({ userLive: false, pendingPhase: "transcribing" });
-    await later(900);
+    await later(SPOKEN_TURN_MS - LISTENING_MS);
     const history = store.getState().facts.history;
     store.patch({ userTurn: null, pendingPhase: "", history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
   })();

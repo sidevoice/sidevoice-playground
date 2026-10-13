@@ -68,6 +68,26 @@ export function synthesisedTake(taking, endedAt) {
   return { sampleRate: TAKE_RATE, samples, started_at: taking.startedAt, ended_at: endedAt, turns: taking.turns };
 }
 
+/** How long the person speaks when the card says something, whatever its length: the take, the bars and the turn's
+ *  timings are the same for a word and a paragraph. */
+export const SPEAKING_MS = 3000;
+/** How often a speaking voice tells its level. */
+const LEVEL_STEP_MS = 60;
+
+/**
+ * The level of a voice speaking, 0 to 1, `ms` into it: syllables at about four a second, a phrase that rises and
+ * falls, short gaps between words, and a little unevenness — so bars move as a real microphone's do. `seed` shifts it,
+ * so two turns do not look the same.
+ */
+export function speechLevel(ms, seed = 0) {
+  const t = ms / 1000;
+  const syllable = Math.abs(Math.sin(Math.PI * 4.3 * t + seed)) ** 0.6;
+  const phrase = 0.62 + 0.38 * Math.sin((2 * Math.PI * t) / 1.9 + seed * 1.3);
+  const word = (t * 1.6 + seed) % 1 < 0.13 ? 0.12 : 1;
+  const uneven = 0.85 + 0.3 * (((Math.sin(t * 12.9898 + seed * 78.233) * 43758.5453) % 1 + 1) % 1);
+  return word < 1 ? 0.12 : Math.max(0.03, Math.min(0.85, 0.3 + 0.55 * syllable * phrase * uneven));
+}
+
 /** The voice host of `world`; `source` is the page's model source (browser), or none (the desktop app's). */
 /** How long a silence ends a turn, as the settings say: the voice detector's wait alone (Silence), or shorter where
  *  the end-of-turn model decides (Smart); longer the calmer the patience. */
@@ -250,16 +270,17 @@ export function fakeVoice(world, { source = null } = {}) {
       return mark;
     };
     let mark = opened();
-    const talk = async (part) => {
+    const seed = turns * 1.7;
+    // The same time whatever is said: SPEAKING_MS in all, in two halves around a pause or a cut.
+    const talk = async (part, ms = SPEAKING_MS) => {
       setState({ listening: "speaking" });
       const spoken = { from: at(), to: at(), levels: /** @type {{ at: number, level: number }[]} */ ([]) };
       take?.speech.push(spoken);
-      const words = Math.max(3, part.split(/\s+/).length);
-      for (let i = 0; i < words * 3; i++) {
-        const level = 0.25 + 0.6 * Math.abs(Math.sin(i * 1.7));
+      for (let elapsed = 0; elapsed < ms; elapsed += LEVEL_STEP_MS) {
+        const level = speechLevel(elapsed, seed);
         spoken.levels.push({ at: at(), level });
         emit("level", level);
-        await world.delay(110);
+        await world.delay(LEVEL_STEP_MS);
       }
       spoken.to = at();
       emit("level", 0);
@@ -270,7 +291,7 @@ export function fakeVoice(world, { source = null } = {}) {
     emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
     if (pause || cutOff) {
       const [first, rest] = half(text);
-      await talk(first);
+      await talk(first, SPEAKING_MS / 2);
       if (cutOff) {
         // The end of turn decided too soon: the turn goes to be recognised, and the person goes on.
         await world.delay(silence);
@@ -288,7 +309,7 @@ export function fakeVoice(world, { source = null } = {}) {
         await world.delay(Math.round(silence * 0.6));
         mark.pauses.push({ from_ms: paused, to_ms: at() });
       }
-      await talk(rest);
+      await talk(rest, SPEAKING_MS / 2);
     } else await talk(text);
     await world.delay(silence);
     mark.end_ms = at();
