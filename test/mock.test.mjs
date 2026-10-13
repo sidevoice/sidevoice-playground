@@ -8,7 +8,7 @@ import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScen
 import {
   LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, lanUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
-import { UPDATER_STATES, UPDATE_VERSION, desktopHost, localStatus, setUpdaterState } from "../preview/mock/bridge.mjs";
+import { UPDATER_STATES, UPDATE_VERSION, desktopHost, hasAppUpdater, localStatus, setUpdaterState } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
@@ -395,7 +395,7 @@ test("a release's updater: automatic downloads what a check finds, manual waits 
   await assert.rejects(updater.setMode("sometimes"));
 });
 
-test("the card steps the updater to each state, failures with their codes, and a nightly or development build has none", async () => {
+test("the card steps the updater to each state, failures with their codes; a nightly has one too, a development build none", async () => {
   const { world, identities } = await setup();
   const updater = desktopHost(world, identities).updater;
   const expected = {
@@ -412,10 +412,15 @@ test("the card steps the updater to each state, failures with their codes, and a
   // A retry clears the failure.
   setUpdaterState(world, "check-failed");
   assert.equal((await updater.check()).error, undefined);
-  for (const channel of ["nightly", "dev"]) {
-    world.patch({ "app.channel": channel });
-    assert.equal(desktopHost(world, identities).updater, undefined, channel);
-  }
+  // A nightly's (sidevoice-desktop #56, for now) is the same world's updater; a development build has none.
+  world.patch({ "app.channel": "nightly" });
+  assert.equal(hasAppUpdater(world), true);
+  const nightly = desktopHost(world, identities).updater;
+  setUpdaterState(world, "available");
+  assert.deepEqual(await nightly.status(), { state: "available", version: UPDATE_VERSION });
+  world.patch({ "app.channel": "dev" });
+  assert.equal(hasAppUpdater(world), false);
+  assert.equal(desktopHost(world, identities).updater, undefined);
 });
 
 test("a backing-off local host says when it tries again", () => {

@@ -10,7 +10,7 @@ import {
 import { appVersion } from "./bridge.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
-import { LOCAL_VERSION, UPDATER_STATES, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
+import { LOCAL_VERSION, UPDATER_STATES, hasAppUpdater, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
 const BEHIND_LABELS = { current: "Current", behind: "Behind" };
@@ -325,10 +325,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   );
 }
 
-/** The desktop app's updater, in a line: its mode, its state, its error. A build that is not a release has none. */
+/** The desktop app's updater, in a line: its mode, its state, its error. A development build has none. */
 function updaterLine(world) {
-  const channel = world.state.app?.channel ?? "release";
-  if (channel !== "release") return `A ${channel} build has no updater: pick a release build to try it.`;
+  if (!hasAppUpdater(world)) return `A ${world.state.app?.channel} build has no updater: pick a release or nightly build to try it.`;
   const status = updaterStatus(world);
   const progress = status.state === "downloading" ? ` ${Math.round((status.progress ?? 0) * 100)}%` : "";
   return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · app ${appVersion(world)} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
