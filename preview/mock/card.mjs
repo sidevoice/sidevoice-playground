@@ -3,10 +3,7 @@
 // codes for the machines, to paste into the page; sets how fast the world's time runs and whether a reload keeps
 // the state; and lists what the mocks were asked. Rendered again whole on each change: it is small.
 
-import {
-  CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, firstPaired, hostStatus, liveCall, machineOf, mintCode, participantsOf, remoteBehind,
-  setRemoteBehind,
-} from "./machines.mjs";
+import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, firstPaired, hostStatus, liveCall, mintCode, remoteBehind, setRemoteBehind } from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
 import { LOCAL_VERSION, UPDATER_STATES, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
@@ -83,22 +80,13 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   // mocked room; the agent speaks and works through that room, as its connector would (machines.mjs `agentSpeaks`,
   // `agentWorks`), and the page plays the reply with the mocked voice. With no call, a transcription test still hears
   // "You speak"; anything else the card plays into the page's own store (window.sidevoiceUI.store), the facts the
-  // room would have sent, so the bubbles, the karaoke and the transcript show as they would. Who speaks and works is the
-  // conversation the call is on, or any other of any machine's, whether a call is on it or not: its room writes what is
-  // said there, and lists it as heard or not and the agent as working. Asked to say what the person missed ("hear it"),
-  // the agent answers after a moment, or says nothing.
+  // room would have sent, so the bubbles, the karaoke and the transcript show as they would.
   const sampleUser = el("select", {}, CONVERSATION_SAMPLES.user.map((text) => el("option", { value: text, textContent: sampleLabel(text) })));
   const sampleAgent = el("select", {}, CONVERSATION_SAMPLES.agent.map((text) => el("option", { value: text, textContent: text })));
-  const who = select([{ value: "", label: "The active conversation" }, ...everyConversation(world)], root.dataset.who ?? "", (value) => (root.dataset.who = value));
-  /** The conversation picked: `{ machine, thread }`, or null for the one the call is on. */
-  const where = () => (who.value ? JSON.parse(who.value) : null);
-  const gone = "That conversation is no longer in the room.";
   const conversationSection = el("fieldset", {},
     el("legend", { textContent: "Conversation (shown in the page)" }),
     el("label", {}, "You say", sampleUser),
     el("label", {}, "The agent says", sampleAgent),
-    el("label", {}, "Who", who),
-    el("label", {}, "When asked to hear it", select(HEAR_VALUES, world.state.hear === "silent" ? "silent" : "answers", (hear) => world.patch({ hear }))),
     el("div", { className: "actions" },
       el("button", { type: "button", textContent: "You speak", title: "Listening, then transcribing, then your words sent", onclick: async () => {
         if (liveCall(world)) {
@@ -116,11 +104,6 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
-        const at = where();
-        if (at) {
-          if (!agentSpeaks(world, sampleAgent.value, at)) voiceNote.textContent = gone;
-          return;
-        }
         if (liveCall(world)) {
           if (!agentSpeaks(world, sampleAgent.value)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
           return;
@@ -128,12 +111,6 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         if (!simulateAgent(frame, sampleAgent.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
       el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds, then it answers with the reply above", onclick: () => {
-        const at = where();
-        if (at) {
-          if (!agentWorks(world, WORKING_MS, at)) voiceNote.textContent = gone;
-          else void world.delay(WORKING_MS).then(() => agentSpeaks(world, sampleAgent.value, at));
-          return;
-        }
         if (liveCall(world)) {
           if (!agentWorks(world, WORKING_MS)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
           else void world.delay(WORKING_MS).then(() => agentSpeaks(world, sampleAgent.value));
@@ -143,8 +120,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         else setTimeout(() => simulateAgent(frame, sampleAgent.value), WORKING_MS);
       } })));
   // The microphone and the speaker the page's voice offers (its device bar, by the microphone): a headset to plug in and
-  // out, a speaker that cannot be chosen (a browser without setSinkId), and the page's leave to use the microphone
-  // taken back while it listens.
+  // out, and a speaker that cannot be chosen (a browser without setSinkId).
   const devicesNote = el("p", { className: "note" });
   const describe = () => {
     const now = world.voiceRuntime?.devices;
@@ -155,11 +131,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   };
   const plug = el("button", { type: "button", onclick: () => { world.voiceRuntime?.plugHeadset(!world.voiceRuntime.devices.headset); describe(); } });
   const sink = el("button", { type: "button", onclick: () => { world.voiceRuntime?.outputSelectable(!world.voiceRuntime.devices.outputSelectable); describe(); } });
-  const revoke = el("button", { type: "button", textContent: "Revoke the microphone", title: "As if the browser's permission were taken back mid-call",
-    onclick: () => { world.voiceRuntime?.revokeMicrophone(); describe(); } });
   describe();
   const devicesSection = el("fieldset", {},
-    el("legend", { textContent: "Microphone and speaker (mocked)" }), devicesNote, el("div", { className: "actions" }, plug, sink, revoke));
+    el("legend", { textContent: "Microphone and speaker (mocked)" }), devicesNote, el("div", { className: "actions" }, plug, sink));
   const voiceSection = el("fieldset", {},
     el("legend", { textContent: "Voice (mocked: no microphone)" }),
     voiceNote,
@@ -197,45 +171,31 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       ...AVATAR_STATES.map(([id, label]) => el("button", { type: "button", textContent: label, onclick: () => holdAvatar(id) })),
       el("button", { type: "button", textContent: "Auto", onclick: () => holdAvatar(null) })));
   // The floating card's overlays (sidevoice-web FLOATING-CARD-SPEC §8.9), in the Desktop app view: the room's own facts
-  // patched, so the room and the card beside it show them at once. B's marks, Hear it and an offline conversation come
-  // from B's world mocks.
+  // patched, so the room and the card beside it show them at once.
   const cardNote = el("p", { className: "note" });
   const roomPage = () => {
     const page = frame?.contentWindow;
     const store = page?.sidevoiceUI?.store;
     if (!store) cardNote.textContent = "The page is not loaded yet.";
-    return store ? { store, actions: page.sidevoiceActions, b: store.getState().facts.callModel === "voice-switch" } : null;
+    return store ? { store, actions: page.sidevoiceActions } : null;
   };
   const cardStatesSection = params.view === "app" ? el("fieldset", {},
     el("legend", { textContent: "Floating card states" }), cardNote,
     el("div", { className: "actions" },
-      el("button", { type: "button", textContent: "Idle warning", title: "The minute before the call (A) or the voice (B) ends itself; Keep answers it", onclick: () => {
+      el("button", { type: "button", textContent: "Idle warning", title: "The minute before the call ends itself; Keep answers it", onclick: () => {
         const page = roomPage();
         if (!page) return;
-        const key = page.b ? "voiceIdleWarning" : "callIdleWarning";
-        page.store.patch({ [key]: !page.store.getState().facts[key] });
+        page.store.patch({ callIdleWarning: !page.store.getState().facts.callIdleWarning });
         cardNote.textContent = "";
       } }),
-      el("button", { type: "button", textContent: "Ends by itself", title: "The call (A) ends, or the voice (B) turns off, by itself: the card says why for a moment", onclick: () => {
+      el("button", { type: "button", textContent: "Ends by itself", title: "The call ends by itself: the card says why for a moment", onclick: () => {
         const page = roomPage();
         if (!page) return;
         // One change of the room's, as when it happens by itself: off, and why, at once.
         page.store.batch(() => {
-          if (page.b) {
-            void page.actions?.setVoice?.(false);
-            page.store.patch({ voiceOffReason: "micLost", voiceOffDetail: "" });
-          } else {
-            page.store.patch({ callEnded: { reason: "idle", detail: "" } });
-            if (page.store.getState().call.joined) void page.actions?.toggleCall?.();
-          }
+          page.store.patch({ callEnded: { reason: "idle", detail: "" } });
+          if (page.store.getState().call.joined) void page.actions?.toggleCall?.();
         });
-        cardNote.textContent = "";
-      } }),
-      el("button", { type: "button", textContent: "Agents muted (B)", onclick: () => {
-        const page = roomPage();
-        if (!page) return;
-        if (!page.b) { cardNote.textContent = "Call model B only."; return; }
-        page.actions?.setAgentsMuted?.(!page.store.getState().facts.agentsMuted);
         cardNote.textContent = "";
       } }))) : null;
   // The desktop app's updater (bridge.mjs `appUpdaterOf`), in any scenario, in the Desktop app view: its mode and each
@@ -396,19 +356,6 @@ function shortUrl(url) {
   return String(url).replace(/^(?:https|wss):\/\/([a-z0-9-]+)\.machines\.sidevoice\.example/, "[$1]")
     .replace(/^(?:https|wss):\/\/room\.sidevoice\.example/, "[room]").replace(/^(?:http|ws):\/\/127\.0\.0\.1:47123/, "[local]");
 }
-
-/** Every conversation of every machine in the world, as the card's "Who" offers it: its machine's name and its title,
- *  the value `{ machine, thread }` as JSON. */
-function everyConversation(world) {
-  const ids = [...Object.keys(world.state.machines ?? {}), ...(world.state.local ? [LOCAL_ID] : [])];
-  return ids.flatMap((id) => {
-    const machine = machineOf(world.state, id);
-    return participantsOf(machine, id).map((p) => ({ value: JSON.stringify({ machine: id, thread: p.thread_id }), label: `${machine.host ?? id} › ${p.title}` }));
-  });
-}
-
-/** What the agent does when asked to say what the person missed (the world's `hear`). */
-const HEAR_VALUES = [{ value: "answers", label: "answers after a moment" }, { value: "silent", label: "says nothing" }];
 
 /** Sample lines for the conversation's buttons. */
 export const CONVERSATION_SAMPLES = {
