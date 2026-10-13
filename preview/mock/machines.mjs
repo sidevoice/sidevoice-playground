@@ -1,10 +1,11 @@
 // The mocked preview's machines: each one a node as sidevoice-core answers the routes the web asks (its
 // `/api/rendezvous`, its identity, pairing and devices, the presentation's reads), at the addresses a person's setup
-// has: directly (`https://<id>.machines.sidevoice.example`), through the room's relay (`<room>/nodes/<id>`), and,
-// for the desktop app's own host, its per-launch proxy on loopback. Identities are real P-256 keys, made per
-// load: the web proves them, and redeems codes for them, with its own code. Where the world says a machine cannot
-// be reached at an address, asking it there fails as a network does. Each machine's presentation room holds the
-// page's calls too (`callSocket`, behind the page's mocked WebSocket in attach.mjs): see "the room" below.
+// has: directly (`https://<id>.machines.sidevoice.example`, or, for one paired without encryption, its local
+// network's `http://<id>.local:8768`), through the room's relay (`<room>/nodes/<id>`), and, for the desktop app's own
+// host, its per-launch proxy on loopback. Identities are real P-256 keys, made per load: the web proves them, and
+// redeems codes for them, with its own code. Where the world says a machine cannot be reached at an address, asking it
+// there fails as a network does. Each machine's presentation room holds the page's calls too (`callSocket`, behind the
+// page's mocked WebSocket in attach.mjs): see "the room" below.
 //
 // The shapes are the core's: the conformance test (test/mock-conformance.test.mjs) asks the real one the same.
 // The web's own types for them (web-types.d.ts) check these modules against each web commit built (web-build.mjs).
@@ -21,6 +22,12 @@ export const ROOM_URL = "https://room.sidevoice.example";
 export const LOCAL_ID = "local";
 export const LOCAL_URL = "http://127.0.0.1:47123";
 export const directUrl = (id) => `https://${id}.machines.sidevoice.example`;
+/** The port a machine answers at on its local network. */
+const LAN_PORT = "8768";
+/** A machine's address on its local network, over plain http: where a pairing kept without encryption reaches it. The
+ *  web takes a `*.local` name for a private network's (device-pairing.js `privateHost`), the only kind of place such a
+ *  pairing may go without https (`secureBase`). */
+export const lanUrl = (id) => `http://${id}.local:${LAN_PORT}`;
 /** The code variants the card offers for a machine. */
 export const CODE_VARIANTS = ["valid", "expired", "used", "plaintext", "damaged", "impostor"];
 const API = 1;
@@ -82,15 +89,19 @@ export function machineOf(state, id) {
   return id === LOCAL_ID ? (state.local ? { ...state.local, host: state.local.computerName } : null) : state.machines?.[id] ?? null;
 }
 
-/** What this device keeps of its pairing with machine `id` (device-pairing.js's `Pairing`).
+/** What this device keeps of its pairing with machine `id` (device-pairing.js's `Pairing`). A machine paired without
+ *  encryption (`"insecure": true`) is kept as the web keeps one the person agreed to reach over plain http on a private
+ *  network: at its local network's address alone, with no room, and saying so.
  * @returns {Pairing} */
 export function storedPairing(state, identities, id, now) {
   const machine = state.machines[id];
   const identity = identities[id];
+  const insecure = machine.insecure === true;
   return {
-    fp: identity.fingerprint, public_key: identity.publicKey, host: machine.host, urls: [directUrl(id)],
-    rv: { url: ROOM_URL, node: id }, device_id: identity.deviceId, token: identity.token,
+    fp: identity.fingerprint, public_key: identity.publicKey, host: machine.host, urls: [insecure ? lanUrl(id) : directUrl(id)],
+    rv: insecure ? null : { url: ROOM_URL, node: id }, device_id: identity.deviceId, token: identity.token,
     paired_at: Math.floor(now / 1000) - Math.round((machine.pairedDaysAgo ?? 1) * DAY),
+    ...(insecure ? { insecure: true } : {}),
   };
 }
 
@@ -161,7 +172,8 @@ export function mintCode(world, identities, id, variant = "valid") {
   return variant === "damaged" ? code.slice(0, Math.floor(code.length * 0.6)) : code;
 }
 
-/** Where `url` is: `{ id, via, path }` for a machine's address, `{ room: true, path }` for the room's own, `{ page: true }`. */
+/** Where `url` is: `{ id, via, path }` for a machine's address (its local network's is a direct one too), `{ room: true,
+ *  path }` for the room's own, `{ page: true }`. */
 export function placeOf(url, pageOrigin) {
   const parsed = new URL(url, pageOrigin);
   const path = parsed.pathname;
@@ -173,6 +185,8 @@ export function placeOf(url, pageOrigin) {
   if (parsed.origin === LOCAL_URL) return { id: LOCAL_ID, via: "local", path, query };
   const direct = parsed.hostname.match(/^([a-z0-9-]+)\.machines\.sidevoice\.example$/);
   if (direct && parsed.protocol === "https:") return { id: direct[1], via: "direct", path, query };
+  const lan = parsed.hostname.match(/^([a-z0-9-]+)\.local$/);
+  if (lan && parsed.protocol === "http:" && parsed.port === LAN_PORT) return { id: lan[1], via: "direct", path, query };
   if (parsed.origin === pageOrigin) {
     // A page a room serves reaches the room's relay on its own origin.
     const relay = path.match(/^\/nodes\/([^/]+)(\/.*)?$/);
@@ -349,6 +363,11 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   if (method === "GET" && path === "/api/device/identity") {
     const nonce = new URLSearchParams(query).get("nonce") ?? "";
     if (!/^[A-Za-z0-9_-]{43}$/.test(nonce)) return refuse(400, "The identity challenge is invalid.");
+    // A machine slow to answer (`answersAfterMs`) proves itself only after that much of the world's time, wherever it is
+    // asked: until then the page is still checking it. The web gives up on a proof after 4 s (device-pairing.js
+    // IDENTITY_TIMEOUT_MS) and then takes the machine as not connected, so a machine checked for good is not to be had
+    // here: a scenario keeps it under that (3000).
+    if (machine.answersAfterMs) await world.delay(machine.answersAfterMs);
     const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, identity.privateKey, utf8(IDENTITY_PREFIX + nonce));
     return json(200, { fingerprint: identity.fingerprint, public_key: identity.publicKey, signature: base64url(signature) });
   }
@@ -442,7 +461,7 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const room = roomOf(world, id);
     const call = callOf(room, new URLSearchParams(query).get("session_id"));
     if (method === "GET" && path === "/api/presentation") return json(200, snapshot(room, call, identity));
-    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: room.rows.map(rowView) });
+    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: told(world, room).map(rowView) });
     if (method === "GET" && path === "/api/presentation/participants") {
       return json(200, { participants: listing(world, room, machine, call?.binding?.thread_id) });
     }
@@ -606,6 +625,9 @@ function reachable(state, id, via, onPage) {
 const seated = (room) => [...room.calls].filter((call) => call.session);
 /** The call of `room` with session `sid`, if it is one. */
 const callOf = (room, sid) => (sid ? seated(room).find((call) => call.session === sid) : undefined);
+/** The room's history as the page reads it: what was said before the page came left out while the scenario's
+ *  `transcript` is `empty` (a choice that reloads the page, so it holds for a room already made too). */
+const told = (world, room) => (world.state.transcript === "empty" ? room.rows.filter((row) => !row.id.startsWith(`${room.id}-said-`)) : room.rows);
 /** What the room's history says of a row: all of it but the turn it was said in. */
 const rowView = ({ turn_id, ...row }) => row;
 const refusal = (key, id = null) => ({ type: "error", data: { key, message: REFUSALS[key], ...(id ? { client_msg_id: id } : {}) } });

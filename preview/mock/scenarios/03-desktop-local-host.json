@@ -1,14 +1,14 @@
 {
   "id": "desktop-local-host",
   "title": "Desktop app with its local host",
-  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: this app, Mac de Ana, and two others on this computer's host (Safari on iPhone, Chrome on Mac) and three on the NUC (Safari on iPhone, Firefox on Windows, Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); the NUC and an old laptop (off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search fails (timed out; the card makes it Sidevoice not running, or finds its three). New: Codex just found here, an update of this computer's host (0.4.0), and a setting from What's new (set up on the release before).",
+  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: this app, Mac de Ana, and two others on this computer's host (Safari on iPhone, Chrome on Mac) and three on the NUC (Safari on iPhone, Firefox on Windows, Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); the NUC and an old laptop (answering through the room; the card turns it off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search finds its three (the card makes it fail: timed out, or Sidevoice not running); the old laptop's finds Claude Code connected, Codex set up by an older Sidevoice and Cursor not connected. New: Codex just found here, an update of this computer's host (0.4.0), and a setting from What's new (set up on the release before). Seeded too: a transcript in the conversation on top (sidevoice-core on this computer), six messages to read (the card empties it).",
   "view": "app",
   "defaults": { "setup": "earlier", "update": "available", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
     "page": "none",
     "setup": "earlier",
     "machines": {
-      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12, "agentsFail": "connector-timeout",
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12,
         "devices": [
           { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
           { "name": "Mac de Ana", "kind": "code", "daysAgo": 12, "mine": true },
@@ -17,7 +17,12 @@
           { "id": "nuc-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
         ],
         "participants": [] },
-      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90,
+      "laptop": { "host": "Portátil viejo", "reach": "room", "paired": true, "pairedDaysAgo": 90,
+        "agents": [
+          { "id": "claude", "registration": "connected", "actionable": false },
+          { "id": "codex", "registration": "outdated", "actionable": false },
+          { "id": "cursor", "registration": "not-connected", "actionable": true }
+        ],
         "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 90, "mine": true }], "participants": [] }
     },
     "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
@@ -29,7 +34,14 @@
       ],
       "agents": "every-state",
       "participants": [
-        { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening" }
+        { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening", "history": [
+          { "role": "user", "text": "Morning. Did the overnight build pass?", "minutesAgo": 40 },
+          { "role": "assistant", "text": "It did, apart from one flaky test in the relay's reconnect suite. It passed when I ran it again.", "minutesAgo": 39 },
+          { "role": "user", "text": "Can you look at why a call sometimes loses the last reply after a reconnect?", "minutesAgo": 25 },
+          { "role": "assistant", "text": "Found it. The room only counted a reply as received once it had finished playing, so a call that dropped while the agent was still speaking came back one message behind, and the replay started after the reply it had missed. It now counts a reply as received the moment the page has it, so the replay picks up exactly where the call left off. I also added a test that drops the call halfway through a reply and checks that nothing goes missing.", "minutesAgo": 12 },
+          { "role": "user", "text": "Great. Do the tests still pass?", "minutesAgo": 10 },
+          { "role": "assistant", "text": "All of them: cargo test is green. The fix is in rust/control/room/history.rs if you want a look.", "minutesAgo": 9 }
+        ] }
       ] }
   },
   "options": [
@@ -49,6 +61,10 @@
       { "value": "refused", "label": "refuses this app", "set": { "local.state": "refused", "local.failure": null } },
       { "value": "incompatible", "label": "incompatible", "set": { "local.state": "incompatible", "local.failure": null } }
     ] },
+    { "id": "transcript", "group": "Local host", "label": "Transcript", "reload": true, "values": [
+      { "value": "seeded", "label": "seeded: a conversation to read", "set": { "transcript": "seeded" } },
+      { "value": "empty", "label": "empty: no history anywhere", "set": { "transcript": "empty" } }
+    ] },
     { "id": "startsAs", "group": "Local host", "label": "A start ends", "values": [
       { "value": "running", "label": "running", "set": { "local.startsAs": "running" } },
       { "value": "failed", "label": "failed", "set": { "local.startsAs": "failed", "local.startFailure": { "key": "launch.exited", "step": "service-start" } } }
@@ -56,6 +72,23 @@
     { "id": "reach", "group": "Local host", "label": "Reach of its codes", "values": [
       { "value": "local-only", "label": "this computer only", "set": { "local.reach": "local-only" } },
       { "value": "room", "label": "through the room", "set": { "local.reach": "room" } }
+    ] },
+    { "id": "muteShortcut", "group": "Desktop app", "label": "Mute shortcut", "reload": true, "values": [
+      { "value": "on", "label": "set (⌘⇧M)", "set": { "app.desktopSettings": true, "app.shortcut": "Cmd+Shift+M", "app.shortcutRefused": false } },
+      { "value": "refused", "label": "refused by the system (another app has it)", "set": { "app.desktopSettings": true, "app.shortcut": "Cmd+Shift+M", "app.shortcutRefused": true } },
+      { "value": "voiceover", "label": "clashes with VoiceOver (⌘F5)", "set": { "app.desktopSettings": true, "app.shortcut": "Cmd+F5", "app.shortcutRefused": false } },
+      { "value": "off", "label": "not set", "set": { "app.desktopSettings": true, "app.shortcut": null, "app.shortcutRefused": false } },
+      { "value": "absent", "label": "not offered (an older app)", "set": { "app.desktopSettings": false } }
+    ] },
+    { "id": "appChannel", "group": "Version", "label": "Desktop app build", "reload": true, "values": [
+      { "value": "release", "label": "release", "set": { "app.channel": "release" } },
+      { "value": "nightly", "label": "nightly (updates by hand)", "set": { "app.channel": "nightly" } },
+      { "value": "dev", "label": "development build", "set": { "app.channel": "dev" } }
+    ] },
+    { "id": "autoDownload", "group": "Version", "label": "Download updates automatically", "reload": true, "values": [
+      { "value": "on", "label": "offered, on", "set": { "app.autoDownloadOffered": true, "app.autoDownload": true } },
+      { "value": "off", "label": "offered, off", "set": { "app.autoDownloadOffered": true, "app.autoDownload": false } },
+      { "value": "absent", "label": "not offered (an older app)", "set": { "app.autoDownloadOffered": false } }
     ] },
     { "id": "update", "group": "Version", "label": "Update", "values": [
       { "value": "current", "label": "current", "set": { "local.update": "current", "local.bundledVersion": "0.3.0" } },
@@ -72,9 +105,13 @@
       { "value": "offline", "label": "not at all", "set": { "machines.nuc.reach": "offline" } }
     ] },
     { "id": "nucAgents", "group": "Machines", "label": "The NUC's agent search", "values": [
+      { "value": "found", "label": "finds three (connected, new, by hand)", "set": { "machines.nuc.agentsFail": null } },
       { "value": "timeout", "label": "fails: timed out", "set": { "machines.nuc.agentsFail": "connector-timeout" } },
-      { "value": "no-connector", "label": "fails: Sidevoice not running", "set": { "machines.nuc.agentsFail": "no-connector" } },
-      { "value": "found", "label": "finds three (connected, new, by hand)", "set": { "machines.nuc.agentsFail": null } }
+      { "value": "no-connector", "label": "fails: Sidevoice not running", "set": { "machines.nuc.agentsFail": "no-connector" } }
+    ] },
+    { "id": "laptopReach", "group": "Machines", "label": "The old laptop answers", "values": [
+      { "value": "room", "label": "through the room", "set": { "machines.laptop.reach": "room" } },
+      { "value": "offline", "label": "not at all (off)", "set": { "machines.laptop.reach": "offline" } }
     ] },
     { "id": "nucConversations", "group": "Machines", "label": "Conversations on the NUC", "values": [
       { "value": "none", "label": "none", "set": { "machines.nuc.participants": [] } },

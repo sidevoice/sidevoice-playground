@@ -93,6 +93,23 @@ test("a model is dated as used when a call or a try loads it, not when it is ins
   assert.equal(model("silero-vad").lastUsedAt, now);
 });
 
+test("a build chosen other than the recommended one is the one installed, and the model with it", async () => {
+  const w = world();
+  const model = () => localModels(w, "desktop").find((m) => m.id === "whisper-base");
+  assert.equal(model().recommendedBuild, "whisper-base/mlx-fp16");
+  await desktopEngine(w).install("whisper-base", { build: "whisper-base/sherpa-onnx-int8" });
+  assert.equal(model().installed, true);
+  assert.deepEqual(model().builds.filter((b) => b.installed).map((b) => b.id), ["whisper-base/sherpa-onnx-int8"]);
+  await desktopEngine(w).install("whisper-base", { build: "whisper-base/whisper-cpp-q5_1" });
+  assert.deepEqual(model().builds.filter((b) => b.installed).map((b) => b.id).sort(), ["whisper-base/sherpa-onnx-int8", "whisper-base/whisper-cpp-q5_1"]);
+  await desktopEngine(w).uninstall("whisper-base");
+  assert.equal(model().installed, false);
+  assert.equal(model().builds.some((b) => b.installed), false);
+  // A scenario's `true` is the recommended build.
+  w.patch({ "voice.installed": { "whisper-base": true } });
+  assert.deepEqual(model().builds.filter((b) => b.installed).map((b) => b.id), ["whisper-base/mlx-fp16"]);
+});
+
 test("an install downloads the build it installs", async () => {
   const w = world();
   const sizes = [];
@@ -256,4 +273,69 @@ test("the mocked voice's microphone and speaker: chosen by id, followed as the h
   voice.outputSelectable(false);
   assert.equal(seen.at(-1).outputSelectable, false);
   await assert.rejects(voice.host.setAudioDevices({ output: "out-builtin" }), { code: "audio-output-unselectable" });
+});
+
+test("a try's take (web gap #40): asked for, what the voice heard from listening to stopping — the speech voiced at its levels, the pauses quiet, the marks where its turns were told", async () => {
+  // The world's clock moves only as the mocks wait, so a take's length and marks are exact.
+  let clock = 0;
+  const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
+  const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
+  const voice = fakeVoice(w);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "silence", patience: "normal" });
+  const takes = [];
+  const turns = [];
+  voice.host.onTake((take) => takes.push(take));
+  voice.host.onTurn((turn) => turns.push(turn));
+  await voice.host.start({ take: true });
+  const listened = clock;
+  clock += 1000;
+  // "uno dos" (990 ms), a pause shorter than the 2.5 s the end waits (1.5 s), "tres cuatro" (990 ms), then the end.
+  await voice.speak("uno dos tres cuatro", { pause: true });
+  assert.deepEqual(takes, [], "handed only once the voice stops");
+  await voice.host.stop();
+  assert.equal(takes.length, 1);
+  const [take] = takes;
+  assert.equal(take.sampleRate, 16000);
+  assert.equal(take.started_at, listened);
+  assert.equal(take.ended_at, clock);
+  assert.equal(take.samples.length, ((clock - listened) / 1000) * 16000);
+  assert.deepEqual(take.turns, [{ turn_id: "turn-1", speech_ms: 1000, pauses: [{ from_ms: 1990, to_ms: 3490 }], end_ms: 6980 }]);
+  // Its marks are the turn the voice told: it started where the take says speech did.
+  assert.equal(turns[0].started_at - take.started_at, take.turns[0].speech_ms);
+  // Loud where the person spoke, quiet before, in the pause, and in the silence the end waited for.
+  const rms = (from, to) => {
+    const part = take.samples.subarray((from * 16000) / 1000, (to * 16000) / 1000);
+    return Math.sqrt(part.reduce((sum, x) => sum + x * x, 0) / part.length);
+  };
+  for (const [from, to] of [[1000, 1990], [3490, 4480]]) assert.ok(rms(from, to) > 0.05, `speech ${from}–${to}`);
+  for (const [from, to] of [[0, 1000], [1990, 3490], [4480, 6980]]) assert.ok(rms(from, to) < 0.005, `quiet ${from}–${to}`);
+  assert.ok(take.samples.every((x) => Math.abs(x) <= 1), "within full scale");
+
+  // Not asked for (a call), or a voice without takes (0.3.x): nothing.
+  await voice.host.start();
+  await voice.speak("hola");
+  await voice.host.stop();
+  w.patch({ "voice.take": false });
+  await voice.host.start({ take: true });
+  await voice.speak("hola");
+  await voice.host.stop();
+  assert.equal(takes.length, 1);
+});
+
+test("a cut-off's take marks both turns: the end decided too soon, and the turn the person went on in", async () => {
+  let clock = 0;
+  const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
+  const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
+  const voice = fakeVoice(w);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "smart-turn", patience: "fast" });
+  const takes = [];
+  voice.host.onTake((take) => takes.push(take));
+  await voice.host.start({ take: true });
+  await voice.speak("uno dos tres cuatro", { cutOff: true });
+  await voice.host.stop();
+  // 990 ms said, 600 ms to the cut, 400 ms recognising, then the rest: 990 ms, and 600 ms to its end.
+  assert.deepEqual(takes[0].turns, [
+    { turn_id: "turn-1", speech_ms: 0, pauses: [], end_ms: 1590 },
+    { turn_id: "turn-2", speech_ms: 1990, pauses: [], end_ms: 3580 },
+  ]);
 });

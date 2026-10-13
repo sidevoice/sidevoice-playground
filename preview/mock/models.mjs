@@ -177,8 +177,10 @@ export const VOICE_DEFAULTS = {
   lastUsed: {},
   lastUsedDaysAgo: {},
   keys: {},
-  install: "ok", installSlow: false, voicesOnceInstalled: true, providers: "ok", webgpu: true,
+  install: "ok", installSlow: false, uninstall: "ok", voicesOnceInstalled: true, providers: "ok", webgpu: true,
   mic: "granted", transcript: "Hola, ¿me oyes bien?", stt: "ok", tts: "ok",
+  // Whether the voice hands a try's take (sidevoice-web contract gap #40; voice.mjs): false is @sidevoice/voice 0.3.x.
+  take: true,
 };
 
 /** The world's voice state, its defaults filled in. */
@@ -210,9 +212,17 @@ function fit(spec, place, voice) {
   return { accelerator };
 }
 
+/** The builds of a model installed, from the world's `voice.installed[model]`: the ids of the builds installed, or
+ *  `true`, the build recommended here (what a scenario seeds), or nothing. */
+function installedBuilds(entry, recommended) {
+  if (Array.isArray(entry)) return entry;
+  return entry === true && recommended ? [recommended] : [];
+}
+
 /** The local catalogue's models for `place` (`browser` or `desktop`), as installed in the world: each model's builds
  * ranked as the engine ranks them (those that run here first, each on its accelerator, then the rest with why not, each
- * group in catalogue order), the first that runs recommended and, once the model is installed, the one installed.
+ * group in catalogue order), the first that runs recommended, and each build installed or not; the model is installed
+ * once one of its builds is.
  * @returns {LocalModelInfo[]} */
 export function localModels(world, place) {
   const voice = voiceState(world);
@@ -227,8 +237,9 @@ export function localModels(world, place) {
     });
     builds.sort((a, b) => Number(b.available) - Number(a.available));
     const recommended = builds.find((b) => b.available);
-    const installed = !!voice.installed[model.id] && !!recommended;
-    if (installed) recommended.installed = true;
+    const ids = installedBuilds(voice.installed[model.id], recommended?.id);
+    for (const b of builds) b.installed = ids.includes(b.id);
+    const installed = builds.some((b) => b.installed);
     return {
       ...model,
       voices: voice.voicesOnceInstalled && !installed ? [] : model.voices,
@@ -262,6 +273,15 @@ export function providerView(world, id, key) {
 }
 
 /** An engine error, as the engine's promises reject with. */
+/** Takes `model` off as the world says a delete goes: done; refused while it still downloads (`model-installing`); or
+ *  failed, with the engine's own words (`uninstall-failed`). */
+function uninstalling(world, model) {
+  const voice = voiceState(world);
+  if (voice.uninstall === "installing") throw engineError("model-installing");
+  if (voice.uninstall === "fail") throw engineError("uninstall-failed", `EBUSY: resource busy or locked, unlink '${model}/model.onnx'`);
+  world.patch({ "voice.installed": { ...voice.installed, [model]: false } });
+}
+
 const engineError = (code, detail) => Object.assign(new Error(code), { code, params: {}, ...(detail ? { detail } : {}) });
 
 /**
@@ -287,8 +307,10 @@ async function installing(world, place, model, wanted, onProgress, signal) {
     onProgress?.(progress);
     await world.delay(voice.installSlow ? 900 : 150);
   }
-  // A model's id may hold dots (kokoro-82m-v1.0): the map is set whole, never by a dotted path.
-  world.patch({ "voice.installed": { ...voice.installed, [model]: true } });
+  // The build chosen joins those of the model already installed. A model's id may hold dots (kokoro-82m-v1.0): the
+  // map is set whole, never by a dotted path.
+  const kept = installedBuilds(voiceState(world).installed[model], listed.recommendedBuild).filter((id) => id !== chosen.id);
+  world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: [...kept, chosen.id] } });
 }
 
 /** The desktop app's `host.engine`: the catalogues, installs (with their own progress and cancel) and keys. */
@@ -321,7 +343,7 @@ export function desktopEngine(world) {
     /** Takes a model off the computer, every build of it. The real bridge's engine has no `uninstall` yet (sidevoice-web
      *  #75's contract gaps): the mock offers it, so Delete and Remove all can be seen in the app too. @param {string} model */
     async uninstall(model) {
-      world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: false } });
+      uninstalling(world, model);
     },
   };
   /** @type {ModelCatalogs} The web's own interface: a member it needs that this lacks fails the check. */
@@ -369,7 +391,7 @@ export function webEngine(world, host) {
     install: (model, build, onProgress, signal) => installing(world, "browser", model, build, onProgress, signal),
     /** @param {string} model */
     async uninstall(model) {
-      world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: false } });
+      uninstalling(world, model);
     },
     async load(model) {
       return catalog(LOCAL).load(model);

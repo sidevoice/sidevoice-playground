@@ -9,6 +9,10 @@
     { "value": "silence", "label": "is not heard (nothing usable)", "set": { "voice.stt": "silence" } },
     { "value": "error", "label": "fails to transcribe", "set": { "voice.stt": "error" } }
   ] },
+  { "id": "take", "group": "Voice", "label": "A try's recording", "values": [
+    { "value": "kept", "label": "is handed to the page (web gap #40)", "set": { "voice.take": true } },
+    { "value": "none", "label": "is not (@sidevoice/voice 0.3.x)", "set": { "voice.take": false } }
+  ] },
   { "id": "tts", "group": "Voice", "label": "What it says", "values": [
     { "value": "ok", "label": "is heard", "set": { "voice.tts": "ok" } },
     { "value": "error", "label": "fails to synthesize", "set": { "voice.tts": "error" } }
@@ -30,6 +34,11 @@
     { "value": "ok", "label": "works", "set": { "voice.install": "ok", "voice.installSlow": false } },
     { "value": "slow", "label": "works, slowly", "set": { "voice.install": "ok", "voice.installSlow": true } },
     { "value": "fail", "label": "fails half way", "set": { "voice.install": "fail", "voice.installSlow": false } }
+  ] },
+  { "id": "uninstall", "group": "Models", "label": "A model's delete", "values": [
+    { "value": "ok", "label": "works", "set": { "voice.uninstall": "ok" } },
+    { "value": "installing", "label": "refused: still downloading", "set": { "voice.uninstall": "installing" } },
+    { "value": "fail", "label": "fails (the engine's own words in Details)", "set": { "voice.uninstall": "fail" } }
   ] },
   { "id": "voices", "group": "Models", "label": "A local model's voices", "values": [
     { "value": "installed", "label": "listed once installed", "set": { "voice.voicesOnceInstalled": true } },

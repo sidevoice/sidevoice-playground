@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { mockFile, loadMockScenarios } from "../preview/proxy.mjs";
 import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScenario } from "../preview/mock/world.mjs";
 import {
-  LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
+  LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, lanUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
 import { desktopHost, localStatus } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
@@ -119,6 +119,23 @@ test("addresses: a machine directly, through the room (its own origin or the pag
   assert.equal(placeOf("http://nuc.machines.sidevoice.example/api/x", PAGE), null, "only https is a machine's address");
 });
 
+test("a machine paired without encryption is kept at its local network's address alone, and answers there over http", async () => {
+  const { world, identities, ask } = await setup();
+  world.patch({ "machines.ws.paired": true, "machines.ws.insecure": true });
+  const kept = JSON.parse(seededStorage(world.state, identities, 0)["sidevoice.pairings"]).pairings;
+  const ws = kept.find((p) => p.host === "WS");
+  assert.deepEqual([ws.urls, ws.rv, ws.insecure], [["http://ws.local:8768"], null, true]);
+  assert.equal(kept.find((p) => p.host === "NUC").insecure, undefined, "only the one paired so");
+  assert.deepEqual(placeOf(`${lanUrl("ws")}/api/x?a=1`, PAGE), { id: "ws", via: "direct", path: "/api/x", query: "?a=1" });
+  assert.equal(placeOf("https://ws.local:8768/api/x", PAGE), null, "only plain http");
+  assert.equal(placeOf("http://ws.local:8765/api/x", PAGE), null, "only its port");
+  assert.equal(placeOf("http://ws.lan:8768/api/x", PAGE), null, "only a .local name");
+  // It is a direct address: the machine answers there as it does at its other one.
+  assert.deepEqual(await ask(`${lanUrl("ws")}/api/rendezvous`), { unreachable: true }, "the workstation answers only through the room");
+  world.patch({ "machines.ws.reach": "direct" });
+  assert.equal((await ask(`${lanUrl("ws")}/api/device/identity?nonce=${nonce()}`)).body.public_key, identities.ws.publicKey);
+});
+
 test("a machine proves its identity with a real signature, where the world lets it answer", async () => {
   const { world, identities, ask } = await setup();
   const asked = nonce();
@@ -141,6 +158,23 @@ test("a machine proves its identity with a real signature, where the world lets 
   assert.deepEqual((await ask("/api/rendezvous")).body, { kind: "room" });
   world.patch({ page: "none" });
   assert.equal((await ask("/api/rendezvous")).status, 404);
+});
+
+test("a machine slow to answer proves itself only after its delay of the world's time, wherever it is asked", async () => {
+  let ticked = 0;
+  const world = createWorld(scenario, {}, { tick: () => new Promise((r) => setImmediate(() => r(ticked++))) });
+  const identities = await makeIdentities(world.state);
+  const ask = (url) => answer(world, identities, { pageOrigin: PAGE, url });
+  const prove = (base) => ask(`${base}/api/device/identity?nonce=${nonce()}`);
+  assert.equal((await prove(directUrl("nuc"))).status, 200);
+  assert.equal(ticked, 0, "one that answers at once");
+  world.patch({ "machines.nuc.answersAfterMs": 3000 });
+  assert.equal((await prove(directUrl("nuc"))).status, 200);
+  assert.equal(ticked, 60, "3000 ms: sixty steps of 50 ms");
+  assert.equal((await prove(`${ROOM_URL}/nodes/nuc`)).status, 200);
+  assert.equal(ticked, 120, "through the room too");
+  assert.equal((await ask(`${directUrl("nuc")}/api/rendezvous`)).status, 200);
+  assert.equal(ticked, 120, "only its proof waits");
 });
 
 test("codes: redeemed once, refused after, and an impostor answers with another key", async () => {
@@ -373,7 +407,76 @@ test("Room ready and Desktop local host each show every agent state on one machi
     assert.ok(rows.some((a) => a.connect === "manual"), `${id}: by hand`);
     assert.ok(rows.some((a) => a.present === false && a.registration === "connected"), `${id}: connected, not installed`);
     assert.ok(agentsOf(machine).some((a) => a.connectMs >= 8000) && agentsOf(machine).some((a) => a.connectFails), `${id}: slow, failing`);
-    assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
+    if (id === "room-ready") assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
+  }
+  // Desktop local host: the remote machines answer with their agents by default; a failing search is the card's.
+  const desktop = scenarios.find((s) => s.id === "desktop-local-host");
+  const state = stateFor(desktop, {});
+  for (const id of ["nuc", "laptop"]) {
+    assert.ok(state.machines[id].reach !== "offline" && !state.machines[id].agentsFail && agentsOf(state.machines[id]).length >= 3, id);
+  }
+  assert.equal(new Set(agentsOf(state.machines.laptop).map((a) => a.registration)).size, 3, "the laptop's agents in a few states");
+  const search = desktop.options.find((o) => o.id === "nucAgents").values;
+  assert.deepEqual(search.map((v) => v.set["machines.nuc.agentsFail"]), [null, "connector-timeout", "no-connector"]);
+});
+
+test("Machine states seeds a machine in each state, a long name, one new agent, and this device in each of its states", async () => {
+  const states = (await loadMockScenarios()).find((s) => s.id === "machine-states");
+  assert.ok(states);
+  const state = stateFor(states, choicesFor(states));
+  const machines = Object.values(state.machines);
+  assert.ok(machines.every((m) => m.paired), "every one paired");
+  for (const [shows, is] of [
+    ["direct", (m) => m.reach === "direct" && !m.revoked && !m.insecure && !m.answersAfterMs],
+    ["room", (m) => m.reach === "room"],
+    ["slow", (m) => m.reach === "direct" && m.answersAfterMs > 0 && m.answersAfterMs < 4000],
+    ["offline", (m) => m.reach === "offline"],
+    ["revoked", (m) => m.reach === "direct" && m.revoked],
+    ["insecure", (m) => m.reach === "direct" && m.insecure && !m.revoked],
+  ]) assert.equal(machines.filter(is).length, 1, shows);
+  assert.ok(machines.some((m) => m.host.length > 30), "a long name");
+  // Exactly one new agent, on the NUC: every machine names its agents, since the default list has a new one.
+  const hosts = [...machines, state.local];
+  assert.ok(hosts.every((m) => Array.isArray(m.agents)), "each one's agents named");
+  const fresh = (m) => agentRows(agentsOf(m)).filter((a) => a.actionable && a.present && a.registration === "not-connected");
+  assert.equal(hosts.flatMap(fresh).length, 1);
+  assert.equal(fresh(state.machines.nuc).length, 1);
+  // The new setting is What's new's: set up on the release before, with a transcription model ready for it.
+  assert.equal(state.setup, "earlier");
+  assert.equal(state.voice.installed["whisper-base"], true);
+
+  // As the page finds them: the insecure one at its local network's address, the revoked one refusing this device.
+  const world = createWorld(states, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const idOf = (is) => Object.keys(state.machines).find((id) => is(state.machines[id]));
+  const [insecure, revoked] = [idOf((m) => m.insecure), idOf((m) => m.revoked)];
+  const kept = JSON.parse(seededStorage(world.state, identities, 0, { desktop: true })["sidevoice.pairings"]).pairings;
+  assert.deepEqual(kept.find((p) => p.fp === identities[insecure].fingerprint).urls, [lanUrl(insecure)]);
+  const ask = (id, path) => answer(world, identities, { pageOrigin: PAGE, url: `${directUrl(id)}${path}`, headers: { authorization: `Bearer ${identities[id].token}` } });
+  assert.equal((await ask(revoked, `/api/device/identity?nonce=${nonce()}`)).status, 200);
+  assert.equal((await ask(revoked, "/api/host/agents")).status, 401);
+
+  // This device in each of the five states it reads in, each value setting all it depends on.
+  const local = states.options.find((o) => o.id === "localState");
+  assert.deepEqual(local.values.map((v) => v.set["local.state"]), ["running", "starting", "failed", "stopped-by-person", "absent"]);
+  for (const value of local.values) {
+    const status = localStatus(stateFor(states, choicesFor(states, { localState: value.value })).local, 0);
+    assert.equal(status.state, value.value);
+    assert.equal(status.installed, value.value !== "absent", value.value);
+    assert.equal(!!status.failure, value.value === "failed", value.value);
+  }
+});
+
+test("every scenario runs in the desktop app: one with no local host gets one not installed", async () => {
+  for (const scenario of await loadMockScenarios()) {
+    const world = createWorld(scenario, {}, instant);
+    const identities = await makeIdentities(world.state);
+    const host = desktopHost(world, identities);
+    assert.ok(host.localHost, scenario.id);
+    if (!scenario.world.local) {
+      assert.equal(world.state.local.state, "absent", scenario.id);
+      assert.equal((await host.localHost.state()).installed, false, scenario.id);
+    }
   }
 });
 
@@ -409,6 +512,25 @@ test("a mocked run serves the shell, the mocks' target.js, its modules and scena
   assert.equal(await mockFile("/preview-mock/web-types.d.ts"), null);
   assert.equal(await mockFile("/preview-mock/scenarios/01-first-visit.json"), null);
   assert.equal(await mockFile("/voice/index.html"), null);
+});
+
+test("a module added to mock/ is served at once, and no name reaches outside it", async () => {
+  const added = new URL("../preview/mock/zz-added-for-test.mjs", import.meta.url);
+  assert.equal(await mockFile("/preview-mock/zz-added-for-test.mjs"), null, "not there yet");
+  await writeFile(added, "export const added = true;\n");
+  try {
+    const served = await mockFile("/preview-mock/zz-added-for-test.mjs");
+    assert.equal(served.type, "text/javascript");
+    assert.match(String(served.body), /added = true/);
+  } finally {
+    await rm(added, { force: true });
+  }
+  assert.equal(await mockFile("/preview-mock/zz-added-for-test.mjs"), null, "gone again");
+  assert.equal((await mockFile("/preview-mock/shell.css")).type, "text/css");
+  for (const name of ["../proxy.mjs", "..%2Fproxy.mjs", "%2e%2e/proxy.mjs", "scenarios/../shell.mjs", ".hidden.mjs", "frame.js",
+    "shell.html", "voice-options.json", "web-types.d.ts", "Shell.mjs", "scenarios", ""]) {
+    assert.equal(await mockFile(`/preview-mock/${name}`), null, name);
+  }
 });
 
 test("a storage step that never answers holds the preview up for its bound only", async () => {

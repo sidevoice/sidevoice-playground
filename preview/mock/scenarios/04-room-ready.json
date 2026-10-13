@@ -1,7 +1,7 @@
 {
   "id": "room-ready",
   "title": "Room ready: paired, set up, agents listening",
-  "summary": "Everyday use: this device finished its first-run setup and is paired with the NUC, whose agents are in the room. The page opens on the room; pick a conversation and talk. Seeded, to try removing them: this device, Chrome on Mac, and four others on the NUC (Safari on iPhone, Mac de Ana, Firefox on Windows, Edge on Windows) and one on the workstation (Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); a workstation (through the room) and an old laptop (off) paired too (Forget); the models in use and three not used for 12, 45 and 120 days (Delete); ElevenLabs' key connected, OpenAI's not. Agents on the NUC, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The workstation's agent search fails (timed out; the card makes it Sidevoice not running, or finds its three). New: Codex just found on the NUC, and a setting from What's new (set up on the release before).",
+  "summary": "Everyday use: this device finished its first-run setup and is paired with the NUC, whose agents are in the room. The page opens on the room; pick a conversation and talk. Seeded, to try removing them: this device, Chrome on Mac, and four others on the NUC (Safari on iPhone, Mac de Ana, Firefox on Windows, Edge on Windows) and one on the workstation (Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); a workstation (through the room) and an old laptop (off) paired too (Forget); the models in use and three not used for 12, 45 and 120 days (Delete); ElevenLabs' key connected, OpenAI's not. Agents on the NUC, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The workstation's agent search fails (timed out; the card makes it Sidevoice not running, or finds its three). New: Codex just found on the NUC, and a setting from What's new (set up on the release before). Seeded too: a transcript in the conversation on top (sidevoice-web on the NUC), six messages to read (the card empties it).",
   "view": "browser",
   "defaults": { "setup": "earlier", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
@@ -18,7 +18,14 @@
           { "id": "nuc-edge", "name": "Edge on Windows", "kind": "code", "daysAgo": 150, "seenDaysAgo": 70 }
         ],
         "participants": [
-          { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+          { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening", "history": [
+            { "role": "user", "text": "Morning. Did the overnight build pass?", "minutesAgo": 40 },
+            { "role": "assistant", "text": "It did, apart from one flaky test in the settings pane. It passed when I ran it again.", "minutesAgo": 39 },
+            { "role": "user", "text": "Can you look at why the transcript panel jumps when a new message comes in?", "minutesAgo": 25 },
+            { "role": "assistant", "text": "Found it. The panel scrolled to the bottom before the new message had its final height, so when the time and the delivery mark appeared a moment later, the list grew under it and the view landed a few pixels short before correcting itself. That is the jump. It now waits for the layout to settle before scrolling, and only follows new messages when you were already at the bottom, so reading older ones is never interrupted. I also added a test that holds the list at a fixed height and checks where it ends up after a message arrives.", "minutesAgo": 12 },
+            { "role": "user", "text": "Nice. Does it still build?", "minutesAgo": 10 },
+            { "role": "assistant", "text": "Yes, npm run build finishes cleanly. The change is in src/features/conversation/MessageList.tsx if you want a look.", "minutesAgo": 9 }
+          ] },
           { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
         ] },
       "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40, "agentsFail": "connector-timeout",
@@ -47,12 +54,26 @@
     ] },
     { "id": "agents", "group": "Agents on the NUC", "label": "Conversations", "values": [
       { "value": "two", "label": "two listening", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening", "history": [
+          { "role": "user", "text": "Morning. Did the overnight build pass?", "minutesAgo": 40 },
+          { "role": "assistant", "text": "It did, apart from one flaky test in the settings pane. It passed when I ran it again.", "minutesAgo": 39 },
+          { "role": "user", "text": "Can you look at why the transcript panel jumps when a new message comes in?", "minutesAgo": 25 },
+          { "role": "assistant", "text": "Found it. The panel scrolled to the bottom before the new message had its final height, so when the time and the delivery mark appeared a moment later, the list grew under it and the view landed a few pixels short before correcting itself. That is the jump. It now waits for the layout to settle before scrolling, and only follows new messages when you were already at the bottom, so reading older ones is never interrupted. I also added a test that holds the list at a fixed height and checks where it ends up after a message arrives.", "minutesAgo": 12 },
+          { "role": "user", "text": "Nice. Does it still build?", "minutesAgo": 10 },
+          { "role": "assistant", "text": "Yes, npm run build finishes cleanly. The change is in src/features/conversation/MessageList.tsx if you want a look.", "minutesAgo": 9 }
+        ] },
         { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] } },
       { "value": "none", "label": "none yet", "set": { "machines.nuc.participants": [] } },
       { "value": "many", "label": "many, mixed states", "set": { "machines.nuc.participants": [
-        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
+        { "title": "sidevoice-web", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening", "history": [
+          { "role": "user", "text": "Morning. Did the overnight build pass?", "minutesAgo": 40 },
+          { "role": "assistant", "text": "It did, apart from one flaky test in the settings pane. It passed when I ran it again.", "minutesAgo": 39 },
+          { "role": "user", "text": "Can you look at why the transcript panel jumps when a new message comes in?", "minutesAgo": 25 },
+          { "role": "assistant", "text": "Found it. The panel scrolled to the bottom before the new message had its final height, so when the time and the delivery mark appeared a moment later, the list grew under it and the view landed a few pixels short before correcting itself. That is the jump. It now waits for the layout to settle before scrolling, and only follows new messages when you were already at the bottom, so reading older ones is never interrupted. I also added a test that holds the list at a fixed height and checks where it ends up after a message arrives.", "minutesAgo": 12 },
+          { "role": "user", "text": "Nice. Does it still build?", "minutesAgo": 10 },
+          { "role": "assistant", "text": "Yes, npm run build finishes cleanly. The change is in src/features/conversation/MessageList.tsx if you want a look.", "minutesAgo": 9 }
+        ] },
         { "title": "release", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "holding", "detail": "Waiting for its turn to listen" },
         { "title": "sidevoice-core", "harness": "claude-code", "engine": {"model": "claude-opus-5-5", "effort": "high"}, "reach": "listening" },
         { "title": "notes", "harness": "cursor", "engine": {"model": "claude-sonnet-5-5", "effort": null}, "reach": "offline", "detail": "The agent's session ended", "remedy": "Open it again in Cursor" },
@@ -69,6 +90,10 @@
     { "id": "working", "group": "Agents on the NUC", "label": "Working now", "values": [
       { "value": "none", "label": "none", "set": { "machines.nuc.participants.1.working": null } },
       { "value": "release", "label": "release is working", "set": { "machines.nuc.participants.1.working": true } }
+    ] },
+    { "id": "transcript", "group": "Agents on the NUC", "label": "Transcript", "reload": true, "values": [
+      { "value": "seeded", "label": "seeded: a conversation to read", "set": { "transcript": "seeded" } },
+      { "value": "empty", "label": "empty: no history anywhere", "set": { "transcript": "empty" } }
     ] },
     { "id": "nucReach", "group": "The NUC", "label": "Answers", "values": [
       { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },

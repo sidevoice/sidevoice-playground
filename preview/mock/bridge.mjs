@@ -43,9 +43,14 @@ const INSTALL_STEPS = [
   { step: "service-start", total: null },
 ];
 
-/** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost? }`, as the bridge gives it:
- *  the app's voice and engine (voice.mjs, models.mjs), and its local host when the world has one. */
+/** This computer's local host where a scenario names none: not installed yet, as on a desktop app just opened. */
+export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", install: "ok", participants: [] };
+
+/** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost }`, as the bridge gives it:
+ *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
+ *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer. */
 export function desktopHost(world, identities) {
+  if (!world.state.local) world.patch({ local: NO_LOCAL_HOST });
   const local = () => world.state.local;
   const status = () => localStatus(local(), world.now());
   const set = (fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`local.${k}`, v])));
@@ -173,10 +178,76 @@ export function desktopHost(world, identities) {
   return {
     app: "sidevoice-desktop",
     version: "0.0.0-preview",
+    // The app's call settings (after sidevoice-desktop #56): the mute shortcut and the call controls always shown.
+    ...(world.state.app?.desktopSettings === false ? {} : { muteShortcut: muteShortcutOf(world), callControls: callControlsOf(world) }),
+    // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
+    build: buildOf(world.state.app?.channel ?? "release"),
+    // A release's updater (sidevoice-desktop #56): nothing to install in the preview, and the choice to download updates
+    // by itself, on by default, where the world offers it.
+    ...((world.state.app?.channel ?? "release") === "release" ? { updater: appUpdaterOf(world) } : {}),
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     engine: desktopEngine(world),
-    ...(local() ? { localHost } : {}),
+    localHost,
+  };
+}
+
+/** The mute shortcut as the app keeps it: set, refused by the system (another app has it), or not set; an accelerator
+ *  that is not a combination is refused as `shortcut_invalid`. One with Cmd+F5 clashes with VoiceOver. */
+function muteShortcutOf(world) {
+  const listeners = new Set();
+  const read = () => {
+    const app = world.state.app ?? {};
+    const accelerator = app.shortcut === undefined ? "Cmd+Shift+M" : app.shortcut;
+    const refused = app.shortcutRefused === true && !!accelerator;
+    return {
+      accelerator, label: accelerator ? accelerator.replace("Cmd", "⌘").replace("Shift", "⇧").replace("Alt", "⌥").replace("Ctrl", "⌃").replaceAll("+", "") : null,
+      state: !accelerator ? "off" : refused ? "refused" : "on",
+      alternatives: refused ? ["Cmd+Shift+;", "Cmd+Alt+M", "Ctrl+Shift+M"] : [],
+      voiceOver: /Cmd\+F5/.test(accelerator ?? ""),
+    };
+  };
+  return {
+    get: async () => read(),
+    async set(accelerator) {
+      if (accelerator !== null && !/^(Cmd|Ctrl|Alt|Shift)(\+(Cmd|Ctrl|Alt|Shift))*\+.+$/.test(accelerator)) throw Object.assign(new Error("shortcut_invalid"), { key: "shortcut_invalid" });
+      world.patch({ "app.shortcut": accelerator, "app.shortcutRefused": false });
+      const now = read();
+      for (const listener of listeners) listener(now);
+      return now;
+    },
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+  };
+}
+
+/** Whether the call controls show always, as the app keeps it. */
+function callControlsOf(world) {
+  return {
+    settings: async () => ({ alwaysShown: world.state.app?.alwaysShown === true }),
+    async setAlwaysShown(enabled) { world.patch({ "app.alwaysShown": !!enabled }); return { alwaysShown: !!enabled }; },
+  };
+}
+
+/** The desktop app's `host.build` for `channel`. Only a release would have an updater (`host.updater`); this mock
+ *  offers none on any channel. */
+function buildOf(channel) {
+  if (channel === "nightly") return { channel, version: "0.4.0", commit: "abc1234def", date: "2026-10-13T06:12:00Z" };
+  if (channel === "dev") return { channel, version: "0.4.0", commit: "0f1e2d3c" };
+  return { channel: "release", version: "0.4.0" };
+}
+
+/** The desktop app's updater: no update in the preview; downloading by itself kept in the world (`app.autoDownload`),
+ *  offered unless the world says this app predates it (`app.autoDownloadOffered`). */
+function appUpdaterOf(world) {
+  const updater = {
+    status: async () => ({ available: false }),
+    restart: async () => {},
+  };
+  if (world.state.app?.autoDownloadOffered === false) return updater;
+  return {
+    ...updater,
+    settings: async () => ({ autoDownload: world.state.app?.autoDownload !== false }),
+    setAutoDownload: async (enabled) => { world.patch({ "app.autoDownload": !!enabled }); return { autoDownload: !!enabled }; },
   };
 }
 

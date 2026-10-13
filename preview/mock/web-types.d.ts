@@ -11,3 +11,26 @@ export type {
   VoiceCallState, VoiceHost, VoiceSayEvent, VoiceSaying, VoiceSayOutcome, VoiceSettings, VoiceTurnEvent,
 } from "@sidevoice/voice";
 export type { CatalogStatus, LocalModelInfo, Progress, RemoteModelInfo, Voice } from "@sidevoice/engine";
+
+// A try's take: sidevoice-web's seam pending in @sidevoice/voice (the web's contract gap #40, its
+// apps/web/src/services/voice-take.ts). Declared here rather than imported, so that the mocks still check against a web
+// without it (a failed check refuses the mocked preview); once the voice module ships it, it comes from
+// "@sidevoice/voice" with the rest.
+import type { VoiceHost as Host } from "@sidevoice/voice";
+export interface VoiceTakeTurn {
+  turn_id: string;
+  speech_ms: number;
+  pauses: { from_ms: number; to_ms: number }[];
+  end_ms: number | null;
+}
+export interface VoiceTake {
+  sampleRate: number;
+  samples: Float32Array;
+  started_at: number;
+  ended_at: number;
+  turns: VoiceTakeTurn[];
+}
+export type TakingVoiceHost = Host & {
+  start(options?: { take?: boolean }): Promise<void>;
+  onTake?(listener: (take: VoiceTake) => void): () => void;
+};

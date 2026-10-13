@@ -200,8 +200,10 @@ its own code.
   OpenAI's and ElevenLabs' (listed with an accepted key; refused, missing or unreachable otherwise). Installs report
   progress and can be cancelled or fail; a local model's voices are listed once it is installed. No microphone is
   used: the card's **Speak** says its text into whatever listens (a transcription test, a call), and options make
-  the microphone denied or missing, the transcription silent or failing, and speech fail. Every scenario has these
-  options (`preview/mock/voice-options.json`).
+  the microphone denied or missing, the transcription silent or failing, and speech fail. A try that asks for its
+  take (the web's contract gap #40, pending in the voice module) is handed one as the voice stops: made up from what
+  it told — a voiced tone at its levels while the person spoke, quiet pauses, its turns' marks — or none, as the voice
+  0.3.x gives, with the option set so. Every scenario has these options (`preview/mock/voice-options.json`).
 - **Scenarios** are `preview/mock/scenarios/*.json`: a world (the page's target, the machines this device knows or
   could pair with, the desktop app's local host) and options, each value a set of fields it changes. An option marked
   ↻ reloads the page from the storage the world says it had; any other one is live.
@@ -209,6 +211,14 @@ its own code.
   pairing codes for each machine (valid, expired, used, plain http, damaged, another machine answering) to paste into
   the page; runs the world's time at ×1, ×4 or paused; and lists what the mocks were asked. Everything it picks is in
   the address: a link opens the same screen.
+- **The desktop app's floating card** stands beside the room in the app view: the web's real card page
+  (`/voice/call-controls.html`) in a frame of its own, given the app's card seam (`host.callControls`,
+  `preview/mock/card-host.mjs`) and fed from the room frame's store, level and caption, as the desktop bridge reads
+  them. It shows while the card is wanted (set up, and a call on in A or the voice on in B), stays a moment to say why
+  when the call or the voice ends by itself, and logs each command in the activity; its "Open Sidevoice" flashes the
+  room. "Behind the card"
+  switches what the translucent card sits on, and "Card: always show controls" is the app's setting. The card's
+  "Floating card states" puts the idle warning, an ending by itself and the agents muted (B) in the room's facts.
 - **Faithful to the web**: once a web commit is built, its own TypeScript checks the mocks against its types
   (`@sidevoice/protocol`, the desktop bridge's, the pairing's; `preview/mock/web-types.d.ts`), and a mocked start
   of a commit they do not match says where. **Faithful to the core**: `test/mock-conformance.test.mjs` asks the
@@ -265,7 +275,7 @@ engine-builds.mjs  the releases, pull requests and branches to pick from, listed
 release-builds.mjs  a release's tarball, checked against its SHA256SUMS, installed and served
 preview/        the Web preview: web-build.mjs (by checkout), archives.mjs (core, connector), runs.mjs,
                 proxy.mjs (the preview origin), index.mjs (its routes), dev.mjs (dev mode), scenarios/ (real core);
-                mock/: world.mjs, machines.mjs, bridge.mjs, models.mjs, voice.mjs, attach.mjs, chunks.mjs (the mocks),
+                mock/: world.mjs, machines.mjs, bridge.mjs, card-host.mjs, models.mjs, voice.mjs, attach.mjs, chunks.mjs (the mocks),
                 shell + card, scenarios/, voice-options.json
 refs.mjs        a git ref → its head commit → its CI artifact (engine or voice), verified, unzipped (zip.mjs) and served
 test/           node --test
