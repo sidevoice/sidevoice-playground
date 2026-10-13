@@ -177,7 +177,7 @@ export const VOICE_DEFAULTS = {
   lastUsed: {},
   lastUsedDaysAgo: {},
   keys: {},
-  install: "ok", installSlow: false, voicesOnceInstalled: true, providers: "ok", webgpu: true,
+  install: "ok", installSlow: false, uninstall: "ok", voicesOnceInstalled: true, providers: "ok", webgpu: true,
   mic: "granted", transcript: "Hola, ¿me oyes bien?", stt: "ok", tts: "ok",
   // Whether the voice hands a try's take (sidevoice-web contract gap #40; voice.mjs): false is @sidevoice/voice 0.3.x.
   take: true,
@@ -273,6 +273,15 @@ export function providerView(world, id, key) {
 }
 
 /** An engine error, as the engine's promises reject with. */
+/** Takes `model` off as the world says a delete goes: done; refused while it still downloads (`model-installing`); or
+ *  failed, with the engine's own words (`uninstall-failed`). */
+function uninstalling(world, model) {
+  const voice = voiceState(world);
+  if (voice.uninstall === "installing") throw engineError("model-installing");
+  if (voice.uninstall === "fail") throw engineError("uninstall-failed", `EBUSY: resource busy or locked, unlink '${model}/model.onnx'`);
+  world.patch({ "voice.installed": { ...voice.installed, [model]: false } });
+}
+
 const engineError = (code, detail) => Object.assign(new Error(code), { code, params: {}, ...(detail ? { detail } : {}) });
 
 /**
@@ -334,7 +343,7 @@ export function desktopEngine(world) {
     /** Takes a model off the computer, every build of it. The real bridge's engine has no `uninstall` yet (sidevoice-web
      *  #75's contract gaps): the mock offers it, so Delete and Remove all can be seen in the app too. @param {string} model */
     async uninstall(model) {
-      world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: false } });
+      uninstalling(world, model);
     },
   };
   /** @type {ModelCatalogs} The web's own interface: a member it needs that this lacks fails the check. */
@@ -382,7 +391,7 @@ export function webEngine(world, host) {
     install: (model, build, onProgress, signal) => installing(world, "browser", model, build, onProgress, signal),
     /** @param {string} model */
     async uninstall(model) {
-      world.patch({ "voice.installed": { ...voiceState(world).installed, [model]: false } });
+      uninstalling(world, model);
     },
     async load(model) {
       return catalog(LOCAL).load(model);
