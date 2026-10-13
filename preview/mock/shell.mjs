@@ -22,8 +22,6 @@ export const VARIANTS = [
     values: [{ value: "chip", label: "A · a chip above Settings" }, { value: "banner", label: "B · a slim banner at the top of the room" }] },
   { name: "machine-unencrypted", label: "Where Not encrypted is said", note: "A machine paired without encryption (scenario Machine states: the laboratory's server). Its page always says so, with why it matters.",
     values: [{ value: "list", label: "A · in the machines' list too: the open lock after its name" }, { value: "page", label: "B · only on the machine's page" }] },
-  { name: "pair-address", label: "The machine's address when pairing", note: "Where the address goes beside the code. A and B open it by themselves when the code says nowhere or its addresses don't reach the machine; C shows it always.",
-    values: [{ value: "disclosure", label: "A · a disclosure, like “How do I get a code?”" }, { value: "link", label: "B · a link that reveals it" }, { value: "always", label: "C · always visible" }] },
 ]
 
 function readVariants() {
