@@ -62,6 +62,13 @@
       { "value": "local-only", "label": "this computer only", "set": { "local.reach": "local-only" } },
       { "value": "room", "label": "through the room", "set": { "local.reach": "room" } }
     ] },
+    { "id": "muteShortcut", "group": "Desktop app", "label": "Mute shortcut", "reload": true, "values": [
+      { "value": "on", "label": "set (⌘⇧M)", "set": { "app.desktopSettings": true, "app.shortcut": "Cmd+Shift+M", "app.shortcutRefused": false } },
+      { "value": "refused", "label": "refused by the system (another app has it)", "set": { "app.desktopSettings": true, "app.shortcut": "Cmd+Shift+M", "app.shortcutRefused": true } },
+      { "value": "voiceover", "label": "clashes with VoiceOver (⌘F5)", "set": { "app.desktopSettings": true, "app.shortcut": "Cmd+F5", "app.shortcutRefused": false } },
+      { "value": "off", "label": "not set", "set": { "app.desktopSettings": true, "app.shortcut": null, "app.shortcutRefused": false } },
+      { "value": "absent", "label": "not offered (an older app)", "set": { "app.desktopSettings": false } }
+    ] },
     { "id": "update", "group": "Version", "label": "Update", "values": [
       { "value": "current", "label": "current", "set": { "local.update": "current", "local.bundledVersion": "0.3.0" } },
       { "value": "available", "label": "available (0.4.0)", "set": { "local.update": "available", "local.bundledVersion": "0.4.0" } },
