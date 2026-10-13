@@ -188,8 +188,15 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
     });
   };
   win.WebSocket = /** @type {any} */ (mockedWebSocket(win, { world, identities }));
-  // Restarting into an app update opens a new window: the page loads again.
-  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: () => win.location.reload() }) };
+  // Restarting into an app update opens a new window: the page loads again, its session (sessionStorage: what it hid
+  // for this run, an update notice's ×) started over, as a new window's is. The preview's own keys on this origin
+  // (sidevoice-preview.*: the world kept over a reload) stay.
+  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: () => {
+    try {
+      for (const key of Object.keys(win.sessionStorage)) if (!key.startsWith("sidevoice-preview.")) win.sessionStorage.removeItem(key);
+    } catch { /* Nothing kept. */ }
+    win.location.reload();
+  } }) };
   // The card's shortcut works with the page focused too.
   win.addEventListener("keydown", (event) => onKey?.(event), true);
 }
