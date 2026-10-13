@@ -513,6 +513,25 @@ test("a mocked run serves the shell, the mocks' target.js, its modules and scena
   assert.equal(await mockFile("/voice/index.html"), null);
 });
 
+test("a module added to mock/ is served at once, and no name reaches outside it", async () => {
+  const added = new URL("../preview/mock/zz-added-for-test.mjs", import.meta.url);
+  assert.equal(await mockFile("/preview-mock/zz-added-for-test.mjs"), null, "not there yet");
+  await writeFile(added, "export const added = true;\n");
+  try {
+    const served = await mockFile("/preview-mock/zz-added-for-test.mjs");
+    assert.equal(served.type, "text/javascript");
+    assert.match(String(served.body), /added = true/);
+  } finally {
+    await rm(added, { force: true });
+  }
+  assert.equal(await mockFile("/preview-mock/zz-added-for-test.mjs"), null, "gone again");
+  assert.equal((await mockFile("/preview-mock/shell.css")).type, "text/css");
+  for (const name of ["../proxy.mjs", "..%2Fproxy.mjs", "%2e%2e/proxy.mjs", "scenarios/../shell.mjs", ".hidden.mjs", "frame.js",
+    "shell.html", "voice-options.json", "web-types.d.ts", "Shell.mjs", "scenarios", ""]) {
+    assert.equal(await mockFile(`/preview-mock/${name}`), null, name);
+  }
+});
+
 test("a storage step that never answers holds the preview up for its bound only", async () => {
   const { bounded } = await import("../preview/mock/shell.mjs");
   const started = Date.now();

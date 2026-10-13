@@ -23,6 +23,7 @@ fn a_model_reads_as_the_web_build_lists_it() {
         }],
         speed: Some(SpeedRange { min: 0.5, max: 2.0 }),
         installed: false,
+        last_used_at: Some(1_760_000_000_000),
         builds: vec![
             ModelBuild {
                 id: "kokoro-82m-v1.0-sherpa-onnx-fp32".into(),
@@ -64,6 +65,7 @@ fn a_model_reads_as_the_web_build_lists_it() {
             "voices": [{ "id": "af_bella", "languages": ["en"], "gender": "female" }],
             "speed": { "min": 0.5, "max": 2.0 },
             "installed": false,
+            "lastUsedAt": 1_760_000_000_000u64,
             "builds": [
                 {
                     "id": "kokoro-82m-v1.0-sherpa-onnx-fp32", "backend": "sherpa-onnx", "accelerator": "coreml",

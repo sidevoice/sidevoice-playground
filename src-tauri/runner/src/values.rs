@@ -32,6 +32,10 @@ pub fn model(model: &LocalModelInfo) -> Value {
     if let Some(range) = model.speed {
         value["speed"] = speed(range);
     }
+    // When it was last loaded, in milliseconds since the epoch, as the web build has it: only when the engine knows.
+    if let Some(ms) = model.last_used_at {
+        value["lastUsedAt"] = json!(ms);
+    }
     value
 }
 
