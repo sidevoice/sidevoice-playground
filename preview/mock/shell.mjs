@@ -17,11 +17,7 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [
-  { name: "section-new-dot", label: "Where a section's “new” dot sits", note: "Settings' nav and its machines: the dot that says something new is under them (the thing itself says New).",
-    values: [{ value: "corner", label: "A · on the icon's top corner" }, { value: "side", label: "B · centred at the icon's side" },
-      { value: "label", label: "C · apart, just before the label" }, { value: "end", label: "D · at the row's end" }] },
-]
+export const VARIANTS = []
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
@@ -37,6 +33,13 @@ function pruneVariants() {
 /** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
 function drawVariants(body) {
   const picked = readVariants();
+  if (!VARIANTS.length) {
+    const none = document.createElement("p");
+    none.className = "variant-note";
+    none.textContent = "No open design questions right now.";
+    body.replaceChildren(none);
+    return;
+  }
   body.replaceChildren(...VARIANTS.map((variant) => {
     const group = document.createElement("fieldset");
     group.className = "variant";
