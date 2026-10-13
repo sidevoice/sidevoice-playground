@@ -106,6 +106,10 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       el("button", { type: "button", textContent: "You speak → sent", title: "The whole turn on the stage, on demand: your name and the bars, then what is sent, which leaves", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || "Can you check the build and tell me what failed?")) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
+      el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage (VARIANTS sent-repeat)", onclick: () => {
+        if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
+        else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
+      } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
         const at = where();
         if (at) {
@@ -366,6 +370,13 @@ function pageConversation(frame) {
 }
 const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** How long a simulated turn listens, and how long until it is sent (listening, then transcribing). */
+const LISTENING_MS = 1600;
+const SPOKEN_TURN_MS = 2500;
+/** "You speak twice": the second turn, said this long after the first is sent (inside its moment on the stage). */
+const AGAIN_SAMPLE = "Oh, and keep the old one as a fallback.";
+const AGAIN_AFTER_MS = 700;
+
 /** You speak: listening, then transcribing, then what you said in the conversation. */
 function simulateUser(frame, text) {
   const page = pageConversation(frame);
@@ -374,9 +385,9 @@ function simulateUser(frame, text) {
   const segment = "preview-you-" + ++simulated;
   void (async () => {
     store.patch({ userLive: true, userTurn: { id: segment, segment, thread }, pendingPhase: "listening", pendingUserText: "" });
-    await later(1600);
+    await later(LISTENING_MS);
     store.patch({ userLive: false, pendingPhase: "transcribing" });
-    await later(900);
+    await later(SPOKEN_TURN_MS - LISTENING_MS);
     const history = store.getState().facts.history;
     store.patch({ userTurn: null, pendingPhase: "", history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
   })();
