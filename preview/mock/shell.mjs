@@ -8,6 +8,7 @@
 import { createWorld, changedCount } from "./world.mjs";
 import { loadIdentities, makeIdentities, saveIdentities, seededStorage } from "./machines.mjs";
 import { attach, mockModule } from "./attach.mjs";
+import { cardHost } from "./card-host.mjs";
 
 // The design alternatives the web offers to compare (VARIANTS), and the panel that picks them (drawVariants). The page reads what is picked from
 // localStorage `sidevoice.variants` (`{ name: value }`; sidevoice-web src/lib/variants.ts), the same origin as this
@@ -16,9 +17,15 @@ import { attach, mockModule } from "./attach.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-const VARIANTS = [
+export const VARIANTS = [
   { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
+  { name: "working-badge", label: "Working, over the agent", note: "The stage: the spinner and \"Working…\" over the agent's head while it works (the desk shows it too).",
+    values: [{ value: "show", label: "A · shown" }, { value: "hide", label: "B · hidden (the desk says it)" }] },
+  { name: "floating-card", label: "Floating card (desktop app)",
+    note: "The card the desktop app floats over other apps while the room is minimised. Shown beside the room in the Desktop app view.",
+    values: [{ value: "today", label: "Today · the current card" }, { value: "pip", label: "1 · Compact PiP" }, { value: "caption", label: "2 · PiP + caption" },
+      { value: "strip", label: "3 · PiP + conversations" }, { value: "pill", label: "4 · Pill" }] },
 ]
 
 function readVariants() {
@@ -231,6 +238,7 @@ async function run(card) {
   let open = matchMedia("(min-width: 761px)").matches;
 
   const scenario = () => scenarios.find((s) => s.id === params.scenario) ?? scenarios[0];
+  const float = floatingCard(frame, device);
   const firstValues = () => Object.fromEntries(scenario().options.map((o) => [o.id, o.values[0].value]));
   const view = () => params.view ?? scenario().view ?? "browser";
   // The address is what a snapshot is for: it is taken again whenever the address changes.
@@ -240,7 +248,7 @@ async function run(card) {
   };
 
   window.__sidevoicePreview = {
-    attach: (win) => attach(win, { world, identities, desktop: view() === "app", onKey: shortcut }),
+    attach: (win) => attach(win, { world, identities, desktop: view() === "app", onKey: shortcut, card: () => float.host(() => world) }),
     module: (kind) => mockModule(kind, world),
   };
 
@@ -278,6 +286,7 @@ async function run(card) {
     remember();
     render();
     frame.src = "about:blank";
+    float.show(view() === "app");
     const local = seededStorage(world.state, identities, world.now(), { desktop: view() === "app" });
     if (!snapshot) {
       if (keep && !remake) overlay(local);
@@ -374,6 +383,61 @@ async function run(card) {
     if (keep) snapshot = restorable(sessionStorage.getItem(SNAPSHOT_KEY), scenario().id, location.search);
   } catch {}
   await load({ fresh: true, snapshot });
+}
+
+/**
+ * The desktop app's floating card beside the room (the Desktop app view only): the web's real card page in its own
+ * frame, its host (card-host.mjs) fed from the room frame, sized by what the card reports, shown while the card is
+ * wanted. Clicks elsewhere (the shell, the room) close its panels; the pointer over it holds its exit notice; its
+ * "Open Sidevoice" focuses the room and flashes its outline.
+ */
+function floatingCard(roomFrame, device) {
+  const aside = document.getElementById("float");
+  const cardFrame = /** @type {HTMLIFrameElement | null} */ (document.getElementById("float-frame"));
+  const wallpaper = aside?.querySelector(".wallpaper");
+  const expanded = /** @type {HTMLInputElement | null} */ (document.getElementById("float-expanded"));
+  const stage = document.getElementById("stage");
+  if (!aside || !cardFrame) return { host: () => null, show() {} };
+  /** The world the card's commands are logged in: the shell's, whichever scenario it is now. */
+  let worldNow = () => null;
+  const controller = cardHost(() => roomFrame.contentWindow, {
+    world: { log: (entry) => worldNow()?.log(entry) },
+    alwaysExpanded: () => !!expanded?.checked,
+    onLayout({ width, height }) {
+      cardFrame.style.width = width + "px";
+      cardFrame.style.height = height + "px";
+      stage?.style.setProperty("--float-w", width + "px");
+    },
+    onOpen() {
+      roomFrame.focus();
+      device.classList.add("flash");
+      setTimeout(() => device.classList.remove("flash"), 600);
+    },
+    onShow(shown) { cardFrame.hidden = !shown; },
+  });
+  expanded?.addEventListener("change", () => controller.refresh());
+  for (const button of aside.querySelectorAll("[data-behind]")) {
+    button.addEventListener("click", () => {
+      wallpaper?.setAttribute("data-behind", button.getAttribute("data-behind"));
+      for (const other of aside.querySelectorAll("[data-behind]")) other.classList.toggle("on", other === button);
+    });
+  }
+  cardFrame.addEventListener("pointerenter", () => controller.hold(true));
+  cardFrame.addEventListener("pointerleave", () => controller.hold(false));
+  addEventListener("pointerdown", (event) => { if (event.target !== cardFrame) controller.outsideClick(); }, true);
+  roomFrame.addEventListener("load", () => roomFrame.contentWindow?.addEventListener("pointerdown", () => controller.outsideClick(), true));
+  return {
+    host(world) {
+      worldNow = world;
+      return controller.host;
+    },
+    /** In the Desktop app view the card's page loads with the room; elsewhere there is no card. */
+    show(on) {
+      aside.hidden = !on;
+      cardFrame.hidden = true;
+      cardFrame.src = on ? "/voice/call-controls.html" : "about:blank";
+    },
+  };
 }
 
 if (typeof document !== "undefined") main();

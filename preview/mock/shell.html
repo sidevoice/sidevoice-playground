@@ -12,6 +12,18 @@
       <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="title">Sidevoice</span></div>
       <iframe id="app" title="Sidevoice" allow="microphone; camera; autoplay; speaker-selection; clipboard-read; clipboard-write"></iframe>
     </div>
+    <!-- The desktop app's floating call card (the web's call-controls.html), beside the room in the Desktop app view: fed
+         from the room frame's own store through the seam the app gives it (card-host.mjs). -->
+    <aside id="float" hidden aria-label="Floating card">
+      <div class="float-head"><strong>Floating card · desktop app</strong>
+        <span class="float-behind">Behind the card <span class="segmented"><button type="button" data-behind="light" class="on">light</button><button type="button" data-behind="dark">dark</button></span></span>
+        <label class="float-check"><input type="checkbox" id="float-expanded"> Card: always show controls</label>
+      </div>
+      <div class="wallpaper" data-behind="light">
+        <iframe id="float-frame" title="Floating card" hidden></iframe>
+        <p class="float-idle">The card shows here while a call is on (A) or voice is on (B), once setup is done.</p>
+      </div>
+    </aside>
   </main>
   <!-- What shows until the shell's script draws the card, and stays if it never does: the way out. -->
   <aside id="card" aria-label="Preview controls"><div class="card-header"><strong>PREVIEW</strong></div>

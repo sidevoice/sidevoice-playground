@@ -35,6 +35,11 @@
     { "value": "slow", "label": "works, slowly", "set": { "voice.install": "ok", "voice.installSlow": true } },
     { "value": "fail", "label": "fails half way", "set": { "voice.install": "fail", "voice.installSlow": false } }
   ] },
+  { "id": "uninstall", "group": "Models", "label": "A model's delete", "values": [
+    { "value": "ok", "label": "works", "set": { "voice.uninstall": "ok" } },
+    { "value": "installing", "label": "refused: still downloading", "set": { "voice.uninstall": "installing" } },
+    { "value": "fail", "label": "fails (the engine's own words in Details)", "set": { "voice.uninstall": "fail" } }
+  ] },
   { "id": "voices", "group": "Models", "label": "A local model's voices", "values": [
     { "value": "installed", "label": "listed once installed", "set": { "voice.voicesOnceInstalled": true } },
     { "value": "always", "label": "always listed", "set": { "voice.voicesOnceInstalled": false } }
