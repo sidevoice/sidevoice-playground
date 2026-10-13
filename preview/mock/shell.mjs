@@ -381,6 +381,10 @@ async function run(card) {
         } catch {}
         render();
       },
+      /** Loads the page again, the world kept: what a ↻ option does, for what the card changes in the world itself. */
+      reload() {
+        load();
+      },
     });
   }
 

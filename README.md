@@ -210,7 +210,10 @@ its own code.
 - **The card** (Alt+Shift+P, or its header, shows and hides it) picks the scenario, view, language and options; gives
   pairing codes for each machine (valid, expired, used, plain http, damaged, another machine answering) to paste into
   the page; runs the world's time at ×1, ×4 or paused; and lists what the mocks were asked. Everything it picks is in
-  the address: a link opens the same screen.
+  the address: a link opens the same screen. Its "Updates elsewhere", in any scenario and view, makes this computer's
+  Sidevoice behind the one the desktop app bundles (↻, in the Desktop app view) and the first paired machine behind
+  (its `/api/host/status` names the latest and a mock command; the page is asked to look again, live); these, like the
+  app updater's states, are the world's, not the address's.
 - **The desktop app's floating card** stands beside the room in the app view: the web's real card page
   (`/voice/call-controls.html`) in a frame of its own, given the app's card seam (`host.callControls`,
   `preview/mock/card-host.mjs`) and fed from the room frame's store, level and caption, as the desktop bridge reads
