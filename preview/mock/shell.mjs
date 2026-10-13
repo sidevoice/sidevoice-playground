@@ -23,6 +23,8 @@ export const VARIANTS = [
       { value: "banner", label: "B · a slim banner over the room, dismissible" }, { value: "foot", label: "D · a row at the conversations' foot (today's)" }] },
   { name: "updates-rows", label: "This computer in Settings › Updates", note: "The app and its service as two rows or one; remote machines stay their own rows below.",
     values: [{ value: "two", label: "B · two rows: Sidevoice app, Sidevoice service" }, { value: "one", label: "A · one row, Sidevoice: one version, one button" }] },
+  { name: "pair-address", label: "The machine's address when pairing", note: "Where the address goes beside the code. A and B open it by themselves when the code says nowhere or its addresses don't reach the machine; C shows it always.",
+    values: [{ value: "disclosure", label: "A · a disclosure, like “How do I get a code?”" }, { value: "link", label: "B · a link that reveals it" }, { value: "always", label: "C · always visible" }] },
 ]
 
 function readVariants() {
