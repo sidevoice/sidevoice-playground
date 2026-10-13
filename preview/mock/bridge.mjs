@@ -328,7 +328,7 @@ export function setUpdaterMode(world, mode) {
 export function setUpdaterState(world, id) {
   const step = UPDATER_STATES.find((s) => s.id === id);
   if (!step) return;
-  setUpdate(world, { ...step.set, installed: false });
+  setUpdate(world, step.set);
   if (step.set.state === "downloading" || autoDownloads(world)) startDownload(world);
 }
 
@@ -351,9 +351,10 @@ function driveDownload(world) {
 }
 
 /** The desktop app's updater (sidevoice-desktop #56), a release's or a nightly's: automatic or manual, and its state,
- *  kept in the world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in
- *  automatic mode what it finds downloads by itself (one found before and not downloaded too), in manual mode it stays
- *  available until `download`; a download moves on to ready on the world's clock; only a restart installs a ready one.
+ *  kept in the world (`app.update`). A check takes a moment and finds what the world has: nothing while it is idle (the
+ *  card's Idle is up to date: a check never makes one up), else the update the card stepped to; in automatic mode what
+ *  it finds downloads by itself (one found before and not downloaded too), in manual mode it stays available until
+ *  `download`; a download moves on to ready on the world's clock; only a restart installs a ready one.
  *  The card steps it to any state, failures too (UPDATER_STATES), and sets its mode (`setUpdaterMode`). */
 function appUpdaterOf(world) {
   const log = (call) => world.log({ method: "BRIDGE", url: `updater.${call}`, status: "ok", mocked: true });
@@ -383,15 +384,10 @@ function appUpdaterOf(world) {
     },
     async check() {
       await world.delay(1200);
-      const update = updateOf(world);
       log("check()");
-      if ((update.state ?? "idle") === "idle" && !update.installed) {
-        setUpdate(world, { state: "available", version: nextMinor(appVersion(world)), progress: null, error: null });
-        if (updaterMode(world) === "automatic") startDownload(world);
-      } else {
-        setUpdate(world, { error: null });
-        if (autoDownloads(world)) startDownload(world);
-      }
+      // What the world has, found again: idle stays idle (up to date); one found and not downloaded, in automatic, downloads.
+      setUpdate(world, { error: null });
+      if (autoDownloads(world)) startDownload(world);
       return updaterStatus(world);
     },
     async download() {
@@ -405,7 +401,7 @@ function appUpdaterOf(world) {
       if (updateOf(world).state !== "ready") return;
       // The app runs the update it installed: its number is that one's, and the next a check could find is after it.
       world.patch({ "app.version": updaterStatus(world).version });
-      setUpdate(world, { state: "idle", version: null, progress: null, error: null, installed: true });
+      setUpdate(world, { state: "idle", version: null, progress: null, error: null });
       // A new app brings a newer service: this computer's is behind it now, if it was not already.
       const local = world.state.local;
       if (local && local.state !== "absent" && local.installed !== false && (local.update ?? "current") === "current") setLocalBehind(world, true);
