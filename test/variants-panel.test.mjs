@@ -20,6 +20,10 @@ test("section-new: a New pill (the default), a count, a dot; it replaces new-mar
   assert.equal(values("new-mark"), undefined);
 });
 
+test("updates-section: on This device (the default) or a section of their own", () => {
+  assert.deepEqual(values("updates-section"), ["this-device", "section"]);
+});
+
 test("one entry per variant", () => {
   const names = VARIANTS.map((variant) => variant.name);
   assert.equal(new Set(names).size, names.length);

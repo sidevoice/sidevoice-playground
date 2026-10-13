@@ -31,6 +31,8 @@ export const VARIANTS = [
     values: [{ value: "show", label: "A · shown" }, { value: "hide", label: "B · hidden" }] },
   { name: "section-new", label: "“New” on a section", note: "How a Settings section and a machine show something new under them. The gear always says how many; the thing itself always says New.",
     values: [{ value: "pill", label: "A · a “New” pill at the entry's end" }, { value: "count", label: "B · how many, at the entry's end" }, { value: "dot", label: "C · a dot on the entry's icon" }] },
+  { name: "updates-section", label: "Updates in Settings (desktop app)", note: "Where the desktop app's version and updates (Automatic/Manual, Check for updates, a nightly's line) live in Settings.",
+    values: [{ value: "this-device", label: "A · on This device's card" }, { value: "section", label: "B · a section of their own, Updates" }] },
 ]
 
 function readVariants() {
