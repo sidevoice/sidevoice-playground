@@ -8,7 +8,7 @@ import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScen
 import {
   LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
-import { desktopHost, localStatus } from "../preview/mock/bridge.mjs";
+import { UPDATER_STATES, UPDATE_VERSION, desktopHost, localStatus, setUpdaterState } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
 
 const PAGE = "https://preview.example";
@@ -324,6 +324,61 @@ test("an install fails where the world says, with the key and step the page read
   assert.equal(await local.cancel(install.job), true);
   await assert.rejects(install, (error) => error.key === "install.cancelled");
   assert.equal(await local.cancel("nope"), false);
+});
+
+test("a release's updater: automatic downloads what a check finds, manual waits for download, a restart installs", async () => {
+  const { world, identities } = await setup();
+  const updater = desktopHost(world, identities).updater;
+  assert.deepEqual(await updater.settings(), { mode: "automatic" });
+  assert.deepEqual(await updater.status(), { state: "idle" });
+  const seen = [];
+  const stop = updater.subscribe((status) => seen.push(status.state));
+  // Automatic: a check finds it and it downloads by itself, its progress moving, to ready.
+  assert.equal((await updater.check()).state, "downloading");
+  while ((await updater.status()).state === "downloading") await new Promise((r) => setImmediate(r));
+  assert.deepEqual(await updater.status(), { state: "ready", version: UPDATE_VERSION });
+  assert.deepEqual([...new Set(seen)], ["available", "downloading", "ready"]);
+  await updater.restart();
+  assert.deepEqual(await updater.status(), { state: "idle" });
+  // Installed: the next check finds nothing.
+  assert.equal((await updater.check()).state, "idle");
+  // Manual: what a check finds waits for download().
+  assert.deepEqual(await updater.setMode("manual"), { mode: "manual" });
+  setUpdaterState(world, "idle");
+  assert.deepEqual(await updater.check(), { state: "available", version: UPDATE_VERSION });
+  assert.equal((await updater.download()).state, "downloading");
+  const progress = [];
+  while ((await updater.status()).state === "downloading") {
+    progress.push((await updater.status()).progress);
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(progress.some((p) => p > 0 && p < 1));
+  assert.equal((await updater.status()).state, "ready");
+  stop();
+  await assert.rejects(updater.setMode("sometimes"));
+});
+
+test("the card steps the updater to each state, failures with their codes, and a nightly or development build has none", async () => {
+  const { world, identities } = await setup();
+  const updater = desktopHost(world, identities).updater;
+  const expected = {
+    idle: { state: "idle" }, available: { state: "available", version: UPDATE_VERSION }, ready: { state: "ready", version: UPDATE_VERSION },
+    "check-failed": { state: "idle", error: { code: "update-check-failed" } },
+    "download-failed": { state: "available", version: UPDATE_VERSION, error: { code: "update-download-failed" } },
+    "install-failed": { state: "ready", version: UPDATE_VERSION, error: { code: "update-install-failed" } },
+  };
+  for (const { id } of UPDATER_STATES) {
+    setUpdaterState(world, id);
+    if (id === "downloading") assert.equal((await updater.status()).state, "downloading");
+    else assert.deepEqual(await updater.status(), expected[id], id);
+  }
+  // A retry clears the failure.
+  setUpdaterState(world, "check-failed");
+  assert.equal((await updater.check()).error, undefined);
+  for (const channel of ["nightly", "dev"]) {
+    world.patch({ "app.channel": channel });
+    assert.equal(desktopHost(world, identities).updater, undefined, channel);
+  }
 });
 
 test("a backing-off local host says when it tries again", () => {

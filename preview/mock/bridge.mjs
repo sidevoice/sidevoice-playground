@@ -182,8 +182,8 @@ export function desktopHost(world, identities) {
     ...(world.state.app?.desktopSettings === false ? {} : { muteShortcut: muteShortcutOf(world), callControls: callControlsOf(world) }),
     // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
     build: buildOf(world.state.app?.channel ?? "release"),
-    // A release's updater (sidevoice-desktop #56): nothing to install in the preview, and the choice to download updates
-    // by itself, on by default, where the world offers it.
+    // A release's updater (sidevoice-desktop #56): its mode and its state are the world's (`app.update`), stepped from
+    // the card or a scenario's options, and heard by the page as they change.
     ...((world.state.app?.channel ?? "release") === "release" ? { updater: appUpdaterOf(world) } : {}),
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
@@ -228,26 +228,128 @@ function callControlsOf(world) {
   };
 }
 
-/** The desktop app's `host.build` for `channel`. Only a release would have an updater (`host.updater`); this mock
- *  offers none on any channel. */
+/** The desktop app's `host.build` for `channel`. Only a release has an updater (`host.updater`). */
 function buildOf(channel) {
   if (channel === "nightly") return { channel, version: "0.4.0", commit: "abc1234def", date: "2026-10-13T06:12:00Z" };
   if (channel === "dev") return { channel, version: "0.4.0", commit: "0f1e2d3c" };
   return { channel: "release", version: "0.4.0" };
 }
 
-/** The desktop app's updater: no update in the preview; downloading by itself kept in the world (`app.autoDownload`),
- *  offered unless the world says this app predates it (`app.autoDownloadOffered`). */
-function appUpdaterOf(world) {
-  const updater = {
-    status: async () => ({ available: false }),
-    restart: async () => {},
-  };
-  if (world.state.app?.autoDownloadOffered === false) return updater;
+/** The version a check finds, in the preview. */
+export const UPDATE_VERSION = "0.5.0";
+
+/** The updater's states the card steps through, and the world's `app.update` fields each one sets. A failure is the
+ *  state it leaves the updater in, with its error; the next check, download or restart clears it. */
+export const UPDATER_STATES = [
+  { id: "idle", label: "Idle", set: { state: "idle", progress: null, error: null } },
+  { id: "available", label: "Available", set: { state: "available", progress: null, error: null } },
+  { id: "downloading", label: "Downloading", set: { state: "downloading", progress: 0, error: null } },
+  { id: "ready", label: "Ready", set: { state: "ready", progress: null, error: null } },
+  { id: "check-failed", label: "Check failed", set: { state: "idle", progress: null, error: "update-check-failed" } },
+  { id: "download-failed", label: "Download failed", set: { state: "available", progress: null, error: "update-download-failed" } },
+  { id: "install-failed", label: "Install failed", set: { state: "ready", progress: null, error: "update-install-failed" } },
+];
+
+const updateOf = (world) => world.state.app?.update ?? {};
+const setUpdate = (world, fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`app.update.${k}`, v])));
+/** The updater's mode: automatic unless the world says manual. */
+export const updaterMode = (world) => updateOf(world).mode === "manual" ? "manual" : "automatic";
+
+/** The updater's status (sidevoice-desktop #56 `UpdaterStatus`), from the world's `app.update`. */
+export function updaterStatus(world) {
+  const update = updateOf(world);
+  const state = ["available", "downloading", "ready"].includes(update.state) ? update.state : "idle";
   return {
-    ...updater,
-    settings: async () => ({ autoDownload: world.state.app?.autoDownload !== false }),
-    setAutoDownload: async (enabled) => { world.patch({ "app.autoDownload": !!enabled }); return { autoDownload: !!enabled }; },
+    state,
+    ...(state !== "idle" ? { version: update.version ?? UPDATE_VERSION } : {}),
+    ...(state === "downloading" ? { progress: Math.max(0, Math.min(1, update.progress ?? 0)) } : {}),
+    ...(update.error ? { error: { code: update.error } } : {}),
+  };
+}
+
+/** The card's step `id` (UPDATER_STATES): its fields set, and a download moving on from there. */
+export function setUpdaterState(world, id) {
+  const step = UPDATER_STATES.find((s) => s.id === id);
+  if (!step) return;
+  setUpdate(world, { ...step.set, installed: false });
+  if (step.set.state === "downloading") void driveDownload(world);
+}
+
+/** Moves a download on to ready on the world's clock, while the world says it is downloading: once, however many ask. */
+function driveDownload(world) {
+  if (world.updaterJob) return world.updaterJob;
+  world.updaterJob = (async () => {
+    try {
+      while (updateOf(world).state === "downloading") {
+        await world.delay(200);
+        if (updateOf(world).state !== "downloading") return;
+        const progress = Math.min(1, (updateOf(world).progress ?? 0) + 0.05);
+        setUpdate(world, progress >= 1 ? { state: "ready", progress: null } : { progress });
+      }
+    } finally {
+      world.updaterJob = null;
+    }
+  })();
+  return world.updaterJob;
+}
+
+/** The desktop app's updater (sidevoice-desktop #56), a release's: automatic or manual, and its state, kept in the
+ *  world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in automatic mode
+ *  what it finds downloads by itself, in manual mode `download` does; a download moves on to ready on the world's clock;
+ *  a restart installs a ready one. The card steps it to any state, failures too (UPDATER_STATES). */
+function appUpdaterOf(world) {
+  const log = (call) => world.log({ method: "BRIDGE", url: `updater.${call}`, status: "ok", mocked: true });
+  const startDownload = () => {
+    setUpdate(world, { state: "downloading", progress: 0, error: null });
+    void driveDownload(world);
+  };
+  return {
+    settings: async () => ({ mode: updaterMode(world) }),
+    async setMode(mode) {
+      if (mode !== "automatic" && mode !== "manual") throw Object.assign(new Error("mode-invalid"), { code: "mode-invalid" });
+      setUpdate(world, { mode });
+      log(`setMode(${mode})`);
+      // Automatic downloads what was found and not downloaded yet.
+      if (mode === "automatic" && updateOf(world).state === "available" && !updateOf(world).error) startDownload();
+      return { mode };
+    },
+    async status() {
+      if (updateOf(world).state === "downloading") void driveDownload(world);
+      return updaterStatus(world);
+    },
+    subscribe(listener) {
+      let last = JSON.stringify(updaterStatus(world));
+      return world.subscribe(() => {
+        // A download a scenario's option set moves on too.
+        if (updateOf(world).state === "downloading") void driveDownload(world);
+        const next = updaterStatus(world);
+        const text = JSON.stringify(next);
+        if (text !== last) {
+          last = text;
+          listener(next);
+        }
+      });
+    },
+    async check() {
+      await world.delay(1200);
+      const update = updateOf(world);
+      log("check()");
+      if ((update.state ?? "idle") === "idle" && !update.installed) {
+        setUpdate(world, { state: "available", version: UPDATE_VERSION, progress: null, error: null });
+        if (updaterMode(world) === "automatic") startDownload();
+      } else setUpdate(world, { error: null });
+      return updaterStatus(world);
+    },
+    async download() {
+      log("download()");
+      if (updateOf(world).state === "available") startDownload();
+      return updaterStatus(world);
+    },
+    async restart() {
+      log("restart()");
+      await world.delay(800);
+      if (updateOf(world).state === "ready") setUpdate(world, { state: "idle", progress: null, error: null, installed: true });
+    },
   };
 }
 
