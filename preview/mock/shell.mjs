@@ -26,10 +26,13 @@ export const VARIANTS = [
     note: "The card the desktop app floats over other apps while the room is minimised. Shown beside the room in the Desktop app view.",
     values: [{ value: "today", label: "Today · the current card" }, { value: "pip", label: "1 · Compact PiP" }, { value: "caption", label: "2 · PiP + caption" },
       { value: "strip", label: "3 · PiP + conversations" }, { value: "pill", label: "4 · Pill" }] },
-  { name: "machine-state", label: "Machine state", note: "How a machine's connection state reads beside its icon: Settings' nav, a phone's machine list, the machine's page.",
-    values: [{ value: "word", label: "A · a word under the name" }, { value: "pill", label: "B · a pill under the name" }] },
-  { name: "new-mark", label: "“New” marks", note: "What the gear, a section and a machine show when something under them is new; the thing itself always says New.",
-    values: [{ value: "sparkle", label: "A · a purple sparkle" }, { value: "pill", label: "B · a “New” pill (a count on the gear)" }, { value: "dot", label: "C · a dot in Settings' nav only (a count on the gear)" }] },
+  { name: "machine-state", label: "Machine state", note: "How a machine's connection shows where it is listed (Settings' nav, a phone's list); its page always says it in words. Under all three, Not paired and This device's Not working are said in words.",
+    values: [{ value: "dot", label: "A · a green dot on the icon while connected" }, { value: "dot-tip", label: "B · the dot, and the state in a tooltip (hover, keyboard focus)" },
+      { value: "word-off", label: "C · no dot; a short word only while not connected" }] },
+  { name: "machine-state-this-device", label: "Machine state on This device", note: "Whether This device's entry shows its state at all (as Machine state picks). Hidden, it still says Not working.",
+    values: [{ value: "show", label: "A · shown" }, { value: "hide", label: "B · hidden" }] },
+  { name: "section-new", label: "“New” on a section", note: "How a Settings section and a machine show something new under them. The gear always says how many; the thing itself always says New.",
+    values: [{ value: "pill", label: "A · a “New” pill at the entry's end" }, { value: "count", label: "B · how many, at the entry's end" }, { value: "dot", label: "C · a dot on the entry's icon" }] },
 ]
 
 function readVariants() {
