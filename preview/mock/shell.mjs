@@ -17,7 +17,13 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = []
+export const VARIANTS = [
+  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits. What it can do there it does; otherwise it opens Settings › Updates on the row's button.",
+    values: [{ value: "brand", label: "C · an update icon by the brand, its popover with the action" }, { value: "gear", label: "A · a mark on the Settings gear; the action in Settings › Updates" },
+      { value: "banner", label: "B · a slim banner over the room, dismissible" }, { value: "foot", label: "D · a row at the conversations' foot (today's)" }] },
+  { name: "updates-rows", label: "This computer in Settings › Updates", note: "The app and its service as two rows or one; remote machines stay their own rows below.",
+    values: [{ value: "two", label: "B · two rows: Sidevoice app, Sidevoice service" }, { value: "one", label: "A · one row, Sidevoice: one version, one button" }] },
+]
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }

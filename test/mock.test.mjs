@@ -10,6 +10,8 @@ import {
 } from "../preview/mock/machines.mjs";
 import { UPDATER_STATES, UPDATE_VERSION, desktopHost, hasAppUpdater, localStatus, setUpdaterState } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
+import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
+import { nextMinor } from "../preview/mock/machines.mjs";
 
 const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
@@ -377,10 +379,10 @@ test("a release's updater: automatic downloads what a check finds, manual waits 
   assert.deepEqual(await updater.status(), { state: "idle" });
   // Installed: the next check finds nothing.
   assert.equal((await updater.check()).state, "idle");
-  // Manual: what a check finds waits for download().
+  // Manual: what a check finds waits for download() — the one after the app's, now UPDATE_VERSION's.
   assert.deepEqual(await updater.setMode("manual"), { mode: "manual" });
   setUpdaterState(world, "idle");
-  assert.deepEqual(await updater.check(), { state: "available", version: UPDATE_VERSION });
+  assert.deepEqual(await updater.check(), { state: "available", version: nextMinor(UPDATE_VERSION) });
   assert.equal((await updater.download()).state, "downloading");
   const progress = [];
   while ((await updater.status()).state === "downloading") {
@@ -654,9 +656,33 @@ test("each machine answers its own conversations and history, at its own address
   assert.equal((await ask(`${ROOM_URL}/nodes/ws/api/presentation/history`, "nuc")).status, 401, "another machine's token");
 });
 
+test("the app's version and its update's are coherent: an update is newer, a restart runs it and brings a newer service", async () => {
+  const { world, identities } = await setup();
+  world.patch({ local: { state: "running", installed: true, version: LOCAL_VERSION, bundledVersion: LOCAL_VERSION, update: "current" } });
+  const relaunched = [];
+  const host = desktopHost(world, identities, { relaunch: () => relaunched.push(true) });
+  // Two products, two numbers, each offered a newer one: the app 0.3.0 → 0.4.0, the service 0.8.1 → 0.9.0.
+  assert.deepEqual([host.build.version, APP_VERSION, UPDATE_VERSION, LOCAL_VERSION], ["0.3.0", "0.3.0", "0.4.0", "0.8.1"]);
+  setUpdaterState(world, "ready");
+  assert.equal((await host.updater.status()).version, "0.4.0");
+  await host.updater.restart();
+  // The app runs what it installed, the page loads again, and the new app bundles a newer service than the one installed.
+  assert.equal(host.build.version, "0.4.0");
+  assert.deepEqual(relaunched, [true]);
+  const service = await host.localHost.version();
+  assert.deepEqual([service.update, service.installed?.version, service.bundled.version], ["available", "0.8.1", "0.9.0"]);
+  assert.equal(host.localHost.state().product_version, "0.8.1", "the service says the number installed, as version() does");
+  // Stepped to available again, the app is offered the one after the one it runs, never the one it runs.
+  setUpdaterState(world, "available");
+  assert.equal((await host.updater.status()).version, "0.5.0");
+});
+
 test("a machine's Sidevoice version is the scenario's, and unknown when it says none", async () => {
-  assert.equal(localStatus({ state: "running" }, 0).product_version, null);
-  assert.equal(localStatus({ state: "running", productVersion: "0.8.1" }, 0).product_version, "0.8.1");
+  // This computer's service says the number installed (the same version() says), unless the scenario has it say none.
+  assert.equal(localStatus({ state: "running" }, 0).product_version, LOCAL_VERSION);
+  assert.equal(localStatus({ state: "running", version: "0.9.0" }, 0).product_version, "0.9.0");
+  assert.equal(localStatus({ state: "running", saysVersion: false }, 0).product_version, null);
+  assert.equal(localStatus({ state: "absent" }, 0).product_version, null);
   const { world, identities, ask } = await setup();
   const status = () => ask(`${directUrl("nuc")}/api/host/status`, { headers: { authorization: `Bearer ${identities.nuc.token}` } });
   assert.deepEqual((await status()).body, { version: null });

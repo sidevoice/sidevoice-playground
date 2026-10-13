@@ -7,6 +7,7 @@ import {
   CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, firstPaired, hostStatus, liveCall, machineOf, mintCode, participantsOf, remoteBehind,
   setRemoteBehind,
 } from "./machines.mjs";
+import { appVersion } from "./bridge.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
 import { LOCAL_VERSION, UPDATER_STATES, hasAppUpdater, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
@@ -329,7 +330,7 @@ function updaterLine(world) {
   if (!hasAppUpdater(world)) return `A ${world.state.app?.channel} build has no updater: pick a release or nightly build to try it.`;
   const status = updaterStatus(world);
   const progress = status.state === "downloading" ? ` ${Math.round((status.progress ?? 0) * 100)}%` : "";
-  return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
+  return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · app ${appVersion(world)} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
 }
 
 /** This computer's Sidevoice, in a line: what the app's local host says of its version (`version()`), and what keeps its
@@ -339,10 +340,10 @@ export function localUpdateLine(world, view = "app") {
   if (!local) return "No Sidevoice on this computer here: the Desktop app view gives every scenario one.";
   const installed = local.version ?? LOCAL_VERSION, bundled = local.bundledVersion ?? LOCAL_VERSION;
   const said = local.update === "available" ? `behind: the app bundles ${bundled}` : `${local.update ?? "current"} (the app bundles ${bundled})`;
-  const channel = world.state.app?.channel ?? "release";
+  // The page offers its Update where the app updates itself: a release, and a nightly with its updater (#69).
   const why = view !== "app" ? " Seen in the Desktop app view only."
     : local.state !== "running" ? " Not running: install or start it in the page for its row."
-    : channel !== "release" ? ` A ${channel} build offers no update of it: pick a release build.` : "";
+    : !hasAppUpdater(world) ? ` A ${world.state.app?.channel} build offers no update of it: pick a release or nightly build.` : "";
   return `${installed}, ${said}.${why}`;
 }
 
