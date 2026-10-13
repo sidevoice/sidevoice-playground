@@ -18,6 +18,8 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
+  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits; both say the same, act the same (Download, Restart, Reload) and hide by their × until a newer version or a restart.",
+    values: [{ value: "chip", label: "A · a chip above Settings" }, { value: "banner", label: "B · a slim banner at the top of the room" }] },
   { name: "machine-unencrypted", label: "Where Not encrypted is said", note: "A machine paired without encryption (scenario Machine states: the laboratory's server). Its page always says so, with why it matters.",
     values: [{ value: "list", label: "A · in the machines' list too: the open lock after its name" }, { value: "page", label: "B · only on the machine's page" }] },
   { name: "pair-address", label: "The machine's address when pairing", note: "Where the address goes beside the code. A and B open it by themselves when the code says nowhere or its addresses don't reach the machine; C shows it always.",
