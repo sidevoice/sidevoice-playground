@@ -18,10 +18,6 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits. What it can do there it does (Download, Restart, Reload); otherwise it opens Settings › Updates on the row's button.",
-    values: [{ value: "banner", label: "B1 · a slim banner over the room, dismissible" },
-      { value: "beside-settings", label: "B2 · the banner's look as a chip in Settings' row (the rail: an icon above the gear)" },
-      { value: "foot", label: "D · reference: today's quiet row above Settings" }] },
   { name: "updates-rows", label: "This computer in Settings › Updates", note: "The app and its service as two rows or one; remote machines stay their own rows below.",
     values: [{ value: "two", label: "B · two rows: Sidevoice app, Sidevoice service" }, { value: "one", label: "A · one row, Sidevoice: one version, one button" }] },
   { name: "machine-unencrypted", label: "Where Not encrypted is said", note: "A machine paired without encryption (scenario Machine states: the laboratory's server). Its page always says so, with why it matters.",
