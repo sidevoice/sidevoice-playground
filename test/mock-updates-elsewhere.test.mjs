@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import {
-  MOCK_UPDATE_COMMAND, SERVICE_VERSION, answer, directUrl, firstPaired, hostStatus, makeIdentities, mintCode, nextMinor, remoteBehind, setRemoteBehind,
+  SERVICE_VERSION, UPDATE_COMMAND, answer, directUrl, firstPaired, hostStatus, makeIdentities, mintCode, nextMinor, remoteBehind, setRemoteBehind,
 } from "../preview/mock/machines.mjs";
 import { LOCAL_VERSION, desktopHost, localBehind, setLocalBehind } from "../preview/mock/bridge.mjs";
 import { localUpdateLine, remoteUpdateLine } from "../preview/mock/card.mjs";
@@ -32,9 +32,10 @@ test("a version a minor on", () => {
   assert.equal(nextMinor(SERVICE_VERSION), "0.9.0", "this computer's service and every machine's count alike");
 });
 
-test("the mocked update command says it is a mock and names no address", () => {
-  assert.match(MOCK_UPDATE_COMMAND, /# mock command$/);
-  assert.doesNotMatch(MOCK_UPDATE_COMMAND, /https?:|:\/\/|\bcurl\b|\bwget\b|\.sh\b|@latest/);
+test("a machine behind names the documented update command, never a placeholder", () => {
+  // The connector's README: `npx sidevoice install` installs or updates; @latest, the newest package rather than a cached one.
+  assert.equal(UPDATE_COMMAND, "npx sidevoice@latest install");
+  assert.doesNotMatch(UPDATE_COMMAND, /#|mock/i);
 });
 
 test("this computer's Sidevoice is behind or current in every scenario, in the Desktop app view", async () => {
@@ -116,7 +117,7 @@ test("the first paired machine's status says it is behind, with the latest and t
 
     assert.equal(setRemoteBehind(world, true), id, scenario.id);
     assert.equal(remoteBehind(world), true, scenario.id);
-    assert.deepEqual(await status(id), { version, update: { latest: nextMinor(version), command: MOCK_UPDATE_COMMAND } }, scenario.id);
+    assert.deepEqual(await status(id), { version, update: { latest: nextMinor(version), command: UPDATE_COMMAND } }, scenario.id);
     assert.match(remoteUpdateLine(world), new RegExp(`behind: ${nextMinor(version).replaceAll(".", "\\.")}`), scenario.id);
     // Only the first paired machine: the others answer as they did.
     for (const other of Object.keys(world.state.machines).filter((m) => m !== id)) {
@@ -141,7 +142,7 @@ test("a machine that does not know its version is still behind, and the first pa
   const { world } = await setup(scenario);
   assert.equal(firstPaired(world.state), "nuc");
   setRemoteBehind(world, true);
-  assert.deepEqual(hostStatus(world.state.machines.nuc), { version: null, update: { latest: "0.9.0", command: MOCK_UPDATE_COMMAND } });
+  assert.deepEqual(hostStatus(world.state.machines.nuc), { version: null, update: { latest: "0.9.0", command: UPDATE_COMMAND } });
   assert.match(remoteUpdateLine(world), /^NUC: no version, behind: 0\.9\.0\. It does not answer now/);
   world.patch({ "machines.nuc.revoked": true });
   assert.equal(firstPaired(world.state), null);
