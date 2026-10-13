@@ -74,6 +74,17 @@ test("updating this machine from the page leaves it current, and the card's togg
   assert.equal(local.state().product_version, "0.9.0");
 });
 
+test("the card's line says a build offers no update of this computer's service only where the app has no updater", async () => {
+  const scenario = (await loadMockScenarios()).find((s) => s.id === "desktop-local-host");
+  const { world } = await setup(scenario);
+  for (const channel of ["release", "nightly"]) {
+    world.patch({ "app.channel": channel });
+    assert.doesNotMatch(localUpdateLine(world), /offers no update/, channel);
+  }
+  world.patch({ "app.channel": "dev" });
+  assert.match(localUpdateLine(world), /A dev build offers no update of it: pick a release or nightly build\.$/);
+});
+
 test("without a local host, the toggle makes none up", async () => {
   const scenario = (await loadMockScenarios()).find((s) => s.id === "paired-machines");
   const { world } = await setup(scenario);

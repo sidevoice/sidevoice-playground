@@ -340,10 +340,10 @@ export function localUpdateLine(world, view = "app") {
   if (!local) return "No Sidevoice on this computer here: the Desktop app view gives every scenario one.";
   const installed = local.version ?? LOCAL_VERSION, bundled = local.bundledVersion ?? LOCAL_VERSION;
   const said = local.update === "available" ? `behind: the app bundles ${bundled}` : `${local.update ?? "current"} (the app bundles ${bundled})`;
-  const channel = world.state.app?.channel ?? "release";
+  // The page offers its Update where the app updates itself: a release, and a nightly with its updater (#69).
   const why = view !== "app" ? " Seen in the Desktop app view only."
     : local.state !== "running" ? " Not running: install or start it in the page for its row."
-    : channel !== "release" ? ` A ${channel} build offers no update of it: pick a release build.` : "";
+    : !hasAppUpdater(world) ? ` A ${world.state.app?.channel} build offers no update of it: pick a release or nightly build.` : "";
   return `${installed}, ${said}.${why}`;
 }
 
