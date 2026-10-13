@@ -69,6 +69,16 @@
       { "value": "off", "label": "not set", "set": { "app.desktopSettings": true, "app.shortcut": null, "app.shortcutRefused": false } },
       { "value": "absent", "label": "not offered (an older app)", "set": { "app.desktopSettings": false } }
     ] },
+    { "id": "appChannel", "group": "Version", "label": "Desktop app build", "reload": true, "values": [
+      { "value": "release", "label": "release", "set": { "app.channel": "release" } },
+      { "value": "nightly", "label": "nightly (updates by hand)", "set": { "app.channel": "nightly" } },
+      { "value": "dev", "label": "development build", "set": { "app.channel": "dev" } }
+    ] },
+    { "id": "autoDownload", "group": "Version", "label": "Download updates automatically", "reload": true, "values": [
+      { "value": "on", "label": "offered, on", "set": { "app.autoDownloadOffered": true, "app.autoDownload": true } },
+      { "value": "off", "label": "offered, off", "set": { "app.autoDownloadOffered": true, "app.autoDownload": false } },
+      { "value": "absent", "label": "not offered (an older app)", "set": { "app.autoDownloadOffered": false } }
+    ] },
     { "id": "update", "group": "Version", "label": "Update", "values": [
       { "value": "current", "label": "current", "set": { "local.update": "current", "local.bundledVersion": "0.3.0" } },
       { "value": "available", "label": "available (0.4.0)", "set": { "local.update": "available", "local.bundledVersion": "0.4.0" } },
