@@ -9,7 +9,7 @@ import {
   LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, lanUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
 import { UPDATER_STATES, UPDATE_VERSION, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState, updaterMode } from "../preview/mock/bridge.mjs";
-import { readParams, writeParams } from "../preview/mock/shell.mjs";
+import { DESKTOP, deviceBox, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
 
@@ -467,11 +467,15 @@ test("a backing-off local host says when it tries again", () => {
 
 test("the card's picks round-trip through the address, defaults left out", () => {
   const params = readParams("?s=paired-machines&view=phone&lang=en&speed=4&o.nucReach=room");
-  assert.deepEqual(params, { scenario: "paired-machines", view: "phone", language: "en", speed: 4, options: { nucReach: "room" } });
+  assert.deepEqual(params, { scenario: "paired-machines", view: "phone", language: "en", speed: 4, stage: "app", options: { nucReach: "room" } });
   assert.equal(writeParams(params, { nucReach: "direct" }), "?s=paired-machines&view=phone&lang=en&speed=4&o.nucReach=room");
   assert.equal(writeParams({ ...params, view: null, language: "", speed: 1, options: { nucReach: "direct" } }, { nucReach: "direct" }), "?s=paired-machines");
   assert.equal(readParams("?speed=0").speed, 0);
   assert.equal(readParams("?view=tv").view, null);
+  // The stage shows the app unless it says the floating card.
+  assert.equal(readParams("?view=app&stage=card").stage, "card");
+  assert.equal(readParams("?stage=tv").stage, "app");
+  assert.equal(writeParams({ ...readParams("?s=x&view=app&stage=card") }), "?s=x&view=app&stage=card");
 });
 
 test("the shipped scenarios are valid, and every option's fields land in their world", async () => {
@@ -727,4 +731,24 @@ test("a machine's Sidevoice version is the scenario's, and unknown when it says 
     const option = scenario.options.find((o) => o.id === "productVersion");
     assert.deepEqual(option?.values.map((v) => v.value), ["0.8.1", "unknown"], scenario.id);
   }
+});
+
+test("a desktop view lays the page out at a desktop's size at least, scaled to fit; the phone keeps its own", () => {
+  // A laptop with both panels open: the browser view fills the slot at a desktop's size, scaled down.
+  const laptop = deviceBox({ width: 830, height: 760 }, "browser");
+  assert.ok(laptop.width >= DESKTOP.width && laptop.height >= DESKTOP.height, JSON.stringify(laptop));
+  assert.ok(laptop.scale < 1);
+  assert.ok(Math.abs(laptop.width * laptop.scale - 830) < 1 || Math.abs(laptop.height * laptop.scale - 760) < 1, "it fills one side");
+  assert.ok(laptop.width * laptop.scale <= 831 && laptop.height * laptop.scale <= 761, "and fits");
+  // A wide screen: no scaling, the slot itself.
+  assert.deepEqual(deviceBox({ width: 1500, height: 900 }, "browser"), { width: 1500, height: 900, scale: 1, left: 0, top: 0 });
+  // The desktop app: a desktop-sized window and its title bar, centred, scaled down when the slot is smaller.
+  const app = deviceBox({ width: 1000, height: 900 }, "app");
+  assert.deepEqual([app.width, app.height], [1280, 830]);
+  assert.ok(Math.abs(app.scale - 1000 / 1280) < 1e-9);
+  assert.equal(deviceBox({ width: 1600, height: 1000 }, "app").scale, 1);
+  // The phone: its own width, never scaled.
+  const phone = deviceBox({ width: 600, height: 700 }, "phone");
+  assert.deepEqual([phone.width, phone.height, phone.scale], [390, 700, 1]);
+  assert.equal(phone.left, 105);
 });

@@ -8,9 +8,12 @@
 </head>
 <body>
   <main id="stage">
-    <div id="device" class="device browser">
-      <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="title">Sidevoice</span></div>
-      <iframe id="app" title="Sidevoice" allow="microphone; camera; autoplay; speaker-selection; clipboard-read; clipboard-write"></iframe>
+    <!-- The page's frame, in the space the panels leave: a desktop is laid out at a desktop's size and scaled to fit. -->
+    <div id="slot">
+      <div id="device" class="device browser">
+        <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="title">Sidevoice</span></div>
+        <iframe id="app" title="Sidevoice" allow="microphone; camera; autoplay; speaker-selection; clipboard-read; clipboard-write"></iframe>
+      </div>
     </div>
     <!-- The desktop app's floating call card (the web's call-controls.html), beside the room in the Desktop app view: fed
          from the room frame's own store through the seam the app gives it (card-host.mjs). -->
@@ -25,6 +28,10 @@
       </div>
     </aside>
   </main>
+  <!-- In the Desktop app view: what the stage shows, the app's window or its floating call card. -->
+  <div id="stage-switch" class="segmented" hidden aria-label="Show on the stage">
+    <button type="button" data-stage="app">App</button><button type="button" data-stage="card">Floating card</button>
+  </div>
   <!-- What shows until the shell's script draws the card, and stays if it never does: the way out. -->
   <aside id="card" aria-label="Preview controls"><div class="card-header"><strong>PREVIEW</strong></div>
     <div class="card-body"><p class="summary">Loading the preview… If this stays, <a href="/preview-reset">reset the preview</a>

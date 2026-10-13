@@ -158,20 +158,51 @@ export function readParams(search) {
     view: VIEWS.includes(query.get("view")) ? query.get("view") : null,
     language: LANGUAGES.includes(query.get("lang")) ? query.get("lang") : "",
     speed: SPEEDS.includes(speed) && query.has("speed") ? speed : 1,
+    stage: query.get("stage") === "card" ? "card" : "app",
     options,
   };
 }
 
 /** The query for `params`, leaving out what is at its default (options at their first value included). */
-export function writeParams({ scenario, view, language, speed, options }, defaults = {}) {
+export function writeParams({ scenario, view, language, speed, stage = "app", options }, defaults = {}) {
   const query = new URLSearchParams();
   if (scenario) query.set("s", scenario);
   if (view) query.set("view", view);
   if (language) query.set("lang", language);
   if (speed !== 1) query.set("speed", String(speed));
+  if (stage === "card") query.set("stage", stage);
   for (const [id, value] of Object.entries(options)) if (defaults[id] !== value) query.set(`o.${id}`, value);
   const text = query.toString();
   return text ? `?${text}` : "";
+}
+
+/** The least a desktop view is laid out at, in CSS px: the page then lays out as on a desktop, whatever room is left. */
+export const DESKTOP = { width: 1280, height: 800 };
+/** The phone's frame, and the desktop app's title bar. */
+const PHONE = { width: 390, height: 844 };
+const APP_CHROME = 30;
+
+/**
+ * Where the page's frame goes in a slot of `width` × `height`, for `view`: its size (what the page lays out at), the
+ * scale it is drawn at, and its offset. The browser fills the slot, at a desktop's size at least; the desktop app is a
+ * window of a desktop's size and its title bar; both are scaled down to fit, never up. The phone is its own size.
+ */
+export function deviceBox({ width, height }, view) {
+  let w, h, scale;
+  if (view === "phone") {
+    w = PHONE.width;
+    h = Math.min(PHONE.height, height);
+    scale = 1;
+  } else if (view === "app") {
+    w = DESKTOP.width;
+    h = DESKTOP.height + APP_CHROME;
+    scale = Math.min(1, width / w, height / h);
+  } else {
+    scale = Math.min(1, width / DESKTOP.width, height / DESKTOP.height);
+    w = width / scale;
+    h = height / scale;
+  }
+  return { width: Math.round(w), height: Math.round(h), scale, left: Math.max(0, (width - w * scale) / 2), top: Math.max(0, (height - h * scale) / 2) };
 }
 
 /** `promise`, or undefined once `ms` passed: a browser's storage that does not answer never holds the preview up. */
@@ -239,6 +270,9 @@ async function run(card) {
   const scenarios = await (await fetch("/preview-mock/scenarios.json", { cache: "no-store" })).json();
   const frame = document.getElementById("app");
   const device = document.getElementById("device");
+  const slot = document.getElementById("slot");
+  const stage = document.getElementById("stage");
+  const switcher = document.getElementById("stage-switch");
   let params = readParams(location.search);
   let world = null;
   let identities = null;
@@ -291,6 +325,7 @@ async function run(card) {
     world.speed = params.speed;
     world.state.language = params.language;
     device.className = `device ${view()}`;
+    arrange();
     // The card first: whatever the page's storage does next, the card is there to change it or reset it.
     remember();
     render();
@@ -303,6 +338,37 @@ async function run(card) {
     }
     save();
     frame.src = "/voice/";
+  }
+
+  /** The frame placed in what the panels leave (`deviceBox`), and, in the Desktop app view, the app's window or its
+   *  floating card on the stage, as the switch says. */
+  function place() {
+    const box = slot?.getBoundingClientRect();
+    if (!box?.width || !box.height) return;
+    const at = deviceBox(box, view());
+    Object.assign(device.style, {
+      width: at.width + "px", height: at.height + "px", left: at.left + "px", top: at.top + "px",
+      transform: at.scale < 1 ? `scale(${at.scale})` : "",
+    });
+  }
+  function arrange() {
+    const app = view() === "app";
+    const onCard = app && params.stage === "card";
+    if (stage) stage.dataset.stage = onCard ? "card" : "app";
+    float.visible(onCard);
+    if (switcher) {
+      switcher.hidden = !app;
+      for (const button of switcher.querySelectorAll("[data-stage]")) button.classList.toggle("on", button.getAttribute("data-stage") === (onCard ? "card" : "app"));
+    }
+    place();
+  }
+  if (slot) new ResizeObserver(place).observe(slot);
+  for (const button of switcher?.querySelectorAll("[data-stage]") ?? []) {
+    button.addEventListener("click", () => {
+      params.stage = button.getAttribute("data-stage") === "card" ? "card" : "app";
+      remember();
+      arrange();
+    });
   }
 
   function shortcut(event) {
@@ -410,7 +476,7 @@ function floatingCard(roomFrame, device) {
   const wallpaper = aside?.querySelector(".wallpaper");
   const expanded = /** @type {HTMLInputElement | null} */ (document.getElementById("float-expanded"));
   const stage = document.getElementById("stage");
-  if (!aside || !cardFrame) return { host: () => null, show() {} };
+  if (!aside || !cardFrame) return { host: () => null, show() {}, visible() {} };
   /** The world the card's commands are logged in: the shell's, whichever scenario it is now. */
   let worldNow = () => null;
   const controller = cardHost(() => roomFrame.contentWindow, {
@@ -446,9 +512,12 @@ function floatingCard(roomFrame, device) {
     },
     /** In the Desktop app view the card's page loads with the room; elsewhere there is no card. */
     show(on) {
-      aside.hidden = !on;
       cardFrame.hidden = true;
       cardFrame.src = on ? "/voice/call-controls.html" : "about:blank";
+    },
+    /** Whether the stage shows it (the stage switch): loaded or not, it is fed all along. */
+    visible(on) {
+      aside.hidden = !on;
     },
   };
 }
