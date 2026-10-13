@@ -18,8 +18,9 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits, never moving the room. Both say the same, act the same (Download, Restart, Reload) and hide by their × until a newer version or a restart. Manual: once a check finds one; Automatic: only once it has downloaded.",
-    values: [{ value: "pill", label: "A · a pill floating at the top of the stage" }, { value: "title", label: "B · at the end of the conversation's title row" }] },
+  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits, never moving the room. All three say the same, act the same (Download, Restart, Reload) and hide by their × until a newer version or a restart. Manual: once a check finds one; Automatic: only once it has downloaded.",
+    values: [{ value: "pill", label: "A · a pill floating at the top of the stage" }, { value: "title", label: "B · at the end of the conversation's title row" },
+      { value: "two-lines", label: "C · at the sidebar's foot by Settings: the notice, then its action below" }] },
 ]
 
 function readVariants() {
