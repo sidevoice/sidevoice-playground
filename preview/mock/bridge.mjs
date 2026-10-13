@@ -178,6 +178,8 @@ export function desktopHost(world, identities) {
   return {
     app: "sidevoice-desktop",
     version: "0.0.0-preview",
+    // The app's call settings (after sidevoice-desktop #56): the mute shortcut and the call controls always shown.
+    ...(world.state.app?.desktopSettings === false ? {} : { muteShortcut: muteShortcutOf(world), callControls: callControlsOf(world) }),
     // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
     build: buildOf(world.state.app?.channel ?? "release"),
     // A release's updater (sidevoice-desktop #56): nothing to install in the preview, and the choice to download updates
@@ -187,6 +189,42 @@ export function desktopHost(world, identities) {
     voice: voice.host,
     engine: desktopEngine(world),
     localHost,
+  };
+}
+
+/** The mute shortcut as the app keeps it: set, refused by the system (another app has it), or not set; an accelerator
+ *  that is not a combination is refused as `shortcut_invalid`. One with Cmd+F5 clashes with VoiceOver. */
+function muteShortcutOf(world) {
+  const listeners = new Set();
+  const read = () => {
+    const app = world.state.app ?? {};
+    const accelerator = app.shortcut === undefined ? "Cmd+Shift+M" : app.shortcut;
+    const refused = app.shortcutRefused === true && !!accelerator;
+    return {
+      accelerator, label: accelerator ? accelerator.replace("Cmd", "⌘").replace("Shift", "⇧").replace("Alt", "⌥").replace("Ctrl", "⌃").replaceAll("+", "") : null,
+      state: !accelerator ? "off" : refused ? "refused" : "on",
+      alternatives: refused ? ["Cmd+Shift+;", "Cmd+Alt+M", "Ctrl+Shift+M"] : [],
+      voiceOver: /Cmd\+F5/.test(accelerator ?? ""),
+    };
+  };
+  return {
+    get: async () => read(),
+    async set(accelerator) {
+      if (accelerator !== null && !/^(Cmd|Ctrl|Alt|Shift)(\+(Cmd|Ctrl|Alt|Shift))*\+.+$/.test(accelerator)) throw Object.assign(new Error("shortcut_invalid"), { key: "shortcut_invalid" });
+      world.patch({ "app.shortcut": accelerator, "app.shortcutRefused": false });
+      const now = read();
+      for (const listener of listeners) listener(now);
+      return now;
+    },
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+  };
+}
+
+/** Whether the call controls show always, as the app keeps it. */
+function callControlsOf(world) {
+  return {
+    settings: async () => ({ alwaysShown: world.state.app?.alwaysShown === true }),
+    async setAlwaysShown(enabled) { world.patch({ "app.alwaysShown": !!enabled }); return { alwaysShown: !!enabled }; },
   };
 }
 
