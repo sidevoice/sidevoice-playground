@@ -5,6 +5,7 @@
 
 import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, liveCall, machineOf, mintCode, participantsOf } from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
+import { UPDATER_STATES, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
 const LANGUAGE_LABELS = { "": "System", es: "Español", en: "English" };
@@ -228,6 +229,18 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         page.actions?.setAgentsMuted?.(!page.store.getState().facts.agentsMuted);
         cardNote.textContent = "";
       } }))) : null;
+  // The desktop app's updater (bridge.mjs `appUpdaterOf`), in any scenario, in the Desktop app view: its mode and each
+  // of its states, set in the world and pushed to the page through its `subscribe`, live.
+  const updaterSection = params.view === "app" ? el("fieldset", {},
+    el("legend", { textContent: "App update (desktop)" }),
+    el("p", { className: "note updater-state", textContent: updaterLine(world) }),
+    el("div", { className: "row" }, "Mode", segmented(["automatic", "manual"], { automatic: "Automatic", manual: "Manual" }, updaterMode(world), (mode) => {
+      world.patch({ "app.update.mode": mode });
+      for (const button of root.querySelectorAll(".updater-mode button")) button.classList.toggle("on", button.textContent.toLowerCase() === mode);
+    })),
+    el("div", { className: "actions" }, UPDATER_STATES.map((step) =>
+      el("button", { type: "button", textContent: step.label, onclick: () => setUpdaterState(world, step.id) })))) : null;
+  updaterSection?.querySelector(".segmented")?.classList.add("updater-mode");
   root.replaceChildren(
     header,
     el("div", { className: "card-body" },
@@ -244,6 +257,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       conversationSection,
       avatarSection,
       cardStatesSection,
+      updaterSection,
       voiceSection,
       devicesSection,
       machines.length ? el("fieldset", {},
@@ -270,6 +284,15 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   );
 }
 
+/** The desktop app's updater, in a line: its mode, its state, its error. A build that is not a release has none. */
+function updaterLine(world) {
+  const channel = world.state.app?.channel ?? "release";
+  if (channel !== "release") return `A ${channel} build has no updater: pick a release build to try it.`;
+  const status = updaterStatus(world);
+  const progress = status.state === "downloading" ? ` ${Math.round((status.progress ?? 0) * 100)}%` : "";
+  return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
+}
+
 /** Where the page's call and the mocked voice are, in a line. */
 function voiceLine(world) {
   const call = liveCall(world);
@@ -283,6 +306,8 @@ function voiceLine(world) {
 export function updateActivity(root, world) {
   const voice = root.querySelector(".voice-state");
   if (voice) voice.textContent = voiceLine(world);
+  const updater = root.querySelector(".updater-state");
+  if (updater) updater.textContent = updaterLine(world);
   const list = root.querySelector(".activity ol");
   if (!list) return;
   root.querySelector(".activity summary").textContent = `What the mocks were asked (${world.activity.length})`;
