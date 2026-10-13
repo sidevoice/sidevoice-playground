@@ -9,13 +9,12 @@ import { VARIANTS } from "../preview/mock/shell.mjs";
 // frame's store as the desktop bridge feeds it, and the desktop's part played: when the card is wanted, what each
 // command does.
 
-/** A card snapshot as the room projects it (the web's callCardView): a call (A) on "a", set up. */
+/** A card snapshot as the room projects it (the web's callCardView): a call on "a", set up. */
 const card = (extra = {}) => ({
   ready: true, joined: true, busy: false, micEnabled: true, micDisabled: false, title: "Claude", agent: "idle", youTalking: false,
   canSkip: false, conversation: "a", devices: { inputs: [], outputs: [], inputId: "", outputId: "", available: true, outputAvailable: true, busy: false },
   participants: [{ threadId: "a", title: "Claude", available: true, switching: false }, { threadId: "b", title: "Codex", available: false, switching: false }],
-  voiceOn: false, agentsMuted: false, wantToTalk: 0, voiceOffReason: null, voiceOffDetail: "", setupDone: true, callModel: "call",
-  mood: "idle", turn: null, idleWarning: false, ended: null, micReason: null, busyReason: null, switchingTo: null, theme: "dark", language: "en",
+  setupDone: true, mood: "idle", turn: null, idleWarning: false, ended: null, busyReason: null, switchingTo: null, theme: "dark", language: "en",
   micSilent: false, ...extra,
 });
 
@@ -35,8 +34,8 @@ function room(initial = card()) {
   const listeners = new Set();
   const store = { getState: () => view, subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); } };
   const actions = {
-    toggleMic: mock.fn(), toggleCall: mock.fn(async () => {}), setVoice: mock.fn(async () => {}), setAgentsMuted: mock.fn(), skipReply: mock.fn(),
-    selectParticipant: mock.fn(), hearIt: mock.fn(async () => {}), keepVoiceOn: mock.fn(), setAudioDevices: mock.fn(),
+    toggleMic: mock.fn(), toggleCall: mock.fn(async () => {}), skipReply: mock.fn(),
+    selectParticipant: mock.fn(), keepVoiceOn: mock.fn(), setAudioDevices: mock.fn(),
   };
   const ui = { store, micLevel: channel(0), caption: channel(null) };
   return {
@@ -75,7 +74,7 @@ test("the card is told the room's own snapshot, passed through, with the host's 
   assert.equal(last().call.title, "Codex");
 });
 
-test("the gate: set up, and the call on (A) or the voice on (B); `since` is when it opened", () => {
+test("the gate: set up, and the call on; `since` is when it opened", () => {
   const { page, shows, last, advance } = setup(card({ setupDone: false }));
   assert.deepEqual(shows, [false]);
   page.set({ setupDone: true });
@@ -84,13 +83,10 @@ test("the gate: set up, and the call on (A) or the voice on (B); `since` is when
   advance(5000);
   page.set({ title: "x" });
   assert.equal(last().call.since, opened, "the same call keeps its start");
-  // B: the voice, not the room (always open).
-  page.set({ callModel: "voice-switch", voiceOn: false });
+  page.set({ joined: false });
   assert.equal(shows.at(-1), false);
   assert.equal(last().call.since, null);
-  page.set({ voiceOn: true });
-  assert.equal(shows.at(-1), true);
-  assert.equal(gateOpen(card({ callModel: "voice-switch", joined: true, voiceOn: false })), false);
+  assert.equal(gateOpen(card({ joined: false })), false);
 });
 
 test("the exit notice: the card stays a while when the call ends by itself, held while the pointer is over it; never after a hang-up", () => {
@@ -115,20 +111,19 @@ test("the exit notice: the card stays a while when the call ends by itself, held
   page.set({ joined: true, ended: null });
   page.set({ joined: false });
   assert.equal(shows.at(-1), false);
-  // B: why the voice turned itself off, but never "unavailable" (only while it turns on, with no card).
-  assert.equal(endedByItself(card({ callModel: "voice-switch", voiceOffReason: "micLost" })), true);
-  assert.equal(endedByItself(card({ callModel: "voice-switch", voiceOffReason: "micUnavailable" })), false);
+  assert.equal(endedByItself(card({ ended: { reason: "offline", detail: "Claude" } })), true);
+  assert.equal(endedByItself(card()), false);
 });
 
-test("call model A's commands: the room's actions, refused where its own controls would be", () => {
+test("the commands: the room's actions, refused where its own controls would be", () => {
   const { page, host, logged } = setup(card({ canSkip: true }));
   for (const command of ["toggle-mute", "skip-reply", "hang-up", "keep-alive"]) assert.equal(host.run({ command }), true, command);
   assert.equal(page.actions.toggleMic.mock.callCount(), 1);
   assert.equal(page.actions.skipReply.mock.callCount(), 1);
   assert.equal(page.actions.toggleCall.mock.callCount(), 1);
   assert.equal(page.actions.keepVoiceOn.mock.callCount(), 1);
-  // B's commands mean nothing in A; a conversation that is not there cannot take the call.
-  for (const request of [{ command: "voice-off" }, { command: "toggle-agents" }, { command: "hear-it", threadId: "a" }, { command: "select-participant", threadId: "b" }]) {
+  // A command the card does not have means nothing; a conversation that is not there cannot take the call.
+  for (const request of [{ command: "unknown" }, { command: "select-participant", threadId: "b" }]) {
     assert.equal(host.run(request), false, request.command);
   }
   assert.equal(host.run({ command: "select-participant", threadId: "a" }), true);
@@ -137,21 +132,7 @@ test("call model A's commands: the room's actions, refused where its own control
   assert.equal(host.run({ command: "toggle-mute" }), false);
   assert.equal(host.run({ command: "skip-reply" }), false);
   assert.ok(logged.includes("card toggle-mute → ran"));
-  assert.ok(logged.includes("card voice-off → refused"));
-});
-
-test("call model B's commands: the voice off, the agents, Hear it, any conversation but while switching; no hang-up", () => {
-  const { page, host } = setup(card({ callModel: "voice-switch", voiceOn: true, agentsMuted: true }));
-  assert.equal(host.run({ command: "hang-up" }), false);
-  assert.equal(host.run({ command: "voice-off" }), true);
-  assert.deepEqual(page.actions.setVoice.mock.calls[0].arguments, [false]);
-  assert.equal(host.run({ command: "toggle-agents" }), true);
-  assert.deepEqual(page.actions.setAgentsMuted.mock.calls[0].arguments, [false]);
-  assert.equal(host.run({ command: "hear-it", threadId: "a" }), true);
-  assert.deepEqual(page.actions.hearIt.mock.calls[0].arguments, ["a"]);
-  assert.equal(host.run({ command: "select-participant", threadId: "b" }), true, "one that cannot hear can still be the active one (D5)");
-  page.set({ participants: card().participants.map((row) => ({ ...row, switching: true })) });
-  assert.equal(host.run({ command: "select-participant", threadId: "a" }), false);
+  assert.ok(logged.includes("card unknown → refused"));
 });
 
 test("a device chosen: the room's own choice (the system's as null), the card's devices busy until it answers", async () => {

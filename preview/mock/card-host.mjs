@@ -8,7 +8,7 @@
 
 /** The bridge's snapshot version. */
 export const BRIDGE_VERSION = 2;
-/** How long the exit notice keeps the card after the call or the voice went off by itself (FC7; an estimate). */
+/** How long the exit notice keeps the card after the call ended by itself (FC7; an estimate). */
 export const EXIT_NOTICE_MS = 8000;
 /** How often the host looks for the room's store: it appears after the room's scripts, and anew on each of its loads. */
 export const BIND_EVERY_MS = 200;
@@ -16,18 +16,15 @@ export const BIND_EVERY_MS = 200;
 export const MUTE_SHORTCUT = "⌃⌥M";
 
 /** Whether the card is wanted for `call` (the desktop's `wanted()` without "the room in front": the room is always in
- *  view here, and that is the point): the first setup done, and the call (A) or the voice (B) on. */
+ *  view here, and that is the point): the first setup done, and the call on. */
 export function gateOpen(call) {
   if (!call?.setupDone) return false;
-  return call.callModel === "voice-switch" ? !!call.voiceOn : !!call.joined;
+  return !!call.joined;
 }
 
-/** Whether the gate closed by itself, so the card says why a moment (§2.1): A's `ended`, B's `voiceOffReason` (but
- *  `micUnavailable`, which only happens while voice turns on). */
+/** Whether the gate closed by itself, so the card says why a moment (§2.1): the call's `ended`. */
 export function endedByItself(call) {
-  if (!call) return false;
-  if (call.callModel === "voice-switch") return !!call.voiceOffReason && call.voiceOffReason !== "micUnavailable";
-  return !!call.ended;
+  return !!call?.ended;
 }
 
 /**
@@ -112,7 +109,7 @@ export function cardHost(roomWindow, { world = null, now = () => Date.now(), alw
     caption = ui.caption?.current?.() ?? null;
     stop = [
       store.subscribe(publish),
-      // The level follows the microphone whatever the call model (FC14: the desktop sends it only while `joined`).
+      // The level follows the microphone (FC14: the desktop sends it only while `joined`).
       ui.micLevel?.subscribe?.((value) => { level = value; publish(); }) ?? (() => {}),
       ui.caption?.subscribe?.((value) => { caption = value; publish(); }) ?? (() => {}),
     ];
@@ -133,7 +130,6 @@ export function cardHost(roomWindow, { world = null, now = () => Date.now(), alw
     if (command === "open-app") { onOpen(); log(command, "shown"); return true; }
     if (command === "dismiss") { exitUntil = 0; held = false; decide(); log(command, "closed"); return true; }
     if (!actions || !call) { log(command, "no room"); return false; }
-    const voiceSwitch = call.callModel === "voice-switch";
     const settle = (result) => Promise.resolve(result).catch(() => {});
     const refused = () => { log(command, "refused"); return false; };
     switch (command) {
@@ -142,17 +138,8 @@ export function cardHost(roomWindow, { world = null, now = () => Date.now(), alw
         actions.toggleMic();
         break;
       case "hang-up":
-        // B has no call to hang up: the card turns the voice off instead (FC2).
-        if (voiceSwitch || !call.joined) return refused();
+        if (!call.joined) return refused();
         settle(actions.toggleCall());
-        break;
-      case "voice-off":
-        if (!voiceSwitch || typeof actions.setVoice !== "function") return refused();
-        settle(actions.setVoice(false));
-        break;
-      case "toggle-agents":
-        if (!voiceSwitch || typeof actions.setAgentsMuted !== "function") return refused();
-        actions.setAgentsMuted(!call.agentsMuted);
         break;
       case "skip-reply":
         if (!call.canSkip) return refused();
@@ -160,8 +147,8 @@ export function cardHost(roomWindow, { world = null, now = () => Date.now(), alw
         break;
       case "select-participant": {
         const row = call.participants.find((candidate) => candidate.threadId === request.threadId);
-        // A: only one that is there; B: any, but while switching (D5).
-        if (!row || (voiceSwitch ? row.switching : row.available === false)) return refused();
+        // Only one that is there.
+        if (!row || row.available === false) return refused();
         actions.selectParticipant(request.threadId);
         break;
       }
@@ -170,10 +157,6 @@ export function cardHost(roomWindow, { world = null, now = () => Date.now(), alw
         choosing += 1;
         publish();
         settle(actions.setAudioDevices({ [request.kind]: request.id === "" ? null : request.id })).finally(() => { choosing -= 1; publish(); });
-        break;
-      case "hear-it":
-        if (!voiceSwitch || typeof actions.hearIt !== "function") return refused();
-        settle(actions.hearIt(request.threadId));
         break;
       case "keep-alive":
         if (typeof actions.keepVoiceOn !== "function") return refused();
