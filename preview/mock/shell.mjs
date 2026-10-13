@@ -28,9 +28,10 @@ export const VARIANTS = [
     values: [{ value: "a", label: "A · Call / hang up" }, { value: "b", label: "B · Voice switch" }] },
   { name: "sent-text", label: "What a spoken turn sent shows", note: "On the stage, once your turn is transcribed (the transcript always has all of it).",
     values: [{ value: "tail", label: "A · its latest words after “…”" }, { value: "clamp", label: "B · its first three lines, fading" },
-      { value: "shrink", label: "C · a long one smaller, four lines" }, { value: "line", label: "D · its first line and the check" }] },
+      { value: "shrink", label: "C · a long one smaller, four lines" }, { value: "line", label: "D · its first line and the check" },
+      { value: "pages", label: "E · three lines at a time, turning pages (3 s each)" }] },
   { name: "sent-repeat", label: "Speaking again over a sent turn", note: "What the turn just sent does when you speak again during its moment.",
-    values: [{ value: "replace", label: "A · the bars take its place" }, { value: "stack", label: "B · it steps up above the bars" }, { value: "leave", label: "C · it lifts away at once" }] },
+    values: [{ value: "replace", label: "A · the bars take its place" }, { value: "stack", label: "B · it moves up and carries on; the new one below" }, { value: "leave", label: "C · it lifts away at once" }] },
 ]
 
 function readVariants() {
