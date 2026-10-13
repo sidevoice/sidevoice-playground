@@ -8,7 +8,10 @@ import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScen
 import {
   LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, lanUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
-import { UPDATER_STATES, UPDATE_VERSION, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState, updaterMode } from "../preview/mock/bridge.mjs";
+import {
+  CHECK_MS, DOWNLOAD_STEPS, DOWNLOAD_STEP_MS, UPDATER_STATES, UPDATE_VERSION, checkForUpdate, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState,
+  updaterMode,
+} from "../preview/mock/bridge.mjs";
 import { DESKTOP, deviceBox, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
@@ -392,6 +395,42 @@ test("a release's updater: automatic downloads what a check finds, manual waits 
   assert.equal((await updater.status()).state, "ready");
   stop();
   await assert.rejects(updater.setMode("sometimes"));
+});
+
+test("the updater's steps take the app's time: a check ~1.5 s, a download ~7 s in uneven steps; the app's own check too", async () => {
+  // The world's clock, as its delays spend it.
+  let elapsed = 0;
+  const world = createWorld(scenario, {}, { tick: (ms) => { elapsed += ms; return new Promise((r) => setImmediate(r)); } });
+  const updater = desktopHost(world, await makeIdentities(world.state)).updater;
+  const until = async (done) => { while (!done(await updater.status())) await new Promise((r) => setImmediate(r)); };
+  assert.equal(Math.round(DOWNLOAD_STEPS.reduce((sum, step) => sum + step, 0) * 100), 100);
+  assert.ok(new Set(DOWNLOAD_STEPS).size > 1, "uneven, as chunks arrive");
+  const seen = [];
+  const stop = updater.subscribe((status) => seen.push(status));
+  // Automatic: the check takes its time, then what it found downloads by itself, step by step, to ready.
+  assert.equal((await updater.check()).state, "downloading");
+  // (Its download started as it answered: the clock is theirs together, a tick apart.)
+  assert.ok(elapsed >= CHECK_MS && elapsed <= CHECK_MS + 100, `the check took ${elapsed} ms`);
+  const started = CHECK_MS;
+  await until((status) => status.state === "ready");
+  const took = elapsed - started;
+  assert.ok(took >= 6000 && took <= 8000, `the download took ${took} ms`);
+  const progress = seen.filter((status) => status.state === "downloading").map((status) => status.progress);
+  assert.deepEqual(seen.map((status) => status.state).filter((state, i, all) => state !== all[i - 1]), ["available", "downloading", "ready"]);
+  assert.equal(progress.length, DOWNLOAD_STEPS.length);
+  assert.ok(progress.every((value, i) => i === 0 || value > progress[i - 1]), "it only moves on");
+  assert.ok(progress.at(-1) < 1);
+  stop();
+  // Manual: the app's own check (the card's App checks: the page asked nothing) finds one, and it waits for download().
+  setUpdaterMode(world, "manual");
+  setUpdaterState(world, "idle");
+  const before = elapsed;
+  assert.equal((await checkForUpdate(world)).state, "available");
+  assert.equal(elapsed - before, CHECK_MS);
+  await world.delay(DOWNLOAD_STEP_MS * 3);
+  assert.deepEqual(await updater.status(), { state: "available", version: UPDATE_VERSION });
+  assert.equal((await updater.download()).state, "downloading");
+  await until((status) => status.state === "ready");
 });
 
 test("the card steps the updater to each state, failures with their codes; a nightly has one too, a development build none", async () => {

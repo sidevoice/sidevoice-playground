@@ -18,18 +18,20 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits; both say the same, act the same (Download, Restart, Reload) and hide by their × until a newer version or a restart.",
-    values: [{ value: "chip", label: "A · a chip above Settings" }, { value: "banner", label: "B · a slim banner at the top of the room" }] },
+  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits, never moving the room. Both say the same, act the same (Download, Restart, Reload) and hide by their × until a newer version or a restart. Manual: once a check finds one; Automatic: only once it has downloaded.",
+    values: [{ value: "pill", label: "A · a pill floating at the top of the stage" }, { value: "title", label: "B · at the end of the conversation's title row" }] },
 ]
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
 }
 
-/** Choices kept for variants the panel no longer offers (decided ones) go: the page then shows what was decided. */
+/** Choices kept for variants the panel no longer offers (decided ones), or for values it no longer offers (a reopened
+ *  one's), go: the page then shows what was decided, or the variant's default. */
 function pruneVariants() {
   const kept = readVariants();
-  const open = Object.fromEntries(Object.entries(kept).filter(([name]) => VARIANTS.some((variant) => variant.name === name)));
+  const open = Object.fromEntries(Object.entries(kept).filter(([name, value]) =>
+    VARIANTS.some((variant) => variant.name === name && variant.values.some((each) => each.value === value))));
   if (Object.keys(open).length !== Object.keys(kept).length) localStorage.setItem(VARIANTS_KEY, JSON.stringify(open));
 }
 

@@ -307,6 +307,13 @@ export function updaterStatus(world) {
  *  failed (that one waits for its Retry). Automatic never rests at "available". */
 const autoDownloads = (world) => updaterMode(world) === "automatic" && updateOf(world).state === "available" && !updateOf(world).error;
 
+/** How long the app's check takes, in the world's time: a request to the release feed, ~1.5 s. */
+export const CHECK_MS = 1500;
+/** A download in the world's time: what each step adds to its progress (uneven, as chunks arrive; they add up to the
+ *  whole), one every DOWNLOAD_STEP_MS — ~7 s from 0 to ready. */
+export const DOWNLOAD_STEPS = [0.04, 0.07, 0.09, 0.11, 0.1, 0.12, 0.1, 0.09, 0.11, 0.08, 0.06, 0.03];
+export const DOWNLOAD_STEP_MS = 600;
+
 /** Starts downloading what was found, moving on to ready on the world's clock. */
 function startDownload(world) {
   setUpdate(world, { state: "downloading", progress: 0, error: null });
@@ -332,15 +339,16 @@ export function setUpdaterState(world, id) {
   if (step.set.state === "downloading" || autoDownloads(world)) startDownload(world);
 }
 
-/** Moves a download on to ready on the world's clock, while the world says it is downloading: once, however many ask. */
+/** Moves a download on to ready on the world's clock, step by step (DOWNLOAD_STEPS), while the world says it is
+ *  downloading: once, however many ask. */
 function driveDownload(world) {
   if (world.updaterJob) return world.updaterJob;
   world.updaterJob = (async () => {
     try {
-      while (updateOf(world).state === "downloading") {
-        await world.delay(200);
+      for (let step = 0; updateOf(world).state === "downloading"; step++) {
+        await world.delay(DOWNLOAD_STEP_MS);
         if (updateOf(world).state !== "downloading") return;
-        const progress = Math.min(1, (updateOf(world).progress ?? 0) + 0.05);
+        const progress = Math.min(1, Math.round(((updateOf(world).progress ?? 0) + DOWNLOAD_STEPS[step % DOWNLOAD_STEPS.length]) * 100) / 100);
         setUpdate(world, progress >= 1 ? { state: "ready", progress: null } : { progress });
       }
     } finally {
@@ -350,11 +358,27 @@ function driveDownload(world) {
   return world.updaterJob;
 }
 
+/** The app's check, as sidevoice-desktop #56 runs it — the page's `check()`, or the app's own at launch and every 6 h
+ *  (the card's App checks): CHECK_MS, then the one after the app's version unless it was just installed, available; in
+ *  automatic mode its download starts at once (one found before and not downloaded too), so the check answers
+ *  downloading; in manual mode it stays available until `download`. Nothing found: the status stays as it was. */
+export async function checkForUpdate(world) {
+  await world.delay(CHECK_MS);
+  const update = updateOf(world);
+  if ((update.state ?? "idle") === "idle" && !update.installed) {
+    setUpdate(world, { state: "available", version: nextMinor(appVersion(world)), progress: null, error: null });
+    if (updaterMode(world) === "automatic") startDownload(world);
+  } else {
+    setUpdate(world, { error: null });
+    if (autoDownloads(world)) startDownload(world);
+  }
+  return updaterStatus(world);
+}
+
 /** The desktop app's updater (sidevoice-desktop #56), a release's or a nightly's: automatic or manual, and its state,
- *  kept in the world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in
- *  automatic mode what it finds downloads by itself (one found before and not downloaded too), in manual mode it stays
- *  available until `download`; a download moves on to ready on the world's clock; only a restart installs a ready one.
- *  The card steps it to any state, failures too (UPDATER_STATES), and sets its mode (`setUpdaterMode`). */
+ *  kept in the world (`app.update`). A check takes CHECK_MS (`checkForUpdate`); a download moves on to ready over
+ *  ~7 s, in steps (DOWNLOAD_STEPS); only a restart installs a ready one. The card steps it to any state, failures too
+ *  (UPDATER_STATES), runs the app's own check, and sets its mode (`setUpdaterMode`). */
 function appUpdaterOf(world) {
   const log = (call) => world.log({ method: "BRIDGE", url: `updater.${call}`, status: "ok", mocked: true });
   return {
@@ -382,17 +406,9 @@ function appUpdaterOf(world) {
       });
     },
     async check() {
-      await world.delay(1200);
-      const update = updateOf(world);
+      const answer = await checkForUpdate(world);
       log("check()");
-      if ((update.state ?? "idle") === "idle" && !update.installed) {
-        setUpdate(world, { state: "available", version: nextMinor(appVersion(world)), progress: null, error: null });
-        if (updaterMode(world) === "automatic") startDownload(world);
-      } else {
-        setUpdate(world, { error: null });
-        if (autoDownloads(world)) startDownload(world);
-      }
-      return updaterStatus(world);
+      return answer;
     },
     async download() {
       log("download()");
