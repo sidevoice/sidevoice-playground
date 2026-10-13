@@ -303,12 +303,33 @@ export function updaterStatus(world) {
   };
 }
 
-/** The card's step `id` (UPDATER_STATES): its fields set, and a download moving on from there. */
+/** Whether the updater, in automatic mode, would be downloading what it found by now: found, and not a download that
+ *  failed (that one waits for its Retry). Automatic never rests at "available". */
+const autoDownloads = (world) => updaterMode(world) === "automatic" && updateOf(world).state === "available" && !updateOf(world).error;
+
+/** Starts downloading what was found, moving on to ready on the world's clock. */
+function startDownload(world) {
+  setUpdate(world, { state: "downloading", progress: 0, error: null });
+  void driveDownload(world);
+}
+
+/** The updater's mode, as the app keeps it: the one place it is set, by the page (`setMode`) or by the card. Automatic
+ *  downloads what was found and not downloaded yet. The page reads the mode as it loads (sidevoice-desktop #56 pushes
+ *  only the status): whoever sets it from outside the page loads the page again. */
+export function setUpdaterMode(world, mode) {
+  if (mode !== "automatic" && mode !== "manual") throw Object.assign(new Error("mode-invalid"), { code: "mode-invalid" });
+  setUpdate(world, { mode });
+  if (autoDownloads(world)) startDownload(world);
+  return { mode };
+}
+
+/** The card's step `id` (UPDATER_STATES): its fields set, and a download moving on from there. Available, in automatic
+ *  mode, downloads at once, as the app would. */
 export function setUpdaterState(world, id) {
   const step = UPDATER_STATES.find((s) => s.id === id);
   if (!step) return;
   setUpdate(world, { ...step.set, installed: false });
-  if (step.set.state === "downloading") void driveDownload(world);
+  if (step.set.state === "downloading" || autoDownloads(world)) startDownload(world);
 }
 
 /** Moves a download on to ready on the world's clock, while the world says it is downloading: once, however many ask. */
@@ -331,23 +352,17 @@ function driveDownload(world) {
 
 /** The desktop app's updater (sidevoice-desktop #56), a release's or a nightly's: automatic or manual, and its state,
  *  kept in the world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in
- *  automatic mode what it finds downloads by itself, in manual mode `download` does; a download moves on to ready on
- *  the world's clock; a restart installs a ready one. The card steps it to any state, failures too (UPDATER_STATES). */
+ *  automatic mode what it finds downloads by itself (one found before and not downloaded too), in manual mode it stays
+ *  available until `download`; a download moves on to ready on the world's clock; only a restart installs a ready one.
+ *  The card steps it to any state, failures too (UPDATER_STATES), and sets its mode (`setUpdaterMode`). */
 function appUpdaterOf(world) {
   const log = (call) => world.log({ method: "BRIDGE", url: `updater.${call}`, status: "ok", mocked: true });
-  const startDownload = () => {
-    setUpdate(world, { state: "downloading", progress: 0, error: null });
-    void driveDownload(world);
-  };
   return {
     settings: async () => ({ mode: updaterMode(world) }),
     async setMode(mode) {
-      if (mode !== "automatic" && mode !== "manual") throw Object.assign(new Error("mode-invalid"), { code: "mode-invalid" });
-      setUpdate(world, { mode });
+      const answer = setUpdaterMode(world, mode);
       log(`setMode(${mode})`);
-      // Automatic downloads what was found and not downloaded yet.
-      if (mode === "automatic" && updateOf(world).state === "available" && !updateOf(world).error) startDownload();
-      return { mode };
+      return answer;
     },
     async status() {
       if (updateOf(world).state === "downloading") void driveDownload(world);
@@ -372,13 +387,16 @@ function appUpdaterOf(world) {
       log("check()");
       if ((update.state ?? "idle") === "idle" && !update.installed) {
         setUpdate(world, { state: "available", version: nextMinor(appVersion(world)), progress: null, error: null });
-        if (updaterMode(world) === "automatic") startDownload();
-      } else setUpdate(world, { error: null });
+        if (updaterMode(world) === "automatic") startDownload(world);
+      } else {
+        setUpdate(world, { error: null });
+        if (autoDownloads(world)) startDownload(world);
+      }
       return updaterStatus(world);
     },
     async download() {
       log("download()");
-      if (updateOf(world).state === "available") startDownload();
+      if (updateOf(world).state === "available") startDownload(world);
       return updaterStatus(world);
     },
     async restart() {

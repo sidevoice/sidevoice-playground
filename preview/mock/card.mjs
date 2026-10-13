@@ -10,10 +10,11 @@ import {
 import { appVersion } from "./bridge.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
-import { LOCAL_VERSION, UPDATER_STATES, hasAppUpdater, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
+import { LOCAL_VERSION, UPDATER_STATES, hasAppUpdater, localBehind, setLocalBehind, setUpdaterMode, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
 const BEHIND_LABELS = { current: "Current", behind: "Behind" };
+const MODE_LABELS = { automatic: "Automatic", manual: "Manual" };
 const LANGUAGE_LABELS = { "": "System", es: "Español", en: "English" };
 const SPEED_LABELS = { 1: "×1", 4: "×4", 0: "Pause" };
 const VARIANT_LABELS = {
@@ -239,15 +240,20 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         page.actions?.setAgentsMuted?.(!page.store.getState().facts.agentsMuted);
         cardNote.textContent = "";
       } }))) : null;
-  // The desktop app's updater (bridge.mjs `appUpdaterOf`), in any scenario, in the Desktop app view: its mode and each
-  // of its states, set in the world and pushed to the page through its `subscribe`, live.
+  // The desktop app's updater (bridge.mjs `appUpdaterOf`), in any scenario, in the Desktop app view: each of its
+  // states, set in the world and pushed to the page through its `subscribe`, live; and its mode, which the page reads
+  // as it loads (the app pushes only its status), so setting it here loads the page again (↻) — the page and the app
+  // never disagree on it. The mode and the line follow the world, the page's own changes too (updateActivity).
   const updaterSection = params.view === "app" ? el("fieldset", {},
     el("legend", { textContent: "App update (desktop)" }),
     el("p", { className: "note updater-state", textContent: updaterLine(world) }),
-    el("div", { className: "row" }, "Mode", segmented(["automatic", "manual"], { automatic: "Automatic", manual: "Manual" }, updaterMode(world), (mode) => {
-      world.patch({ "app.update.mode": mode });
-      for (const button of root.querySelectorAll(".updater-mode button")) button.classList.toggle("on", button.textContent.toLowerCase() === mode);
-    })),
+    el("div", { className: "row", title: "The app's updater mode: the page reads it as it loads, so it loads again" }, "Mode ↻",
+      segmented(Object.keys(MODE_LABELS), MODE_LABELS, updaterMode(world), (mode) => {
+        if (mode === updaterMode(world)) return;
+        setUpdaterMode(world, mode);
+        refreshUpdater(root, world);
+        reload?.();
+      })),
     el("div", { className: "actions" }, UPDATER_STATES.map((step) =>
       el("button", { type: "button", textContent: step.label, onclick: () => setUpdaterState(world, step.id) })))) : null;
   updaterSection?.querySelector(".segmented")?.classList.add("updater-mode");
@@ -358,6 +364,13 @@ export function remoteUpdateLine(world) {
   return `${machine.host ?? id}: ${said}.${why}`;
 }
 
+/** The app's updater brought up to date with the world: its mode's button on (the page may have set it), its line. */
+function refreshUpdater(root, world) {
+  const line = root.querySelector(".updater-state");
+  if (line) line.textContent = updaterLine(world);
+  for (const button of root.querySelectorAll(".updater-mode button")) button.classList.toggle("on", button.textContent === MODE_LABELS[updaterMode(world)]);
+}
+
 /** The "Updates elsewhere" rows brought up to date with the world: which value each has on, and what it says. */
 function refreshElsewhere(root, world) {
   const lines = [["local", localBehind(world), localUpdateLine(world, root.dataset.view)], ["remote", remoteBehind(world), remoteUpdateLine(world)]];
@@ -383,8 +396,7 @@ function voiceLine(world) {
 export function updateActivity(root, world) {
   const voice = root.querySelector(".voice-state");
   if (voice) voice.textContent = voiceLine(world);
-  const updater = root.querySelector(".updater-state");
-  if (updater) updater.textContent = updaterLine(world);
+  refreshUpdater(root, world);
   refreshElsewhere(root, world);
   const list = root.querySelector(".activity ol");
   if (!list) return;
