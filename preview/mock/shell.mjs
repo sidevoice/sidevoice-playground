@@ -18,20 +18,13 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
-    values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
-  { name: "updates-section", label: "The app's updates (desktop app)", note: "Where the desktop app's version and updates live in Settings.",
-    values: [{ value: "this-device", label: "A · on This device's card" }, { value: "section", label: "B · an Updates section of their own" }] },
-  { name: "section-new", label: "“New” on a section", note: "How a section and a machine show something new under them; the thing itself always says New.",
-    values: [{ value: "pill", label: "A · “New” at the entry's end" }, { value: "count", label: "B · how many, at its end" }, { value: "dot", label: "C · a dot on its icon" }] },
-  { name: "call-model", label: "Calls or a voice switch", note: "What the call button does: A joins and leaves a call; B is a voice switch in a room that is always open.",
-    values: [{ value: "a", label: "A · Call / hang up" }, { value: "b", label: "B · Voice switch" }] },
-  { name: "sent-text", label: "What a spoken turn sent shows", note: "On the stage, once your turn is transcribed (the transcript always has all of it).",
-    values: [{ value: "tail", label: "A · its latest words after “…”" }, { value: "clamp", label: "B · its first three lines, fading" },
-      { value: "shrink", label: "C · a long one smaller, four lines" }, { value: "line", label: "D · its first line and the check" },
-      { value: "pages", label: "E · three lines at a time, turning pages (3 s each)" }] },
-  { name: "sent-repeat", label: "Speaking again over a sent turn", note: "What the turn just sent does when you speak again during its moment.",
-    values: [{ value: "replace", label: "A · the bars take its place" }, { value: "stack", label: "B · it moves up and carries on; the new one below" }, { value: "leave", label: "C · it lifts away at once" }] },
+  { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits. What it can do there it does; otherwise it opens Settings › Updates on the row's button.",
+    values: [{ value: "brand", label: "C · an update icon by the brand, its popover with the action" }, { value: "gear", label: "A · a mark on the Settings gear; the action in Settings › Updates" },
+      { value: "banner", label: "B · a slim banner over the room, dismissible" }, { value: "foot", label: "D · a row at the conversations' foot (today's)" }] },
+  { name: "updates-rows", label: "This computer in Settings › Updates", note: "The app and its service as two rows or one; remote machines stay their own rows below.",
+    values: [{ value: "two", label: "B · two rows: Sidevoice app, Sidevoice service" }, { value: "one", label: "A · one row, Sidevoice: one version, one button" }] },
+  { name: "pair-address", label: "The machine's address when pairing", note: "Where the address goes beside the code. A and B open it by themselves when the code says nowhere or its addresses don't reach the machine; C shows it always.",
+    values: [{ value: "disclosure", label: "A · a disclosure, like “How do I get a code?”" }, { value: "link", label: "B · a link that reveals it" }, { value: "always", label: "C · always visible" }] },
 ]
 
 function readVariants() {
@@ -48,6 +41,13 @@ function pruneVariants() {
 /** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
 function drawVariants(body) {
   const picked = readVariants();
+  if (!VARIANTS.length) {
+    const none = document.createElement("p");
+    none.className = "variant-note";
+    none.textContent = "No open design questions right now.";
+    body.replaceChildren(none);
+    return;
+  }
   body.replaceChildren(...VARIANTS.map((variant) => {
     const group = document.createElement("fieldset");
     group.className = "variant";

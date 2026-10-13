@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import {
-  MOCK_UPDATE_COMMAND, answer, directUrl, firstPaired, hostStatus, makeIdentities, mintCode, nextMinor, remoteBehind, setRemoteBehind,
+  MOCK_UPDATE_COMMAND, SERVICE_VERSION, answer, directUrl, firstPaired, hostStatus, makeIdentities, mintCode, nextMinor, remoteBehind, setRemoteBehind,
 } from "../preview/mock/machines.mjs";
 import { LOCAL_VERSION, desktopHost, localBehind, setLocalBehind } from "../preview/mock/bridge.mjs";
 import { localUpdateLine, remoteUpdateLine } from "../preview/mock/card.mjs";
@@ -27,8 +27,9 @@ test("a version a minor on", () => {
   assert.equal(nextMinor("0.3.0"), "0.4.0");
   assert.equal(nextMinor("0.8.1"), "0.9.0");
   assert.equal(nextMinor("1.12.3-beta.1"), "1.13.0");
-  assert.equal(nextMinor(null), "0.4.0", "none said counts from 0.3.0");
-  assert.equal(nextMinor(LOCAL_VERSION), "0.4.0");
+  assert.equal(nextMinor(null), "0.9.0", "none said counts from the service's version");
+  assert.equal(nextMinor(LOCAL_VERSION), "0.9.0");
+  assert.equal(nextMinor(SERVICE_VERSION), "0.9.0", "this computer's service and every machine's count alike");
 });
 
 test("the mocked update command says it is a mock and names no address", () => {
@@ -67,8 +68,21 @@ test("updating this machine from the page leaves it current, and the card's togg
   setLocalBehind(world, true);
   await local.update();
   assert.equal(localBehind(world), false);
-  assert.deepEqual([(await local.version()).update, (await local.version()).installed.version], ["current", "0.4.0"]);
-  assert.equal(local.state().core.version, "0.4.0");
+  assert.deepEqual([(await local.version()).update, (await local.version()).installed.version], ["current", "0.9.0"]);
+  assert.equal(local.state().core.version, "0.9.0");
+  // One number for the service wherever it is said: its status's product version is the one installed.
+  assert.equal(local.state().product_version, "0.9.0");
+});
+
+test("the card's line says a build offers no update of this computer's service only where the app has no updater", async () => {
+  const scenario = (await loadMockScenarios()).find((s) => s.id === "desktop-local-host");
+  const { world } = await setup(scenario);
+  for (const channel of ["release", "nightly"]) {
+    world.patch({ "app.channel": channel });
+    assert.doesNotMatch(localUpdateLine(world), /offers no update/, channel);
+  }
+  world.patch({ "app.channel": "dev" });
+  assert.match(localUpdateLine(world), /A dev build offers no update of it: pick a release or nightly build\.$/);
 });
 
 test("without a local host, the toggle makes none up", async () => {
@@ -127,8 +141,8 @@ test("a machine that does not know its version is still behind, and the first pa
   const { world } = await setup(scenario);
   assert.equal(firstPaired(world.state), "nuc");
   setRemoteBehind(world, true);
-  assert.deepEqual(hostStatus(world.state.machines.nuc), { version: null, update: { latest: "0.4.0", command: MOCK_UPDATE_COMMAND } });
-  assert.match(remoteUpdateLine(world), /^NUC: no version, behind: 0\.4\.0\. It does not answer now/);
+  assert.deepEqual(hostStatus(world.state.machines.nuc), { version: null, update: { latest: "0.9.0", command: MOCK_UPDATE_COMMAND } });
+  assert.match(remoteUpdateLine(world), /^NUC: no version, behind: 0\.9\.0\. It does not answer now/);
   world.patch({ "machines.nuc.revoked": true });
   assert.equal(firstPaired(world.state), null);
   assert.equal(setRemoteBehind(world, true), null);

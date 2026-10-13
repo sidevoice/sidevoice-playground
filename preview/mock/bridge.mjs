@@ -7,12 +7,13 @@
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
 
-import { LOCAL_ID, LOCAL_URL, mintCode, nextMinor } from "./machines.mjs";
+import { LOCAL_ID, LOCAL_URL, SERVICE_VERSION, mintCode, nextMinor } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
 
-/** The local host's version where the world names none: the one installed, and the one the app bundles. */
-export const LOCAL_VERSION = "0.3.0";
+/** This computer's Sidevoice service's version where the world names none (`local.version`, `local.bundledVersion`):
+ *  the one installed, and the one the app bundles — a service's number, as every machine's (machines.mjs). */
+export const LOCAL_VERSION = SERVICE_VERSION;
 
 /** The local host's status (desktop-host.ts `LocalHostStatus`), from the world's `local`.
  * @returns {LocalHostStatus} */
@@ -25,9 +26,10 @@ export function localStatus(local, now) {
     installed: local.installed ?? !["absent", "not-installed", "installing"].includes(local.state),
     core: running ? { pid: 4242, version: local.version ?? LOCAL_VERSION, api: 1, launch_id: "preview" } : null,
     // The installed Sidevoice's version (the `sidevoice` package, bundling the core): sidevoice-web #75's
-    // LocalHostStatus.product_version, which the real bridge does not report yet. The scenario's (`productVersion`), and
-    // null, unknown, when it says none.
-    product_version: local.productVersion ?? null,
+    // LocalHostStatus.product_version, which the real bridge does not report yet. The one installed (`version`), the
+    // same number `version()` says, so the page never shows two for one service; null, unknown, where the scenario has
+    // it say none (`saysVersion: false`) and where there is no local host.
+    product_version: local.saysVersion === false || local.state === "absent" ? null : local.version ?? LOCAL_VERSION,
     calls: running ? 0 : null,
     reachable: running,
     attempts: null, limit: null, since: null, window_started: null, next_retry_at: null,
@@ -51,8 +53,10 @@ export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", inst
 
 /** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost }`, as the bridge gives it:
  *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
- *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer. */
-export function desktopHost(world, identities) {
+ *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer.
+ *  `relaunch`: what the app restarting into its update does to the page (attach.mjs: loads it again, as a restart
+ *  opens a new window); none, it stays. */
+export function desktopHost(world, identities, { relaunch = null } = {}) {
   if (!world.state.local) world.patch({ local: NO_LOCAL_HOST });
   const local = () => world.state.local;
   const status = () => localStatus(local(), world.now());
@@ -178,22 +182,31 @@ export function desktopHost(world, identities) {
   };
   const voice = fakeVoice(world);
   world.voiceRuntime = voice;
-  return {
+  const host = {
     app: "sidevoice-desktop",
     version: "0.0.0-preview",
     // The app's call settings (after sidevoice-desktop #56): the mute shortcut and the call controls always shown.
     ...(world.state.app?.desktopSettings === false ? {} : { muteShortcut: muteShortcutOf(world), callControls: callControlsOf(world) }),
     // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
     build: buildOf(world.state.app?.channel ?? "release"),
-    // A release's updater (sidevoice-desktop #56): its mode and its state are the world's (`app.update`), stepped from
-    // the card or a scenario's options, and heard by the page as they change.
-    ...((world.state.app?.channel ?? "release") === "release" ? { updater: appUpdaterOf(world) } : {}),
+    // A release's or a nightly's updater (sidevoice-desktop #56): its mode and its state are the world's
+    // (`app.update`), stepped from the card or a scenario's options, and heard by the page as they change.
+    ...(hasAppUpdater(world) ? { updater: appUpdaterOf(world) } : {}),
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     engine: desktopEngine(world),
     localHost,
   };
+  // The app's number is the one it runs: APP_VERSION, or the update it restarted into (`app.version`).
+  Object.defineProperty(host, "build", { enumerable: true, get: () => ({ ...buildOf(world.state.app?.channel ?? "release"), version: appVersion(world) }) });
+  world.relaunchPage = relaunch;
+  return host;
 }
+
+/** The desktop app's version where the world names none: the app's own number, apart from its service's (LOCAL_VERSION). */
+export const APP_VERSION = "0.3.0";
+/** The desktop app's version now: APP_VERSION, or the update it restarted into. */
+export const appVersion = (world) => world.state.app?.version ?? APP_VERSION;
 
 /** Whether this computer's Sidevoice is behind: the app bundles a newer one than the one installed, so its local host's
  *  `version()` says `update: "available"` (and the page offers to update this machine). */
@@ -246,15 +259,19 @@ function callControlsOf(world) {
   };
 }
 
-/** The desktop app's `host.build` for `channel`. Only a release has an updater (`host.updater`). */
+/** Whether the desktop app's build has an updater (`host.updater`): a release does and, for now, a nightly too
+ *  (sidevoice-desktop #56); a development build has none. */
+export const hasAppUpdater = (world) => ["release", "nightly"].includes(world.state.app?.channel ?? "release");
+
+/** The desktop app's `host.build` for `channel`. A release and a nightly have an updater (`hasAppUpdater`). */
 function buildOf(channel) {
-  if (channel === "nightly") return { channel, version: "0.4.0", commit: "abc1234def", date: "2026-10-13T06:12:00Z" };
-  if (channel === "dev") return { channel, version: "0.4.0", commit: "0f1e2d3c" };
-  return { channel: "release", version: "0.4.0" };
+  if (channel === "nightly") return { channel, version: APP_VERSION, commit: "abc1234def", date: "2026-10-13T06:12:00Z" };
+  if (channel === "dev") return { channel, version: APP_VERSION, commit: "0f1e2d3c" };
+  return { channel: "release", version: APP_VERSION };
 }
 
-/** The version a check finds, in the preview. */
-export const UPDATE_VERSION = "0.5.0";
+/** The app's version a check finds, in the preview: the one after APP_VERSION (after an update, the one after that). */
+export const UPDATE_VERSION = nextMinor(APP_VERSION);
 
 /** The updater's states the card steps through, and the world's `app.update` fields each one sets. A failure is the
  *  state it leaves the updater in, with its error; the next check, download or restart clears it. */
@@ -279,7 +296,8 @@ export function updaterStatus(world) {
   const state = ["available", "downloading", "ready"].includes(update.state) ? update.state : "idle";
   return {
     state,
-    ...(state !== "idle" ? { version: update.version ?? UPDATE_VERSION } : {}),
+    // Always newer than the app it updates: the one after the app's version, unless the world names one.
+    ...(state !== "idle" ? { version: update.version ?? nextMinor(appVersion(world)) } : {}),
     ...(state === "downloading" ? { progress: Math.max(0, Math.min(1, update.progress ?? 0)) } : {}),
     ...(update.error ? { error: { code: update.error } } : {}),
   };
@@ -311,10 +329,10 @@ function driveDownload(world) {
   return world.updaterJob;
 }
 
-/** The desktop app's updater (sidevoice-desktop #56), a release's: automatic or manual, and its state, kept in the
- *  world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in automatic mode
- *  what it finds downloads by itself, in manual mode `download` does; a download moves on to ready on the world's clock;
- *  a restart installs a ready one. The card steps it to any state, failures too (UPDATER_STATES). */
+/** The desktop app's updater (sidevoice-desktop #56), a release's or a nightly's: automatic or manual, and its state,
+ *  kept in the world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in
+ *  automatic mode what it finds downloads by itself, in manual mode `download` does; a download moves on to ready on
+ *  the world's clock; a restart installs a ready one. The card steps it to any state, failures too (UPDATER_STATES). */
 function appUpdaterOf(world) {
   const log = (call) => world.log({ method: "BRIDGE", url: `updater.${call}`, status: "ok", mocked: true });
   const startDownload = () => {
@@ -353,7 +371,7 @@ function appUpdaterOf(world) {
       const update = updateOf(world);
       log("check()");
       if ((update.state ?? "idle") === "idle" && !update.installed) {
-        setUpdate(world, { state: "available", version: UPDATE_VERSION, progress: null, error: null });
+        setUpdate(world, { state: "available", version: nextMinor(appVersion(world)), progress: null, error: null });
         if (updaterMode(world) === "automatic") startDownload();
       } else setUpdate(world, { error: null });
       return updaterStatus(world);
@@ -366,7 +384,15 @@ function appUpdaterOf(world) {
     async restart() {
       log("restart()");
       await world.delay(800);
-      if (updateOf(world).state === "ready") setUpdate(world, { state: "idle", progress: null, error: null, installed: true });
+      if (updateOf(world).state !== "ready") return;
+      // The app runs the update it installed: its number is that one's, and the next a check could find is after it.
+      world.patch({ "app.version": updaterStatus(world).version });
+      setUpdate(world, { state: "idle", version: null, progress: null, error: null, installed: true });
+      // A new app brings a newer service: this computer's is behind it now, if it was not already.
+      const local = world.state.local;
+      if (local && local.state !== "absent" && local.installed !== false && (local.update ?? "current") === "current") setLocalBehind(world, true);
+      // A restart opens a new window: the page loads again.
+      world.relaunchPage?.();
     },
   };
 }
