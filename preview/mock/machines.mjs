@@ -355,9 +355,11 @@ export async function agentsListing(world, machine) {
 /** Where machine `id` is in the world's state: what a mock's action on it patches. */
 const statePath = (id) => (id === LOCAL_ID ? "local" : `machines.${id}`);
 
-/** What a machine behind says to run there to update it. Nothing in the mocks installs, pairs or updates by a command, so
- *  this is a placeholder that says it is one: no real command, no real address. */
-export const MOCK_UPDATE_COMMAND = "sidevoice update   # mock command";
+/** What a machine behind says to run there to update it: the command the connector's README documents (sidevoice/
+ *  sidevoice-connector, "Commands": `install` "installs this package's connector and the core it carries (or updates
+ *  to them)"), with `@latest` so npx fetches the newest package rather than one it cached — the same the web says for a
+ *  machine that names none (sidevoice-web SIDEVOICE_UPDATE_COMMAND). Never a placeholder: the page shows it as it is. */
+export const UPDATE_COMMAND = "npx sidevoice@latest install";
 
 /** The Sidevoice service's version where the world names none, on every machine and on this computer: what a machine's
  *  status says, and what this computer's local host has installed. The desktop app has a number of its own (bridge.mjs
@@ -393,13 +395,13 @@ export function remoteBehind(world) {
 }
 
 /** Makes the first paired machine's Sidevoice behind, its status naming the latest (a minor on from its version) and
- *  MOCK_UPDATE_COMMAND, or current (the card's "Updates elsewhere"). Returns that machine's id, null when there is none.
+ *  UPDATE_COMMAND, or current (the card's "Updates elsewhere"). Returns that machine's id, null when there is none.
  *  The page asks a machine's status once it connects: whoever wants it seen sooner has the page ask again. */
 export function setRemoteBehind(world, behind) {
   const id = firstPaired(world.state);
   if (!id) return null;
   const latest = nextMinor(world.state.machines[id].productVersion);
-  world.patch({ [`machines.${id}.hostUpdate`]: behind ? { latest, command: MOCK_UPDATE_COMMAND } : null });
+  world.patch({ [`machines.${id}.hostUpdate`]: behind ? { latest, command: UPDATE_COMMAND } : null });
   return id;
 }
 

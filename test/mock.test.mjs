@@ -8,7 +8,7 @@ import { changedCount, choicesFor, createWorld, deepSet, stateFor, validMockScen
 import {
   LOCAL_ID, LOCAL_URL, ROOM_URL, agentRows, agentsOf, answer, directUrl, lanUrl, makeIdentities, mintCode, placeOf, seededStorage,
 } from "../preview/mock/machines.mjs";
-import { UPDATER_STATES, UPDATE_VERSION, desktopHost, hasAppUpdater, localStatus, setUpdaterState } from "../preview/mock/bridge.mjs";
+import { UPDATER_STATES, UPDATE_VERSION, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState, updaterMode } from "../preview/mock/bridge.mjs";
 import { readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
@@ -398,6 +398,8 @@ test("a release's updater: automatic downloads what a check finds, manual waits 
 test("the card steps the updater to each state, failures with their codes; a nightly has one too, a development build none", async () => {
   const { world, identities } = await setup();
   const updater = desktopHost(world, identities).updater;
+  // Manual: each state stays as stepped (automatic downloads what is available: the next test).
+  setUpdaterMode(world, "manual");
   const expected = {
     idle: { state: "idle" }, available: { state: "available", version: UPDATE_VERSION }, ready: { state: "ready", version: UPDATE_VERSION },
     "check-failed": { state: "idle", error: { code: "update-check-failed" } },
@@ -421,6 +423,40 @@ test("the card steps the updater to each state, failures with their codes; a nig
   world.patch({ "app.channel": "dev" });
   assert.equal(hasAppUpdater(world), false);
   assert.equal(desktopHost(world, identities).updater, undefined);
+});
+
+test("one mode, the app's: the page's setMode and the card set the same; automatic never rests at available, manual never downloads by itself", async () => {
+  const { world, identities } = await setup();
+  const updater = desktopHost(world, identities).updater;
+  const settle = async () => { while ((await updater.status()).state === "downloading") await new Promise((r) => setImmediate(r)); };
+  // Manual: a check finds one and it waits — no download, no ready — until download().
+  await updater.setMode("manual");
+  assert.deepEqual(await updater.check(), { state: "available", version: UPDATE_VERSION });
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(await updater.status(), { state: "available", version: UPDATE_VERSION });
+  // The card's mode is the page's: what the page reads next (settings) is what the card set.
+  setUpdaterMode(world, "automatic");
+  assert.deepEqual(await updater.settings(), { mode: "automatic" });
+  assert.equal(updaterMode(world), "automatic");
+  // Automatic downloads what was found, by itself, to ready; the restart is still the person's.
+  assert.equal((await updater.status()).state, "downloading");
+  await settle();
+  assert.deepEqual(await updater.status(), { state: "ready", version: UPDATE_VERSION });
+  // The card's Available, in automatic, downloads at once, as the app would; a download that failed waits for Retry.
+  setUpdaterState(world, "available");
+  assert.equal((await updater.status()).state, "downloading");
+  setUpdaterState(world, "download-failed");
+  assert.deepEqual(await updater.status(), { state: "available", version: UPDATE_VERSION, error: { code: "update-download-failed" } });
+  // A check in automatic with one found and not downloaded downloads it.
+  setUpdaterMode(world, "manual");
+  setUpdaterState(world, "available");
+  setUpdaterMode(world, "automatic");
+  assert.equal((await updater.status()).state, "downloading");
+  await settle();
+  setUpdaterState(world, "idle");
+  world.patch({ "app.update.mode": "automatic", "app.update.state": "available", "app.update.error": null });
+  assert.equal((await updater.check()).state, "downloading");
+  assert.throws(() => setUpdaterMode(world, "sometimes"));
 });
 
 test("a backing-off local host says when it tries again", () => {
