@@ -216,7 +216,7 @@ its own code.
   `preview/mock/card-host.mjs`) and fed from the room frame's store, level and caption, as the desktop bridge reads
   them. It shows while the card is wanted (set up, and a call on in A or the voice on in B), stays a moment to say why
   when the call or the voice ends by itself, and logs each command in the activity; its "Open Sidevoice" flashes the
-  room. The panel's `floating-card` picks today's card or one of the spec's options 1–4; above it, "Behind the card"
+  room. "Behind the card"
   switches what the translucent card sits on, and "Card: always show controls" is the app's setting. The card's
   "Floating card states" puts the idle warning, an ending by itself and the agents muted (B) in the room's facts.
 - **Faithful to the web**: once a web commit is built, its own TypeScript checks the mocks against its types

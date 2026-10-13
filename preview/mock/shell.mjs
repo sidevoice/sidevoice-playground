@@ -22,10 +22,6 @@ export const VARIANTS = [
     values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "working-badge", label: "Working, over the agent", note: "The stage: the spinner and \"Working…\" over the agent's head while it works (the desk shows it too).",
     values: [{ value: "show", label: "A · shown" }, { value: "hide", label: "B · hidden (the desk says it)" }] },
-  { name: "floating-card", label: "Floating card (desktop app)",
-    note: "The card the desktop app floats over other apps while the room is minimised. Shown beside the room in the Desktop app view.",
-    values: [{ value: "today", label: "Today · the current card" }, { value: "pip", label: "1 · Compact PiP" }, { value: "caption", label: "2 · PiP + caption" },
-      { value: "strip", label: "3 · PiP + conversations" }, { value: "pill", label: "4 · Pill" }] },
 ]
 
 function readVariants() {

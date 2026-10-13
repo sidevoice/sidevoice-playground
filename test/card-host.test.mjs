@@ -195,14 +195,12 @@ test("a room frame loaded again (a scenario, a reload) is followed anew", () => 
   assert.equal(states.at(-1).call.title, "Second", "the old room is no longer followed");
 });
 
-test("the card page gets the app's card seam and nothing else; the shell serves the host; the panel offers the variant", async () => {
+test("the card page gets the app's card seam and nothing else; the shell serves the host", async () => {
   const seam = { subscribe() {} };
   const win = { location: { pathname: "/voice/call-controls.html" }, fetch: "untouched" };
   attach(/** @type {any} */ (win), { world: null, identities: null, desktop: true, card: () => seam });
   assert.deepEqual(win.__sidevoiceDesktop, { host: { app: "sidevoice-desktop", callControls: seam } });
   assert.equal(win.fetch, "untouched", "the card fetches nothing");
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
-  const entry = VARIANTS.find((variant) => variant.name === "floating-card");
-  assert.deepEqual(entry.values.map((value) => value.value), ["today", "pip", "caption", "strip", "pill"]);
-  assert.equal(entry.label, "Floating card (desktop app)");
+  assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");
 });
