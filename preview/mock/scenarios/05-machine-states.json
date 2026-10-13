@@ -1,0 +1,83 @@
+{
+  "id": "machine-states",
+  "title": "Machine states and new marks",
+  "summary": "The desktop app with six machines paired, one in each state a machine's connection reads in, and something new at a machine and in a section at once: what the Machine state and “New” marks variants are compared on. The NUC answers directly (Connected); the workstation only through the room (Through the room); the Mac mini proves itself only after 3 s, so it is still being checked that long on each load (Checking…; the web gives up on a machine after 4 s, so one checked for good can't be had; the card makes it answer at once); the old laptop is off (Not connected); the Raspberry Pi no longer has this device among its own (Not paired, once the page asks it and is refused); and the laboratory's server, with a long name, was paired without encryption at its local network's address (Connected, and Not encrypted). This computer's local host runs, in use; the card walks it through Running, Starting…, Not working, Not running and Not prepared. Seeded too: the models in use and three not used for 12, 45 and 120 days, and ElevenLabs' key connected, OpenAI's not. New, and nothing else: Codex just found on the NUC (a mark on the gear, on Settings' machines, on the NUC and on the agent itself), and a setting from What's new, the speech language (set up on the release before; it shows once a transcription model is ready, which the seeded ones are). Every other machine's agents, and this computer's, are connected or not, none just found.",
+  "view": "app",
+  "defaults": { "setup": "earlier", "installed": "seeded", "keys": "elevenlabs" },
+  "world": {
+    "page": "none",
+    "setup": "earlier",
+    "machines": {
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "pairedDaysAgo": 12,
+        "agents": [
+          { "id": "claude", "registration": "connected", "actionable": false },
+          { "id": "codex", "registration": "not-connected", "actionable": true }
+        ],
+        "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 12, "mine": true }],
+        "participants": [
+          { "title": "home-server", "harness": "codex", "reach": "listening" }
+        ] },
+      "workstation": { "host": "Workstation", "reach": "room", "paired": true, "pairedDaysAgo": 40,
+        "agents": [
+          { "id": "claude", "registration": "connected", "actionable": false },
+          { "id": "codex", "registration": "connected", "actionable": false }
+        ],
+        "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 40, "mine": true }], "participants": [] },
+      "mini": { "host": "Mac mini", "reach": "direct", "answersAfterMs": 3000, "paired": true, "pairedDaysAgo": 25,
+        "agents": [
+          { "id": "claude", "registration": "connected", "actionable": false }
+        ],
+        "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 25, "mine": true }], "participants": [] },
+      "laptop": { "host": "Portátil viejo", "reach": "offline", "paired": true, "pairedDaysAgo": 90,
+        "agents": [
+          { "id": "claude", "registration": "connected", "actionable": false }
+        ],
+        "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 90, "mine": true }], "participants": [] },
+      "pi": { "host": "Raspberry Pi", "reach": "direct", "revoked": true, "paired": true, "pairedDaysAgo": 60,
+        "agents": [
+          { "id": "claude", "registration": "connected", "actionable": false }
+        ],
+        "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 60, "mine": true }], "participants": [] },
+      "lab": { "host": "Servidor del laboratorio, planta baja", "reach": "direct", "insecure": true, "paired": true, "pairedDaysAgo": 7,
+        "agents": [
+          { "id": "codex", "registration": "connected", "actionable": false },
+          { "id": "cursor", "registration": "not-connected", "actionable": false }
+        ],
+        "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 7, "mine": true }], "participants": [] }
+    },
+    "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
+      "inUse": true, "version": "0.3.0", "bundledVersion": "0.3.0", "update": "current",
+      "devices": [{ "name": "Mac de Ana", "kind": "local", "daysAgo": 30, "mine": true }],
+      "agents": [
+        { "id": "claude", "registration": "connected", "actionable": false },
+        { "id": "codex", "registration": "not-connected", "actionable": false }
+      ],
+      "participants": [
+        { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening" }
+      ] }
+  },
+  "options": [
+    { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
+      { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
+      { "value": "earlier", "label": "done on the release before: what's new shows", "set": { "setup": "earlier" } },
+      { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
+    ] },
+    { "id": "localState", "group": "This device", "label": "State", "values": [
+      { "value": "running", "label": "Running", "set": { "local.state": "running", "local.installed": true, "local.failure": null } },
+      { "value": "starting", "label": "Starting…", "set": { "local.state": "starting", "local.installed": true, "local.failure": null } },
+      { "value": "failed", "label": "Not working (failed: missing module)", "set": { "local.state": "failed", "local.installed": true, "local.failure": { "key": "import.missing-module", "step": "service-start" } } },
+      { "value": "stopped-by-person", "label": "Not running (stopped by the person)", "set": { "local.state": "stopped-by-person", "local.installed": true, "local.failure": null } },
+      { "value": "absent", "label": "Not prepared (not installed)", "set": { "local.state": "absent", "local.installed": false, "local.failure": null } }
+    ] },
+    { "id": "miniAnswers", "group": "Machines", "label": "The Mac mini proves itself", "reload": true, "values": [
+      { "value": "slowly", "label": "after 3 s: Checking… on each load", "set": { "machines.mini.answersAfterMs": 3000 } },
+      { "value": "at-once", "label": "at once", "set": { "machines.mini.answersAfterMs": null } }
+    ] },
+    { "id": "productVersion", "group": "Version", "label": "Sidevoice installed on the machines", "values": [
+      { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1", "machines.workstation.productVersion": "0.8.1", "machines.mini.productVersion": "0.8.1",
+        "machines.laptop.productVersion": "0.8.1", "machines.pi.productVersion": "0.8.1", "machines.lab.productVersion": "0.8.1", "local.productVersion": "0.8.1" } },
+      { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null, "machines.workstation.productVersion": null, "machines.mini.productVersion": null,
+        "machines.laptop.productVersion": null, "machines.pi.productVersion": null, "machines.lab.productVersion": null, "local.productVersion": null } }
+    ] }
+  ]
+}
