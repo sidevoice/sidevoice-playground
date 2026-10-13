@@ -7,7 +7,7 @@ import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, firstPaired, hostStat
 import { appVersion } from "./bridge.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
-import { LOCAL_VERSION, UPDATER_STATES, hasAppUpdater, localBehind, setLocalBehind, setUpdaterMode, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
+import { LOCAL_VERSION, UPDATER_STATES, checkForUpdate, hasAppUpdater, localBehind, setLocalBehind, setUpdaterMode, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
 const BEHIND_LABELS = { current: "Current", behind: "Behind" };
@@ -203,7 +203,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   // The desktop app's updater (bridge.mjs `appUpdaterOf`), in any scenario, in the Desktop app view: each of its
   // states, set in the world and pushed to the page through its `subscribe`, live; and its mode, which the page reads
   // as it loads (the app pushes only its status), so setting it here loads the page again (↻) — the page and the app
-  // never disagree on it. The mode and the line follow the world, the page's own changes too (updateActivity).
+  // never disagree on it. The mode and the line follow the world, the page's own changes too (updateActivity). App
+  // checks is the app's own check (at launch, every 6 h), which the page never asked for: ~1.5 s, then what it finds
+  // (automatic downloads it by itself, over ~7 s), pushed as the page's would be.
   const updaterSection = params.view === "app" ? el("fieldset", {},
     el("legend", { textContent: "App update (desktop)" }),
     el("p", { className: "note updater-state", textContent: updaterLine(world) }),
@@ -215,7 +217,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         reload?.();
       })),
     el("div", { className: "actions" }, UPDATER_STATES.map((step) =>
-      el("button", { type: "button", textContent: step.label, onclick: () => setUpdaterState(world, step.id) })))) : null;
+      el("button", { type: "button", textContent: step.label, onclick: () => setUpdaterState(world, step.id) })),
+      el("button", { type: "button", textContent: "App checks", title: "The app's own check, at launch and every 6 h: the page did not ask for it",
+        onclick: () => void checkForUpdate(world) }))) : null;
   updaterSection?.querySelector(".segmented")?.classList.add("updater-mode");
   // Updates elsewhere (the web's Updates section), in any scenario and any view: this
   // computer's Sidevoice behind the one the app bundles (bridge.mjs `setLocalBehind`), and the first paired machine's
