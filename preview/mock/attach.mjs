@@ -188,7 +188,8 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
     });
   };
   win.WebSocket = /** @type {any} */ (mockedWebSocket(win, { world, identities }));
-  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities) };
+  // Restarting into an app update opens a new window: the page loads again.
+  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: () => win.location.reload() }) };
   // The card's shortcut works with the page focused too.
   win.addEventListener("keydown", (event) => onKey?.(event), true);
 }

@@ -46,7 +46,7 @@
         "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 7, "mine": true }], "participants": [] }
     },
     "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
-      "inUse": true, "version": "0.3.0", "bundledVersion": "0.3.0", "update": "current",
+      "inUse": true, "version": "0.8.1", "bundledVersion": "0.8.1", "update": "current",
       "devices": [{ "name": "Mac de Ana", "kind": "local", "daysAgo": 30, "mine": true }],
       "agents": [
         { "id": "claude", "registration": "connected", "actionable": false },
@@ -75,9 +75,9 @@
     ] },
     { "id": "productVersion", "group": "Version", "label": "Sidevoice installed on the machines", "values": [
       { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1", "machines.workstation.productVersion": "0.8.1", "machines.mini.productVersion": "0.8.1",
-        "machines.laptop.productVersion": "0.8.1", "machines.pi.productVersion": "0.8.1", "machines.lab.productVersion": "0.8.1", "local.productVersion": "0.8.1" } },
+        "machines.laptop.productVersion": "0.8.1", "machines.pi.productVersion": "0.8.1", "machines.lab.productVersion": "0.8.1", "local.saysVersion": true } },
       { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null, "machines.workstation.productVersion": null, "machines.mini.productVersion": null,
-        "machines.laptop.productVersion": null, "machines.pi.productVersion": null, "machines.lab.productVersion": null, "local.productVersion": null } }
+        "machines.laptop.productVersion": null, "machines.pi.productVersion": null, "machines.lab.productVersion": null, "local.saysVersion": false } }
     ] }
   ]
 }

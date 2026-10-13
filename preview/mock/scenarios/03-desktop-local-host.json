@@ -1,7 +1,7 @@
 {
   "id": "desktop-local-host",
   "title": "Desktop app with its local host",
-  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: this app, Mac de Ana, and two others on this computer's host (Safari on iPhone, Chrome on Mac) and three on the NUC (Safari on iPhone, Firefox on Windows, Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); the NUC and an old laptop (answering through the room; the card turns it off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search finds its three (the card makes it fail: timed out, or Sidevoice not running); the old laptop's finds Claude Code connected, Codex set up by an older Sidevoice and Cursor not connected. New: Codex just found here, an update of this computer's host (0.4.0), and a setting from What's new (set up on the release before). Seeded too: a transcript in the conversation on top (sidevoice-core on this computer), six messages to read (the card empties it).",
+  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: this app, Mac de Ana, and two others on this computer's host (Safari on iPhone, Chrome on Mac) and three on the NUC (Safari on iPhone, Firefox on Windows, Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); the NUC and an old laptop (answering through the room; the card turns it off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search finds its three (the card makes it fail: timed out, or Sidevoice not running); the old laptop's finds Claude Code connected, Codex set up by an older Sidevoice and Cursor not connected. New: Codex just found here, an update of this computer's service (0.8.1 → 0.9.0), and a setting from What's new (set up on the release before). Seeded too: a transcript in the conversation on top (sidevoice-core on this computer), six messages to read (the card empties it).",
   "view": "app",
   "defaults": { "setup": "earlier", "update": "available", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
@@ -26,7 +26,7 @@
         "devices": [{ "name": "Mac de Ana", "kind": "code", "daysAgo": 90, "mine": true }], "participants": [] }
     },
     "local": { "computerName": "Mac de Ana", "state": "running", "installed": true, "service": "launchd", "reach": "local-only",
-      "inUse": true, "version": "0.3.0", "bundledVersion": "0.3.0", "update": "current",
+      "inUse": true, "version": "0.8.1", "bundledVersion": "0.8.1", "update": "current",
       "devices": [
         { "name": "Mac de Ana", "kind": "local", "daysAgo": 30, "mine": true },
         { "id": "local-iphone", "name": "iPhone de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 1 },
@@ -86,9 +86,9 @@
       { "value": "dev", "label": "development build", "set": { "app.channel": "dev" } }
     ] },
     { "id": "update", "group": "Version", "label": "Update", "values": [
-      { "value": "current", "label": "current", "set": { "local.update": "current", "local.bundledVersion": "0.3.0" } },
-      { "value": "available", "label": "available (0.4.0)", "set": { "local.update": "available", "local.bundledVersion": "0.4.0" } },
-      { "value": "newer-installed", "label": "the installed one is newer", "set": { "local.update": "newer-installed", "local.version": "0.5.0" } },
+      { "value": "current", "label": "current (0.8.1)", "set": { "local.update": "current", "local.version": "0.8.1", "local.bundledVersion": "0.8.1" } },
+      { "value": "available", "label": "available (0.8.1 → 0.9.0)", "set": { "local.update": "available", "local.version": "0.8.1", "local.bundledVersion": "0.9.0" } },
+      { "value": "newer-installed", "label": "the installed one is newer (0.9.0, the app bundles 0.8.1)", "set": { "local.update": "newer-installed", "local.version": "0.9.0", "local.bundledVersion": "0.8.1" } },
       { "value": "incompatible", "label": "incompatible", "set": { "local.update": "incompatible" } }
     ] },
     { "id": "inUse", "group": "Machines", "label": "In use when the page loads (a web with one machine at a time)", "reload": true, "values": [
@@ -115,8 +115,8 @@
       ] } }
     ] },
     { "id": "productVersion", "group": "Version", "label": "Sidevoice installed on the machines", "values": [
-      { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1", "machines.laptop.productVersion": "0.8.1", "local.productVersion": "0.8.1" } },
-      { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null, "machines.laptop.productVersion": null, "local.productVersion": null } }
+      { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1", "machines.laptop.productVersion": "0.8.1", "local.saysVersion": true } },
+      { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null, "machines.laptop.productVersion": null, "local.saysVersion": false } }
     ] }
   ]
 }

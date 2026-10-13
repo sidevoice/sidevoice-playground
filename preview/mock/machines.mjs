@@ -359,9 +359,15 @@ const statePath = (id) => (id === LOCAL_ID ? "local" : `machines.${id}`);
  *  this is a placeholder that says it is one: no real command, no real address. */
 export const MOCK_UPDATE_COMMAND = "sidevoice update   # mock command";
 
-/** `version` a minor release on (`0.8.1` → `0.9.0`); one that says no version counts from 0.3.0. */
+/** The Sidevoice service's version where the world names none, on every machine and on this computer: what a machine's
+ *  status says, and what this computer's local host has installed. The desktop app has a number of its own (bridge.mjs
+ *  `APP_VERSION`): the two are released apart, and the app bundles a service. */
+export const SERVICE_VERSION = "0.8.1";
+
+/** `version` a minor release on (`0.8.1` → `0.9.0`); one that says no version counts from SERVICE_VERSION, so what is
+ *  offered is always newer than what is installed, and never a number of the app's. */
 export function nextMinor(version) {
-  const [, major = "0", minor = "3"] = /^(\d+)\.(\d+)\.\d+/.exec(typeof version === "string" ? version : "") ?? [];
+  const [, major, minor] = /^(\d+)\.(\d+)\.\d+/.exec(typeof version === "string" ? version : "") ?? /^(\d+)\.(\d+)/.exec(SERVICE_VERSION) ?? [];
   return `${major}.${Number(minor) + 1}.0`;
 }
 

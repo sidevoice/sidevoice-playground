@@ -7,6 +7,7 @@ import {
   CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, firstPaired, hostStatus, liveCall, machineOf, mintCode, participantsOf, remoteBehind,
   setRemoteBehind,
 } from "./machines.mjs";
+import { appVersion } from "./bridge.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
 import { LOCAL_VERSION, UPDATER_STATES, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
@@ -330,7 +331,7 @@ function updaterLine(world) {
   if (channel !== "release") return `A ${channel} build has no updater: pick a release build to try it.`;
   const status = updaterStatus(world);
   const progress = status.state === "downloading" ? ` ${Math.round((status.progress ?? 0) * 100)}%` : "";
-  return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
+  return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · app ${appVersion(world)} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
 }
 
 /** This computer's Sidevoice, in a line: what the app's local host says of its version (`version()`), and what keeps its
