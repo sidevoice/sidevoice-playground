@@ -163,6 +163,48 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
     el("div", { className: "actions" },
       ...AVATAR_STATES.map(([id, label]) => el("button", { type: "button", textContent: label, onclick: () => holdAvatar(id) })),
       el("button", { type: "button", textContent: "Auto", onclick: () => holdAvatar(null) })));
+  // The floating card's overlays (sidevoice-web FLOATING-CARD-SPEC §8.9), in the Desktop app view: the room's own facts
+  // patched, so the room and the card beside it show them at once. B's marks, Hear it and an offline conversation come
+  // from B's world mocks.
+  const cardNote = el("p", { className: "note" });
+  const roomPage = () => {
+    const page = frame?.contentWindow;
+    const store = page?.sidevoiceUI?.store;
+    if (!store) cardNote.textContent = "The page is not loaded yet.";
+    return store ? { store, actions: page.sidevoiceActions, b: store.getState().facts.callModel === "voice-switch" } : null;
+  };
+  const cardStatesSection = params.view === "app" ? el("fieldset", {},
+    el("legend", { textContent: "Floating card states" }), cardNote,
+    el("div", { className: "actions" },
+      el("button", { type: "button", textContent: "Idle warning", title: "The minute before the call (A) or the voice (B) ends itself; Keep answers it", onclick: () => {
+        const page = roomPage();
+        if (!page) return;
+        const key = page.b ? "voiceIdleWarning" : "callIdleWarning";
+        page.store.patch({ [key]: !page.store.getState().facts[key] });
+        cardNote.textContent = "";
+      } }),
+      el("button", { type: "button", textContent: "Ends by itself", title: "The call (A) ends, or the voice (B) turns off, by itself: the card says why for a moment", onclick: () => {
+        const page = roomPage();
+        if (!page) return;
+        // One change of the room's, as when it happens by itself: off, and why, at once.
+        page.store.batch(() => {
+          if (page.b) {
+            void page.actions?.setVoice?.(false);
+            page.store.patch({ voiceOffReason: "micLost", voiceOffDetail: "" });
+          } else {
+            page.store.patch({ callEnded: { reason: "idle", detail: "" } });
+            if (page.store.getState().call.joined) void page.actions?.toggleCall?.();
+          }
+        });
+        cardNote.textContent = "";
+      } }),
+      el("button", { type: "button", textContent: "Agents muted (B)", onclick: () => {
+        const page = roomPage();
+        if (!page) return;
+        if (!page.b) { cardNote.textContent = "Call model B only."; return; }
+        page.actions?.setAgentsMuted?.(!page.store.getState().facts.agentsMuted);
+        cardNote.textContent = "";
+      } }))) : null;
   root.replaceChildren(
     header,
     el("div", { className: "card-body" },
@@ -178,6 +220,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       )),
       conversationSection,
       avatarSection,
+      cardStatesSection,
       voiceSection,
       devicesSection,
       machines.length ? el("fieldset", {},

@@ -158,8 +158,15 @@ export function mockedWebSocket(win, { world, identities }) {
 }
 
 /** Puts the mocks for `world` into the page `win` (the iframe's window). `desktop`: whether it is the app view.
- * @param {Window & typeof globalThis & { __sidevoiceDesktop?: unknown }} win */
-export function attach(win, { world, identities, desktop, onKey }) {
+ * The desktop's floating card page (the web's call-controls.html, in the frame beside the room) gets only the app's
+ * card seam, `card()` — card-host.mjs, fed from the room frame —: it fetches nothing.
+ * @param {Window & typeof globalThis & { __sidevoiceDesktop?: unknown }} win
+ * @param {{ world: any, identities: any, desktop: boolean, onKey?: (event: KeyboardEvent) => void, card?: () => unknown }} options */
+export function attach(win, { world, identities, desktop, onKey, card }) {
+  if (win.location.pathname.endsWith("/call-controls.html")) {
+    win.__sidevoiceDesktop = { host: { app: "sidevoice-desktop", callControls: card?.() ?? null } };
+    return;
+  }
   const realFetch = win.fetch.bind(win);
   const pageOrigin = win.location.origin;
   win.fetch = async (input, init = {}) => {

@@ -23,7 +23,7 @@ import { chunkFor, exportedNames, mockChunk, packageOf } from "./mock/chunks.mjs
 
 const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
 /** What the shell loads from mock/, by name: nothing else there is served. */
-const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "models.mjs", "voice.mjs", "shell.css"]);
+const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "card-host.mjs", "world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "models.mjs", "voice.mjs", "shell.css"]);
 export const MOCK_PATH = "/preview-mock/";
 
 /** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order, each with the voice's and the
