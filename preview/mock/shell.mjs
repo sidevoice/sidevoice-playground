@@ -20,8 +20,6 @@ const VARIANTS_KEY = "sidevoice.variants";
 export const VARIANTS = [
   { name: "update-notice", label: "Where an update says so (desktop)", note: "How the room tells you an update waits; both say the same, act the same (Download, Restart, Reload) and hide by their × until a newer version or a restart.",
     values: [{ value: "chip", label: "A · a chip above Settings" }, { value: "banner", label: "B · a slim banner at the top of the room" }] },
-  { name: "machine-unencrypted", label: "Where Not encrypted is said", note: "A machine paired without encryption (scenario Machine states: the laboratory's server). Its page always says so, with why it matters.",
-    values: [{ value: "list", label: "A · in the machines' list too: the open lock after its name" }, { value: "page", label: "B · only on the machine's page" }] },
 ]
 
 function readVariants() {
