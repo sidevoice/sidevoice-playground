@@ -442,7 +442,7 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const room = roomOf(world, id);
     const call = callOf(room, new URLSearchParams(query).get("session_id"));
     if (method === "GET" && path === "/api/presentation") return json(200, snapshot(room, call, identity));
-    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: room.rows.map(rowView) });
+    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: told(world, room).map(rowView) });
     if (method === "GET" && path === "/api/presentation/participants") {
       return json(200, { participants: participantsOf(machine, id, call?.binding?.thread_id) });
     }
@@ -574,6 +574,9 @@ function reachable(state, id, via, onPage) {
 const seated = (room) => [...room.calls].filter((call) => call.session);
 /** The call of `room` with session `sid`, if it is one. */
 const callOf = (room, sid) => (sid ? seated(room).find((call) => call.session === sid) : undefined);
+/** The room's history as the page reads it: what was said before the page came left out while the scenario's
+ *  `transcript` is `empty` (a choice that reloads the page, so it holds for a room already made too). */
+const told = (world, room) => (world.state.transcript === "empty" ? room.rows.filter((row) => !row.id.startsWith(`${room.id}-said-`)) : room.rows);
 /** What the room's history says of a row: all of it but the turn it was said in. */
 const rowView = ({ turn_id, ...row }) => row;
 const refusal = (key, id = null) => ({ type: "error", data: { key, message: REFUSALS[key], ...(id ? { client_msg_id: id } : {}) } });
