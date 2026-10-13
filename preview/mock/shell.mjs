@@ -24,6 +24,8 @@ export const VARIANTS = [
     values: [{ value: "word", label: "A · a word under the name" }, { value: "pill", label: "B · a pill under the name" }] },
   { name: "new-mark", label: "“New” marks", note: "What the gear, a section and a machine show when something under them is new; the thing itself always says New.",
     values: [{ value: "sparkle", label: "A · a purple sparkle" }, { value: "pill", label: "B · a “New” pill (a count on the gear)" }, { value: "dot", label: "C · a dot in Settings' nav only (a count on the gear)" }] },
+  { name: "call-model", label: "Calls or a voice switch", note: "What the call button does: A joins and leaves a call; B is a voice switch in a room that is always open.",
+    values: [{ value: "a", label: "A · Call / hang up" }, { value: "b", label: "B · Voice switch" }] },
 ]
 
 function readVariants() {

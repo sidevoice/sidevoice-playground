@@ -463,12 +463,14 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     if (method === "GET" && path === "/api/presentation") return json(200, snapshot(room, call, identity));
     if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: told(world, room).map(rowView) });
     if (method === "GET" && path === "/api/presentation/participants") {
-      return json(200, { participants: participantsOf(machine, id, call?.binding?.thread_id) });
+      return json(200, { participants: listing(world, room, machine, call?.binding?.thread_id) });
     }
     if (method === "GET" && path === "/api/presentation/admission") {
       return json(200, { admitted: true, reason: null, message: null, clients: seated(room).length, max: 8 });
     }
     if (method === "POST" && path === "/api/presentation/select") return select(world, room, machine, parsed(body));
+    if (method === "POST" && path === "/api/presentation/leave") return leave(world, room, parsed(body));
+    if (method === "POST" && path === "/api/presentation/hear") return hear(world, room, parsed(body));
     if (method === "POST" && path === "/api/presentation/text") return typed(world, room, parsed(body));
     if (method === "GET" && path === "/api/presentation/latency") return refuse(404, "That browser is not in the room.");
   }
@@ -488,14 +490,22 @@ function parsed(body) {
 /** What a harness says it can do, as the room passes it on (sidevoice-core control/room/declaration.rs). */
 const CAPABILITIES = ["deliver", "inspectInbound", "working", "endOfTurn", "sessionIdentity"];
 
+/** Machine `id`'s conversations as its scenario gives them: each entry and its thread id (its own, or one by its place
+ *  in the list). An entry with no title is none: an option may set a field at a place a shorter list does not have
+ *  (`machines.nuc.participants.1.working` while the NUC has no conversations). */
+function conversations(machine, id) {
+  return (machine?.participants ?? []).flatMap((entry, i) =>
+    entry?.title != null ? [{ entry, thread_id: entry.thread_id ?? `${id}-thread-${i + 1}` }] : []);
+}
+
 /** Machine `id`'s conversations, as the room lists them (protocol `Participant`, and the room's own fields:
  * the machine, what the harness can do, its engine and route; sidevoice-core control/room/participants.rs).
  * `selected` is the conversation the asking call is on, if any.
  * @returns {Participant[]} */
 export function participantsOf(machine, id, selected = null) {
-  return (machine?.participants ?? []).map((p, i) => ({
-    thread_id: p.thread_id ?? `${id}-thread-${i + 1}`, title: p.title, harness: p.harness ?? null,
-    available: p.reach !== "offline", selected: !!selected && (p.thread_id ?? `${id}-thread-${i + 1}`) === selected,
+  return conversations(machine, id).map(({ entry: p, thread_id }) => ({
+    thread_id, title: p.title, harness: p.harness ?? null,
+    available: p.reach !== "offline", selected: !!selected && thread_id === selected,
     machine: { id: `${id}-connector`, host: machine.host ?? null },
     capabilities: p.capabilities ?? Object.fromEntries(CAPABILITIES.map((key) => [key, "supported"])),
     engine: p.engine ?? null, route: p.route ?? null,
@@ -513,8 +523,13 @@ export function participantsOf(machine, id, selected = null) {
  * session is numbered (`seq`). The person's words become rows of the room's history, `pending` until the agent's
  * connector takes them, then `delivered` and `read` while their conversation listens. The agent is the card's: it
  * speaks (`agentSpeaks`) and works (`agentWorks`) as a connector reports it, to every call on its conversation.
- * Not mocked: a dropped call taken back (a new session answers instead), the room asking a quiet page if it is still
- * there, replays, latency. */
+ * A call says whether its speech is on (its hello's `speech`, then `voice-speech`): only those with it on are sent a
+ * reply to say; with none, the reply is only written, and the person did not hear it. What a conversation's person did
+ * not hear stays on its list until the agent is told (their next words, or "hear it": `hear`), as the core keeps it
+ * (rust/control/room/unheard.rs), and the conversations' listing says it, with what each harness last said about
+ * working. Not mocked: a dropped call taken back (a new session answers instead), the room asking a quiet page if it
+ * is still there, replays, latency, the note the room sends by itself when the person comes back (the mock sends one
+ * only when asked). */
 
 const CALL_PATH = "/api/presentation/ws";
 const TOKEN_PREFIX = "sidevoice.token.";
@@ -540,6 +555,16 @@ const PLAYBACK = {
   playing: ["playing", null], heard: ["playback_finished", null], interrupted: ["interrupted", "user_interrupted"],
   unplayed: ["interrupted", "newer_turn"], failed: ["failed", "playback_failed"],
 };
+/** The reasons a reply that was not played to the end ends unheard with (sidevoice-core control/room/unheard.rs), and
+ *  the two of a call whose speech is off, which the core does not have yet. */
+const UNHEARD_REASONS = [
+  "user_interrupted", "newer_turn", "unheard", "focus_changed", "call_ended", "session_changed", "queue_full", "playback_failed",
+  "voice_off", "agents_muted",
+];
+/** Why a call's speech is off: its voice is off, or it muted the agents. */
+const SPEECH_OFF = ["voice_off", "agents_muted"];
+/** How long the agent takes to answer once asked to say what the person missed (`hear`), in the world's time. */
+export const HEAR_ANSWER_MS = 2500;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The rooms of each world, by machine. */
@@ -548,14 +573,20 @@ let seats = 0;
 
 /**
  * Machine `id`'s room in `world`: its calls (`calls`, seated once the page said hello), its history (`rows`, the
- * journal's rows), what each conversation's harness last said about working, and the page's messages already taken.
+ * journal's rows), what each conversation's harness last said about working, the page's messages already taken, the
+ * replies each conversation's person did not hear (`unheard`, by thread, until the agent is told), and the
+ * conversations whose agent was just asked to say what was missed (`asked`).
  */
 export function roomOf(world, id) {
   if (!rooms.has(world)) rooms.set(world, new Map());
   const all = rooms.get(world);
   if (!all.has(id)) {
-    const room = { id, calls: new Set(), rows: seededRows(world, id), seq: 0, working: {}, spells: {}, seen: new Set() };
+    const room = {
+      id, calls: new Set(), rows: seededRows(world, id), seq: 0, working: {}, spells: {}, seen: new Set(),
+      unheard: /** @type {Record<string, any[]>} */ ({}), asked: new Set(),
+    };
     room.seq = room.rows.length;
+    for (const row of room.rows) track(room, row);
     all.set(id, room);
     // A call ends as the world changes under it: its device revoked (4401), or its machine no longer answering
     // where the call reached it (dropped, as a network drops it).
@@ -570,17 +601,18 @@ export function roomOf(world, id) {
 }
 
 /** What machine `id`'s room already said before the page came, oldest first: each conversation's `history` in the
- *  scenario (`{ role: "user" | "assistant", text, minutesAgo, status? }`), as rows of no call. Each machine keeps its
- *  own, at its own address: a page watching every machine merges them. */
+ *  scenario (`{ role: "user" | "assistant", text, minutesAgo, status?, audio_reason? }`), as rows of no call. A reply
+ *  only written (`"status": "text_only"`) was not heard: its reason is `focus_changed` unless it says one. Each machine
+ *  keeps its own, at its own address: a page watching every machine merges them. */
 function seededRows(world, id) {
-  const machine = machineOf(world.state, id);
-  const said = participantsOf(machine, id).flatMap((conversation, i) =>
-    (machine.participants[i].history ?? []).map((entry) => ({ conversation, entry })));
-  return said.sort((a, b) => b.entry.minutesAgo - a.entry.minutesAgo).map(({ conversation, entry }, n) => ({
-    seq: n + 1, id: `${id}-said-${n + 1}`, thread: conversation.thread_id, role: entry.role, text: entry.text,
+  const said = conversations(machineOf(world.state, id), id).flatMap(({ entry: conversation, thread_id }) =>
+    (conversation.history ?? []).map((entry) => ({ conversation, thread_id, entry })));
+  return said.sort((a, b) => b.entry.minutesAgo - a.entry.minutesAgo).map(({ conversation, thread_id, entry }, n) => ({
+    seq: n + 1, id: `${id}-said-${n + 1}`, thread: thread_id, role: entry.role, text: entry.text,
     name: entry.role === "user" ? "You" : conversation.title, session: null, revision: 0,
     time: world.now() - Math.round(entry.minutesAgo * 60_000),
-    status: entry.status ?? (entry.role === "user" ? "read" : "playback_finished"), audio_reason: null, heard_chars: null, offline: null,
+    status: entry.status ?? (entry.role === "user" ? "read" : "playback_finished"),
+    audio_reason: entry.audio_reason ?? (entry.status === "text_only" ? "focus_changed" : null), heard_chars: null, offline: null,
   }));
 }
 
@@ -649,6 +681,7 @@ export function callSocket(world, identities, { url, protocols = [], pageOrigin 
   const call = {
     url, via, onPage: !!place.onPage, peer, session: null, since: 0, binding: /** @type {RoomBinding | null} */ (null),
     revision: 0, frames: 0, turns: [], speaking: false, replies: new Map(), ended: false,
+    speech: speechOf(null), notes: "auto",
   };
   room.calls.add(call);
   peer.open(protocol);
@@ -664,7 +697,9 @@ function send(call, event) {
 }
 
 /** What the page sent on `call`: its hello first, then its messages, each about the call's own session. Its interface
- *  language (`voice-settings`) changes nothing here: the mocks speak English. */
+ *  language (`voice-settings`) changes nothing here: the mocks speak English. Whether its speech is on
+ *  (`voice-speech`) is taken as it comes, neither acknowledged nor answered; one that does not say on or off is
+ *  ignored. */
 function take(world, room, call, text) {
   if (call.ended) return;
   let frame = null;
@@ -676,13 +711,25 @@ function take(world, room, call, text) {
   if (data.session_id !== call.session) return;
   if (frame.type === "voice-user-turn") once(world, room, call, data, userTurn);
   else if (frame.type === "voice-playback") once(world, room, call, data, playback);
+  else if (frame.type === "voice-speech" && typeof data.on === "boolean") call.speech = speechOf(data);
 }
 
-/** The hello: the call gets its session, and lands on the conversation the hello names while it is in the room. */
+/** A call's speech as its page says it (`{ on, reason? }`): on, or off because its voice is off or it muted the
+ *  agents. Said by nothing, it is on. */
+function speechOf(said) {
+  if (!said || typeof said !== "object" || typeof said.on !== "boolean") return { on: true, reason: null };
+  return { on: said.on, reason: !said.on && SPEECH_OFF.includes(said.reason) ? said.reason : null };
+}
+
+/** The hello: the call gets its session, and lands on the conversation the hello names while it is in the room. It
+ *  may say the call's speech is off (`speech`), and that the agent is told what the person missed only when they ask
+ *  (`notes: "on-request"`): the mock keeps that, and never tells it unasked anyway. */
 function seat(world, room, call, hello) {
   const data = hello.data && typeof hello.data === "object" ? hello.data : {};
   call.session = randomId();
   call.since = ++seats;
+  call.speech = speechOf(data.speech);
+  call.notes = data.notes === "on-request" ? "on-request" : "auto";
   const named = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === data.conversation);
   if (named) call.binding = { thread_id: named.thread_id, title: named.title, binding_id: randomId() };
   /** @type {VoiceSession & { room: { api: number, version: string }, resume_refused?: string }} */
@@ -693,7 +740,7 @@ function seat(world, room, call, hello) {
   };
   // The session frame is the one frame not numbered.
   call.peer.message(JSON.stringify({ type: "voice-session", data: session }));
-  reportWorking(room, call);
+  reportWorking(world, room, call);
   world.changed();
 }
 
@@ -774,20 +821,23 @@ function receipt(call, row, status) {
 }
 
 /** The words reach the agent while its conversation listens: its connector takes them, then the agent reads them and
- *  its harness starts working on them. One that does not listen leaves them pending. */
+ *  its harness starts working on them. One that does not listen leaves them pending. What the person did not hear on
+ *  that conversation goes with them: the agent is told, and the list empties. */
 async function deliver(world, room, row) {
   for (const [status, ms] of /** @type {const} */ ([["delivered", 400], ["read", 900]])) {
     await world.delay(ms);
     const conversation = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === row.thread);
     if (conversation?.reach.state !== "listening") return;
     row.status = status;
+    if (status === "delivered") delete room.unheard[row.thread];
     const call = callOf(room, row.session);
     if (call) receipt(call, row, status);
   }
   working(room, row.thread, true, { turn_phase: "start", session_id: row.session, revision: row.revision });
 }
 
-/** A call's report of how a reply played: the reply's row says it, while the reply is still queued or playing. */
+/** A call's report of how a reply played: the reply's row says it, while the reply is still queued or playing, and
+ *  its conversation's list of what the person did not hear follows it. */
 function playback(world, room, call, data, id) {
   const report = PLAYBACK[data.status];
   if (!report || (data.heard_chars != null && !Number.isInteger(data.heard_chars))) return [refusal("room.receipt_invalid", id)];
@@ -799,6 +849,7 @@ function playback(world, room, call, data, id) {
   reply.row.status = status;
   reply.row.audio_reason = status === "interrupted" && typeof data.reason === "string" ? data.reason : reason;
   reply.row.heard_chars = data.status === "interrupted" ? data.heard_chars ?? null : null;
+  track(room, reply.row);
   return [];
 }
 
@@ -806,22 +857,43 @@ function playback(world, room, call, data, id) {
  *  still to play for it is not heard. */
 function end(world, room, call, { code = 1000, reason = "", byPage = false }) {
   if (!room.calls.delete(call)) return;
-  stopReplies(call, "call_ended");
+  stopReplies(room, call, "call_ended");
   call.ended = true;
   if (!byPage) call.peer.close(code, reason);
   world.log({ method: "WS", url: call.url, status: `closed ${code}`, mocked: true });
 }
 
 /** The replies `call` has not finished end there, unheard, for `reason`; the ids of those that did. */
-function stopReplies(call, reason) {
+function stopReplies(room, call, reason) {
   const stopped = [];
   for (const [uid, reply] of call.replies) {
     if (!["queued", "playing"].includes(reply.status)) continue;
     reply.status = reply.row.status = "interrupted";
     reply.row.audio_reason = reason;
+    track(room, reply.row);
     stopped.push(uid);
   }
   return stopped;
+}
+
+/** Whether a reply's row says the person did not hear it: only written, or ended short for one of the reasons that
+ *  count (sidevoice-core control/room/unheard.rs `unheard`). */
+const unheard = (row) => row.status === "text_only" || (["interrupted", "failed"].includes(row.status) && UNHEARD_REASONS.includes(row.audio_reason));
+
+/** Keeps a reply's place on its conversation's list of what the person did not hear, once its row changed: on it while
+ *  unheard, off it once heard to the end. */
+function track(room, row) {
+  if (row.role !== "assistant") return;
+  const list = room.unheard[row.thread] ?? [];
+  if (unheard(row)) {
+    if (!list.includes(row)) room.unheard[row.thread] = [...list, row];
+  } else if (row.status === "playback_finished" && list.includes(row)) room.unheard[row.thread] = list.filter((kept) => kept !== row);
+}
+
+/** What `call` was saying is taken back for a change of conversation (`voice-reply-withdrawn`). */
+function withdraw(room, call) {
+  const withdrawn = stopReplies(room, call, "focus_changed");
+  if (withdrawn.length) send(call, { type: "voice-reply-withdrawn", data: { session_id: call.session, utterance_ids: withdrawn, reason: "focus_changed" } });
 }
 
 /** `POST /api/presentation/select`: the call goes on to another conversation, what it was saying of the last one is
@@ -834,11 +906,59 @@ function select(world, room, machine, body) {
   if (call.binding?.thread_id === thread) return json(200, { status: "already_active", binding: call.binding });
   const title = participantsOf(machine, room.id).find((p) => p.thread_id === thread)?.title ?? null;
   call.binding = { thread_id: thread, title, binding_id: randomId() };
-  const withdrawn = stopReplies(call, "focus_changed");
-  if (withdrawn.length) send(call, { type: "voice-reply-withdrawn", data: { session_id: call.session, utterance_ids: withdrawn, reason: "focus_changed" } });
-  reportWorking(room, call);
+  withdraw(room, call);
+  reportWorking(world, room, call);
   world.changed();
   return json(200, { status: "activated", binding: call.binding });
+}
+
+/** `POST /api/presentation/leave`: the call leaves the conversation it is on (named by its binding) for none, and what
+ *  it was saying of it is taken back (sidevoice-core control/room/focus.rs `deselect`). */
+function leave(world, room, body) {
+  const call = callOf(room, body.session_id);
+  if (!call) return refuse(409, REFUSALS["room.browser_absent"]);
+  if (!call.binding || call.binding.binding_id !== body.binding_id) return refuse(409, REFUSALS["room.focus_changed"]);
+  call.binding = { thread_id: "", title: null, binding_id: randomId() };
+  withdraw(room, call);
+  world.changed();
+  return json(200, { status: "activated", binding: call.binding });
+}
+
+/**
+ * `POST /api/presentation/hear`: the person asks to hear what they missed on the conversation their call is on. The
+ * agent is sent a note at once, which tells it what that was (the list empties), and it answers in a moment, as the
+ * world says (`hear`: "silent" says nothing), with words of its own: the room never plays a reply again. Asked again
+ * while that note waits, nothing more is sent.
+ */
+function hear(world, room, body) {
+  const thread = body.thread_id;
+  if (typeof thread !== "string" || !thread) return refuse(400, REFUSALS["room.thread_invalid"]);
+  const call = callOf(room, body.session_id);
+  if (!call) return refuse(409, REFUSALS["room.browser_absent"]);
+  if (call.binding?.thread_id !== thread) return refuse(409, REFUSALS["room.focus_changed"]);
+  if (room.asked.has(thread)) return json(200, { status: "asked" });
+  const missed = room.unheard[thread]?.length ?? 0;
+  if (!missed) return json(200, { status: "nothing" });
+  delete room.unheard[thread];
+  room.asked.add(thread);
+  void world.delay(HEAR_ANSWER_MS).then(() => {
+    room.asked.delete(thread);
+    if (world.state.hear !== "silent") agentSpeaks(world, catchUp(room, thread, missed), { machine: room.id, thread });
+  });
+  return json(200, { status: "asked" });
+}
+
+/** What the agent says when asked for what the person missed: a sentence of its own about it, never the words of a
+ *  reply already said on that conversation. */
+function catchUp(room, thread, missed) {
+  const said = new Set(room.rows.filter((row) => row.thread === thread && row.role === "assistant").map((row) => row.text));
+  const replies = missed === 1 ? "one reply" : `${missed} replies`;
+  const lines = [
+    `You missed ${replies} of mine. In short: the work is moving, and nothing needs you yet.`,
+    `Catching you up on ${replies} you did not hear: all is on track, and I will say when I need you.`,
+    `Here is the gist of the ${replies} you missed: no surprises so far, and I am carrying on.`,
+  ];
+  return lines.find((line) => !said.has(line)) ?? `${lines[0]} (${said.size + 1})`;
 }
 
 /** `POST /api/presentation/text`: words typed in the call, for the conversation it is on, as said ones go. */
@@ -852,7 +972,7 @@ function typed(world, room, body) {
       ? json(200, { accepted: true, id, revision: kept.revision, thread_id: kept.thread }) : refuse(409, REFUSALS["room.message_conflict"]);
   }
   const call = callOf(room, body.session_id);
-  if (!call || call.binding?.thread_id !== body.thread_id || call.binding?.binding_id !== body.binding_id) {
+  if (!call || !call.binding?.thread_id || call.binding.thread_id !== body.thread_id || call.binding.binding_id !== body.binding_id) {
     return refuse(409, REFUSALS["room.focus_changed"]);
   }
   if (typeof body.text !== "string" || !body.text.trim()) return refuse(422, REFUSALS["room.text_empty"]);
@@ -885,12 +1005,33 @@ function working(room, thread, value, turn = {}) {
   return spell;
 }
 
+/** What `thread`'s harness last said about working on machine `room.id`: its last report, or, before any, what the
+ *  scenario says of it (a conversation's `working`); null when neither says. */
+function lastWorking(world, room, thread) {
+  if (typeof room.working[thread] === "boolean") return room.working[thread];
+  const seeded = conversations(machineOf(world.state, room.id), room.id).find((c) => c.thread_id === thread)?.entry.working;
+  return typeof seeded === "boolean" ? seeded : null;
+}
+
 /** A call landing on a conversation is told what its harness last said about working. */
-function reportWorking(room, call) {
+function reportWorking(world, room, call) {
   const thread = call.binding?.thread_id;
-  if (thread && typeof room.working[thread] === "boolean") {
-    send(call, { type: "voice-conversation", data: { thread_id: thread, working: room.working[thread] } });
-  }
+  const value = thread ? lastWorking(world, room, thread) : null;
+  if (value !== null) send(call, { type: "voice-conversation", data: { thread_id: thread, working: value } });
+}
+
+/** Machine `room.id`'s conversations as the participants route lists them: each one as `participantsOf` gives it, with
+ *  what its harness last said about working (null when it never said, or says nothing of it), and how many of its
+ *  replies the person did not hear, since the oldest one's time (null when none). */
+function listing(world, room, machine, selected) {
+  return participantsOf(machine, room.id, selected).map((/** @type {Participant & { capabilities: Record<string, string> }} */ p) => {
+    const missed = room.unheard[p.thread_id] ?? [];
+    return {
+      ...p,
+      working: p.capabilities.working === "supported" ? lastWorking(world, room, p.thread_id) : null,
+      unheard: missed.length ? { count: missed.length, since: Math.min(...missed.map((row) => row.time)) } : null,
+    };
+  });
 }
 
 /** The newest call in `world` on a conversation: `{ room, call }`, or null. */
@@ -901,12 +1042,17 @@ function newestCall(world) {
   return found[0] ?? null;
 }
 
+/** The calls of `room` on conversation `thread`, as they came. */
+const onThread = (room, thread) => seated(room).filter((call) => call.binding?.thread_id === thread);
+/** The newest of `calls`, or null. */
+const newest = (calls) => calls.reduce((found, call) => (!found || call.since > found.since ? call : found), null);
+
 /** The page's call in `world`, as the card names it: `{ machine, session, thread, title }` (no conversation: null
  *  thread), or null when the page is in no call. */
 export function liveCall(world) {
   const on = newestCall(world);
   if (!on) return null;
-  return { machine: on.room.id, session: on.call.session, thread: on.call.binding?.thread_id ?? null, title: on.call.binding?.title ?? null };
+  return { machine: on.room.id, session: on.call.session, thread: on.call.binding?.thread_id || null, title: on.call.binding?.title ?? null };
 }
 
 /** The newest revision the person said something at on `thread` in `call`: what the agent's next reply answers. */
@@ -914,42 +1060,73 @@ function answering(room, call, thread) {
   return room.rows.filter((row) => row.role === "user" && row.thread === thread && row.session === call.session).at(-1)?.revision ?? call.revision;
 }
 
+/** Where the card's agent speaks and works: the conversation `where` names (`{ machine, thread }`, one that machine
+ *  lists), or, without it, the one the page's newest call is on. `{ room, thread, title, call }`, `call` being the one
+ *  it answers: without `where` that newest call, with it the newest call on that conversation, if there is one. Null
+ *  when there is no such conversation. */
+function conversationOf(world, where) {
+  if (!where) {
+    const on = newestCall(world);
+    const thread = on?.call.binding?.thread_id;
+    return thread ? { room: on.room, thread, title: on.call.binding.title ?? null, call: on.call } : null;
+  }
+  const listed = participantsOf(machineOf(world.state, where.machine), where.machine).find((p) => p.thread_id === where.thread);
+  if (!listed) return null;
+  const room = roomOf(world, where.machine);
+  return { room, thread: listed.thread_id, title: listed.title ?? null, call: newest(onThread(room, listed.thread_id)) };
+}
+
+/** The turn the agent's words and work answer on `thread`: `call`'s, or, with no call on it, the person's newest. */
+function turnOf(room, thread, call) {
+  if (call) return { session_id: call.session, revision: answering(room, call, thread) };
+  return { revision: room.rows.filter((row) => row.role === "user" && row.thread === thread).at(-1)?.revision ?? 0 };
+}
+
 /**
- * The agent of the conversation the page's call is on says `text`, as its connector publishes a reply: a row of the
- * room's history, and a `voice-reply` to every call on that conversation, whose voice says it and reports how it
- * played. Its harness's turn ends with it. Whether there was a call on a conversation to say it to.
+ * The agent of a conversation says `text`, as its connector publishes a reply: a row of the room's history, and a
+ * `voice-reply` to every call on that conversation whose speech is on, whose voice says it and reports how it played.
+ * With none, the reply is only written (`text_only`), and the person did not hear it: because the newest call on it
+ * has its speech off (its reason), else because the room's calls are on other conversations (`focus_changed`), else
+ * because there is no call (`call_ended`). Its harness's turn ends with it. The conversation is `where`'s, or, without
+ * it, the one the page's newest call is on (`conversationOf`). Whether there was that conversation to say it on.
+ * @param {{ machine: string, thread: string } | null} [where]
  */
-export function agentSpeaks(world, text) {
-  const on = newestCall(world);
-  const thread = on?.call.binding?.thread_id;
-  if (!thread) return false;
-  const { room, call } = on;
+export function agentSpeaks(world, text, where = null) {
+  const on = conversationOf(world, where);
+  if (!on) return false;
+  const { room, thread, call } = on;
   const uid = randomId();
-  const revision = answering(room, call, thread);
+  const turn = turnOf(room, thread, call);
+  const { revision } = turn;
+  const bound = onThread(room, thread);
+  const audience = bound.filter((listener) => listener.speech.on);
   const row = {
-    seq: ++room.seq, id: `${call.session}:voice:${uid}`, thread, role: "assistant", text, name: call.binding.title ?? null,
-    session: call.session, revision, time: world.now(), status: "queued", audio_reason: null, heard_chars: null, offline: null,
+    seq: ++room.seq, id: `${call?.session ?? "room"}:voice:${uid}`, thread, role: "assistant", text, name: on.title,
+    session: call?.session ?? null, revision, time: world.now(), status: audience.length ? "queued" : "text_only",
+    audio_reason: audience.length ? null : bound.length ? newest(bound).speech.reason : seated(room).length ? "focus_changed" : "call_ended",
+    heard_chars: null, offline: null,
   };
   room.rows.push(row);
-  for (const listener of seated(room)) {
-    if (listener.binding?.thread_id !== thread) continue;
+  track(room, row);
+  for (const listener of audience) {
     listener.replies.set(uid, { row, status: "queued" });
     /** @type {VoiceReply} */
     const reply = { session_id: listener.session, utterance_id: uid, revision, reply_revision: revision, thread_id: thread, history_id: row.id, text, language: null };
     send(listener, { type: "voice-reply", data: reply });
   }
-  if (room.working[thread]) working(room, thread, false, { turn_phase: "end", session_id: call.session, revision });
+  if (lastWorking(world, room, thread)) working(room, thread, false, { turn_phase: "end", ...turn });
   return true;
 }
 
-/** The agent of the conversation the page's call is on works for `ms` of the world's time, as its harness reports a
- *  turn's start and end. Whether there was a call on a conversation to tell. */
-export function agentWorks(world, ms = 5000) {
-  const on = newestCall(world);
-  const thread = on?.call.binding?.thread_id;
-  if (!thread) return false;
-  const { room, call } = on;
-  const turn = { session_id: call.session, revision: answering(room, call, thread) };
+/** The agent of a conversation works for `ms` of the world's time, as its harness reports a turn's start and end: to
+ *  every call on it, and in the conversations' listing. The conversation is `where`'s, or, without it, the one the
+ *  page's newest call is on. Whether there was that conversation.
+ *  @param {{ machine: string, thread: string } | null} [where] */
+export function agentWorks(world, ms = 5000, where = null) {
+  const on = conversationOf(world, where);
+  if (!on) return false;
+  const { room, thread, call } = on;
+  const turn = turnOf(room, thread, call);
   const spell = working(room, thread, true, { turn_phase: "start", ...turn });
   void world.delay(ms).then(() => {
     if (room.spells[thread] === spell) working(room, thread, false, { turn_phase: "end", ...turn });

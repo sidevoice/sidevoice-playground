@@ -80,6 +80,17 @@
         { "title": "infra", "harness": "codex", "engine": {"model": "gpt-6-astra", "effort": "medium"}, "reach": "listening" }
       ] } }
     ] },
+    { "id": "missed", "group": "Agents on the NUC", "label": "Speech you missed", "values": [
+      { "value": "none", "label": "none", "set": { "machines.nuc.participants.1.history": [] } },
+      { "value": "release", "label": "release: two replies you didn't hear", "set": { "machines.nuc.participants.1.history": [
+        { "role": "assistant", "text": "CI is green on main. I'm tagging 0.9.0 and building the installers now.", "minutesAgo": 7, "status": "text_only" },
+        { "role": "assistant", "text": "0.9.0 is out: the installers are uploaded and the release notes are published.", "minutesAgo": 3, "status": "text_only" }
+      ] } }
+    ] },
+    { "id": "working", "group": "Agents on the NUC", "label": "Working now", "values": [
+      { "value": "none", "label": "none", "set": { "machines.nuc.participants.1.working": null } },
+      { "value": "release", "label": "release is working", "set": { "machines.nuc.participants.1.working": true } }
+    ] },
     { "id": "transcript", "group": "Agents on the NUC", "label": "Transcript", "reload": true, "values": [
       { "value": "seeded", "label": "seeded: a conversation to read", "set": { "transcript": "seeded" } },
       { "value": "empty", "label": "empty: no history anywhere", "set": { "transcript": "empty" } }

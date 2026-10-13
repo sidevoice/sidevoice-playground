@@ -213,6 +213,7 @@ test("a machine's own routes take this device's token, and refuse it once revoke
     capabilities: { deliver: "supported", inspectInbound: "supported", working: "supported", endOfTurn: "supported", sessionIdentity: "supported" },
     engine: null, route: null,
     reach: { state: "listening", detail: null, remedy: null },
+    working: null, unheard: null,
   });
   assert.deepEqual((await ask(`${base}/api/presentation/history`, auth)).body, { messages: [] });
   assert.equal((await ask(`${base}/api/presentation/admission`, auth)).body.admitted, true);
