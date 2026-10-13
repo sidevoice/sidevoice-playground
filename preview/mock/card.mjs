@@ -111,7 +111,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       el("button", { type: "button", textContent: "You speak → sent", title: "The whole turn on the stage, on demand: your name and the bars, then what is sent, which leaves", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || "Can you check the build and tell me what failed?")) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
-      el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage (VARIANTS sent-repeat)", onclick: () => {
+      el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
         else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
@@ -250,7 +250,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
     el("div", { className: "actions" }, UPDATER_STATES.map((step) =>
       el("button", { type: "button", textContent: step.label, onclick: () => setUpdaterState(world, step.id) })))) : null;
   updaterSection?.querySelector(".segmented")?.classList.add("updater-mode");
-  // Updates elsewhere (the web's Updates section, VARIANTS `updates-section` B), in any scenario and any view: this
+  // Updates elsewhere (the web's Updates section), in any scenario and any view: this
   // computer's Sidevoice behind the one the app bundles (bridge.mjs `setLocalBehind`), and the first paired machine's
   // behind (machines.mjs `setRemoteBehind`). The page asks the app's `version()` as it loads, so the first loads it
   // again (↻; the Desktop app view only, the one with the app); it asks a machine's status once the machine connects, so
@@ -413,7 +413,7 @@ const HEAR_VALUES = [{ value: "answers", label: "answers after a moment" }, { va
 /** Sample lines for the conversation's buttons. */
 export const CONVERSATION_SAMPLES = {
   user: ["Can you run the tests and tell me what fails?", "Make the dark theme a little warmer.", "Yes, go ahead and push it.",
-    // A long dictated turn, to judge how long sent text shows (VARIANTS `sent-text`).
+    // A long dictated turn, to see how long sent text shows (its pages).
     "Okay, so here's what I'd like you to do next. First, go through the settings pane and check that every toggle still " +
     "saves when you change it, because I think the one for automatic updates stopped doing that after yesterday's refactor. " +
     "Then look at the transcript on a phone: the bubbles get really cramped when the keyboard is open, and I'd like them to " +
