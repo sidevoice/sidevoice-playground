@@ -22,8 +22,10 @@ import { validMockScenario } from "./mock/world.mjs";
 import { chunkFor, exportedNames, mockChunk, packageOf } from "./mock/chunks.mjs";
 
 const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
-/** What the shell loads from mock/, by name: nothing else there is served. */
-const MOCK_FILES = new Set(["shell.mjs", "card.mjs", "card-host.mjs", "world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "models.mjs", "voice.mjs", "shell.css"]);
+/** What the shell may load from mock/: a module or a stylesheet right in it, by a plain name — no path, nothing
+ *  hidden, so nothing outside mock/ — read when asked, so a module added there is served without a restart. Its
+ *  types, its scenarios and the page's target are not served under it. */
+export const MOCK_FILE = /^[a-z0-9][a-z0-9-]*\.(?:mjs|css)$/;
 export const MOCK_PATH = "/preview-mock/";
 
 /** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order, each with the voice's and the
@@ -238,8 +240,12 @@ export async function mockFile(pathname) {
   if (pathname === `${MOCK_PATH}scenarios.json`) return { type: TYPES[".json"], body: JSON.stringify(await loadMockScenarios()) };
   if (!pathname.startsWith(MOCK_PATH)) return null;
   const name = pathname.slice(MOCK_PATH.length);
-  if (!MOCK_FILES.has(name)) return null;
-  return { type: TYPES[extname(name)], body: await readFile(join(MOCK_DIR, name)) };
+  if (!MOCK_FILE.test(name)) return null;
+  try {
+    return { type: TYPES[extname(name)], body: await readFile(join(MOCK_DIR, name)) };
+  } catch {
+    return null;
+  }
 }
 
 function send(res, status, text) {
