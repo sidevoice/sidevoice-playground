@@ -18,8 +18,6 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "updates-entry", label: "Updates on a phone", note: "Where a phone shows what wants updating (a desktop: the conversations' foot).",
-    values: [{ value: "header", label: "A · a button in the header" }, { value: "panel", label: "B · the conversations' panel, a dot on the chevron" }] },
   { name: "section-new-dot", label: "Where a section's “new” dot sits", note: "Settings' nav and its machines: the dot that says something new is under them (the thing itself says New).",
     values: [{ value: "corner", label: "A · on the icon's top corner" }, { value: "side", label: "B · centred at the icon's side" },
       { value: "label", label: "C · apart, just before the label" }, { value: "end", label: "D · at the row's end" }] },
