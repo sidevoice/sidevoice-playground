@@ -355,6 +355,48 @@ export async function agentsListing(world, machine) {
 /** Where machine `id` is in the world's state: what a mock's action on it patches. */
 const statePath = (id) => (id === LOCAL_ID ? "local" : `machines.${id}`);
 
+/** What a machine behind says to run there to update it. Nothing in the mocks installs, pairs or updates by a command, so
+ *  this is a placeholder that says it is one: no real command, no real address. */
+export const MOCK_UPDATE_COMMAND = "sidevoice update   # mock command";
+
+/** `version` a minor release on (`0.8.1` → `0.9.0`); one that says no version counts from 0.3.0. */
+export function nextMinor(version) {
+  const [, major = "0", minor = "3"] = /^(\d+)\.(\d+)\.\d+/.exec(typeof version === "string" ? version : "") ?? [];
+  return `${major}.${Number(minor) + 1}.0`;
+}
+
+/** What machine `machine` answers at `GET /api/host/status` (sidevoice-web's loadMachineInfo; contract gap #57, core has
+ *  no such route yet): its Sidevoice's version, the scenario's (`productVersion`), null when it does not know it; and,
+ *  where the world says it is behind (`hostUpdate`), the latest and the command that updates it there. */
+export function hostStatus(machine) {
+  return { version: machine?.productVersion ?? null, ...(machine?.hostUpdate ? { update: machine.hostUpdate } : {}) };
+}
+
+/** The first machine this device is paired with, in the scenario's order: one the scenario pairs, or one the page paired
+ *  with a code since; not one that revoked this device. Null while there is none. */
+export function firstPaired(state) {
+  const paired = Object.entries(state.machines ?? {}).find(([, machine]) =>
+    !machine.revoked && (machine.paired === true || (machine.devices ?? []).some((device) => device.mine)));
+  return paired?.[0] ?? null;
+}
+
+/** Whether the first paired machine's Sidevoice says it is behind. */
+export function remoteBehind(world) {
+  const id = firstPaired(world.state);
+  return !!id && !!world.state.machines[id].hostUpdate;
+}
+
+/** Makes the first paired machine's Sidevoice behind, its status naming the latest (a minor on from its version) and
+ *  MOCK_UPDATE_COMMAND, or current (the card's "Updates elsewhere"). Returns that machine's id, null when there is none.
+ *  The page asks a machine's status once it connects: whoever wants it seen sooner has the page ask again. */
+export function setRemoteBehind(world, behind) {
+  const id = firstPaired(world.state);
+  if (!id) return null;
+  const latest = nextMinor(world.state.machines[id].productVersion);
+  world.patch({ [`machines.${id}.hostUpdate`]: behind ? { latest, command: MOCK_UPDATE_COMMAND } : null });
+  return id;
+}
+
 async function machineAnswer(world, identities, id, { method, path, query, headers, body }) {
   const state = world.state;
   const machine = machineOf(state, id);
@@ -400,9 +442,9 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
   // The coding agents this machine found (sidevoice-web HostAgentsPanel): a listing, and connect / disconnect / dismiss,
   // each answering with the listing as it is after it. A scenario may set `machines.<id>.agents` (`local.agents`): its
   // rows, or the name of a list (`AGENT_LISTS`); and `agentsFail`, a key the scan fails with.
-  // Its Sidevoice's version (sidevoice-web #75's machine card; core has no such route yet): the scenario's
-  // (`productVersion`), null when it does not know it.
-  if (method === "GET" && path === "/api/host/status") return json(200, { version: machine.productVersion ?? null });
+  // Its Sidevoice's version (sidevoice-web #75's machine card; core has no such route yet), and whether it is behind
+  // (`hostStatus`).
+  if (method === "GET" && path === "/api/host/status") return json(200, hostStatus(machine));
   if (method === "GET" && path === "/api/host/agents") return agentsListing(world, machine);
   const agentAction = /^\/api\/host\/agents\/([^/]+)\/(connect|disconnect|dismiss)$/.exec(path);
   if (method === "POST" && agentAction) {

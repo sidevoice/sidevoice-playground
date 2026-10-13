@@ -7,9 +7,12 @@
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
 
-import { LOCAL_ID, LOCAL_URL, mintCode } from "./machines.mjs";
+import { LOCAL_ID, LOCAL_URL, mintCode, nextMinor } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
+
+/** The local host's version where the world names none: the one installed, and the one the app bundles. */
+export const LOCAL_VERSION = "0.3.0";
 
 /** The local host's status (desktop-host.ts `LocalHostStatus`), from the world's `local`.
  * @returns {LocalHostStatus} */
@@ -20,7 +23,7 @@ export function localStatus(local, now) {
     state: local.state,
     service: local.service ?? "launchd",
     installed: local.installed ?? !["absent", "not-installed", "installing"].includes(local.state),
-    core: running ? { pid: 4242, version: local.version ?? "0.3.0", api: 1, launch_id: "preview" } : null,
+    core: running ? { pid: 4242, version: local.version ?? LOCAL_VERSION, api: 1, launch_id: "preview" } : null,
     // The installed Sidevoice's version (the `sidevoice` package, bundling the core): sidevoice-web #75's
     // LocalHostStatus.product_version, which the real bridge does not report yet. The scenario's (`productVersion`), and
     // null, unknown, when it says none.
@@ -160,15 +163,15 @@ export function desktopHost(world, identities) {
       return true;
     },
     async version() {
-      const bundled = { version: local()?.bundledVersion ?? "0.3.0" };
+      const bundled = { version: local()?.bundledVersion ?? LOCAL_VERSION };
       return {
-        bridge: 1, bundled, installed: local()?.installed === false ? null : { version: local()?.version ?? "0.3.0" },
+        bridge: 1, bundled, installed: local()?.installed === false ? null : { version: local()?.version ?? LOCAL_VERSION },
         core_api: 1, update: local()?.update ?? "current",
       };
     },
     async update() {
       await world.delay(1200);
-      set({ version: local()?.bundledVersion ?? "0.3.0", update: "current" });
+      set({ version: local()?.bundledVersion ?? LOCAL_VERSION, update: "current" });
       await starting();
       return status();
     },
@@ -190,6 +193,21 @@ export function desktopHost(world, identities) {
     engine: desktopEngine(world),
     localHost,
   };
+}
+
+/** Whether this computer's Sidevoice is behind: the app bundles a newer one than the one installed, so its local host's
+ *  `version()` says `update: "available"` (and the page offers to update this machine). */
+export const localBehind = (world) => world.state.local?.update === "available";
+
+/** Makes this computer's Sidevoice behind, the app bundling one a minor on from the one installed, or current, the app
+ *  bundling the one installed (the card's "Updates elsewhere"). Only where the world has a local host: whether it has.
+ *  The page asks `version()` as it loads, and again only when the host's state or its core's version changes. */
+export function setLocalBehind(world, behind) {
+  const local = world.state.local;
+  if (!local) return false;
+  const installed = local.version ?? LOCAL_VERSION;
+  world.patch({ "local.update": behind ? "available" : "current", "local.bundledVersion": behind ? nextMinor(installed) : installed });
+  return true;
 }
 
 /** The mute shortcut as the app keeps it: set, refused by the system (another app has it), or not set; an accelerator

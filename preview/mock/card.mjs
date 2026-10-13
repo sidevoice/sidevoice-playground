@@ -3,11 +3,15 @@
 // codes for the machines, to paste into the page; sets how fast the world's time runs and whether a reload keeps
 // the state; and lists what the mocks were asked. Rendered again whole on each change: it is small.
 
-import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, liveCall, machineOf, mintCode, participantsOf } from "./machines.mjs";
+import {
+  CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, firstPaired, hostStatus, liveCall, machineOf, mintCode, participantsOf, remoteBehind,
+  setRemoteBehind,
+} from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
-import { UPDATER_STATES, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
+import { LOCAL_VERSION, UPDATER_STATES, localBehind, setLocalBehind, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
+const BEHIND_LABELS = { current: "Current", behind: "Behind" };
 const LANGUAGE_LABELS = { "": "System", es: "Español", en: "English" };
 const SPEED_LABELS = { 1: "×1", 4: "×4", 0: "Pause" };
 const VARIANT_LABELS = {
@@ -42,7 +46,7 @@ function paste(frame, code) {
   return true;
 }
 
-export function renderCard(root, { scenarios, scenario, world, identities, params, open, keeping, count, frame, toggle, pick, choose, speed, restart, clear, keep }) {
+export function renderCard(root, { scenarios, scenario, world, identities, params, open, keeping, count, frame, toggle, pick, choose, speed, restart, clear, keep, reload }) {
   root.classList.toggle("closed", !open);
   const header = el("button", { type: "button", className: "card-header", onclick: toggle, title: "Alt+Shift+P" },
     el("strong", { textContent: "PREVIEW" }), count ? el("span", { className: "count", textContent: String(count) }) : null,
@@ -241,6 +245,36 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
     el("div", { className: "actions" }, UPDATER_STATES.map((step) =>
       el("button", { type: "button", textContent: step.label, onclick: () => setUpdaterState(world, step.id) })))) : null;
   updaterSection?.querySelector(".segmented")?.classList.add("updater-mode");
+  // Updates elsewhere (the web's Updates section, VARIANTS `updates-section` B), in any scenario and any view: this
+  // computer's Sidevoice behind the one the app bundles (bridge.mjs `setLocalBehind`), and the first paired machine's
+  // behind (machines.mjs `setRemoteBehind`). The page asks the app's `version()` as it loads, so the first loads it
+  // again (↻; the Desktop app view only, the one with the app); it asks a machine's status once the machine connects, so
+  // the second has it ask again at once, live. Where there is nothing to set (no local host, no machine paired), the
+  // toggle stays as it is and its line says why.
+  root.dataset.view = params.view;
+  const elsewhereNote = el("p", { className: "note" });
+  const behindRow = (key, label, title, behind, pick) => el("div", { className: `row elsewhere-${key}`, title }, label,
+    segmented(Object.keys(BEHIND_LABELS), BEHIND_LABELS, behind ? "behind" : "current", (value) => {
+      elsewhereNote.textContent = "";
+      pick(value === "behind");
+    }));
+  const updatesElsewhereSection = el("fieldset", {},
+    el("legend", { textContent: "Updates elsewhere" }),
+    behindRow("local", "This computer's Sidevoice ↻", "What the desktop app's local host says of its version: the page asks as it loads, so it loads again (the Desktop app view only)",
+      localBehind(world), (behind) => {
+        if (setLocalBehind(world, behind) && params.view === "app") reload?.();
+      }),
+    el("p", { className: "note elsewhere-local-state", textContent: localUpdateLine(world, params.view) }),
+    behindRow("remote", "A remote machine", "What the first paired machine answers at /api/host/status: the page asks it again now",
+      remoteBehind(world), (behind) => {
+        const id = setRemoteBehind(world, behind);
+        if (!id) return;
+        const actions = frame?.contentWindow?.sidevoiceActions;
+        if (typeof actions?.loadMachineInfo === "function") void Promise.resolve(actions.loadMachineInfo(identities[id].fingerprint)).catch(() => {});
+        else elsewhereNote.textContent = "The page cannot be asked to look again now: it asks once the machine connects.";
+      }),
+    el("p", { className: "note elsewhere-remote-state", textContent: remoteUpdateLine(world) }),
+    elsewhereNote);
   root.replaceChildren(
     header,
     el("div", { className: "card-body" },
@@ -258,6 +292,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       avatarSection,
       cardStatesSection,
       updaterSection,
+      updatesElsewhereSection,
       voiceSection,
       devicesSection,
       machines.length ? el("fieldset", {},
@@ -293,6 +328,43 @@ function updaterLine(world) {
   return `${updaterMode(world) === "manual" ? "Manual" : "Automatic"} · ${status.state}${status.version ? ` ${status.version}` : ""}${progress}${status.error ? ` · ${status.error.code}` : ""}.`;
 }
 
+/** This computer's Sidevoice, in a line: what the app's local host says of its version (`version()`), and what keeps its
+ *  row from the page in `view`. */
+export function localUpdateLine(world, view = "app") {
+  const local = world.state.local;
+  if (!local) return "No Sidevoice on this computer here: the Desktop app view gives every scenario one.";
+  const installed = local.version ?? LOCAL_VERSION, bundled = local.bundledVersion ?? LOCAL_VERSION;
+  const said = local.update === "available" ? `behind: the app bundles ${bundled}` : `${local.update ?? "current"} (the app bundles ${bundled})`;
+  const channel = world.state.app?.channel ?? "release";
+  const why = view !== "app" ? " Seen in the Desktop app view only."
+    : local.state !== "running" ? " Not running: install or start it in the page for its row."
+    : channel !== "release" ? ` A ${channel} build offers no update of it: pick a release build.` : "";
+  return `${installed}, ${said}.${why}`;
+}
+
+/** The first paired machine's Sidevoice, in a line: what its status answers, and whether the page can ask it. */
+export function remoteUpdateLine(world) {
+  const id = firstPaired(world.state);
+  if (!id) return "No machine is paired yet: pair one in the page.";
+  const machine = world.state.machines[id];
+  const { version, update } = hostStatus(machine);
+  const said = update ? `${version ?? "no version"}, behind: ${update.latest}` : `${version ?? "no version"}, current`;
+  const why = machine.reach === "direct" || machine.reach === "room" ? "" : " It does not answer now: the page asks once it does.";
+  return `${machine.host ?? id}: ${said}.${why}`;
+}
+
+/** The "Updates elsewhere" rows brought up to date with the world: which value each has on, and what it says. */
+function refreshElsewhere(root, world) {
+  const lines = [["local", localBehind(world), localUpdateLine(world, root.dataset.view)], ["remote", remoteBehind(world), remoteUpdateLine(world)]];
+  for (const [key, behind, line] of lines) {
+    for (const button of root.querySelectorAll(`.elsewhere-${key} .segmented button`)) {
+      button.classList.toggle("on", button.textContent === BEHIND_LABELS[behind ? "behind" : "current"]);
+    }
+    const state = root.querySelector(`.elsewhere-${key}-state`);
+    if (state) state.textContent = line;
+  }
+}
+
 /** Where the page's call and the mocked voice are, in a line. */
 function voiceLine(world) {
   const call = liveCall(world);
@@ -308,6 +380,7 @@ export function updateActivity(root, world) {
   if (voice) voice.textContent = voiceLine(world);
   const updater = root.querySelector(".updater-state");
   if (updater) updater.textContent = updaterLine(world);
+  refreshElsewhere(root, world);
   const list = root.querySelector(".activity ol");
   if (!list) return;
   root.querySelector(".activity summary").textContent = `What the mocks were asked (${world.activity.length})`;
