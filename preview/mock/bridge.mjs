@@ -185,9 +185,9 @@ export function desktopHost(world, identities) {
     ...(world.state.app?.desktopSettings === false ? {} : { muteShortcut: muteShortcutOf(world), callControls: callControlsOf(world) }),
     // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
     build: buildOf(world.state.app?.channel ?? "release"),
-    // A release's updater (sidevoice-desktop #56): its mode and its state are the world's (`app.update`), stepped from
-    // the card or a scenario's options, and heard by the page as they change.
-    ...((world.state.app?.channel ?? "release") === "release" ? { updater: appUpdaterOf(world) } : {}),
+    // A release's or a nightly's updater (sidevoice-desktop #56): its mode and its state are the world's
+    // (`app.update`), stepped from the card or a scenario's options, and heard by the page as they change.
+    ...(hasAppUpdater(world) ? { updater: appUpdaterOf(world) } : {}),
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     engine: desktopEngine(world),
@@ -246,7 +246,11 @@ function callControlsOf(world) {
   };
 }
 
-/** The desktop app's `host.build` for `channel`. Only a release has an updater (`host.updater`). */
+/** Whether the desktop app's build has an updater (`host.updater`): a release does and, for now, a nightly too
+ *  (sidevoice-desktop #56); a development build has none. */
+export const hasAppUpdater = (world) => ["release", "nightly"].includes(world.state.app?.channel ?? "release");
+
+/** The desktop app's `host.build` for `channel`. A release and a nightly have an updater (`hasAppUpdater`). */
 function buildOf(channel) {
   if (channel === "nightly") return { channel, version: "0.4.0", commit: "abc1234def", date: "2026-10-13T06:12:00Z" };
   if (channel === "dev") return { channel, version: "0.4.0", commit: "0f1e2d3c" };
@@ -311,10 +315,10 @@ function driveDownload(world) {
   return world.updaterJob;
 }
 
-/** The desktop app's updater (sidevoice-desktop #56), a release's: automatic or manual, and its state, kept in the
- *  world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in automatic mode
- *  what it finds downloads by itself, in manual mode `download` does; a download moves on to ready on the world's clock;
- *  a restart installs a ready one. The card steps it to any state, failures too (UPDATER_STATES). */
+/** The desktop app's updater (sidevoice-desktop #56), a release's or a nightly's: automatic or manual, and its state,
+ *  kept in the world (`app.update`). A check takes a moment and finds UPDATE_VERSION unless it was just installed; in
+ *  automatic mode what it finds downloads by itself, in manual mode `download` does; a download moves on to ready on
+ *  the world's clock; a restart installs a ready one. The card steps it to any state, failures too (UPDATER_STATES). */
 function appUpdaterOf(world) {
   const log = (call) => world.log({ method: "BRIDGE", url: `updater.${call}`, status: "ok", mocked: true });
   const startDownload = () => {

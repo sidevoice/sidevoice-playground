@@ -82,7 +82,7 @@
     ] },
     { "id": "appChannel", "group": "Version", "label": "Desktop app build", "reload": true, "values": [
       { "value": "release", "label": "release", "set": { "app.channel": "release" } },
-      { "value": "nightly", "label": "nightly (updates by hand)", "set": { "app.channel": "nightly" } },
+      { "value": "nightly", "label": "nightly", "set": { "app.channel": "nightly" } },
       { "value": "dev", "label": "development build", "set": { "app.channel": "dev" } }
     ] },
     { "id": "update", "group": "Version", "label": "Update", "values": [
