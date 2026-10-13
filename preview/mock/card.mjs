@@ -5,6 +5,7 @@
 
 import { CODE_VARIANTS, LOCAL_ID, agentSpeaks, agentWorks, liveCall, machineOf, mintCode, participantsOf } from "./machines.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
+import { SPEAKING_MS, speechLevel } from "./voice.mjs";
 import { UPDATER_STATES, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
@@ -370,9 +371,43 @@ function pageConversation(frame) {
 }
 const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** How long a simulated turn listens, and how long until it is sent (listening, then transcribing). */
-const LISTENING_MS = 1600;
-const SPOKEN_TURN_MS = 2500;
+/** How long a simulated turn listens (the same whatever is said, as the voice speaks), and how long until it is sent
+ *  (listening, then transcribing). */
+const LISTENING_MS = SPEAKING_MS;
+const SPOKEN_TURN_MS = LISTENING_MS + 900;
+
+/**
+ * While a simulated turn listens, the microphone the page reads speaks: its waveform (`sidevoiceAudio.readWaveform`,
+ * when the page has no voice of its own to read) and its meter (`sidevoiceUI.micLevel`) follow `speechLevel`, so the
+ * bars move as a real voice's do. Returns what stops it.
+ */
+function speakIntoPage(frame, seed) {
+  const win = frame?.contentWindow;
+  const audio = win?.sidevoiceAudio;
+  let level = 0;
+  if (audio && !audio.previewWrapped) {
+    const own = audio.readWaveform.bind(audio);
+    audio.readWaveform = () => own() ?? (audio.previewLevel ? samplesAt(audio.previewLevel) : null);
+    audio.previewWrapped = true;
+  }
+  const started = Date.now();
+  const timer = setInterval(() => {
+    level = speechLevel(Date.now() - started, seed);
+    if (audio) audio.previewLevel = level;
+    win?.sidevoiceUI?.micLevel?.publish?.(Math.round(level * 100));
+  }, 50);
+  return () => {
+    clearInterval(timer);
+    if (audio) audio.previewLevel = 0;
+    win?.sidevoiceUI?.micLevel?.publish?.(0);
+  };
+}
+
+/** Samples whose loudness the page reads as `level` (its 60 dB window: `waveColumn`). */
+function samplesAt(level) {
+  const amplitude = 10 ** ((level * 60 - 60) / 20);
+  return Float32Array.from({ length: 256 }, (_, i) => (i % 2 ? amplitude : -amplitude));
+}
 /** "You speak twice": the second turn, said this long after the first is sent (inside its moment on the stage). */
 const AGAIN_SAMPLE = "Oh, and keep the old one as a fallback.";
 const AGAIN_AFTER_MS = 700;
@@ -385,7 +420,9 @@ function simulateUser(frame, text) {
   const segment = "preview-you-" + ++simulated;
   void (async () => {
     store.patch({ userLive: true, userTurn: { id: segment, segment, thread }, pendingPhase: "listening", pendingUserText: "" });
+    const quiet = speakIntoPage(frame, simulated * 1.7);
     await later(LISTENING_MS);
+    quiet();
     store.patch({ userLive: false, pendingPhase: "transcribing" });
     await later(SPOKEN_TURN_MS - LISTENING_MS);
     const history = store.getState().facts.history;

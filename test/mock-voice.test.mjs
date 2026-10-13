@@ -299,7 +299,7 @@ test("a try's take (web gap #40): asked for, what the voice heard from listening
   assert.equal(take.started_at, listened);
   assert.equal(take.ended_at, clock);
   assert.equal(take.samples.length, ((clock - listened) / 1000) * 16000);
-  assert.deepEqual(take.turns, [{ turn_id: "turn-1", speech_ms: 1000, pauses: [{ from_ms: 1990, to_ms: 3490 }], end_ms: 6980 }]);
+  assert.deepEqual(take.turns, [{ turn_id: "turn-1", speech_ms: 1000, pauses: [{ from_ms: 2500, to_ms: 4000 }], end_ms: 8000 }]);
   // Its marks are the turn the voice told: it started where the take says speech did.
   assert.equal(turns[0].started_at - take.started_at, take.turns[0].speech_ms);
   // Loud where the person spoke, quiet before, in the pause, and in the silence the end waited for.
@@ -307,8 +307,8 @@ test("a try's take (web gap #40): asked for, what the voice heard from listening
     const part = take.samples.subarray((from * 16000) / 1000, (to * 16000) / 1000);
     return Math.sqrt(part.reduce((sum, x) => sum + x * x, 0) / part.length);
   };
-  for (const [from, to] of [[1000, 1990], [3490, 4480]]) assert.ok(rms(from, to) > 0.05, `speech ${from}–${to}`);
-  for (const [from, to] of [[0, 1000], [1990, 3490], [4480, 6980]]) assert.ok(rms(from, to) < 0.005, `quiet ${from}–${to}`);
+  for (const [from, to] of [[1000, 2500], [4000, 5500]]) assert.ok(rms(from, to) > 0.05, `speech ${from}–${to}`);
+  for (const [from, to] of [[0, 1000], [2500, 4000], [5500, 8000]]) assert.ok(rms(from, to) < 0.005, `quiet ${from}–${to}`);
   assert.ok(take.samples.every((x) => Math.abs(x) <= 1), "within full scale");
 
   // Not asked for (a call), or a voice without takes (0.3.x): nothing.
@@ -335,7 +335,7 @@ test("a cut-off's take marks both turns: the end decided too soon, and the turn 
   await voice.host.stop();
   // 990 ms said, 600 ms to the cut, 400 ms recognising, then the rest: 990 ms, and 600 ms to its end.
   assert.deepEqual(takes[0].turns, [
-    { turn_id: "turn-1", speech_ms: 0, pauses: [], end_ms: 1590 },
-    { turn_id: "turn-2", speech_ms: 1990, pauses: [], end_ms: 3580 },
+    { turn_id: "turn-1", speech_ms: 0, pauses: [], end_ms: 2100 },
+    { turn_id: "turn-2", speech_ms: 2500, pauses: [], end_ms: 4600 },
   ]);
 });
