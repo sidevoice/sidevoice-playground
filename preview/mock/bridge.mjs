@@ -180,6 +180,9 @@ export function desktopHost(world, identities) {
     version: "0.0.0-preview",
     // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
     build: buildOf(world.state.app?.channel ?? "release"),
+    // A release's updater (sidevoice-desktop #56): nothing to install in the preview, and the choice to download updates
+    // by itself, on by default, where the world offers it.
+    ...((world.state.app?.channel ?? "release") === "release" ? { updater: appUpdaterOf(world) } : {}),
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     engine: desktopEngine(world),
@@ -193,6 +196,21 @@ function buildOf(channel) {
   if (channel === "nightly") return { channel, version: "0.4.0", commit: "abc1234def", date: "2026-10-13T06:12:00Z" };
   if (channel === "dev") return { channel, version: "0.4.0", commit: "0f1e2d3c" };
   return { channel: "release", version: "0.4.0" };
+}
+
+/** The desktop app's updater: no update in the preview; downloading by itself kept in the world (`app.autoDownload`),
+ *  offered unless the world says this app predates it (`app.autoDownloadOffered`). */
+function appUpdaterOf(world) {
+  const updater = {
+    status: async () => ({ available: false }),
+    restart: async () => {},
+  };
+  if (world.state.app?.autoDownloadOffered === false) return updater;
+  return {
+    ...updater,
+    settings: async () => ({ autoDownload: world.state.app?.autoDownload !== false }),
+    setAutoDownload: async (enabled) => { world.patch({ "app.autoDownload": !!enabled }); return { autoDownload: !!enabled }; },
+  };
 }
 
 /** An install outcome names where it fails: `<step>@<key>` (`download@install.network`). */
