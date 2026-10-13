@@ -82,7 +82,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
   // conversation the call is on, or any other of any machine's, whether a call is on it or not: its room writes what is
   // said there, and lists it as heard or not and the agent as working. Asked to say what the person missed ("hear it"),
   // the agent answers after a moment, or says nothing.
-  const sampleUser = el("select", {}, CONVERSATION_SAMPLES.user.map((text) => el("option", { value: text, textContent: text })));
+  const sampleUser = el("select", {}, CONVERSATION_SAMPLES.user.map((text) => el("option", { value: text, textContent: sampleLabel(text) })));
   const sampleAgent = el("select", {}, CONVERSATION_SAMPLES.agent.map((text) => el("option", { value: text, textContent: text })));
   const who = select([{ value: "", label: "The active conversation" }, ...everyConversation(world)], root.dataset.who ?? "", (value) => (root.dataset.who = value));
   /** The conversation picked: `{ machine, thread }`, or null for the one the call is on. */
@@ -333,14 +333,25 @@ function everyConversation(world) {
 const HEAR_VALUES = [{ value: "answers", label: "answers after a moment" }, { value: "silent", label: "says nothing" }];
 
 /** Sample lines for the conversation's buttons. */
-const CONVERSATION_SAMPLES = {
-  user: ["Can you run the tests and tell me what fails?", "Make the dark theme a little warmer.", "Yes, go ahead and push it."],
+export const CONVERSATION_SAMPLES = {
+  user: ["Can you run the tests and tell me what fails?", "Make the dark theme a little warmer.", "Yes, go ahead and push it.",
+    // A long dictated turn, to judge how long sent text shows (VARIANTS `sent-text`).
+    "Okay, so here's what I'd like you to do next. First, go through the settings pane and check that every toggle still " +
+    "saves when you change it, because I think the one for automatic updates stopped doing that after yesterday's refactor. " +
+    "Then look at the transcript on a phone: the bubbles get really cramped when the keyboard is open, and I'd like them to " +
+    "breathe a bit more. And when you're done with both, run the whole test suite, push it on a branch, and tell me what " +
+    "failed before you try to fix anything."],
   agent: [
     "I ran the tests: two fail in the settings pane, both about the Save button that no longer exists. Shall I update them?",
     "Done. The dark theme is a little warmer now; have a look and tell me if it is too much.",
     "Pushed. CI is running, and I will tell you as soon as it is green.",
   ],
 };
+
+/** A sample as its option shows it: a long one by its start and its length, so the card keeps its width. */
+export function sampleLabel(text) {
+  return text.length <= 60 ? text : `${text.slice(0, 44).trimEnd()}… (long, ${text.length} characters)`;
+}
 
 let simulated = 0;
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
