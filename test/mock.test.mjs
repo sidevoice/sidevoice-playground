@@ -362,14 +362,18 @@ test("an install fails where the world says, with the key and step the page read
   assert.equal(await local.cancel("nope"), false);
 });
 
-test("a release's updater: automatic downloads what a check finds, manual waits for download, a restart installs", async () => {
+test("a release's updater: a check finds what the world has, automatic downloads it, manual waits for download, a restart installs", async () => {
   const { world, identities } = await setup();
   const updater = desktopHost(world, identities).updater;
   assert.deepEqual(await updater.settings(), { mode: "automatic" });
   assert.deepEqual(await updater.status(), { state: "idle" });
+  // Idle is up to date: a check finds nothing, and says so.
+  assert.deepEqual(await updater.check(), { state: "idle" });
+  assert.deepEqual(await updater.status(), { state: "idle" });
   const seen = [];
   const stop = updater.subscribe((status) => seen.push(status.state));
-  // Automatic: a check finds it and it downloads by itself, its progress moving, to ready.
+  // Automatic: one out (the card's Available) downloads by itself, its progress moving, to ready; a check finds it so.
+  setUpdaterState(world, "available");
   assert.equal((await updater.check()).state, "downloading");
   while ((await updater.status()).state === "downloading") await new Promise((r) => setImmediate(r));
   assert.deepEqual(await updater.status(), { state: "ready", version: UPDATE_VERSION });
@@ -378,9 +382,11 @@ test("a release's updater: automatic downloads what a check finds, manual waits 
   assert.deepEqual(await updater.status(), { state: "idle" });
   // Installed: the next check finds nothing.
   assert.equal((await updater.check()).state, "idle");
-  // Manual: what a check finds waits for download() — the one after the app's, now UPDATE_VERSION's.
+  // Manual: one out waits for download() — the one after the app's, now UPDATE_VERSION's; a check finds it waiting.
   assert.deepEqual(await updater.setMode("manual"), { mode: "manual" });
   setUpdaterState(world, "idle");
+  assert.deepEqual(await updater.check(), { state: "idle" });
+  setUpdaterState(world, "available");
   assert.deepEqual(await updater.check(), { state: "available", version: nextMinor(UPDATE_VERSION) });
   assert.equal((await updater.download()).state, "downloading");
   const progress = [];
@@ -428,8 +434,9 @@ test("one mode, the app's: the page's setMode and the card set the same; automat
   const { world, identities } = await setup();
   const updater = desktopHost(world, identities).updater;
   const settle = async () => { while ((await updater.status()).state === "downloading") await new Promise((r) => setImmediate(r)); };
-  // Manual: a check finds one and it waits — no download, no ready — until download().
+  // Manual: one out waits — no download, no ready — until download(); a check finds it so.
   await updater.setMode("manual");
+  setUpdaterState(world, "available");
   assert.deepEqual(await updater.check(), { state: "available", version: UPDATE_VERSION });
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(await updater.status(), { state: "available", version: UPDATE_VERSION });
