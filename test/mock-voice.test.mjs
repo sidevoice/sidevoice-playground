@@ -339,3 +339,29 @@ test("a cut-off's take marks both turns: the end decided too soon, and the turn 
     { turn_id: "turn-2", speech_ms: 2500, pauses: [], end_ms: 4600 },
   ]);
 });
+
+test("a take keeps silence while the person has the microphone muted, as the voice does", async () => {
+  let clock = 0;
+  const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
+  const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
+  const voice = fakeVoice(w);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "silence", patience: "normal" });
+  const takes = [];
+  voice.host.onTake((take) => takes.push(take));
+  await voice.host.start({ take: true });
+  const listened = clock;
+  clock += 1000;
+  voice.host.mute(true);
+  const muted = clock - listened;
+  clock += 1500;
+  assert.equal(await voice.speak("no me oyes"), false, "muted: not heard");
+  voice.host.mute(false);
+  const unmuted = clock - listened;
+  clock += 1000;
+  await voice.host.stop();
+  const [take] = takes;
+  const part = (from, to) => take.samples.subarray((from * 16000) / 1000, (to * 16000) / 1000);
+  assert.ok(part(muted, unmuted).every((x) => x === 0), "silence while muted");
+  for (const [from, to] of [[0, muted], [unmuted, unmuted + 1000]]) assert.ok(part(from, to).some((x) => x !== 0), `the microphone's hiss ${from}–${to}`);
+  assert.deepEqual(take.turns, []);
+});

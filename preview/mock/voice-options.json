@@ -10,7 +10,7 @@
     { "value": "error", "label": "fails to transcribe", "set": { "voice.stt": "error" } }
   ] },
   { "id": "take", "group": "Voice", "label": "A try's recording", "values": [
-    { "value": "kept", "label": "is handed to the page (web gap #40)", "set": { "voice.take": true } },
+    { "value": "kept", "label": "is handed to the page (web gap #40; sidevoice-voice#28, desktop#71)", "set": { "voice.take": true } },
     { "value": "none", "label": "is not (@sidevoice/voice 0.3.x)", "set": { "voice.take": false } }
   ] },
   { "id": "tts", "group": "Voice", "label": "What it says", "values": [

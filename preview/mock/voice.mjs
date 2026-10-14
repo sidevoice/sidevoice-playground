@@ -7,11 +7,12 @@
 // settings' models before the call starts, so its refusals (a model it does not know, a key missing) are the page's
 // own. In the desktop app there is no source: the app's voice checks the choices itself, as here.
 //
-// A try's take (sidevoice-web contract gap #40, pending in @sidevoice/voice; the web's apps/web/src/services/voice-take.ts):
-// started with `{take: true}`, the voice keeps what its microphone "gave" from the moment it listens until it stops, and
-// hands it to `onTake` before `stop()` resolves. With no microphone, it is made up from what the voice told: a low
-// hiss throughout, a voiced tone at the levels it told while the person spoke, the pauses silent, and the marks of the
-// turns it told, where it told them. The world's `voice.take` false hands none, as @sidevoice/voice 0.3.x does.
+// A try's take (sidevoice-web contract gap #40; @sidevoice/voice's `VoiceTake`, sidevoice-voice#28, and the desktop app's
+// `host.voice`, sidevoice-desktop#71): started with `{take: true}`, the voice keeps what its microphone "gave" from the
+// moment it listens until it stops, silence while muted, and hands it to `onTake` before `stop()` resolves. With no
+// microphone, it is made up from what the voice told: a low hiss throughout, a voiced tone at the levels it told while
+// the person spoke, the pauses quiet, and the marks of the turns it told, where it told them. The world's `voice.take`
+// false hands none, as a voice without takes does (@sidevoice/voice 0.3.x).
 // @ts-check
 
 import { LOCAL, voiceState } from "./models.mjs";
@@ -35,8 +36,8 @@ const TAKE_RATE = 16000;
  * What the microphone "gave" while a take was kept, from `taking` (when it started, what the person said in it, the
  * marks of their turns) until `endedAt`, in the world's ms: a low hiss throughout; where the person spoke, a voice's
  * pitch and two harmonics, as loud as the levels the voice told (the 60 dB window the web reads levels on), from one
- * level to the next; the pauses, the hiss alone.
- * @param {{ startedAt: number, speech: { from: number, to: number, levels: { at: number, level: number }[] }[], turns: VoiceTake["turns"] }} taking
+ * level to the next; the pauses, the hiss alone; while muted, silence.
+ * @param {{ startedAt: number, speech: { from: number, to: number, levels: { at: number, level: number }[] }[], turns: VoiceTake["turns"], muted: { from: number, to: number }[] }} taking
  * @param {number} endedAt
  * @returns {VoiceTake}
  */
@@ -64,6 +65,10 @@ export function synthesisedTake(taking, endedAt) {
       const voiced = Math.sin(2 * Math.PI * 140 * t) + 0.5 * Math.sin(2 * Math.PI * 280 * t) + 0.25 * Math.sin(2 * Math.PI * 420 * t);
       samples[i] += (rms * voiced) / unit;
     }
+  }
+  // Muted: what the microphone gave is not kept.
+  for (const part of taking.muted) {
+    samples.fill(0, Math.round((part.from / 1000) * TAKE_RATE), Math.min(samples.length, Math.round((part.to / 1000) * TAKE_RATE)));
   }
   return { sampleRate: TAKE_RATE, samples, started_at: taking.startedAt, ended_at: endedAt, turns: taking.turns };
 }
@@ -115,8 +120,9 @@ export function fakeVoice(world, { source = null } = {}) {
   let muted = false;
   let turns = 0;
   let says = 0;
-  /** The take being kept, while one was asked for: when it started, what the person said in it, their turns' marks.
-   *  @type {{ startedAt: number, speech: { from: number, to: number, levels: { at: number, level: number }[] }[], turns: VoiceTake["turns"] } | null} */
+  /** The take being kept, while one was asked for: when it started, what the person said in it, their turns' marks, and
+   *  when the microphone was muted (the last one open while it is).
+   *  @type {{ startedAt: number, speech: { from: number, to: number, levels: { at: number, level: number }[] }[], turns: VoiceTake["turns"], muted: { from: number, to: number }[] } | null} */
   let taking = null;
   /** @type {VoiceCallState} */
   let state = { listening: "idle", recognising: 0, playback: "idle", microphone: /** @type {"live" | "muted"} */ ("live") };
@@ -157,7 +163,7 @@ export function fakeVoice(world, { source = null } = {}) {
       const used = [settings.stt?.catalog === LOCAL ? settings.stt.model : null, settings.tts?.catalog === LOCAL ? settings.tts.model : null, "silero-vad"].filter(Boolean);
       world.patch({ "voice.lastUsed": { ...voice.lastUsed, ...Object.fromEntries(used.map((model) => [String(model), world.now()])) } });
       // Listening from now: sample 0 of a take, when one is asked for and the world's voice hands it.
-      taking = options?.take && voice.take !== false ? { startedAt: world.now(), speech: [], turns: [] } : null;
+      taking = options?.take && voice.take !== false ? { startedAt: world.now(), speech: [], turns: [], muted: muted ? [{ from: 0, to: Infinity }] : [] } : null;
       setState({ listening: muted ? "muted" : "listening" });
     },
     async stop() {
@@ -220,6 +226,12 @@ export function fakeVoice(world, { source = null } = {}) {
       return saying;
     },
     mute(next) {
+      // A take keeps silence while muted: from now, or no longer.
+      if (taking && !!next !== muted) {
+        const at = world.now() - taking.startedAt;
+        if (next) taking.muted.push({ from: at, to: Infinity });
+        else { const open = taking.muted.at(-1); if (open) open.to = at; }
+      }
       muted = next;
       if (started) setState({ listening: next ? "muted" : "listening" });
     },
