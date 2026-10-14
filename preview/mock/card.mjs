@@ -103,7 +103,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       } }),
       el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
-        else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
+        else schedulePreview(frame, () => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
         if (liveCall(world)) {
@@ -122,7 +122,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
           return;
         }
         if (!simulateWorking(frame)) voiceNote.textContent = "Open a conversation in the page first.";
-        else setTimeout(() => simulateAgent(frame, sampleAgent.value), WORKING_MS);
+        else schedulePreview(frame, () => simulateAgent(frame, sampleAgent.value), WORKING_MS);
       } })));
   // The microphone and the speaker the page's voice offers (its device bar, by the microphone): a headset to plug in and
   // out, and a speaker that cannot be chosen (a browser without setSinkId).
@@ -398,13 +398,33 @@ export function sampleLabel(text) {
 }
 
 let simulated = 0;
+const previewRuns = new WeakMap();
+function previewRun(frame) {
+  let run = previewRuns.get(frame);
+  if (!run) { run = { generation: 0, cleanups: new Set(), timers: new Set() }; previewRuns.set(frame, run); }
+  return run;
+}
+function schedulePreview(frame, callback, ms) {
+  const run = previewRun(frame), generation = run.generation;
+  const timer = setTimeout(() => {
+    run.timers.delete(timer);
+    if (run.generation === generation) callback();
+  }, ms);
+  run.timers.add(timer);
+}
 /** The visual samples can be added and removed without clearing the seeded transcript or changing a real call. */
 export function withoutPreviewTurns(history) {
   return history.filter((row) => !/^preview-(you|agent)-/.test(row.segment ?? ""));
 }
-function removePreviewTurns(frame) {
+export function removePreviewTurns(frame) {
   const page = pageConversation(frame);
   if (!page) return false;
+  const run = previewRun(frame);
+  run.generation += 1;
+  for (const cleanup of run.cleanups) cleanup();
+  run.cleanups.clear();
+  for (const timer of run.timers) clearTimeout(timer);
+  run.timers.clear();
   const facts = page.store.getState().facts;
   const patch = { history: withoutPreviewTurns(facts.history) };
   if (facts.userTurn?.segment?.startsWith("preview-you-")) Object.assign(patch, { userLive: false, userTurn: null, pendingPhase: "" });
@@ -466,18 +486,23 @@ const AGAIN_SAMPLE = "Oh, and keep the old one as a fallback.";
 const AGAIN_AFTER_MS = 700;
 
 /** You speak: listening, then transcribing, then what you said in the conversation. */
-function simulateUser(frame, text) {
+export function simulateUser(frame, text) {
   const page = pageConversation(frame);
   if (!page) return false;
   const { store, thread, session } = page;
   const segment = "preview-you-" + ++simulated;
+  const run = previewRun(frame), generation = run.generation;
   void (async () => {
     store.patch({ userLive: true, userTurn: { id: segment, segment, thread }, pendingPhase: "listening", pendingUserText: "" });
-    const quiet = speakIntoPage(frame, simulated * 1.7);
+    const quiet = speakIntoPage(frame, 1.7);
+    run.cleanups.add(quiet);
     await later(LISTENING_MS);
+    if (run.generation !== generation) return;
     quiet();
+    run.cleanups.delete(quiet);
     store.patch({ userLive: false, pendingPhase: "transcribing" });
     await later(SPOKEN_TURN_MS - LISTENING_MS);
+    if (run.generation !== generation) return;
     const history = store.getState().facts.history;
     store.patch({ userTurn: null, pendingPhase: "", history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
   })();
@@ -485,11 +510,12 @@ function simulateUser(frame, text) {
 }
 
 /** The agent speaks: its reply in the conversation, its voice playing it word by word (the karaoke), then done. */
-function simulateAgent(frame, text) {
+export function simulateAgent(frame, text) {
   const page = pageConversation(frame);
   if (!page) return false;
   const { store, thread, session } = page;
   const segment = "preview-agent-" + ++simulated;
+  const run = previewRun(frame), generation = run.generation;
   const name = store.getState().participants?.find((row) => row.threadId === thread)?.title ?? "";
   const words = [...text.matchAll(/\S+/g)].map((match) => match.index + match[0].length);
   const set = (audio) => store.patch({ history: store.getState().facts.history.map((r) => r.segment === segment ? { ...r, audio } : r) });
@@ -499,9 +525,11 @@ function simulateAgent(frame, text) {
       botLive: true, karaokeState: { segment, from: 0, to: 0 } });
     for (const end of words) {
       await later(260);
+      if (run.generation !== generation) return;
       store.patch({ karaokeState: { segment, from: 0, to: end } });
     }
     await later(400);
+    if (run.generation !== generation) return;
     set("played");
     store.patch({ botLive: false, karaokeState: null });
   })();
@@ -517,6 +545,9 @@ function simulateWorking(frame) {
   if (!page) return false;
   const { store, thread } = page;
   store.patch({ harness: { ...store.getState().facts.harness, [thread]: true } });
-  setTimeout(() => store.patch({ harness: { ...store.getState().facts.harness, [thread]: false } }), WORKING_MS);
+  const run = previewRun(frame);
+  const clear = () => store.patch({ harness: { ...store.getState().facts.harness, [thread]: false } });
+  run.cleanups.add(clear);
+  schedulePreview(frame, () => { run.cleanups.delete(clear); clear(); }, WORKING_MS);
   return true;
 }
