@@ -399,6 +399,8 @@ export function sampleLabel(text) {
 
 let simulated = 0;
 const previewRuns = new WeakMap();
+const agentRuns = new WeakMap();
+const selectedConversation = (state) => state.facts.viewedThread || state.facts.roomBinding?.thread_id || state.participants?.[0]?.threadId;
 function previewRun(frame) {
   let run = previewRuns.get(frame);
   if (!run) { run = { generation: 0, cleanups: new Set(), timers: new Set() }; previewRuns.set(frame, run); }
@@ -437,7 +439,7 @@ function pageConversation(frame) {
   const store = frame?.contentWindow?.sidevoiceUI?.store;
   if (!store) return null;
   const state = store.getState();
-  const thread = state.facts.viewedThread || state.facts.roomBinding?.thread_id || state.participants?.[0]?.threadId;
+  const thread = selectedConversation(state);
   if (!thread) return null;
   if (!state.facts.sessionId) store.patch({ sessionId: "preview-session", ws: state.facts.ws || { readyState: 3, send() {}, close() {} } });
   return { store, thread, session: store.getState().facts.sessionId };
@@ -510,28 +512,53 @@ export function simulateUser(frame, text) {
 }
 
 /** The agent speaks: its reply in the conversation, its voice playing it word by word (the karaoke), then done. */
-export function simulateAgent(frame, text) {
+export function simulateAgent(frame, text, { wait = later } = {}) {
   const page = pageConversation(frame);
   if (!page) return false;
   const { store, thread, session } = page;
+  const channel = frame.contentWindow?.sidevoiceUI?.playbackLevel;
+  const agentRun = (agentRuns.get(frame) ?? 0) + 1;
+  agentRuns.set(frame, agentRun);
+  channel?.clear?.();
+  const current = () => agentRuns.get(frame) === agentRun && frame.contentWindow?.sidevoiceUI?.store === store &&
+    store.getState().facts.sessionId === session &&
+    selectedConversation(store.getState()) === thread;
   const segment = "preview-agent-" + ++simulated;
-  const run = previewRun(frame), generation = run.generation;
+  const preview = previewRun(frame), generation = preview.generation;
+  const quiet = () => channel?.clear?.();
+  preview.cleanups.add(quiet);
   const name = store.getState().participants?.find((row) => row.threadId === thread)?.title ?? "";
   const words = [...text.matchAll(/\S+/g)].map((match) => match.index + match[0].length);
   const set = (audio) => store.patch({ history: store.getState().facts.history.map((r) => r.segment === segment ? { ...r, audio } : r) });
+  const finish = (audio) => {
+    preview.cleanups.delete(quiet);
+    set(audio);
+    if (store.getState().facts.karaokeState?.segment === segment) store.patch({ botLive: false, karaokeState: null });
+    if (agentRuns.get(frame) === agentRun) quiet();
+  };
+  const abandoned = () => {
+    if (preview.generation !== generation) return true;
+    if (current()) return false;
+    finish("interrupted");
+    return true;
+  };
   void (async () => {
     const history = store.getState().facts.history;
     store.patch({ history: [...history, { segment, thread, session, role: "assistant", text, name, time: Date.now(), seq: history.length + 1, audio: "playing" }],
       botLive: true, karaokeState: { segment, from: 0, to: 0 } });
     for (const end of words) {
-      await later(260);
-      if (run.generation !== generation) return;
+      for (const [level, ms] of [[0.36, 65], [0.72, 65], [0.28, 65], [0, 65]]) {
+        if (abandoned()) return;
+        channel?.publish?.(level, thread);
+        await wait(ms);
+      }
+      if (abandoned()) return;
       store.patch({ karaokeState: { segment, from: 0, to: end } });
     }
-    await later(400);
-    if (run.generation !== generation) return;
-    set("played");
-    store.patch({ botLive: false, karaokeState: null });
+    if (agentRuns.get(frame) === agentRun) quiet();
+    await wait(400);
+    if (abandoned()) return;
+    finish("played");
   })();
   return true;
 }
