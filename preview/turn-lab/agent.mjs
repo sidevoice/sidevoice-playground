@@ -43,18 +43,24 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
   };
   const send = (method, params) => new Promise((resolve, reject) => {
     const id = ++counter;
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`MCP ${method} timed out`)); }, 15_000);
+    pending.set(id, { resolve: (value) => { clearTimeout(timer); resolve(value); }, reject: (error) => { clearTimeout(timer); reject(error); } });
     record("mcp-request", { id, method, params });
-    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    try { child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); }
+    catch (error) { pending.get(id).reject(error); pending.delete(id); }
   });
   const tool = async (name, args) => {
-    const result = decode(await send("tools/call", { name, arguments: args }));
+    const packet = await send("tools/call", { name, arguments: args });
+    const decoded = decode(packet);
+    const result = packet?.result?.isError ? { status: "error", message: String(decoded) } : decoded;
     record("tool-result", { name, args, result });
     return result;
   };
   const say = async (text, replyContext = context) => {
     const id = randomUUID();
-    const args = { text, event_id: id, utterance_id: id, conversation };
+    // The HTTP harness is not an editor chat. Connector routes this single joined
+    // conversation by the explicit core-issued session/revision/epoch below.
+    const args = { text, event_id: id, utterance_id: id };
     if (replyContext?.session_id && replyContext.epoch != null) Object.assign(args, replyContext);
     return tool("voice_say", args);
   };

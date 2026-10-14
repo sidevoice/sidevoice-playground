@@ -187,7 +187,8 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       if (!["push", "pull"].includes(mode)) throw new RefError(400, "mode must be push or pull");
       if (agent) await agent.stop();
       agent = scriptedAgent({ ...manager.labConnection(), emit });
-      return { connected: await agent.start(mode) };
+      try { return { connected: await agent.start(mode) }; }
+      catch (error) { await agent.stop().catch(() => {}); agent = null; throw new RefError(502, error.message); }
     }
     if (path === "/preview/turn-lab/choose") {
       if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
