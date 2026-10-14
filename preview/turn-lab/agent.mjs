@@ -5,12 +5,12 @@ import { connectorEnv } from "../runs.mjs";
 
 const longReply = "I am walking through the result carefully. ".repeat(22) + "The final point is é🐙ab.";
 export const SCRIPTS = {
-  T01: { title: "Interrupt a long reply", lines: [longReply], autoReply: longReply, instruction: "Speak first; the agent answers with a long reply. Then speak for at least one second while it plays." },
+  T01: { title: "Interrupt a long reply", lines: [], autoReply: longReply, instruction: "Select this script, then speak. The agent answers with a long reply; speak again for at least one second while it plays." },
   T02a: { title: "Accepted before speech, with words", lines: [longReply], instruction: "Begin speaking just as playback would start." },
   T02b: { title: "Accepted before speech, empty", lines: [longReply], instruction: "Begin speaking, then stop without words." },
   T02c: { title: "Reply during open turn, with words", lines: ["This should be refused immediately."], delay: 400, instruction: "Start speaking before you run this script; finish with words." },
   T02d: { title: "Reply during open turn, empty", lines: ["This should be refused immediately."], delay: 400, instruction: "Start a turn, run this, then cancel with no words." },
-  T03: { title: "Late stale reply", lines: ["This reply belongs to the earlier turn."], delay: 3000, instruction: "Speak a new message before the delayed reply." },
+  T03: { title: "Late stale reply", lines: ["This reply belongs to the earlier turn."], delay: 3000, pullDelayMs: 3500, instruction: "Speak a new message before the delayed reply." },
   T04a: { title: "Three replies, one epoch", lines: ["Acknowledged.", "Checkpoint: I found the first fact.", "Result: all three messages should play in order."] },
   T04b: { title: "Withdraw several replies", lines: [longReply, "Second queued reply.", "Third queued reply."], instruction: "Open a new spoken turn during the first reply." },
   T05: { title: "Acknowledgement, checkpoint, result", lines: ["I understand. I will check.", longReply, "Here is the result."], instruction: "Interrupt the checkpoint." },
@@ -29,11 +29,11 @@ export const SCRIPTS = {
   T13: { title: "Mute microphone mid-turn", lines: [], instruction: "Speak, then mute the microphone before the turn ends." },
   T14: { title: "Two device hearing", lines: [longReply], instruction: "Hear this on another device, then switch to this one." },
   T15: { title: "Working after three seconds", lines: [], instruction: "Observe Working at 2.9 and 3.0 seconds of continuous activity." },
-  T16: { title: "Push and pull parity", lines: [longReply], instruction: "Repeat notice cases once per delivery mode." },
+  T16: { title: "Push and pull parity", lines: [longReply], pullDelayMs: 5000, instruction: "Repeat notice cases once per delivery mode. In Get messages mode, this script delays the next pull by five seconds." },
 };
 
 export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn }) {
-  let child, receiver, inputMode, conversation, context, script = SCRIPTS.T01, counter = 0;
+  let child, receiver, inputMode, conversation, context, script = SCRIPTS.T01, nextPullAt = 0, counter = 0;
   const pending = new Map();
   const received = new Set();
   const record = (kind, data) => emit({ at: now(), kind, data });
@@ -52,9 +52,10 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     record("tool-result", { name, args, result });
     return result;
   };
-  const say = async (text) => {
-    const args = { text, utterance_id: randomUUID(), conversation };
-    if (context?.session_id && context.epoch != null) Object.assign(args, context);
+  const say = async (text, replyContext = context) => {
+    const id = randomUUID();
+    const args = { text, event_id: id, utterance_id: id, conversation };
+    if (replyContext?.session_id && replyContext.epoch != null) Object.assign(args, replyContext);
     return tool("voice_say", args);
   };
   const receive = (message) => {
@@ -63,7 +64,9 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     if (id && received.has(id)) return;
     if (id) received.add(id);
     if (message.session_id && message.epoch != null) context = { session_id: message.session_id, revision: message.revision, epoch: message.epoch };
-    if (script?.autoReply && message.channel === "voice" && message.text) void say(script.autoReply);
+    if (script?.autoReply && message.channel === "voice" && message.text) void say(script.autoReply, {
+      session_id: message.session_id, revision: message.revision, epoch: message.epoch,
+    });
   };
   return {
     get state() { return { inputMode, conversation, ready: Boolean(conversation) }; },
@@ -107,10 +110,12 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
         const pull = async () => {
           if (!child || inputMode !== "pull") return;
           try {
-            const answer = await tool("get_messages", { conversation });
-            for (const message of answer.messages ?? answer.items ?? []) receive(message);
-            const ids = (answer.messages ?? answer.items ?? []).map((message) => message.message_id).filter(Boolean);
-            if (ids.length) await tool("get_messages", { conversation, ack_ids: ids, operation: "check" });
+            if (now() >= nextPullAt) {
+              const answer = await tool("get_messages", { conversation });
+              for (const message of answer.messages ?? answer.items ?? []) receive(message);
+              const ids = (answer.messages ?? answer.items ?? []).map((message) => message.message_id).filter(Boolean);
+              if (ids.length) await tool("get_messages", { conversation, ack_ids: ids, operation: "check" });
+            }
           } catch (error) { record("pull-error", String(error)); }
           setTimeout(pull, 850);
         };
@@ -121,13 +126,21 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     async choose(id) {
       script = SCRIPTS[id];
       if (!script) throw new Error(`Unknown script ${id}`);
+      // Keep the selected reply in the epoch it answered, even if a later spoken input
+      // arrives while a delayed script is waiting. T03 depends on that real race.
+      const replyContext = context && { ...context };
+      if (inputMode === "pull" && script.pullDelayMs) {
+        nextPullAt = now() + script.pullDelayMs;
+        record("pull-delayed", { until: nextPullAt });
+      }
       record("script-start", { id, ...script });
       if (script.delay) await new Promise((resolve) => setTimeout(resolve, script.delay));
       const results = [];
-      for (const text of script.lines) results.push(await say(text));
+      for (const text of script.lines) results.push(await say(text, replyContext));
       return { script: id, results };
     },
     async stop() {
+      if (child && conversation) await tool("voice_disconnect", { conversation }).catch((error) => record("disconnect-error", String(error)));
       const old = child; child = null; conversation = null; context = null;
       old?.kill("SIGTERM");
       if (receiver) await new Promise((resolve) => receiver.close(resolve));
