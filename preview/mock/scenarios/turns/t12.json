@@ -1,0 +1,45 @@
+{
+  "id": "T12",
+  "title": "Skip first reply",
+  "summary": "Press Skip during the first reply.",
+  "extends": "04-room-ready",
+  "actions": [
+    {
+      "atMs": 0,
+      "type": "reply-playing"
+    },
+    {
+      "atMs": 1000,
+      "type": "skip"
+    },
+    {
+      "atMs": 2000,
+      "type": "next-reply"
+    }
+  ],
+  "expect": {
+    "epochDelta": 0,
+    "fates": [
+      "skipped",
+      "heard"
+    ],
+    "notice": [
+      "reply_skipped"
+    ],
+    "screen": [
+      "heard-by-choice"
+    ]
+  },
+  "fixture": {
+    "unicode": "é🐙ab",
+    "longText": "Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. ",
+    "boundaryMs": [
+      2900,
+      3000
+    ]
+  },
+  "delivery": [
+    "push",
+    "pull"
+  ]
+}

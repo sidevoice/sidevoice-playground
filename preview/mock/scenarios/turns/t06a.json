@@ -1,0 +1,42 @@
+{
+  "id": "T06a",
+  "title": "Mute agents",
+  "summary": "Mute agents during playback, then run again while muted.",
+  "extends": "04-room-ready",
+  "actions": [
+    {
+      "atMs": 0,
+      "type": "reply-playing"
+    },
+    {
+      "atMs": 1000,
+      "type": "agents-mute"
+    },
+    {
+      "atMs": 2000,
+      "type": "reply"
+    }
+  ],
+  "expect": {
+    "epochDelta": 0,
+    "fates": [
+      "interrupted",
+      "text_only"
+    ],
+    "screen": [
+      "unheard"
+    ]
+  },
+  "fixture": {
+    "unicode": "é🐙ab",
+    "longText": "Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. ",
+    "boundaryMs": [
+      2900,
+      3000
+    ]
+  },
+  "delivery": [
+    "push",
+    "pull"
+  ]
+}

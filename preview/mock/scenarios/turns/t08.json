@@ -1,0 +1,42 @@
+{
+  "id": "T08",
+  "title": "Type during playback",
+  "summary": "Type a message during the first reply.",
+  "extends": "04-room-ready",
+  "actions": [
+    {
+      "atMs": 0,
+      "type": "reply-playing"
+    },
+    {
+      "atMs": 1000,
+      "type": "typed-message"
+    },
+    {
+      "atMs": 2000,
+      "type": "reply-queued"
+    }
+  ],
+  "expect": {
+    "epochDelta": 0,
+    "fates": [
+      "heard",
+      "heard"
+    ],
+    "screen": [
+      "typed-context"
+    ]
+  },
+  "fixture": {
+    "unicode": "é🐙ab",
+    "longText": "Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. ",
+    "boundaryMs": [
+      2900,
+      3000
+    ]
+  },
+  "delivery": [
+    "push",
+    "pull"
+  ]
+}

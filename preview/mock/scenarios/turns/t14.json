@@ -1,0 +1,41 @@
+{
+  "id": "T14",
+  "title": "Two device hearing",
+  "summary": "Hear this on another device, then switch to this one.",
+  "extends": "04-room-ready",
+  "actions": [
+    {
+      "atMs": 0,
+      "type": "reply-partial-device-a"
+    },
+    {
+      "atMs": 1000,
+      "type": "reply-heard-device-b"
+    },
+    {
+      "atMs": 2000,
+      "type": "switch-device"
+    }
+  ],
+  "expect": {
+    "epochDelta": 0,
+    "fates": [
+      "heard"
+    ],
+    "screen": [
+      "global-heard"
+    ]
+  },
+  "fixture": {
+    "unicode": "é🐙ab",
+    "longText": "Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. ",
+    "boundaryMs": [
+      2900,
+      3000
+    ]
+  },
+  "delivery": [
+    "push",
+    "pull"
+  ]
+}

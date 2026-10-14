@@ -1,0 +1,44 @@
+{
+  "id": "T03",
+  "title": "Late stale reply",
+  "summary": "Speak a new message before the delayed reply.",
+  "extends": "04-room-ready",
+  "actions": [
+    {
+      "atMs": 0,
+      "type": "speech-finished"
+    },
+    {
+      "atMs": 1000,
+      "type": "speech-finished"
+    },
+    {
+      "atMs": 2000,
+      "type": "late-reply"
+    }
+  ],
+  "expect": {
+    "epochDelta": 2,
+    "fates": [
+      "text_only"
+    ],
+    "notice": [
+      "reply_not_played"
+    ],
+    "screen": [
+      "unheard"
+    ]
+  },
+  "fixture": {
+    "unicode": "é🐙ab",
+    "longText": "Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. Checkpoint. ",
+    "boundaryMs": [
+      2900,
+      3000
+    ]
+  },
+  "delivery": [
+    "push",
+    "pull"
+  ]
+}

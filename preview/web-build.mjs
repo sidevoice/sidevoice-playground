@@ -64,7 +64,7 @@ export async function plannedPins(pins, published, tarballs) {
   const replace = {};
   const missing = [];
   for (const [name, version] of pins) {
-    if (await published(name, version)) continue;
+    if (!(name === "@sidevoice/voice" && tarballs.forceVoice) && await published(name, version)) continue;
     const tarball = tarballs[SUPPLIED[name]];
     if (tarball) replace[name] = `file:${tarball}`;
     else missing.push(`${name}@${version}`);
@@ -170,6 +170,12 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
       const mocks = await checkMocks(work);
       await evict();
       await exec("node", ["scripts/assemble-static-web.mjs", site], { cwd: work });
+      // The lab pairs through this exact web commit's own verified pairing code, never a copied protocol.
+      const labModules = join(site, "voice/turn-lab-modules");
+      await mkdir(labModules, { recursive: true });
+      for (const name of ["device-pairing.js", "rendezvous.js", "device-name-rules.js"]) {
+        await copyFile(join(work, "apps/web/src/services", name), join(labModules, name));
+      }
       await writeFile(join(site, MOCK_CHECK), JSON.stringify(mocks));
       return site;
     } finally {
@@ -203,7 +209,7 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
     async get(ref, tarballs = {}) {
       const sha = await resolve(ref);
       // The same commit with other picked builds is another site.
-      const picked = [tarballs.engine ?? null, tarballs.voice ?? null];
+      const picked = [tarballs.engine ?? null, tarballs.voice ?? null, Boolean(tarballs.forceVoice)];
       const key = `${picked.some(Boolean) ? `${sha}-${shortHash(JSON.stringify(picked))}` : sha}-m${await mockDigest()}`;
       if (!pending.has(key)) {
         const promise = build(sha, key, tarballs);

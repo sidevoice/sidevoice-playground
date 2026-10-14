@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 let previewOrigin = null;
 let connected = false;
+let autoConnecting = false;
+let attemptedAutoConnect = false;
 let scripts = {};
 const ask = async (path, body) => {
   const response = await fetch(path, body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -41,6 +43,13 @@ async function poll() {
         $("connect").disabled = false;
       }
       setStatus("Real room ready. Allow its microphone, finish local model setup, then speak. Run a script to test its reply.");
+      if (!connected && !autoConnecting && !attemptedAutoConnect) {
+        attemptedAutoConnect = true;
+        autoConnecting = true;
+        void ask("/preview/turn-lab/connect", { mode: $("mode").value }).then(() => { connected = true; void poll(); })
+          .catch((error) => { $("agent-status").textContent = `Connect failed: ${error.message}`; })
+          .finally(() => { autoConnecting = false; });
+      }
     }
     $("epoch").textContent = state.evidence.currentEpoch ?? "—";
     $("fates").replaceChildren(...state.evidence.fates.map((fate) => item(`${short(fate.utterance_id)}: ${fate.fate}${fate.heard_chars == null ? "" : ` at ${fate.heard_chars}`} ${fate.reason ?? ""}`)));
@@ -75,6 +84,9 @@ $("export").onclick = async () => {
 };
 window.addEventListener("message", (event) => {
   if (event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
+  if (event.data.kind === "browser-ready" && event.data.data?.paired === false) {
+    void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));
+  }
   void ask("/preview/turn-lab/event", { kind: event.data.kind, data: event.data.data }).catch(() => {});
 });
 void boot().catch((error) => setStatus(`Could not start: ${error.message}`));

@@ -5,7 +5,7 @@ import { connectorEnv } from "../runs.mjs";
 
 const longReply = "I am walking through the result carefully. ".repeat(22) + "The final point is é🐙ab.";
 export const SCRIPTS = {
-  T01: { title: "Interrupt a long reply", lines: [longReply], instruction: "Speak for at least one second while the reply plays." },
+  T01: { title: "Interrupt a long reply", lines: [longReply], autoReply: longReply, instruction: "Speak first; the agent answers with a long reply. Then speak for at least one second while it plays." },
   T02a: { title: "Accepted before speech, with words", lines: [longReply], instruction: "Begin speaking just as playback would start." },
   T02b: { title: "Accepted before speech, empty", lines: [longReply], instruction: "Begin speaking, then stop without words." },
   T02c: { title: "Reply during open turn, with words", lines: ["This should be refused immediately."], delay: 400, instruction: "Start speaking before you run this script; finish with words." },
@@ -33,7 +33,7 @@ export const SCRIPTS = {
 };
 
 export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn }) {
-  let child, receiver, inputMode, conversation, context, script = null, counter = 0;
+  let child, receiver, inputMode, conversation, context, script = SCRIPTS.T01, counter = 0;
   const pending = new Map();
   const received = new Set();
   const record = (kind, data) => emit({ at: now(), kind, data });

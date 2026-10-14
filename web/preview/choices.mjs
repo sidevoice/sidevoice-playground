@@ -13,8 +13,9 @@ export function webChoices({ releases = [], pulls = [], branches = [] }) {
 }
 
 /** A core or connector release: `preferred` (a tag, or `release` for the newest version) chosen first when there. */
-export function archiveChoices(releases, preferred) {
+export function archiveChoices(releases, preferred, candidate = null) {
   const choices = releases.map((r) => ({ value: r.tag, label: r.tag === "nightly" ? "nightly (main)" : r.tag }));
+  if (candidate && /^[0-9a-f]{40}$/.test(candidate)) choices.unshift({ value: `sha:${candidate}`, label: `candidate source build @ ${candidate.slice(0, 7)}` });
   const pick = preferred === "release" ? choices.find((c) => c.value !== "nightly") : choices.find((c) => c.value === preferred);
   return pick ? [pick, ...choices.filter((c) => c !== pick)] : choices;
 }

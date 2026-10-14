@@ -107,8 +107,11 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       }
       say(`Getting core ${pick.core} and connector ${pick.connector}…`);
       const binary = (kind, ref) => ref.startsWith("sha:") ? sources.get(kind, ref.slice(4)) : store.get(kind, ref);
-      const [core, connector] = await Promise.all([binary("core", pick.core), binary("connector", pick.connector)]);
+      // Rust candidate builds run one at a time to keep memory use predictable.
+      const core = await binary("core", pick.core);
+      const connector = await binary("connector", pick.connector);
       const tarballs = await picked(pick);
+      if (pick.scenario.id === "turn-lab") tarballs.forceVoice = true;
       say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
       const { sha, site } = await builds.get(pick.web, tarballs);
       say(`Starting ${pick.scenario.title}: core ${core.tag}${core.source ? ` (${core.source.slice(0, 7)})` : ""}…`);
