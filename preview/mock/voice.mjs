@@ -121,7 +121,9 @@ export function fakeVoice(world, { source = null } = {}) {
   let turns = 0;
   let says = 0;
   let playbackRun = 0;
-  const silence = () => emit("playbackLevel", 0);
+  const playbackLevels = new Map();
+  const publishPlayback = () => emit("playbackLevel", Math.max(0, ...playbackLevels.values()));
+  const silence = () => { playbackLevels.clear(); publishPlayback(); };
   /** The take being kept, while one was asked for: when it started, what the person said in it, their turns' marks, and
    *  when the microphone was muted (the last one open while it is).
    *  @type {{ startedAt: number, speech: { from: number, to: number, levels: { at: number, level: number }[] }[], turns: VoiceTake["turns"], muted: { from: number, to: number }[] } | null} */
@@ -180,9 +182,8 @@ export function fakeVoice(world, { source = null } = {}) {
     },
     say(text, options) {
       const id = `say-${++says}`;
-      const run = ++playbackRun;
-      const quiet = () => { if (run === playbackRun) silence(); };
-      if (started) silence();
+      const run = playbackRun;
+      const quiet = () => { if (run === playbackRun) { playbackLevels.delete(id); publishPlayback(); } };
       /** @type {Set<(event: VoiceSayEvent) => void>} */
       const events = new Set();
       let cancelled = false;
@@ -191,14 +192,9 @@ export function fakeVoice(world, { source = null } = {}) {
       };
       const outcome = (async () => {
         await Promise.resolve();
-        if (!started || run !== playbackRun) return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: "stopped" });
+        if (!started) return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: "stopped" });
         setState({ playback: "synthesizing" });
         await world.delay(400);
-        if (cancelled || !started || run !== playbackRun) {
-          quiet();
-          if (run === playbackRun) setState({ playback: "idle" });
-          return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: cancelled ? "cancelled" : "stopped" });
-        }
         if (voiceState(world).tts === "error") {
           quiet();
           setState({ playback: "idle" });
@@ -211,25 +207,23 @@ export function fakeVoice(world, { source = null } = {}) {
         const chunks = text.match(/[^.!?¿¡]+[.!?]*\s*/g) ?? [text];
         let from = 0;
         for (const chunk of chunks) {
-          if (cancelled || !started || run !== playbackRun) {
+          if (cancelled || !started) {
             quiet();
-            if (run === playbackRun) setState({ playback: "idle" });
+            setState({ playback: "idle" });
             return /** @type {VoiceSayOutcome} */ ({ status: "heard-up-to", heard_chars: from, reason: cancelled ? "cancelled" : "stopped" });
           }
           tell({ type: "progress", sounding: [from, from + chunk.length], heard_chars: from });
           const duration = Math.max(400, chunk.length * 55);
           for (let elapsed = 0; elapsed < duration; elapsed += 80) {
             // One silent slice per short envelope: a pause while playback is still "playing".
-            emit("playbackLevel", Math.floor(elapsed / 80) % 5 === 4 ? 0 : speechLevel(elapsed, says * 1.7));
+            if (started && !cancelled && run === playbackRun) {
+              playbackLevels.set(id, Math.floor(elapsed / 80) % 5 === 4 ? 0 : speechLevel(elapsed, says * 1.7));
+              publishPlayback();
+            }
             await world.delay(Math.min(80, duration - elapsed));
-            if (cancelled || !started || run !== playbackRun) break;
           }
           quiet();
           from += chunk.length;
-        }
-        if (cancelled || !started || run !== playbackRun) {
-          if (run === playbackRun) setState({ playback: "idle" });
-          return /** @type {VoiceSayOutcome} */ ({ status: "heard-up-to", heard_chars: from, reason: cancelled ? "cancelled" : "stopped" });
         }
         tell({ type: "progress", sounding: null, heard_chars: from });
         quiet();

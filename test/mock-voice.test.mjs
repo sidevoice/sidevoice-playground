@@ -26,6 +26,11 @@ test("the mocked speaker has its own levels, including zero gaps during playback
   assert.ok(output.some(([phase, level]) => phase === "playing" && level === 0));
   assert.equal(output.at(-1)[1], 0);
   assert.deepEqual(mic, [], "speaker output never leaks into the microphone channel");
+  const first = voice.host.say("First overlapping reply.");
+  const second = voice.host.say("Second overlapping reply.");
+  assert.deepEqual(await Promise.all([first.outcome, second.outcome]), [{ status: "heard" }, { status: "heard" }],
+    "telemetry does not change the mock's reply outcomes");
+  assert.equal(output.at(-1)[1], 0);
   const running = voice.host.say("A longer sentence, with enough time to cancel.");
   await new Promise((resolve) => setImmediate(resolve));
   running.cancel();
