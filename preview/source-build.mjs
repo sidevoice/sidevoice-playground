@@ -31,15 +31,18 @@ export function sourceBuilds({ cache, api, log = () => {}, run = runner(log) }) 
     const dir = join(cache, "source-builds", `${kind}-${sha}`);
     const program = join(dir, "target/release", spec.bin);
     if (!(await stat(program).then(() => true, () => false))) {
-      await rm(dir, { recursive: true, force: true });
-      await mkdir(dir, { recursive: true });
-      log(`Source-building ${spec.repo}@${sha}; the first Rust build can take several minutes…`);
-      await run("git", ["init", "-q", dir]);
-      await run("git", ["-C", dir, "remote", "add", "origin", `https://github.com/${spec.repo}.git`]);
-      await run("git", ["-C", dir, "fetch", "--depth", "1", "origin", sha]);
-      await run("git", ["-C", dir, "checkout", "--detach", "FETCH_HEAD"]);
+      const fetched = await readFile(join(dir, ".git/FETCH_HEAD"), "utf8").catch(() => "");
+      if (fetched.slice(0, 40) !== sha) {
+        await rm(dir, { recursive: true, force: true });
+        await mkdir(dir, { recursive: true });
+        await run("git", ["init", "-q", dir]);
+        await run("git", ["-C", dir, "remote", "add", "origin", `https://github.com/${spec.repo}.git`]);
+        await run("git", ["-C", dir, "fetch", "--depth", "1", "origin", sha]);
+        await run("git", ["-C", dir, "checkout", "--detach", "FETCH_HEAD"]);
+      }
       const actual = (await readFile(join(dir, ".git/FETCH_HEAD"), "utf8")).slice(0, 40);
       if (actual !== sha) throw new RefError(409, `fetched ${actual}, expected ${sha}`);
+      log(`Source-building ${spec.repo}@${sha}; the first Rust build can take several minutes…`);
       await run("cargo", ["build", "--locked", "--release", "--bin", spec.bin], { cwd: dir });
     }
     const hash = createHash("sha256");

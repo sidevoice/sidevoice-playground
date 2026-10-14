@@ -179,7 +179,9 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
       current = {
         mode: "real", scenario, web, core, connector: connectorArchive, profile, process: child, port, connectorUsed: false,
         // A fresh scenario starts with a browser that remembers nothing of the preview origin.
-        reset: scenario.state === "fresh",
+        // The lab refreshes its room profile each run, but keeps this browser's downloaded local models.
+        // Its browser pairs again through the real web controller when the new room starts.
+        reset: scenario.state === "fresh" && scenario.id !== "turn-lab",
       };
       return this.current;
     },

@@ -64,6 +64,12 @@ export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
       turn: fixture, options: structuredClone(parent.options ?? []), world: structuredClone(parent.world) };
     scenario.options.push({ id: "turn-script", group: "Conversation flow", label: "Script", values: [{ value: "ready", label: fixture.summary, set: {} }] });
     scenario.options.push(...shared.filter((option) => !scenario.options.some((own) => own.id === option.id)));
+    for (const [id, start] of Object.entries(parent.defaults ?? {})) {
+      const option = scenario.options.find((item) => item.id === id);
+      const first = option?.values.find((item) => item.value === start);
+      if (!first) throw new Error(`${file}: invalid inherited default ${id}=${start}`);
+      option.values = [first, ...option.values.filter((item) => item !== first)];
+    }
     if (!validMockScenario(scenario)) throw new Error(`${file}: invalid turn scenario`);
     scenarios.push(scenario);
   }

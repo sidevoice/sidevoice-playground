@@ -175,7 +175,7 @@ async function handle(req, res) {
     res.writeHead(200, { "content-type": TYPES[".html"], "cache-control": "no-store" });
     return res.end(withImportMap(html, importMapFor(local, served())));
   }
-  if (url.pathname === "/turn-lab") return serveFile(res, ROOT + sep, "turn-lab.html");
+  if (url.pathname === "/turn-lab") return serveFile(res, ROOT, "turn-lab.html");
   return serveFile(res, ROOT, url.pathname);
 }
 

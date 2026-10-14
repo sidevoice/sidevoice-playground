@@ -13,24 +13,37 @@ export function evidence(events) {
   const status = (result) => result?.status ?? result?.result?.status;
   const accepted = results.some((result) => ["accepted", "queued", "spoken"].includes(status(result)));
   const refused = results.some((result) => status(result) === "rejected" || /user.speaking/.test(JSON.stringify(result)));
-  const currentEpoch = [...inputs, ...frames].map((item) => item?.epoch ?? item?.data?.epoch).filter(Number.isInteger).at(-1) ?? null;
+  const epochs = [...inputs, ...frames].map((item) => item?.epoch ?? item?.data?.epoch).filter(Number.isInteger);
+  const currentEpoch = epochs.length ? Math.max(...epochs) : null;
   const fates = new Map();
   for (const event of after) {
     const item = event.data;
+    if (event.kind === "tool-result" && item?.name === "voice_say" && item.args?.utterance_id) {
+      const result = item.result;
+      const disposition = status(result);
+      fates.set(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : disposition === "text_only" ? "stale" : disposition ?? "submitted", text: item.args.text, reason: result?.reason });
+    }
     const utterances = item?.utterance_ids ?? (item?.utterance_id ? [item.utterance_id] : []);
     if (event.kind === "room-frame") for (const id of utterances) {
       const type = item.type ?? item.event;
       if (type === "voice-reply") fates.set(id, { fate: "queued", text: item.text, epoch: item.epoch });
       if (type === "voice-reply-withdrawn") fates.set(id, { ...fates.get(id), fate: "not played", reason: item.reason });
       if (type === "voice-playback") fates.set(id, { ...fates.get(id), fate: item.status, heard_chars: item.heard_chars, reason: item.reason });
+      if (type === "history") fates.set(id, { ...fates.get(id), fate: item.status === "playback_finished" ? "played" : item.status, heard_chars: item.heard_chars, reason: item.reason, text: item.text ?? fates.get(id)?.text });
     }
   }
-  for (const item of unheard) fates.set(item.utterance_id, { fate: item.fate, heard_chars: item.heard_chars, text: item.text, reason: item.reason });
+  for (const item of unheard) {
+    if (["played", "skipped", "heard"].includes(fates.get(item.utterance_id)?.fate)) continue;
+    const scalars = [...(item.text ?? "")];
+    const cut = item.heard_chars;
+    fates.set(item.utterance_id, { fate: item.fate, heard_chars: cut, text: item.text, reason: item.reason,
+      heard: cut == null ? null : scalars.slice(0, cut).join(""), unheard: cut == null ? item.text : scalars.slice(cut).join("") });
+  }
   const checks = Object.fromEntries(Object.keys(SCRIPTS).map((id) => [id, { state: MANUAL.has(id) ? "manual" : "pending", reason: "Awaiting evidence" }]));
   const pass = (id, condition, reason) => { checks[id] = { state: condition ? "pass" : "fail", reason }; };
   if (selected && !MANUAL.has(selected)) {
     if (["T02c", "T02d"].includes(selected) && results.length) pass(selected, refused, "The MCP tool result must refuse the open turn");
-    if (selected === "T04a" && results.length >= 3) pass(selected, results.every((result) => ["accepted", "queued", "spoken"].includes(status(result))), "All three publications must be accepted");
+    if (selected === "T04a" && results.length >= 3 && results.some((result) => status(result) === "rejected")) pass(selected, false, "One of three publications was refused");
     if (selected === "T03" && results.length && unreadKind(notes, "reply_not_played")) pass(selected, true, "Stale reply evidence reached the agent");
     if (selected === "T01" && unheard.length) pass(selected, unheard.some((item) => item.fate === "interrupted" && Number.isInteger(item.heard_chars)), "Cut extent and full text reached the agent");
     if (["T02a", "T02b", "T04b"].includes(selected) && unheard.length) pass(selected, unheard.some((item) => item.fate === "unplayed"), "Not played evidence reached the agent");

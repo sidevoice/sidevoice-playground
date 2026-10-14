@@ -170,12 +170,6 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
       const mocks = await checkMocks(work);
       await evict();
       await exec("node", ["scripts/assemble-static-web.mjs", site], { cwd: work });
-      // The lab pairs through this exact web commit's own verified pairing code, never a copied protocol.
-      const labModules = join(site, "voice/turn-lab-modules");
-      await mkdir(labModules, { recursive: true });
-      for (const name of ["device-pairing.js", "rendezvous.js", "device-name-rules.js"]) {
-        await copyFile(join(work, "apps/web/src/services", name), join(labModules, name));
-      }
       await writeFile(join(site, MOCK_CHECK), JSON.stringify(mocks));
       return site;
     } finally {

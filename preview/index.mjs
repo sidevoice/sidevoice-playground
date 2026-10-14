@@ -66,13 +66,13 @@ export function validStart(body, scenarios) {
 export async function previewSection({ api, engineBuild, voiceBuild, cache, origin, link = origin, web = null, archives = null, runs = null, devRepo = null, devServer = startDevServer }) {
   const scenarios = await loadScenarios();
   const store = archives ?? archiveStore({ cache: `${cache}/archives`, api });
-  const sources = sourceBuilds({ cache, api, log: say });
   const manager = runs ?? runStore({ cache, origin });
   const log = [];
   const say = (line) => {
     log.push(line);
     if (log.length > LOG_LINES) log.shift();
   };
+  const sources = sourceBuilds({ cache, api, log: say });
   const builds = web ?? webBuilds({ cache, api, log: say });
   let job = { state: "idle", error: null };
   let agent = null;
@@ -116,7 +116,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       const { sha, site } = await builds.get(pick.web, tarballs);
       say(`Starting ${pick.scenario.title}: core ${core.tag}${core.source ? ` (${core.source.slice(0, 7)})` : ""}…`);
       await manager.start({ scenario: pick.scenario, web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site }, core, connector });
-      emit({ at: Date.now(), kind: "run-start", data: { core: { sha: core.source, digest: core.digest }, connector: { sha: connector.source, digest: connector.digest }, web: sha, voice: pick.voice } });
+      emit({ at: Date.now(), kind: "run-start", data: { core: { sha: core.source, digest: core.digest }, connector: { sha: connector.source, digest: connector.digest }, web: sha, voice: { sha: pick.voice, digest: tarballs.voiceDigest ?? null } } });
       job = { state: "running", error: null };
       say("Running: open the preview.");
     } catch (error) {
@@ -129,7 +129,11 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   async function picked(pick) {
     const tarballs = {};
     if (pick.engine) tarballs.engine = (await engineBuild(pick.engine)).tarball;
-    if (pick.voice) tarballs.voice = (await voiceBuild(pick.voice)).tarball;
+    if (pick.voice) {
+      const voice = await voiceBuild(pick.voice);
+      tarballs.voice = voice.tarball;
+      tarballs.voiceDigest = voice.sha256;
+    }
     return tarballs;
   }
 

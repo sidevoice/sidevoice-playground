@@ -170,6 +170,21 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 ## Web preview
 
+### Turn Lab: real spoken conversation
+
+The access-gated link is **`http://localhost:5174/turn-lab?access=<token from the playground access file>`**. Open it once; the gate stores a cookie and redirects to `/turn-lab`. For a remote browser, use the same `/turn-lab?access=…` path on the playground tunnel and set `--preview-origin` to the second, browser-reachable preview tunnel. The Turn Lab starts the pinned real room, pairs its browser through the web build's own pairing protocol, connects a scripted MCP agent in inject mode, and puts the room, script menu, event log, reply fates and case checks together. Allow the microphone prompt, install the browser's local models when its setup asks, then speak. Use **Get messages** to reconnect the scripted agent in pull mode.
+
+For an isolated local run, use ports away from the live playground:
+
+```sh
+PORT=5314 node server.mjs --preview-port 5315 --cache-dir /tmp/sidevoice-turn-lab-cache
+# Open http://localhost:5314/turn-lab?access=<token from ~/.agent/secrets/sidevoice-playground-access>
+```
+
+The four candidate SHA pins are in [`preview/turn-lab.config.json`](preview/turn-lab.config.json). Re-pin a producer by changing its one SHA entry. Core and connector full SHAs are source-built in an isolated cache; the binary SHA-256 is recorded in the run trace. Web is built from its full SHA and its `@sidevoice/voice` dependency is forced to the chosen voice CI tarball even if npm already has the web commit's old version. The trace records the voice package digest as well. The current pins are core `b7eed0351b494f6d46be03a84f84f80c88be18b0`, voice `b898c55cdffbbf5fe603e2e088e530163825ce06`, connector `56f440e8e476052dc28143adaf4e27a535af2e6d` (PR #126), and web `fe7c4fb1bab4344beb3066d6ec70b4edd6e96e17` (PR #124; TODO re-pin to web T PR). Build hosts need Rust 1.98, Cargo, a C compiler, and Node 22. The room runs no server-side inference; browser Silero, Smart Turn, and local TTS run in the real web/voice build.
+
+Each T01–T16 case variant is selectable from the scripted agent menu and from the mock scenario picker. Turn fixtures live under `preview/mock/scenarios/turns/`; they specify timed actions, expected epoch changes, fates, screen marks, agent notices and tool results. The live judge only marks an automatic case passed after observing its evidence. T10 speaker echo/AEC and other physical microphone behavior require an operator's actual speakers and microphone; a synthetic browser stream cannot prove them.
+
 The real sidevoice-web, at a release, `main`, a branch or a pull request, built by checkout and opened on an origin
 of its own. **Mocked** (the default) for UX: everything it talks to answers from a scenario, picked with its options
 in a card over the page and switched live. Or on the **real core and connector** of a picked release, in a scenario

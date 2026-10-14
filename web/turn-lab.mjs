@@ -3,6 +3,7 @@ let previewOrigin = null;
 let connected = false;
 let autoConnecting = false;
 let attemptedAutoConnect = false;
+let pairingSent = false;
 let scripts = {};
 const ask = async (path, body) => {
   const response = await fetch(path, body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -52,7 +53,9 @@ async function poll() {
       }
     }
     $("epoch").textContent = state.evidence.currentEpoch ?? "—";
-    $("fates").replaceChildren(...state.evidence.fates.map((fate) => item(`${short(fate.utterance_id)}: ${fate.fate}${fate.heard_chars == null ? "" : ` at ${fate.heard_chars}`} ${fate.reason ?? ""}`)));
+    const browser = state.events.filter((event) => event.kind === "browser-ready" || event.kind === "browser-error");
+    $("preflight").replaceChildren(...(browser.length ? browser.slice(-7).map((event) => item(`${event.kind === "browser-error" ? "Needs attention" : "Observed"}: ${JSON.stringify(event.data)}`)) : [item("Waiting for the real browser room") ]));
+    $("fates").replaceChildren(...state.evidence.fates.map((fate) => item(`${short(fate.utterance_id)}: ${fate.fate}${fate.heard_chars == null ? "" : ` at ${fate.heard_chars}`} ${fate.reason ?? ""}${fate.heard != null ? ` · heard: “${fate.heard}” · unheard: “${fate.unheard}”` : ""}`)));
     $("notices").replaceChildren(...state.evidence.notes.map((notice) => item(`${notice.kind}: ${notice.instruction ?? ""}`)));
     $("checks").replaceChildren(...Object.entries(state.evidence.checks).map(([id, check]) => {
       const div = document.createElement("div"); div.className = `check ${check.state}`; div.textContent = `${id} ${check.state.toUpperCase()}`; div.title = check.reason; return div;
@@ -84,7 +87,8 @@ $("export").onclick = async () => {
 };
 window.addEventListener("message", (event) => {
   if (event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
-  if (event.data.kind === "browser-ready" && event.data.data?.paired === false) {
+  if (event.data.kind === "browser-ready" && !pairingSent) {
+    pairingSent = true;
     void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));
   }
   void ask("/preview/turn-lab/event", { kind: event.data.kind, data: event.data.data }).catch(() => {});
