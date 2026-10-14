@@ -87,6 +87,18 @@ test("the evidence log splits heard and unheard by Unicode scalars", () => {
   ];
   const view = evidence(events);
   assert.equal(view.currentEpoch, 2);
-  assert.deepEqual(view.fates[0], { utterance_id: "u", fate: "interrupted", heard_chars: 2, text: "é🐙ab", reason: "user_interrupted", heard: "é🐙", unheard: "ab" });
+  assert.deepEqual(view.fates[0], { utterance_id: "u", fate: "cut", heard_chars: 2, text: "é🐙ab", reason: "user_interrupted", heard: "é🐙", unheard: "ab" });
   assert.equal(view.checks.T01.state, "pass");
+});
+
+test("browser playback receipts and history settle reply fates", () => {
+  const events = [
+    { kind: "script-start", data: { id: "T12" } },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "skip", text: "First" }, result: { status: "published", audio: "queued" } } },
+    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "skip", status: "interrupted", reason: "user_skipped", heard_chars: 2 } },
+    { kind: "room-frame", data: { type: "history", utterance_id: "skip", status: "skipped", reason: "user_skipped", heard_chars: 5 } },
+    { kind: "agent-input", data: { channel: "note", notice: { kind: "reply_skipped" } } },
+  ];
+  assert.equal(evidence(events).fates[0].fate, "skipped");
+  assert.equal(evidence(events).checks.T12.state, "pass");
 });
