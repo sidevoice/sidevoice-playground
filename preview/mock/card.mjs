@@ -395,6 +395,7 @@ export function sampleLabel(text) {
 }
 
 let simulated = 0;
+const agentRuns = new WeakMap();
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
 function pageConversation(frame) {
   const store = frame?.contentWindow?.sidevoiceUI?.store;
@@ -468,10 +469,18 @@ function simulateUser(frame, text) {
 }
 
 /** The agent speaks: its reply in the conversation, its voice playing it word by word (the karaoke), then done. */
-function simulateAgent(frame, text) {
+export function simulateAgent(frame, text, { wait = later } = {}) {
   const page = pageConversation(frame);
   if (!page) return false;
   const { store, thread, session } = page;
+  const channel = frame.contentWindow?.sidevoiceUI?.playbackLevel;
+  const run = (agentRuns.get(frame) ?? 0) + 1;
+  agentRuns.set(frame, run);
+  channel?.clear?.();
+  const current = () => agentRuns.get(frame) === run && frame.contentWindow?.sidevoiceUI?.store === store &&
+    store.getState().facts.sessionId === session &&
+    (store.getState().facts.viewedThread || store.getState().facts.roomBinding?.thread_id) === thread;
+  const abandoned = () => { if (current()) return false; if (agentRuns.get(frame) === run) channel?.clear?.(); return true; };
   const segment = "preview-agent-" + ++simulated;
   const name = store.getState().participants?.find((row) => row.threadId === thread)?.title ?? "";
   const words = [...text.matchAll(/\S+/g)].map((match) => match.index + match[0].length);
@@ -481,12 +490,20 @@ function simulateAgent(frame, text) {
     store.patch({ history: [...history, { segment, thread, session, role: "assistant", text, name, time: Date.now(), seq: history.length + 1, audio: "playing" }],
       botLive: true, karaokeState: { segment, from: 0, to: 0 } });
     for (const end of words) {
-      await later(260);
+      for (const [level, ms] of [[0.36, 65], [0.72, 65], [0.28, 65], [0, 65]]) {
+        if (abandoned()) return;
+        channel?.publish?.(level, thread);
+        await wait(ms);
+      }
+      if (abandoned()) return;
       store.patch({ karaokeState: { segment, from: 0, to: end } });
     }
-    await later(400);
+    channel?.clear?.();
+    await wait(400);
+    if (abandoned()) return;
     set("played");
     store.patch({ botLive: false, karaokeState: null });
+    channel?.clear?.();
   })();
   return true;
 }

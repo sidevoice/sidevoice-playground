@@ -33,4 +33,6 @@ export interface VoiceTake {
 export type TakingVoiceHost = Host & {
   start(options?: { take?: boolean }): Promise<void>;
   onTake?(listener: (take: VoiceTake) => void): () => void;
+  /** Optional output telemetry, normalized 0–1; independent of onLevel's microphone samples. */
+  onPlaybackLevel?(listener: (level: number) => void): () => void;
 };
