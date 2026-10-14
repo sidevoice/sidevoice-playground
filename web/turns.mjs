@@ -1,13 +1,13 @@
 // The Turn detection screen of the Engine section: the voice module's chain, step by step, on the active engine. The
-// microphone feeds the engine's voice activity detector as a stream (`asVad().stream(options)`); its frames draw the
-// speech probability where the backend gives one, and its events mark where speech starts and ends. At each end of
-// speech the chain (turns/chain.mjs) decides as a call would: with `smart-turn`, the end-of-turn model
-// (`asEndOfTurn().probability`) is asked about the turn so far and its P(end) cuts the turn or keeps listening; with
-// `silence`, the patience's timer runs. An engine without a model of either capability says so, and a runtime whose
+// microphone feeds the engine's voice activity detector as a stream (`asVad().stream(options)`); each of its frames,
+// with the window's audio, goes to the chain (turns/chain.mjs), which decides as a call would: speech from the window's
+// probability and volume, when it starts and stops, and at each stop either the end-of-turn model
+// (`asEndOfTurn().probability`, with `smart-turn`), asked about the turn so far, whose P(end) cuts the turn or keeps
+// listening, or the patience's silence. An engine without a model of either capability says so, and a runtime whose
 // loaded models have no VAD stream (the native runner) says that too.
 
 import { describeError, progressText } from "./catalog.mjs";
-import { createResampler, createTurnChain, END_OF_TURN_LIKELY, turnModelChoices, VAD_DEFAULTS } from "./turns/chain.mjs";
+import { CONFIDENCE, createResampler, createTurnChain, END_OF_TURN_LIKELY, LISTENING_BAR, turnModelChoices, VAD_DEFAULTS } from "./turns/chain.mjs";
 import { logLine } from "./turns-text.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -43,7 +43,7 @@ export function turnsScreen({ currentEngine }) {
   let entry = null; // the engine entry the screen holds models of
   const slots = { vad: null, "end-of-turn": null }; // per capability: { id, loaded, handle }
   let run = null; // the running chain: microphone, stream, clock, frames, audio
-  const chain = createTurnChain({});
+  let chain = createTurnChain({});
 
   const status = (selector, text, error = false) => {
     const line = $(selector);
@@ -133,9 +133,9 @@ export function turnsScreen({ currentEngine }) {
       if (!vad) throw new Error("Pick a voice-activity model that runs here.");
       if ($("#turns-smart").checked && !(await ensure("end-of-turn"))) throw new Error("Pick an end-of-turn model, or turn smart-turn off.");
       const stream = await vad.stream(vadOptions());
-      const state = { stream, rate: stream.sampleRate, fed: 0, offset: 0, frames: [], audio: [], queue: Promise.resolve(), mic: null };
+      const state = { stream, rate: stream.sampleRate, fed: 0, offset: 0, taken: 0, pending: new Float32Array(0), frames: [], audio: [], queue: Promise.resolve(), mic: null };
       run = state;
-      chain.configure(chainSettings());
+      chain = createTurnChain(chainSettings(), state.rate);
       state.mic = await openMicrophone((chunk) => {
         state.queue = state.queue.then(() => feed(state, chunk)).catch((error) => fail(error));
       });
@@ -162,19 +162,27 @@ export function turnsScreen({ currentEngine }) {
   async function feed(state, chunk) {
     if (run !== state) return;
     const samples = state.resample(chunk);
-    const { frames, events } = await state.stream.accept(samples);
+    const { frames } = await state.stream.accept(samples);
     if (run !== state) return;
     const startMs = ms(state, state.fed);
     state.fed += samples.length;
     state.audio.push({ at: startMs, samples });
     while (state.audio.length && ms(state, state.fed) - state.audio[0].at > KEPT_MS) state.audio.shift();
-    for (const frame of frames) state.frames.push({ at: ms(state, state.offset + frame.end), probability: frame.probability, speech: frame.speech });
-    while (state.frames.length && ms(state, state.fed) - state.frames[0].at > SHOWN_MS) state.frames.shift();
-    for (const event of events) {
-      if (event.type === "speech-start") log(chain.speechStart(ms(state, state.offset + event.at)));
-      else log(chain.speechEnd(ms(state, state.offset + event.end)));
+    // Each frame's window is the audio from the previous frame's end to its own.
+    const pending = new Float32Array(state.pending.length + samples.length);
+    pending.set(state.pending);
+    pending.set(samples, state.pending.length);
+    state.pending = pending;
+    for (const frame of frames) {
+      const end = state.offset + frame.end;
+      const window = state.pending.subarray(0, Math.max(0, end - state.taken));
+      state.pending = state.pending.subarray(window.length);
+      state.taken = end;
+      const at = ms(state, end);
+      log(chain.window(at, window, frame.probability ?? null, frame.speech));
+      state.frames.push({ at, probability: frame.probability, speech: chain.heard.speech, volume: chain.heard.volume });
     }
-    log(chain.tick(ms(state, state.fed)));
+    while (state.frames.length && ms(state, state.fed) - state.frames[0].at > SHOWN_MS) state.frames.shift();
   }
 
   /** The turn's audio from `from` ms to now, as the end-of-turn model hears it. */
@@ -200,7 +208,7 @@ export function turnsScreen({ currentEngine }) {
       if (run !== state) return;
       const took = performance.now() - started;
       log([{ kind: "note", at: ms(state, state.fed), message: `the model answered in ${took.toFixed(0)} ms (it hears the last ${model.seconds} s)` }]);
-      log(chain.answer(ms(state, state.fed), probability, asked.turn));
+      log(chain.answer(ms(state, state.fed), probability, { turn: asked.turn, pause: asked.pause }));
     } catch (error) {
       log([{ kind: "error", at: asked.at, message: describeError(error) }]);
     }
@@ -215,7 +223,8 @@ export function turnsScreen({ currentEngine }) {
     renderPickers();
   }
 
-  /** The graph: the detector's probability (or its speech flag) over the last seconds, its threshold, the timer. */
+  /** The graph: over the last seconds, the detector's probability and the bar it must clear, the volume and its bar,
+   *  where the chain heard speech, and the timer. */
   function draw() {
     const state = run;
     const canvas = $("#turns-graph");
@@ -227,33 +236,40 @@ export function turnsScreen({ currentEngine }) {
       const x = (at) => width - ((now - at) / SHOWN_MS) * width;
       context.fillStyle = "rgba(120, 200, 160, 0.18)";
       for (const frame of state.frames) if (frame.speech) context.fillRect(x(frame.at) - 2, 0, 4, height);
-      const threshold = Number($("#turns-threshold").value);
-      context.strokeStyle = "rgba(255, 255, 255, 0.35)";
-      context.setLineDash([4, 4]);
-      context.beginPath();
-      context.moveTo(0, height * (1 - threshold));
-      context.lineTo(width, height * (1 - threshold));
-      context.stroke();
-      context.setLineDash([]);
-      const measured = state.frames.filter((frame) => frame.probability != null);
-      if (measured.length) {
-        context.strokeStyle = "#8ecbff";
+      const line = (value, color) => {
+        context.strokeStyle = color;
+        context.setLineDash([4, 4]);
         context.beginPath();
-        measured.forEach((frame, index) => {
-          const y = height * (1 - frame.probability);
+        context.moveTo(0, height * (1 - value));
+        context.lineTo(width, height * (1 - value));
+        context.stroke();
+        context.setLineDash([]);
+      };
+      const plot = (frames, value, color) => {
+        context.strokeStyle = color;
+        context.beginPath();
+        frames.forEach((frame, index) => {
+          const y = height * (1 - value(frame));
           if (index) context.lineTo(x(frame.at), y);
           else context.moveTo(x(frame.at), y);
         });
         context.stroke();
-      }
+      };
+      line(CONFIDENCE, "rgba(142, 203, 255, 0.5)");
+      line(LISTENING_BAR.quiet, "rgba(255, 200, 120, 0.5)");
+      plot(state.frames, (frame) => frame.volume, "#ffc878");
+      const measured = state.frames.filter((frame) => frame.probability != null);
+      if (measured.length) plot(measured, (frame) => frame.probability, "#8ecbff");
       $("#turns-graph-note").textContent = measured.length || !state.frames.length
-        ? "Speech probability per window, the detector's threshold dashed, speech shaded."
-        : "This backend gives no probability: speech shaded where the detector says so.";
+        ? "Per window: the speech probability (blue) and the volume (amber), each with its bar dashed; speech shaded where both clear it."
+        : "This backend gives no probability: its speech flag stands for it. The volume (amber) with its bar dashed; speech shaded.";
       const next = chain.next(now);
       $("#turns-timer").textContent = next
         ? next.what === "ask"
-          ? `Asks the end-of-turn model in ${(Math.max(0, next.in) / 1000).toFixed(1)} s unless speech resumes.`
-          : `Cuts the turn in ${(Math.max(0, next.in) / 1000).toFixed(1)} s unless speech resumes.`
+          ? `Speech stops, and the end-of-turn model is asked, in ${(Math.max(0, next.in) / 1000).toFixed(1)} s unless it resumes.`
+          : next.what === "stop"
+            ? `Speech stops in ${(Math.max(0, next.in) / 1000).toFixed(1)} s unless it resumes.`
+            : `Cuts the turn in ${(Math.max(0, next.in) / 1000).toFixed(1)} s unless speech resumes.`
         : chain.turn ? "Speaking." : "No turn open.";
       requestAnimationFrame(draw);
     } else {
@@ -271,6 +287,8 @@ export function turnsScreen({ currentEngine }) {
       state.stream.free?.();
       state.stream = stream;
       state.offset = state.fed;
+      state.taken = state.fed;
+      state.pending = new Float32Array(0);
       log([{ kind: "note", at: ms(state, state.fed), message: `detector options now ${JSON.stringify(vadOptions())}` }]);
     });
   }

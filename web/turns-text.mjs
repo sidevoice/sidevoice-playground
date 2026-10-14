@@ -16,13 +16,13 @@ export function logLine(entry) {
     case "resumed": return `${at} speech again: turn ${entry.turn} goes on`;
     case "pause":
       return entry.askAt != null
-        ? `${at} speech ends: asks the end-of-turn model at ${clockText(entry.askAt)}, cuts at ${clockText(entry.cutAt)} at the latest`
-        : `${at} speech ends: silence cuts the turn at ${clockText(entry.cutAt)} unless speech resumes`;
-    case "ask": return `${at} asks the end-of-turn model about ${s(entry.at - entry.from)} of turn ${entry.turn}`;
-    case "keep": return `${at} P(end) ${p(entry.probability)} below the threshold: keep listening`;
+        ? `${at} speech stops: asks the end-of-turn model now, cuts at ${clockText(entry.cutAt)} at the latest`
+        : `${at} speech stops: silence cuts the turn at ${clockText(entry.cutAt)} unless speech resumes`;
+    case "ask": return `${at} asks the end-of-turn model about the last ${s(entry.at - entry.from)} of turn ${entry.turn}`;
+    case "keep": return `${at} P(end) ${p(entry.probability)} not above the threshold: keep listening`;
     case "cut":
       if (entry.reason === "end-of-turn") return `${at} P(end) ${p(entry.probability)}: cut now (turn ${entry.turn}, ${s(entry.length)})`;
-      if (entry.reason === "longest") return `${at} cut: a ${s(entry.silent)} pause ends the turn whatever the model said (turn ${entry.turn})`;
+      if (entry.reason === "longest") return `${at} cut: ${s(entry.silent)} of silence ends the turn whatever the model said (turn ${entry.turn})`;
       return `${at} cut: ${s(entry.silent)} of silence (turn ${entry.turn}, ${s(entry.length)})`;
     case "error": return `${at} ${entry.message}`;
     case "note": return `${at} ${entry.message}`;
