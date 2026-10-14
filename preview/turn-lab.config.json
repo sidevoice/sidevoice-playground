@@ -1,0 +1,11 @@
+{
+  "core": "b7eed0351b494f6d46be03a84f84f80c88be18b0",
+  "connector": "89e8c8626ab1ba1e9489c1cae638723617394532",
+  "web": "fe7c4fb1bab4344beb3066d6ec70b4edd6e96e17",
+  "voice": "b898c55cdffbbf5fe603e2e088e530163825ce06",
+  "engine": "nightly",
+  "notes": {
+    "connector": "TODO: this is connector main until feat/turns-connector PR opens",
+    "web": "TODO: this is web PR #124 until feat/turns-web PR opens"
+  }
+}

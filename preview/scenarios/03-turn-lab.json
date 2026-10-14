@@ -1,0 +1,11 @@
+{
+  "id": "turn-lab",
+  "title": "Turn Lab: live conversation",
+  "summary": "A fresh real room for one spoken test session, with a scripted MCP agent and live evidence beside it.",
+  "state": "fresh",
+  "steps": [
+    "Allow microphone access in the real web room and choose its local Silero, Smart Turn and TTS models.",
+    "Connect the scripted agent in push or pull mode, then choose a case and speak naturally.",
+    "Read the event log, reply fates and case checks beside the room."
+  ]
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sidevoice Turn Lab</title>
+  <link rel="stylesheet" href="/turn-lab.css">
+  <script type="module" src="/turn-lab.mjs"></script>
+</head>
+<body>
+  <header><div><a href="/">Sidevoice playground</a><h1>Turn Lab</h1><p>Speak in the real room. The scripted agent and evidence stay beside it.</p></div><button id="export">Export trace</button></header>
+  <div id="status" role="status">Preparing the pinned real room…</div>
+  <main>
+    <section class="room"><iframe id="room" title="Real Sidevoice room" allow="microphone; autoplay" hidden></iframe><div id="room-wait">The room is building. Its first source build can take several minutes.</div></section>
+    <aside>
+      <section class="card"><h2>Candidate pins</h2><dl id="pins"></dl><p id="pin-note"></p></section>
+      <section class="card"><h2>Test agent</h2><label>Delivery <select id="mode"><option value="push">Inject</option><option value="pull">Get messages</option></select></label><button id="connect" disabled>Connect agent</button><p id="agent-status"></p><label>Script <select id="script"></select></label><button id="run" disabled>Run script</button><p id="instruction"></p></section>
+      <section class="card"><h2>Current epoch <strong id="epoch">—</strong></h2><h3>Reply fates</h3><ol id="fates"></ol><h3>Agent notices</h3><ol id="notices"></ol></section>
+      <section class="card"><h2>Case checks</h2><div id="checks"></div></section>
+      <section class="card"><h2>Live event log</h2><ol id="events"></ol></section>
+    </aside>
+  </main>
+</body>
+</html>

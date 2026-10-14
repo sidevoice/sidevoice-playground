@@ -9,6 +9,13 @@ import { archives as archiveStore, listArchives } from "./archives.mjs";
 import { loadScenarios, runs as runStore } from "./runs.mjs";
 import { WEB_REPO, webBuilds } from "./web-build.mjs";
 import { listWorktrees, startDevServer } from "./dev.mjs";
+import { sourceBuilds } from "./source-build.mjs";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { scriptedAgent, SCRIPTS } from "./turn-lab/agent.mjs";
+import { evidence } from "./turn-lab/evidence.mjs";
+
+const LAB_CONFIG = fileURLToPath(new URL("./turn-lab.config.json", import.meta.url));
 
 /** How many log lines a job keeps for the page. */
 export const LOG_LINES = 200;
@@ -32,7 +39,7 @@ export async function listWeb(api) {
  * refs and tags as the pickers give them. `mode` is `mock` unless it says `real`.
  */
 export function validStart(body, scenarios) {
-  const ref = (value) => typeof value === "string" && /^[\w.\/-]+$/.test(value) && !value.includes("..");
+  const ref = (value) => typeof value === "string" && /^(?:sha:)?[\w.\/-]+$/.test(value) && !value.includes("..");
   // A dev run names a worktree, not a version.
   if (body?.mode === "dev") {
     if (typeof body.worktree !== "string" || !body.worktree.startsWith("/")) throw new RefError(400, "pick a worktree");
@@ -59,6 +66,7 @@ export function validStart(body, scenarios) {
 export async function previewSection({ api, engineBuild, voiceBuild, cache, origin, link = origin, web = null, archives = null, runs = null, devRepo = null, devServer = startDevServer }) {
   const scenarios = await loadScenarios();
   const store = archives ?? archiveStore({ cache: `${cache}/archives`, api });
+  const sources = sourceBuilds({ cache, api, log: say });
   const manager = runs ?? runStore({ cache, origin });
   const log = [];
   const say = (line) => {
@@ -67,8 +75,13 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   };
   const builds = web ?? webBuilds({ cache, api, log: say });
   let job = { state: "idle", error: null };
+  let agent = null;
+  const events = [];
+  const emit = (event) => { events.push(event); if (events.length > 20000) events.shift(); };
 
   async function start(pick) {
+    if (agent) { await agent.stop(); agent = null; }
+    events.length = 0;
     log.length = 0;
     job = { state: "starting", error: null };
     try {
@@ -93,12 +106,14 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
         return;
       }
       say(`Getting core ${pick.core} and connector ${pick.connector}…`);
-      const [core, connector] = await Promise.all([store.get("core", pick.core), store.get("connector", pick.connector)]);
+      const binary = (kind, ref) => ref.startsWith("sha:") ? sources.get(kind, ref.slice(4)) : store.get(kind, ref);
+      const [core, connector] = await Promise.all([binary("core", pick.core), binary("connector", pick.connector)]);
       const tarballs = await picked(pick);
       say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
       const { sha, site } = await builds.get(pick.web, tarballs);
       say(`Starting ${pick.scenario.title}: core ${core.tag}${core.source ? ` (${core.source.slice(0, 7)})` : ""}…`);
       await manager.start({ scenario: pick.scenario, web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site }, core, connector });
+      emit({ at: Date.now(), kind: "run-start", data: { core: { sha: core.source, digest: core.digest }, connector: { sha: connector.source, digest: connector.digest }, web: sha, voice: pick.voice } });
       job = { state: "running", error: null };
       say("Running: open the preview.");
     } catch (error) {
@@ -131,6 +146,10 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   /** Handles `url` when it is one of the section's routes: its answer's value, or undefined. */
   async function route(req, url) {
     const path = url.pathname;
+    if (path === "/preview/turn-lab/config" && req.method === "GET") return JSON.parse(await readFile(LAB_CONFIG, "utf8"));
+    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: evidence(events), agent: agent?.state ?? null, job, current: manager.current };
+    if (path === "/preview/turn-lab/scripts" && req.method === "GET") return SCRIPTS;
+    if (path === "/preview/turn-lab/export" && req.method === "GET") return { at: new Date().toISOString(), events, evidence: evidence(events) };
     if (path === "/preview/options" && req.method === "GET") {
       const [web, core, connector, worktrees] = await Promise.all([
         listWeb(api), listArchives(api, "core"), listArchives(api, "connector"), devRepo ? listWorktrees(devRepo) : [],
@@ -140,6 +159,33 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     if (path === "/preview/status" && req.method === "GET") return { job, log: [...log], current: manager.current, origin, link };
     if (req.method !== "POST") return undefined;
+    if (path === "/preview/turn-lab/start") {
+      if (job.state === "starting") throw new RefError(409, "a preview is starting already");
+      const config = JSON.parse(await readFile(LAB_CONFIG, "utf8"));
+      const scenario = scenarios.find((item) => item.id === "turn-lab");
+      if (!scenario) throw new RefError(500, "Turn Lab scenario missing");
+      void start(validStart({ mode: "real", scenario: scenario.id, web: config.web, core: `sha:${config.core}`, connector: `sha:${config.connector}`, voice: config.voice, engine: config.engine }, scenarios));
+      return { job: { state: "starting" }, config };
+    }
+    if (path === "/preview/turn-lab/connect") {
+      if (job.state !== "running") throw new RefError(409, "real room is not ready");
+      const { mode } = await body(req);
+      if (!["push", "pull"].includes(mode)) throw new RefError(400, "mode must be push or pull");
+      if (agent) await agent.stop();
+      agent = scriptedAgent({ ...manager.labConnection(), emit });
+      return { connected: await agent.start(mode) };
+    }
+    if (path === "/preview/turn-lab/choose") {
+      if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
+      const { id } = await body(req);
+      return agent.choose(id);
+    }
+    if (path === "/preview/turn-lab/event") {
+      const event = await body(req);
+      if (!event || !["room-frame", "browser-action", "browser-ready", "browser-error"].includes(event.kind)) throw new RefError(400, "not a lab event");
+      emit({ at: Date.now(), kind: event.kind, data: event.data });
+      return { recorded: true };
+    }
     if (path === "/preview/start") {
       if (job.state === "starting") throw new RefError(409, "a preview is starting already");
       const pick = validStart(await body(req), scenarios);
@@ -148,6 +194,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     if (path === "/preview/pair") return manager.pairingCode();
     if (path === "/preview/stop") {
+      if (agent) { await agent.stop(); agent = null; }
       await manager.stop();
       job = { state: "idle", error: null };
       return { stopped: true };

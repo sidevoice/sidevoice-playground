@@ -22,6 +22,7 @@ import { validMockScenario } from "./mock/world.mjs";
 import { chunkFor, exportedNames, mockChunk, packageOf } from "./mock/chunks.mjs";
 
 const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
+const OBSERVE = fileURLToPath(new URL("./turn-lab/observe.js", import.meta.url));
 /** What the shell may load from mock/: a module or a stylesheet right in it, by a plain name — no path, nothing
  *  hidden, so nothing outside mock/ — read when asked, so a module added there is served without a restart. Its
  *  types, its scenarios and the page's target are not served under it. */
@@ -144,7 +145,10 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
       return res.end(chunk);
     }
     try {
-      const body = await readFile(target.path);
+      let body = await readFile(target.path);
+      if (run.scenario === "turn-lab" && url.pathname === "/voice/target.js") {
+        body = Buffer.concat([body, Buffer.from("\n"), await readFile(OBSERVE)]);
+      }
       // Mocked, scripts are never kept: a package chunk the browser kept from a run with the real one would win.
       const noStore = target.fallback || target.path.endsWith("target.js") || target.path.endsWith("index.html") ||
         (run.mode === "mock" && target.path.endsWith(".js"));

@@ -145,6 +145,12 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
         reset: current.reset,
       };
     },
+    /** Private, server-side candidate details for the scripted MCP agent. */
+    labConnection() {
+      if (current?.mode !== "real") throw new RefError(409, "start a real preview first");
+      current.connectorUsed = true;
+      return { program: current.connector.program, profile: current.profile };
+    },
     /**
      * Starts `scenario` on the web build `web` ({ label, site }), the core and the connector archives (archives.mjs),
      * after stopping whatever ran.
