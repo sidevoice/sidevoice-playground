@@ -41,7 +41,7 @@
       if (step === "W6" && !clicked.has("enter")) { clicked.add("enter"); wizard.querySelector(".wizard-enter")?.click(); }
     } else if (paired) {
       const person = [...document.querySelectorAll(".participant-row button.person")].find((button) => button.textContent?.includes("Turn Lab"));
-      if (person && !clicked.has("select")) { clicked.add("select"); person.click(); }
+      if (person && !clicked.has("select")) { clicked.add("select"); person.click(); return; }
       const join = document.getElementById("connect");
       if (join && !join.classList.contains("joined") && !clicked.has("join") && !join.disabled) {
         clicked.add("join"); join.click(); report("browser-ready", { voice: "starting" });

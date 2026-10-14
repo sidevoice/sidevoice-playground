@@ -45,9 +45,13 @@ export function sourceBuilds({ cache, api, log = () => {}, run = runner(log) }) 
       log(`Source-building ${spec.repo}@${sha}; the first Rust build can take several minutes…`);
       await run("cargo", ["build", "--locked", "--release", "--bin", spec.bin], { cwd: dir });
     }
+    const checkedOut = (await readFile(join(dir, ".git/HEAD"), "utf8")).trim();
+    if (checkedOut !== sha) throw new RefError(409, `source checkout is ${checkedOut}, expected ${sha}`);
     const hash = createHash("sha256");
     for await (const chunk of createReadStream(program)) hash.update(chunk);
     const digest = hash.digest("hex");
+    const saved = JSON.parse(await readFile(join(dir, "binary.json"), "utf8").catch(() => "null"));
+    if (saved && (saved.sha !== sha || saved.digest !== digest)) throw new RefError(409, `cached ${kind} binary digest changed for ${sha}`);
     await writeFile(join(dir, "binary.json"), JSON.stringify({ sha, digest, kind }));
     return { kind, tag: `sha:${sha}`, source: sha, digest, program, dir };
   }
