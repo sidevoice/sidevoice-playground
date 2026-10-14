@@ -17,24 +17,9 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [{
-  name: "bubbles-style", label: "", note: "",
-  values: ["current", "soft", "illustrated", "panel"].map((value) => ({ value, label: "" })),
-}];
+export const VARIANTS = [];
 
-/** Copy only translated words from the actual app, keeping the panel's agreed choices and default. */
-export function applyVariantMetadata(metadata) {
-  const variant = VARIANTS[0];
-  if (metadata?.name !== variant.name || !Array.isArray(metadata.values) ||
-    metadata.values.length !== variant.values.length ||
-    metadata.values.some((option, index) => option.value !== variant.values[index].value || typeof option.label !== "string") ||
-    typeof metadata.label !== "string" || typeof metadata.note !== "string") return false;
-  variant.label = metadata.label;
-  variant.note = metadata.note;
-  variant.values.forEach((option, index) => { option.label = metadata.values[index].label; });
-  return true;
-}
-
+/** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
   if (!choices || typeof choices !== "object" || Array.isArray(choices)) return {};
   return Object.fromEntries(Object.entries(choices).filter(([name, value]) =>
@@ -400,24 +385,6 @@ async function run(card) {
   const variantsBody = variants?.querySelector(".card-body");
   pruneVariants();
   if (variantsBody) drawVariants(variantsBody);
-  let metadataObserver;
-  let lastMetadata = "";
-  const syncMetadata = () => {
-    let metadata;
-    const raw = frame.contentDocument?.querySelector(".call-layout[data-bubbles-variants], .room-shell[data-bubbles-variants]")?.getAttribute("data-bubbles-variants") || "";
-    if (!raw || raw === lastMetadata) return;
-    try { metadata = JSON.parse(raw); } catch { return; }
-    lastMetadata = raw;
-    if (applyVariantMetadata(metadata) && variantsBody) drawVariants(variantsBody);
-  };
-  frame.addEventListener("load", () => {
-    metadataObserver?.disconnect();
-    lastMetadata = "";
-    if (!frame.contentDocument) return;
-    metadataObserver = new MutationObserver(syncMetadata);
-    metadataObserver.observe(frame.contentDocument, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-bubbles-variants"] });
-    syncMetadata();
-  });
   const flipVariants = () => {
     const closed = variants.classList.toggle("closed");
     variants.querySelector(".chevron").textContent = closed ? "▸" : "▾";
