@@ -4,6 +4,7 @@ import { BRIDGE_VERSION, EXIT_NOTICE_MS, MUTE_SHORTCUT, cardHost, endedByItself,
 import { attach } from "../preview/mock/attach.mjs";
 import { mockFile } from "../preview/proxy.mjs";
 import { VARIANTS } from "../preview/mock/shell.mjs";
+import { withoutPreviewTurns } from "../preview/mock/card.mjs";
 
 // The preview's floating card host (sidevoice-web FLOATING-CARD-SPEC §8): the desktop card's seam, fed from the room
 // frame's store as the desktop bridge feeds it, and the desktop's part played: when the card is wanted, what each
@@ -184,4 +185,10 @@ test("the card page gets the app's card seam and nothing else; the shell serves 
   assert.equal(win.fetch, "untouched", "the card fetches nothing");
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
   assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["bubbles-style"], "the one open visual choice belongs in VARIANTS");
+});
+
+test("removing visual sample turns leaves the scenario's seeded messages alone", () => {
+  const seeded = { segment: "seed-1", text: "Already here" };
+  assert.deepEqual(withoutPreviewTurns([seeded, { segment: "preview-you-1" }, { segment: "preview-agent-2" }]), [seeded]);
 });

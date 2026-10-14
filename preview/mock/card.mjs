@@ -112,6 +112,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         }
         if (!simulateAgent(frame, sampleAgent.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
+      el("button", { type: "button", textContent: "Remove preview turns", title: "Remove turns added by the visual sample buttons", onclick: () => {
+        if (!removePreviewTurns(frame)) voiceNote.textContent = "Open a conversation in the page first.";
+      } }),
       el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds, then it answers with the reply above", onclick: () => {
         if (liveCall(world)) {
           if (!agentWorks(world, WORKING_MS)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
@@ -395,6 +398,20 @@ export function sampleLabel(text) {
 }
 
 let simulated = 0;
+/** The visual samples can be added and removed without clearing the seeded transcript or changing a real call. */
+export function withoutPreviewTurns(history) {
+  return history.filter((row) => !/^preview-(you|agent)-/.test(row.segment ?? ""));
+}
+function removePreviewTurns(frame) {
+  const page = pageConversation(frame);
+  if (!page) return false;
+  const facts = page.store.getState().facts;
+  const patch = { history: withoutPreviewTurns(facts.history) };
+  if (facts.userTurn?.segment?.startsWith("preview-you-")) Object.assign(patch, { userLive: false, userTurn: null, pendingPhase: "" });
+  if (facts.karaokeState?.segment?.startsWith("preview-agent-")) Object.assign(patch, { botLive: false, karaokeState: null });
+  page.store.patch(patch);
+  return true;
+}
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
 function pageConversation(frame) {
   const store = frame?.contentWindow?.sidevoiceUI?.store;
