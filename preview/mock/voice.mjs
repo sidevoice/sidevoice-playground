@@ -104,7 +104,7 @@ function endpointMs(settings) {
 
 export function fakeVoice(world, { source = null } = {}) {
   /** @type {Record<string, Set<Function>>} */
-  const listeners = { turn: new Set(), state: new Set(), level: new Set(), error: new Set(), devices: new Set(), take: new Set() };
+  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), error: new Set(), devices: new Set(), take: new Set() };
   // The devices: the headset plugged in, nothing chosen (the system's defaults), the speaker choosable.
   const devices = { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
   const emit = (kind, value) => {
@@ -120,6 +120,11 @@ export function fakeVoice(world, { source = null } = {}) {
   let muted = false;
   let turns = 0;
   let says = 0;
+  let playbackRun = 0;
+  const playbackLevels = new Map();
+  const activeSays = new Map();
+  const publishPlayback = () => emit("playbackLevel", Math.max(0, ...playbackLevels.values()));
+  const silence = () => { playbackLevels.clear(); publishPlayback(); };
   /** The take being kept, while one was asked for: when it started, what the person said in it, their turns' marks, and
    *  when the microphone was muted (the last one open while it is).
    *  @type {{ startedAt: number, speech: { from: number, to: number, levels: { at: number, level: number }[] }[], turns: VoiceTake["turns"], muted: { from: number, to: number }[] } | null} */
@@ -130,6 +135,10 @@ export function fakeVoice(world, { source = null } = {}) {
     state = { ...state, ...patch };
     emit("state", state);
     world.changed();
+  };
+  const refreshPlayback = () => {
+    const playback = [...activeSays.values()].includes("playing") ? "playing" : activeSays.size ? "synthesizing" : "idle";
+    if (state.playback !== playback) setState({ playback });
   };
 
   /** The models the settings name: the page's source in the browser; in the app, the app's own check. */
@@ -167,6 +176,9 @@ export function fakeVoice(world, { source = null } = {}) {
       setState({ listening: muted ? "muted" : "listening" });
     },
     async stop() {
+      ++playbackRun;
+      activeSays.clear();
+      silence();
       if (!started) return;
       started = false;
       const kept = taking;
@@ -176,6 +188,8 @@ export function fakeVoice(world, { source = null } = {}) {
     },
     say(text, options) {
       const id = `say-${++says}`;
+      const run = playbackRun;
+      const quiet = () => { if (run === playbackRun) { playbackLevels.delete(id); publishPlayback(); } };
       /** @type {Set<(event: VoiceSayEvent) => void>} */
       const events = new Set();
       let cancelled = false;
@@ -185,29 +199,48 @@ export function fakeVoice(world, { source = null } = {}) {
       const outcome = (async () => {
         await Promise.resolve();
         if (!started) return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: "stopped" });
-        setState({ playback: "synthesizing" });
+        activeSays.set(id, "synthesizing");
+        refreshPlayback();
         await world.delay(400);
         if (voiceState(world).tts === "error") {
-          setState({ playback: "idle" });
+          quiet();
+          activeSays.delete(id);
+          refreshPlayback();
           emit("error", { code: "speech-failed" });
           return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: "failed", code: "speech-failed" });
         }
-        setState({ playback: "playing" });
+        if (run === playbackRun && started) {
+          activeSays.set(id, "playing");
+          refreshPlayback();
+        }
         tell({ type: "playing" });
         // Sentence by sentence, at a reading pace.
         const chunks = text.match(/[^.!?¿¡]+[.!?]*\s*/g) ?? [text];
         let from = 0;
         for (const chunk of chunks) {
           if (cancelled || !started) {
-            setState({ playback: "idle" });
+            quiet();
+            activeSays.delete(id);
+            refreshPlayback();
             return /** @type {VoiceSayOutcome} */ ({ status: "heard-up-to", heard_chars: from, reason: cancelled ? "cancelled" : "stopped" });
           }
           tell({ type: "progress", sounding: [from, from + chunk.length], heard_chars: from });
-          await world.delay(Math.max(400, chunk.length * 55));
+          const duration = Math.max(400, chunk.length * 55);
+          for (let elapsed = 0; elapsed < duration; elapsed += 80) {
+            // One silent slice per short envelope: a pause while playback is still "playing".
+            if (started && !cancelled && run === playbackRun) {
+              playbackLevels.set(id, Math.floor(elapsed / 80) % 5 === 4 ? 0 : speechLevel(elapsed, says * 1.7));
+              publishPlayback();
+            }
+            await world.delay(Math.min(80, duration - elapsed));
+          }
+          quiet();
           from += chunk.length;
         }
         tell({ type: "progress", sounding: null, heard_chars: from });
-        setState({ playback: "idle" });
+        quiet();
+        activeSays.delete(id);
+        refreshPlayback();
         return /** @type {VoiceSayOutcome} */ ({ status: "heard" });
       })();
       outcome.then((ended) => tell({ type: "done", outcome: ended }));
@@ -216,6 +249,7 @@ export function fakeVoice(world, { source = null } = {}) {
         id,
         cancel: () => {
           cancelled = true;
+          quiet();
         },
         onEvent: (listener) => {
           events.add(listener);
@@ -255,6 +289,7 @@ export function fakeVoice(world, { source = null } = {}) {
     onTurn: on("turn"),
     onState: on("state"),
     onLevel: on("level"),
+    onPlaybackLevel: on("playbackLevel"),
     onError: on("error"),
     onTake: on("take"),
   };
