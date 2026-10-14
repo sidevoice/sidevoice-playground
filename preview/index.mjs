@@ -84,7 +84,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     if (typeof value === "string") return value.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/SV1\.[A-Za-z0-9_-]+/g, "SV1.[redacted]");
     return value;
   };
-  const emit = (event) => { events.push(redact(event)); if (events.length > 20000) events.shift(); };
+  const emit = (event) => { events.push(redact(event)); };
 
   async function start(pick) {
     if (agent) { await agent.stop(); agent = null; }
