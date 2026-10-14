@@ -3,8 +3,8 @@
  *   --web /absolute/path/to/sidevoice-web-worktree --out /workspace/sidevoice/share/bubbles-soft-final
  *   [--views browser,phone,phone320] [--themes light,dark] [--reduced-motion 1]
  * Start that playground's preview in dev mode with the web worktree before running this script. Each view and theme
- * gets: the bars, a short and a long sent turn (the long one past its first page), a short and a long reply held mid
- * voice (the long one past its first page), and the transcript; a manifest records sizes and contrast checks.
+ * gets: the bars, a short and a long sent turn (the long one past its first page), a short reply held mid voice and
+ * a long one past its first page, and the transcript; a manifest records sizes and contrast checks.
  */
 import { createRequire } from "node:module";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
@@ -31,7 +31,7 @@ const context = await browser.newContext({ viewport: { width: 1400, height: 900 
 const manifest = { generatedAt: new Date().toISOString(), source: {
   web: resolve(flags.web), playground: resolve("."),
   webRevision: flags["web-revision"] ?? "working-tree", playgroundRevision: flags["playground-revision"] ?? "working-tree",
-}, scenario: "room-ready", motion, sampling: { barsElapsedMs: 320, agentHeardCharacters: 57, longAgentHeardCharacters: 330 },
+}, scenario: "room-ready", motion, sampling: { barsElapsedMs: 320, agentHeardCharacters: 57, longTurns: "the first moment past their first page" },
 captures: [], checks: [] };
 const selected = (key, defaults) => flags[key] ? flags[key].split(",") : defaults;
 /** The app's viewport in each view: the desktop's, the phone frame's, and the narrowest phone (the frame squeezed). */
@@ -104,25 +104,30 @@ async function card(page, open) {
   const panel = page.locator("#card");
   if ((await panel.evaluate((node) => node.classList.contains("closed"))) === open) await panel.locator(".card-header").click();
 }
-async function cardAction(page, name) {
+/** Press the card's `name`; with `sample`, first pick in the select `sample.label` its first or its longest text, in
+ *  the same opening of the card (closing it draws the card anew, back on its first sample). */
+async function cardAction(page, name, sample) {
   await card(page, true);
+  if (sample) {
+    const select = page.locator("#card label").filter({ hasText: new RegExp(`^${sample.label}`) }).locator("select");
+    const values = await select.locator("option").evaluateAll((options) => options.map((option) => option.value));
+    await select.selectOption(sample.longest ? values.reduce((a, b) => b.length > a.length ? b : a) : values[0]);
+  }
   await page.locator("#card button").filter({ hasText: name }).first().click();
-  await card(page, false);
-}
-async function pickSample(page, label, longest) {
-  await card(page, true);
-  const select = page.locator("#card label").filter({ hasText: label }).locator("select");
-  const values = await select.locator("option").evaluateAll((options) => options.map((option) => option.value));
-  await select.selectOption(longest ? values.reduce((a, b) => b.length > a.length ? b : a) : values[0]);
   await card(page, false);
 }
 /** Wait until the bubble's pages have turned at least once: the earlier text fades above. */
 async function pastFirstPage(page, selector) {
-  await page.waitForFunction((selector) => {
-    const run = document.querySelector("#app")?.contentDocument?.querySelector(`${selector} .paged-text-run`);
-    return !!run && /translateY\(-[1-9]/.test(run.style.transform);
-  }, selector, { timeout: 15_000 });
-  await page.waitForTimeout(700); // the page's own turn, 600ms
+  // Polled from here: the page's own polling runs on its clock, which page.clock holds at times.
+  for (const started = Date.now(); Date.now() - started < 20_000; await new Promise((done) => setTimeout(done, 150))) {
+    const turned = await page.evaluate((selector) => {
+      const run = document.querySelector("#app")?.contentDocument?.querySelector(`${selector} .paged-text-run`);
+      return !!run && /translateY\(-[1-9]/.test(run.style.transform);
+    }, selector);
+    if (turned) { await page.waitForTimeout(700); return; } // the page's own turn, 600ms
+  }
+  await page.screenshot({ path: join(out, "failed-page-turn.png") });
+  throw Error(`${selector}: its pages never turned`);
 }
 async function holdAgent(frame, heard) {
   const held = await frame.locator("html").evaluate((node, heard) => {
@@ -165,8 +170,7 @@ try {
     await card(page, false);
     // Hold the mock's time so each capture shows the same point in the listening sample.
     await page.clock.pauseAt(new Date());
-    await pickSample(page, "You say", false);
-    await cardAction(page, "You speak → sent");
+    await cardAction(page, "You speak → sent", { label: "You say" });
     await frame.locator(".person-bubble .voice-wave, .person-bubble .voice-bars").waitFor();
     await page.clock.runFor(320);
     await capture(page, theme, view, "bars");
@@ -181,8 +185,7 @@ try {
     await checkFits(frame, theme, view, ".person-bubble[data-sent]");
     // The long dictated turn, a page on: what was said before fades above the page showing.
     await frame.locator(".person-bubble[data-sent]").waitFor({ state: "detached", timeout: 15_000 });
-    await pickSample(page, "You say", true);
-    await cardAction(page, "You speak → sent");
+    await cardAction(page, "You speak → sent", { label: "You say", longest: true });
     await frame.locator(".person-bubble[data-sent]").waitFor({ timeout: 15_000 });
     await pastFirstPage(page, ".person-bubble[data-sent]");
     await capture(page, theme, view, "person-long");
@@ -197,8 +200,7 @@ try {
       const state = document.querySelector("#app")?.contentWindow?.sidevoiceUI?.store?.getState();
       return !!state?.session.selected && state.session.selected === state.session.viewed;
     }, null, { timeout: 10_000 });
-    await pickSample(page, "The agent says", false);
-    await cardAction(page, "Agent speaks");
+    await cardAction(page, "Agent speaks", { label: "The agent says" });
     await frame.locator(".stage-bubble[data-visible] .karaoke-played").waitFor();
     await page.clock.pauseAt(new Date());
     await holdAgent(frame, 57);
@@ -209,15 +211,12 @@ try {
     await checkFits(frame, theme, view, ".stage-bubble[data-visible]");
     await page.clock.resume();
     await frame.locator(".stage-bubble").waitFor({ state: "detached", timeout: 30_000 });
-    await pickSample(page, "The agent says", true);
-    await cardAction(page, "Agent speaks");
+    await cardAction(page, "Agent speaks", { label: "The agent says", longest: true });
+    // Followed as the voice goes: the capture is the first moment its pages have turned.
     await frame.locator(".stage-bubble[data-visible] .karaoke-played").waitFor();
-    await page.clock.pauseAt(new Date());
-    await holdAgent(frame, 330);
     await pastFirstPage(page, ".stage-bubble[data-visible]");
     await capture(page, theme, view, "agent-long");
     await checkFits(frame, theme, view, ".stage-bubble[data-visible]");
-    await page.clock.resume();
     await frame.locator("#transcript-toggle:visible").first().click();
     await frame.locator(".transcript[data-open]").waitFor();
     await page.waitForTimeout(400);
