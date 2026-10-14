@@ -389,6 +389,11 @@ export const CONVERSATION_SAMPLES = {
     "I ran the tests: two fail in the settings pane, both about the Save button that no longer exists. Shall I update them?",
     "Done. The dark theme is a little warmer now; have a look and tell me if it is too much.",
     "Pushed. CI is running, and I will tell you as soon as it is green.",
+    // A long reply, to see its pages turn with the voice and the end of the one before fade above them.
+    "I went through the settings pane: every toggle saves again, and the one for automatic updates had lost its " +
+    "listener in yesterday's refactor, so I put it back and added a test that flips it and reloads. On a phone the " +
+    "transcript's bubbles now keep their padding with the keyboard open. The whole suite passes; it is pushed on a " +
+    "branch, and two flaky tests failed once before going green, so I left them alone. Shall I open the pull request?",
   ],
 };
 

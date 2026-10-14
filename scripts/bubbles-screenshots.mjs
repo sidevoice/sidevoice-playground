@@ -1,7 +1,10 @@
-/** Capture the open bubbles question from an isolated mocked Web preview.
+/** Capture the call's bubbles (the soft cards, decided 2026-10-14) from a mocked Web preview in dev mode.
  * Usage: node scripts/bubbles-screenshots.mjs --url http://127.0.0.1:5291 --access-file /tmp/preview-access
- *   --web /absolute/path/to/sidevoice-web-worktree --out /workspace/sidevoice/share/bubbles-variants
- * Start that playground instance in dev mode with the web worktree before running this script.
+ *   --web /absolute/path/to/sidevoice-web-worktree --out /workspace/sidevoice/share/bubbles-soft-final
+ *   [--views browser,phone,phone320] [--themes light,dark] [--reduced-motion 1]
+ * Start that playground's preview in dev mode with the web worktree before running this script. Each view and theme
+ * gets: the bars, a short and a long sent turn (the long one past its first page), a short and a long reply held mid
+ * voice (the long one past its first page), and the transcript; a manifest records sizes and contrast checks.
  */
 import { createRequire } from "node:module";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
@@ -28,35 +31,21 @@ const context = await browser.newContext({ viewport: { width: 1400, height: 900 
 const manifest = { generatedAt: new Date().toISOString(), source: {
   web: resolve(flags.web), playground: resolve("."),
   webRevision: flags["web-revision"] ?? "working-tree", playgroundRevision: flags["playground-revision"] ?? "working-tree",
-},
-  scenario: "room-ready", motion, sampling: { barsElapsedMs: 320, agentHeardCharacters: 57 },
-  variants: ["current", "soft", "illustrated", "panel"], captures: [], checks: [] };
+}, scenario: "room-ready", motion, sampling: { barsElapsedMs: 320, agentHeardCharacters: 57, longAgentHeardCharacters: 330 },
+captures: [], checks: [] };
 const selected = (key, defaults) => flags[key] ? flags[key].split(",") : defaults;
+/** The app's viewport in each view: the desktop's, the phone frame's, and the narrowest phone (the frame squeezed). */
+const VIEWPORTS = { browser: { width: 1280, height: 800 }, phone: { width: 390, height: 844 }, phone320: { width: 320, height: 844 } };
 
-async function capture(page, style, theme, view, state, target = "app") {
-  const file = `${style}-${theme}-${view}-${state}.png`;
-  await (target === "page" ? page : page.locator("#app")).screenshot({ path: join(out, file), animations: "disabled" });
+async function capture(page, theme, view, state) {
+  const file = `${theme}-${view}-${state}.png`;
+  await page.locator("#app").screenshot({ path: join(out, file), animations: "disabled" });
   const size = await page.locator("#app").evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight }));
-  if (view === "browser" && (size.width !== 1280 || size.height !== 800))
-    throw Error(`Desktop viewport ${size.width}×${size.height}, expected 1280×800`);
-  manifest.captures.push({ file, style, theme, view, state, appViewport: size, target });
+  const expected = VIEWPORTS[view];
+  if (size.width !== expected.width || size.height !== expected.height)
+    throw Error(`${view} viewport ${size.width}×${size.height}, expected ${expected.width}×${expected.height}`);
+  manifest.captures.push({ file, theme, view, state, appViewport: size });
   console.log(file);
-}
-async function assertChoice(page, style) {
-  const proof = await page.locator("#variants").evaluate((panel, selected) => {
-    const bounds = panel.getBoundingClientRect();
-    const labels = [...panel.querySelectorAll(".variant label")];
-    return {
-      open: !panel.classList.contains("closed"), width: bounds.width,
-      labels: labels.map((label) => ({ text: label.textContent?.trim(), top: label.getBoundingClientRect().top,
-        bottom: label.getBoundingClientRect().bottom })),
-      selected: panel.querySelector(`input[value="${selected}"]`)?.checked,
-      bottom: bounds.bottom,
-    };
-  }, style);
-  if (!proof.open || proof.width < 240 || proof.width > 260 || proof.labels.length !== 4 || !proof.selected
-    || proof.labels.some((label) => !label.text || label.top < 0 || label.bottom > proof.bottom))
-    throw Error(`Unreadable choice proof for ${style}: ${JSON.stringify(proof)}`);
 }
 function contrast(first, second) {
   const rgb = (value) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number).map((channel) => value.startsWith("color(srgb ") ? channel * 255 : channel);
@@ -65,16 +54,7 @@ function contrast(first, second) {
   const [a, b] = [luminance(first), luminance(second)].sort((x, y) => y - x);
   return Number(((a + .05) / (b + .05)).toFixed(2));
 }
-async function checkGraphic(frame, style, theme, view, selector, edge) {
-  const colors = await frame.locator(selector).first().evaluate((node, border) => {
-    const paint = getComputedStyle(node);
-    return { ink: border === "left" ? paint.borderLeftColor : paint.borderRightColor, surface: paint.backgroundColor };
-  }, edge);
-  const ratio = contrast(colors.ink, colors.surface);
-  manifest.checks.push({ style, theme, view, selector, edge, ...colors, ratio, minimum: 3 });
-  if (ratio < 3) throw Error(`${style}/${theme}/${view} ${selector} edge: ${ratio}:1, needs 3:1`);
-}
-async function checkInk(frame, style, theme, view, selector, minimum) {
+async function checkInk(frame, theme, view, selector, minimum) {
   let colors;
   for (let attempt = 0; attempt < 10; attempt += 1) {
     colors = await frame.locator(selector).first().evaluate((node) => {
@@ -84,17 +64,17 @@ async function checkInk(frame, style, theme, view, selector, minimum) {
       for (let parent = node.parentElement; parent && (surface === "rgba(0, 0, 0, 0)" || surface === "transparent"); parent = parent.parentElement) {
         surface = getComputedStyle(parent).backgroundColor;
       }
-      return { ink: style.color, surface };
+      return { ink: style.color, surface, size: style.fontSize, weight: style.fontWeight, family: style.fontFamily.split(",")[0] };
     }).catch(() => null);
     if (colors?.ink && colors?.surface) break;
     await new Promise((done) => setTimeout(done, 100));
   }
-  if (!colors?.ink || !colors?.surface) throw Error(`${style}/${theme}/${view} ${selector}: no stable paint`);
+  if (!colors?.ink || !colors?.surface) throw Error(`${theme}/${view} ${selector}: no stable paint`);
   const ratio = contrast(colors.ink, colors.surface);
-  manifest.checks.push({ style, theme, view, selector, ...colors, ratio, minimum });
-  if (ratio < minimum) throw Error(`${style}/${theme}/${view} ${selector}: ${ratio}:1, needs ${minimum}:1`);
+  manifest.checks.push({ theme, view, selector, ...colors, ratio, minimum });
+  if (ratio < minimum) throw Error(`${theme}/${view} ${selector}: ${ratio}:1, needs ${minimum}:1`);
 }
-async function checkTranscribing(frame, style, theme, view) {
+async function checkTranscribing(frame, theme, view) {
   const colors = await frame.locator(".person-bubble [data-phase='transcribing']").evaluate((node) => {
     const mark = node.querySelector("canvas, i");
     const animation = mark.getAnimations()[0];
@@ -108,15 +88,20 @@ async function checkTranscribing(frame, style, theme, view) {
   const painted = ink.map((v, i) => v * colors.opacity + surface[i] * (1 - colors.opacity));
   const asRgb = (v) => `rgb(${v.join(", ")})`;
   const ratio = contrast(asRgb(painted), asRgb(surface));
-  manifest.checks.push({ style, theme, view, selector: "transcribing painted bars", ...colors, ratio, minimum: 3 });
-  if (ratio < 3) throw Error(`${style}/${theme}/${view} transcribing ${colors.element}: ${ratio}:1, needs 3:1`);
+  manifest.checks.push({ theme, view, selector: "transcribing painted bars", ...colors, ratio, minimum: 3 });
+  if (ratio < 3) throw Error(`${theme}/${view} transcribing ${colors.element}: ${ratio}:1, needs 3:1`);
+}
+/** No line of the bubble's text box spills past the bubble, and the page is on screen. */
+async function checkFits(frame, theme, view, selector) {
+  const box = await frame.locator(selector).first().evaluate((node) => {
+    const bubble = node.getBoundingClientRect();
+    return { left: bubble.left, right: bubble.right, page: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth };
+  });
+  manifest.checks.push({ theme, view, selector: `${selector} fits`, ...box });
+  if (box.left < 0 || box.right > box.page || box.scroll > box.page) throw Error(`${theme}/${view} ${selector} overflows: ${JSON.stringify(box)}`);
 }
 async function card(page, open) {
   const panel = page.locator("#card");
-  if ((await panel.evaluate((node) => node.classList.contains("closed"))) === open) await panel.locator(".card-header").click();
-}
-async function variants(page, open) {
-  const panel = page.locator("#variants");
   if ((await panel.evaluate((node) => node.classList.contains("closed"))) === open) await panel.locator(".card-header").click();
 }
 async function cardAction(page, name) {
@@ -124,70 +109,85 @@ async function cardAction(page, name) {
   await page.locator("#card button").filter({ hasText: name }).first().click();
   await card(page, false);
 }
+async function pickSample(page, label, longest) {
+  await card(page, true);
+  const select = page.locator("#card label").filter({ hasText: label }).locator("select");
+  const values = await select.locator("option").evaluateAll((options) => options.map((option) => option.value));
+  await select.selectOption(longest ? values.reduce((a, b) => b.length > a.length ? b : a) : values[0]);
+  await card(page, false);
+}
+/** Wait until the bubble's pages have turned at least once: the earlier text fades above. */
+async function pastFirstPage(page, selector) {
+  await page.waitForFunction((selector) => {
+    const run = document.querySelector("#app")?.contentDocument?.querySelector(`${selector} .paged-text-run`);
+    return !!run && /translateY\(-[1-9]/.test(run.style.transform);
+  }, selector, { timeout: 15_000 });
+  await page.waitForTimeout(700); // the page's own turn, 600ms
+}
+async function holdAgent(frame, heard) {
+  const held = await frame.locator("html").evaluate((node, heard) => {
+    const store = window.sidevoiceUI?.store;
+    const state = store?.getState().facts.karaokeState;
+    if (!state?.segment) return false;
+    store.patch({ karaokeState: { ...state, from: 0, to: heard } });
+    return true;
+  }, heard);
+  if (!held) throw Error("The agent's speech position could not be held");
+}
+
 try {
-  // Restore the same mocked identities and world for every comparison; only the visual choice changes.
+  // Restore the same mocked identities and world for every capture.
   const seed = await context.newPage();
   await seed.goto(`${origin}/?s=room-ready&access=${encodeURIComponent(token)}`);
-  await seed.frameLocator("#app").locator(".call-layout[data-bubbles-variants]").waitFor();
+  await seed.frameLocator("#app").locator(".call-layout").waitFor();
   const seedSnapshot = await seed.evaluate(() => JSON.parse(sessionStorage.getItem("sidevoice-preview.snapshot")));
   if (!seedSnapshot?.identities) throw Error("Preview did not save a reusable room snapshot");
   await seed.close();
-  let referenceThread = null;
-  for (const view of selected("views", ["browser", "phone"])) for (const theme of selected("themes", ["light", "dark"])) for (const style of selected("styles", manifest.variants)) {
+  for (const view of selected("views", ["browser", "phone", "phone320"])) for (const theme of selected("themes", ["light", "dark"])) {
     const page = await context.newPage();
-    await page.setViewportSize({ width: 1400, height: view === "phone" ? 900 : 832 });
+    await page.setViewportSize({ width: 1400, height: view === "browser" ? 832 : 900 });
     await page.addInitScript((snapshot) => {
       if (window !== window.top) return;
       snapshot.search = location.search;
       sessionStorage.setItem("sidevoice-preview.snapshot", JSON.stringify(snapshot));
     }, seedSnapshot);
     page.on("pageerror", (error) => { if (!/WebSocket closed without opened/.test(error.message)) console.error(`Page error: ${error.message}`); });
-    const url = `${origin}/?s=room-ready${view === "phone" ? "&view=phone" : ""}`;
-    await page.goto(url);
+    await page.goto(`${origin}/?s=room-ready${view === "browser" ? "" : "&view=phone"}`);
+    if (view === "phone320") await page.locator("#app").evaluate((node) => { node.style.width = "320px"; });
     const frame = page.frameLocator("#app");
-    await frame.locator(".call-layout[data-bubbles-variants]").waitFor();
-    await frame.locator(view === "phone" ? ".header-avatar" : ".conversation-sidebar .person").first().waitFor();
+    const narrow = view !== "browser";
+    await frame.locator(".call-layout").waitFor();
+    await frame.locator(narrow ? ".header-avatar" : ".conversation-sidebar .person").first().waitFor();
     await frame.locator("html").evaluate((node, next) => { node.dataset.theme = next; }, theme);
-    await frame.locator(view === "phone" ? ".header-avatar" : ".conversation-sidebar .person").first().click();
+    await frame.locator(narrow ? ".header-avatar" : ".conversation-sidebar .person").first().click();
     await frame.locator(".stage-tile:not(.stage-empty) .stage-agent").waitFor();
-    const thread = await frame.locator("html").evaluate(() => window.sidevoiceUI?.store?.getState().participants?.find((row) => row.title === "sidevoice-web")?.threadId);
-    if (!thread) throw Error("The seeded conversation is missing");
-    if (referenceThread && thread !== referenceThread) {
-      const sameSnapshot = await page.evaluate((fingerprint) => JSON.parse(sessionStorage.getItem("sidevoice-preview.snapshot"))?.identities?.nuc?.fingerprint === fingerprint, seedSnapshot.identities.nuc.fingerprint);
-      throw Error(`The comparison changed the seeded conversation identity (snapshot preserved: ${sameSnapshot})`);
-    }
-    referenceThread = thread;
     await frame.locator("html").evaluate(async () => { await document.fonts.ready; });
     await card(page, false);
-    await variants(page, true);
-    await page.locator(`#variants input[value="${style}"]`).check();
-    await frame.locator(`.call-layout[data-bubbles-style="${style}"]`).waitFor();
-    await page.waitForTimeout(150);
-    // Hold the mock's time so each style shows the same point in the listening sample.
+    // Hold the mock's time so each capture shows the same point in the listening sample.
     await page.clock.pauseAt(new Date());
-    if (view === "phone") {
-      const size = await page.locator("#app").evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight }));
-      if (size.width !== 390 || size.height !== 844) throw Error(`Phone viewport ${size.width}×${size.height}, expected 390×844`);
-    }
+    await pickSample(page, "You say", false);
     await cardAction(page, "You speak → sent");
     await frame.locator(".person-bubble .voice-wave, .person-bubble .voice-bars").waitFor();
     await page.clock.runFor(320);
-    await variants(page, true);
-    if (view === "browser") await page.setViewportSize({ width: 1628, height: 832 });
-    await assertChoice(page, style);
-    await capture(page, style, theme, view, "choice", "page");
-    await variants(page, false);
-    if (view === "browser") await page.setViewportSize({ width: 1400, height: 832 });
-    await capture(page, style, theme, view, "bars");
-    await checkInk(frame, style, theme, view, ".person-bubble .voice-wave, .person-bubble .voice-bars", 3);
+    await capture(page, theme, view, "bars");
+    await checkInk(frame, theme, view, ".person-bubble .voice-wave, .person-bubble .voice-bars", 3);
+    await checkInk(frame, theme, view, ".person-bubble .cancel-input", 4.5);
     await page.clock.resume();
     await frame.locator(".person-bubble [data-phase='transcribing']").waitFor({ timeout: 10_000 });
-    await checkTranscribing(frame, style, theme, view);
+    await checkTranscribing(frame, theme, view);
     await frame.locator(".person-bubble[data-sent]").waitFor({ timeout: 10_000 });
-    await capture(page, style, theme, view, "person");
-    await checkInk(frame, style, theme, view, ".person-bubble[data-sent] .person-said", 4.5);
-    if (style === "illustrated") await checkGraphic(frame, style, theme, view, ".person-bubble[data-sent]", "right");
-    if (style === "panel") await checkGraphic(frame, style, theme, view, ".person-bubble[data-sent]", "right");
+    await capture(page, theme, view, "person");
+    await checkInk(frame, theme, view, ".person-bubble[data-sent] .person-said", 4.5);
+    await checkFits(frame, theme, view, ".person-bubble[data-sent]");
+    // The long dictated turn, a page on: what was said before fades above the page showing.
+    await frame.locator(".person-bubble[data-sent]").waitFor({ state: "detached", timeout: 15_000 });
+    await pickSample(page, "You say", true);
+    await cardAction(page, "You speak → sent");
+    await frame.locator(".person-bubble[data-sent]").waitFor({ timeout: 15_000 });
+    await pastFirstPage(page, ".person-bubble[data-sent]");
+    await capture(page, theme, view, "person-long");
+    await checkFits(frame, theme, view, ".person-bubble[data-sent]");
+    await frame.locator(".person-bubble[data-sent]").waitFor({ state: "detached", timeout: 60_000 });
     // The direct person sample gives the page a synthetic call. Leave it, then join Voice to bind the
     // selected conversation through the mock room before the agent's real speech path runs.
     const selectedBeforeJoin = await frame.locator("html").evaluate(() => window.sidevoiceUI?.store?.getState().session.selected);
@@ -197,24 +197,31 @@ try {
       const state = document.querySelector("#app")?.contentWindow?.sidevoiceUI?.store?.getState();
       return !!state?.session.selected && state.session.selected === state.session.viewed;
     }, null, { timeout: 10_000 });
+    await pickSample(page, "The agent says", false);
     await cardAction(page, "Agent speaks");
     await frame.locator(".stage-bubble[data-visible] .karaoke-played").waitFor();
     await page.clock.pauseAt(new Date());
-    const held = await frame.locator("html").evaluate(() => {
-      const store = window.sidevoiceUI?.store;
-      const state = store?.getState().facts.karaokeState;
-      if (!state?.segment) return false;
-      store.patch({ karaokeState: { ...state, from: 0, to: 57 } });
-      return true;
-    });
-    if (!held) throw Error("The agent's speech position could not be held for comparison");
-    await capture(page, style, theme, view, "agent");
-    await checkInk(frame, style, theme, view, ".stage-bubble .karaoke-played", 4.5);
-    if (style === "illustrated" || style === "panel") await checkGraphic(frame, style, theme, view, ".stage-bubble", "left");
+    await holdAgent(frame, 57);
+    await page.waitForTimeout(300);
+    await capture(page, theme, view, "agent");
+    await checkInk(frame, theme, view, ".stage-bubble .karaoke-played", 4.5);
+    await checkInk(frame, theme, view, ".stage-bubble .karaoke-upcoming", 4.5);
+    await checkFits(frame, theme, view, ".stage-bubble[data-visible]");
+    await page.clock.resume();
+    await frame.locator(".stage-bubble").waitFor({ state: "detached", timeout: 30_000 });
+    await pickSample(page, "The agent says", true);
+    await cardAction(page, "Agent speaks");
+    await frame.locator(".stage-bubble[data-visible] .karaoke-played").waitFor();
+    await page.clock.pauseAt(new Date());
+    await holdAgent(frame, 330);
+    await pastFirstPage(page, ".stage-bubble[data-visible]");
+    await capture(page, theme, view, "agent-long");
+    await checkFits(frame, theme, view, ".stage-bubble[data-visible]");
     await page.clock.resume();
     await frame.locator("#transcript-toggle:visible").first().click();
     await frame.locator(".transcript[data-open]").waitFor();
-    await capture(page, style, theme, view, "transcript");
+    await page.waitForTimeout(400);
+    await capture(page, theme, view, "transcript");
     await page.close();
   }
   await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");

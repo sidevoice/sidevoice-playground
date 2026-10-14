@@ -12,7 +12,7 @@ import {
   CHECK_MS, DOWNLOAD_STEPS, DOWNLOAD_STEP_MS, UPDATER_STATES, UPDATE_VERSION, checkForUpdate, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState,
   updaterMode,
 } from "../preview/mock/bridge.mjs";
-import { DESKTOP, VARIANTS, applyVariantMetadata, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
+import { DESKTOP, VARIANTS, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
 
@@ -20,25 +20,14 @@ const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
-test("bubbles are an open question; invalid choices go and scenario seeding keeps a valid choice", () => {
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["bubbles-style"]);
-  assert.deepEqual(VARIANTS[0].values.map((option) => option.value), ["current", "soft", "illustrated", "panel"]);
-  assert.deepEqual(prunedVariantChoices({ "bubbles-style": "panel", old: "yes" }), { "bubbles-style": "panel" });
-  assert.deepEqual(prunedVariantChoices({ "bubbles-style": "bogus" }), {});
+test("the bubbles are decided (soft cards): no open question, its stored choice goes; scenario seeding leaves choices alone", () => {
+  assert.deepEqual(VARIANTS, []);
+  assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
   const current = { "sidevoice.variants": JSON.stringify({ "bubbles-style": "illustrated" }) };
   const merged = mergeSeed(current, { "sidevoice.onboarding": "done" });
   assert.ok(!merged.remove.includes("sidevoice.variants"));
   assert.equal(merged.set["sidevoice.variants"], undefined);
-});
-
-test("the variants panel accepts translated metadata only from the matching app variant", () => {
-  const metadata = { name: "bubbles-style", label: "Bocadillos", note: "Pregunta abierta", values: VARIANTS[0].values.map(({ value }) => ({ value, label: `ES ${value}` })) };
-  assert.equal(applyVariantMetadata(metadata), true);
-  assert.equal(VARIANTS[0].label, "Bocadillos");
-  assert.equal(VARIANTS[0].values[2].label, "ES illustrated");
-  assert.equal(applyVariantMetadata({ ...metadata, values: metadata.values.slice(1) }), false);
-  assert.equal(VARIANTS[0].label, "Bocadillos");
 });
 
 const scenario = {
