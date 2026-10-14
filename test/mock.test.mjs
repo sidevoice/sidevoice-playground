@@ -12,13 +12,34 @@ import {
   CHECK_MS, DOWNLOAD_STEPS, DOWNLOAD_STEP_MS, UPDATER_STATES, UPDATE_VERSION, checkForUpdate, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState,
   updaterMode,
 } from "../preview/mock/bridge.mjs";
-import { DESKTOP, deviceBox, readParams, writeParams } from "../preview/mock/shell.mjs";
+import { DESKTOP, VARIANTS, applyVariantMetadata, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
 
 const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
+
+test("bubbles are an open question; invalid choices go and scenario seeding keeps a valid choice", () => {
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["bubbles-style"]);
+  assert.deepEqual(VARIANTS[0].values.map((option) => option.value), ["current", "soft", "illustrated", "panel"]);
+  assert.deepEqual(prunedVariantChoices({ "bubbles-style": "panel", old: "yes" }), { "bubbles-style": "panel" });
+  assert.deepEqual(prunedVariantChoices({ "bubbles-style": "bogus" }), {});
+  assert.deepEqual(prunedVariantChoices(null), {});
+  const current = { "sidevoice.variants": JSON.stringify({ "bubbles-style": "illustrated" }) };
+  const merged = mergeSeed(current, { "sidevoice.onboarding": "done" });
+  assert.ok(!merged.remove.includes("sidevoice.variants"));
+  assert.equal(merged.set["sidevoice.variants"], undefined);
+});
+
+test("the variants panel accepts translated metadata only from the matching app variant", () => {
+  const metadata = { name: "bubbles-style", label: "Bocadillos", note: "Pregunta abierta", values: VARIANTS[0].values.map(({ value }) => ({ value, label: `ES ${value}` })) };
+  assert.equal(applyVariantMetadata(metadata), true);
+  assert.equal(VARIANTS[0].label, "Bocadillos");
+  assert.equal(VARIANTS[0].values[2].label, "ES illustrated");
+  assert.equal(applyVariantMetadata({ ...metadata, values: metadata.values.slice(1) }), false);
+  assert.equal(VARIANTS[0].label, "Bocadillos");
+});
 
 const scenario = {
   id: "s", title: "S", summary: "s",
@@ -812,8 +833,9 @@ test("a desktop view lays the page out at a desktop's size at least, scaled to f
   assert.equal(deviceBox({ width: 1600, height: 1000 }, "app").scale, 1);
   // The phone: its own width, never scaled.
   const phone = deviceBox({ width: 600, height: 700 }, "phone");
-  assert.deepEqual([phone.width, phone.height, phone.scale], [390, 700, 1]);
-  assert.equal(phone.left, 105);
+  assert.deepEqual([phone.width, phone.height, phone.scale], [390, 680, 1]);
+  assert.equal(phone.left, 95);
+  assert.deepEqual([deviceBox({ width: 600, height: 900 }, "phone").width, deviceBox({ width: 600, height: 900 }, "phone").height], [390, 844]);
 });
 
 test("the first visit and the local host's scenario reach every state of this computer, and an app with no install seam", async () => {

@@ -17,7 +17,29 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = []
+export const VARIANTS = [{
+  name: "bubbles-style", label: "", note: "",
+  values: ["current", "soft", "illustrated", "panel"].map((value) => ({ value, label: "" })),
+}];
+
+/** Copy only translated words from the actual app, keeping the panel's agreed choices and default. */
+export function applyVariantMetadata(metadata) {
+  const variant = VARIANTS[0];
+  if (metadata?.name !== variant.name || !Array.isArray(metadata.values) ||
+    metadata.values.length !== variant.values.length ||
+    metadata.values.some((option, index) => option.value !== variant.values[index].value || typeof option.label !== "string") ||
+    typeof metadata.label !== "string" || typeof metadata.note !== "string") return false;
+  variant.label = metadata.label;
+  variant.note = metadata.note;
+  variant.values.forEach((option, index) => { option.label = metadata.values[index].label; });
+  return true;
+}
+
+export function prunedVariantChoices(choices) {
+  if (!choices || typeof choices !== "object" || Array.isArray(choices)) return {};
+  return Object.fromEntries(Object.entries(choices).filter(([name, value]) =>
+    VARIANTS.some((variant) => variant.name === name && variant.values.some((each) => each.value === value))));
+}
 
 function readVariants() {
   try { return JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {}; } catch { return {}; }
@@ -27,9 +49,8 @@ function readVariants() {
  *  one's), go: the page then shows what was decided, or the variant's default. */
 function pruneVariants() {
   const kept = readVariants();
-  const open = Object.fromEntries(Object.entries(kept).filter(([name, value]) =>
-    VARIANTS.some((variant) => variant.name === name && variant.values.some((each) => each.value === value))));
-  if (Object.keys(open).length !== Object.keys(kept).length) localStorage.setItem(VARIANTS_KEY, JSON.stringify(open));
+  const open = prunedVariantChoices(kept);
+  if (JSON.stringify(open) !== JSON.stringify(kept)) localStorage.setItem(VARIANTS_KEY, JSON.stringify(open));
 }
 
 /** Draws the pickers into `body`: one group of radio buttons per variant, the picked one checked. */
@@ -171,6 +192,7 @@ export function writeParams({ scenario, view, language, speed, stage = "app", op
 export const DESKTOP = { width: 1280, height: 800 };
 /** The phone's frame, and the desktop app's title bar. */
 const PHONE = { width: 390, height: 844 };
+const PHONE_FRAME = 20; // the shell's 10px border on each side sits outside the page's viewport
 const APP_CHROME = 30;
 
 /**
@@ -182,7 +204,7 @@ export function deviceBox({ width, height }, view) {
   let w, h, scale;
   if (view === "phone") {
     w = PHONE.width;
-    h = Math.min(PHONE.height, height);
+    h = Math.min(PHONE.height, Math.max(1, height - PHONE_FRAME));
     scale = 1;
   } else if (view === "app") {
     w = DESKTOP.width;
@@ -193,7 +215,9 @@ export function deviceBox({ width, height }, view) {
     w = width / scale;
     h = height / scale;
   }
-  return { width: Math.round(w), height: Math.round(h), scale, left: Math.max(0, (width - w * scale) / 2), top: Math.max(0, (height - h * scale) / 2) };
+  return { width: Math.round(w), height: Math.round(h), scale,
+    left: Math.max(0, (width - w * scale - (view === "phone" ? PHONE_FRAME : 0)) / 2),
+    top: Math.max(0, (height - h * scale - (view === "phone" ? PHONE_FRAME : 0)) / 2) };
 }
 
 /** `promise`, or undefined once `ms` passed: a browser's storage that does not answer never holds the preview up. */
@@ -376,6 +400,24 @@ async function run(card) {
   const variantsBody = variants?.querySelector(".card-body");
   pruneVariants();
   if (variantsBody) drawVariants(variantsBody);
+  let metadataObserver;
+  let lastMetadata = "";
+  const syncMetadata = () => {
+    let metadata;
+    const raw = frame.contentDocument?.querySelector(".call-layout[data-bubbles-variants], .room-shell[data-bubbles-variants]")?.getAttribute("data-bubbles-variants") || "";
+    if (!raw || raw === lastMetadata) return;
+    try { metadata = JSON.parse(raw); } catch { return; }
+    lastMetadata = raw;
+    if (applyVariantMetadata(metadata) && variantsBody) drawVariants(variantsBody);
+  };
+  frame.addEventListener("load", () => {
+    metadataObserver?.disconnect();
+    lastMetadata = "";
+    if (!frame.contentDocument) return;
+    metadataObserver = new MutationObserver(syncMetadata);
+    metadataObserver.observe(frame.contentDocument, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-bubbles-variants"] });
+    syncMetadata();
+  });
   const flipVariants = () => {
     const closed = variants.classList.toggle("closed");
     variants.querySelector(".chevron").textContent = closed ? "▸" : "▾";

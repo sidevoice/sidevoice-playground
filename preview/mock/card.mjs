@@ -103,7 +103,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       } }),
       el("button", { type: "button", textContent: "You speak twice", title: "Your turn sent, then you speak again while it is still on the stage", onclick: () => {
         if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
-        else setTimeout(() => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
+        else schedulePreview(frame, () => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
       el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
         if (liveCall(world)) {
@@ -112,6 +112,9 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         }
         if (!simulateAgent(frame, sampleAgent.value)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
+      el("button", { type: "button", textContent: "Remove preview turns", title: "Remove turns added by the visual sample buttons", onclick: () => {
+        if (!removePreviewTurns(frame)) voiceNote.textContent = "Open a conversation in the page first.";
+      } }),
       el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds, then it answers with the reply above", onclick: () => {
         if (liveCall(world)) {
           if (!agentWorks(world, WORKING_MS)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
@@ -119,7 +122,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
           return;
         }
         if (!simulateWorking(frame)) voiceNote.textContent = "Open a conversation in the page first.";
-        else setTimeout(() => simulateAgent(frame, sampleAgent.value), WORKING_MS);
+        else schedulePreview(frame, () => simulateAgent(frame, sampleAgent.value), WORKING_MS);
       } })));
   // The microphone and the speaker the page's voice offers (its device bar, by the microphone): a headset to plug in and
   // out, and a speaker that cannot be chosen (a browser without setSinkId).
@@ -395,8 +398,42 @@ export function sampleLabel(text) {
 }
 
 let simulated = 0;
+const previewRuns = new WeakMap();
 const agentRuns = new WeakMap();
 const selectedConversation = (state) => state.facts.viewedThread || state.facts.roomBinding?.thread_id || state.participants?.[0]?.threadId;
+function previewRun(frame) {
+  let run = previewRuns.get(frame);
+  if (!run) { run = { generation: 0, cleanups: new Set(), timers: new Set() }; previewRuns.set(frame, run); }
+  return run;
+}
+function schedulePreview(frame, callback, ms) {
+  const run = previewRun(frame), generation = run.generation;
+  const timer = setTimeout(() => {
+    run.timers.delete(timer);
+    if (run.generation === generation) callback();
+  }, ms);
+  run.timers.add(timer);
+}
+/** The visual samples can be added and removed without clearing the seeded transcript or changing a real call. */
+export function withoutPreviewTurns(history) {
+  return history.filter((row) => !/^preview-(you|agent)-/.test(row.segment ?? ""));
+}
+export function removePreviewTurns(frame) {
+  const page = pageConversation(frame);
+  if (!page) return false;
+  const run = previewRun(frame);
+  run.generation += 1;
+  for (const cleanup of run.cleanups) cleanup();
+  run.cleanups.clear();
+  for (const timer of run.timers) clearTimeout(timer);
+  run.timers.clear();
+  const facts = page.store.getState().facts;
+  const patch = { history: withoutPreviewTurns(facts.history) };
+  if (facts.userTurn?.segment?.startsWith("preview-you-")) Object.assign(patch, { userLive: false, userTurn: null, pendingPhase: "" });
+  if (facts.karaokeState?.segment?.startsWith("preview-agent-")) Object.assign(patch, { botLive: false, karaokeState: null });
+  page.store.patch(patch);
+  return true;
+}
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
 function pageConversation(frame) {
   const store = frame?.contentWindow?.sidevoiceUI?.store;
@@ -451,18 +488,23 @@ const AGAIN_SAMPLE = "Oh, and keep the old one as a fallback.";
 const AGAIN_AFTER_MS = 700;
 
 /** You speak: listening, then transcribing, then what you said in the conversation. */
-function simulateUser(frame, text) {
+export function simulateUser(frame, text) {
   const page = pageConversation(frame);
   if (!page) return false;
   const { store, thread, session } = page;
   const segment = "preview-you-" + ++simulated;
+  const run = previewRun(frame), generation = run.generation;
   void (async () => {
     store.patch({ userLive: true, userTurn: { id: segment, segment, thread }, pendingPhase: "listening", pendingUserText: "" });
-    const quiet = speakIntoPage(frame, simulated * 1.7);
+    const quiet = speakIntoPage(frame, 1.7);
+    run.cleanups.add(quiet);
     await later(LISTENING_MS);
+    if (run.generation !== generation) return;
     quiet();
+    run.cleanups.delete(quiet);
     store.patch({ userLive: false, pendingPhase: "transcribing" });
     await later(SPOKEN_TURN_MS - LISTENING_MS);
+    if (run.generation !== generation) return;
     const history = store.getState().facts.history;
     store.patch({ userTurn: null, pendingPhase: "", history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
   })();
@@ -475,22 +517,31 @@ export function simulateAgent(frame, text, { wait = later } = {}) {
   if (!page) return false;
   const { store, thread, session } = page;
   const channel = frame.contentWindow?.sidevoiceUI?.playbackLevel;
-  const run = (agentRuns.get(frame) ?? 0) + 1;
-  agentRuns.set(frame, run);
+  const agentRun = (agentRuns.get(frame) ?? 0) + 1;
+  agentRuns.set(frame, agentRun);
   channel?.clear?.();
-  const current = () => agentRuns.get(frame) === run && frame.contentWindow?.sidevoiceUI?.store === store &&
+  const current = () => agentRuns.get(frame) === agentRun && frame.contentWindow?.sidevoiceUI?.store === store &&
     store.getState().facts.sessionId === session &&
     selectedConversation(store.getState()) === thread;
   const segment = "preview-agent-" + ++simulated;
+  const preview = previewRun(frame), generation = preview.generation;
+  const quiet = () => channel?.clear?.();
+  preview.cleanups.add(quiet);
   const name = store.getState().participants?.find((row) => row.threadId === thread)?.title ?? "";
   const words = [...text.matchAll(/\S+/g)].map((match) => match.index + match[0].length);
   const set = (audio) => store.patch({ history: store.getState().facts.history.map((r) => r.segment === segment ? { ...r, audio } : r) });
   const finish = (audio) => {
+    preview.cleanups.delete(quiet);
     set(audio);
     if (store.getState().facts.karaokeState?.segment === segment) store.patch({ botLive: false, karaokeState: null });
-    if (agentRuns.get(frame) === run) channel?.clear?.();
+    if (agentRuns.get(frame) === agentRun) quiet();
   };
-  const abandoned = () => { if (current()) return false; finish("interrupted"); return true; };
+  const abandoned = () => {
+    if (preview.generation !== generation) return true;
+    if (current()) return false;
+    finish("interrupted");
+    return true;
+  };
   void (async () => {
     const history = store.getState().facts.history;
     store.patch({ history: [...history, { segment, thread, session, role: "assistant", text, name, time: Date.now(), seq: history.length + 1, audio: "playing" }],
@@ -504,7 +555,7 @@ export function simulateAgent(frame, text, { wait = later } = {}) {
       if (abandoned()) return;
       store.patch({ karaokeState: { segment, from: 0, to: end } });
     }
-    if (agentRuns.get(frame) === run) channel?.clear?.();
+    if (agentRuns.get(frame) === agentRun) quiet();
     await wait(400);
     if (abandoned()) return;
     finish("played");
@@ -521,6 +572,9 @@ function simulateWorking(frame) {
   if (!page) return false;
   const { store, thread } = page;
   store.patch({ harness: { ...store.getState().facts.harness, [thread]: true } });
-  setTimeout(() => store.patch({ harness: { ...store.getState().facts.harness, [thread]: false } }), WORKING_MS);
+  const run = previewRun(frame);
+  const clear = () => store.patch({ harness: { ...store.getState().facts.harness, [thread]: false } });
+  run.cleanups.add(clear);
+  schedulePreview(frame, () => { run.cleanups.delete(clear); clear(); }, WORKING_MS);
   return true;
 }

@@ -40,7 +40,7 @@ body:has(#stage-switch:not([hidden])) #stage { padding-top: 42px; }
 .device.app .dots i:nth-child(2) { background: #febc2e; }
 .device.app .dots i:nth-child(3) { background: #28c840; }
 .device.app .title { flex: 1; text-align: center; margin-right: 60px; }
-.device.phone { border-radius: 36px; border: 10px solid #111; }
+.device.phone { box-sizing: content-box; border-radius: 36px; border: 10px solid #111; }
 /* The card and the variants' panel each keep a gutter of their own: closed, a slim tab; open, their width. The frame
  * never lies under them: it scales into what is left. */
 #stage { padding-right: 60px; }
