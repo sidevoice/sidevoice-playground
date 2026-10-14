@@ -43,7 +43,8 @@ function judge(events) {
     if (event.kind === "tool-result" && item?.name === "voice_say" && item.args?.utterance_id) {
       const result = item.result;
       const disposition = status(result);
-      fates.set(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : disposition === "text_only" || result?.audio === "text_only" ? "stale" : disposition ?? "submitted", text: item.args.text, reason: result?.reason });
+      const textOnly = disposition === "text_only" || result?.audio === "text_only";
+      fates.set(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
     }
     const utterances = item?.utterance_ids ?? (item?.utterance_id ? [item.utterance_id] : []);
     if (event.kind === "room-frame" || event.kind === "browser-action") for (const id of utterances) {
@@ -66,15 +67,46 @@ function judge(events) {
   if (selected && !MANUAL.has(selected)) {
     if (["T02c", "T02d"].includes(selected) && results.length) pass(selected, refused, "The MCP tool result must refuse the open turn");
     if (selected === "T04a" && results.length >= 3 && results.some((result) => status(result) === "rejected")) pass(selected, false, "One of three publications was refused");
-    if (selected === "T03" && results.length && unreadKind(notes, "reply_not_played")) pass(selected, true, "Stale reply evidence reached the agent");
+    if (selected === "T03" && results.length) {
+      const stale = results.some((result) => result?.reason === "newer_turn" && (status(result) === "text_only" || result?.audio === "text_only"));
+      if (stale || unreadKind(notes, "reply_not_played")) pass(selected, stale && unreadKind(notes, "reply_not_played"), "Stale admission and not-played notice must both be observed");
+    }
     if (selected === "T01" && unheard.length) pass(selected, unheard.some((item) => item.fate === "interrupted" && Number.isInteger(item.heard_chars)), "Cut extent and full text reached the agent");
-    if (["T02a", "T02b", "T04b"].includes(selected) && unheard.length) pass(selected, unheard.some((item) => item.fate === "unplayed"), "Not played evidence reached the agent");
+    if (["T02a", "T02b"].includes(selected) && unheard.length) {
+      const unstarted = unheard.filter((item) => item.reason === "newer_turn" && item.heard_chars == null);
+      const properInput = selected === "T02a" ? inputs.some((input) => input.channel === "voice" && input.text) : inputs.some((input) => input.channel === "note" && !input.text && input.notice && input.unheard?.replies?.length);
+      pass(selected, properInput && unstarted.length > 0 && unstarted.every((item) => !frames.some((frame) => frame.type === "voice-playback" && frame.status === "playing" && frame.utterance_id === item.utterance_id)), "Accepted reply must remain not started and reach the proper spoken or empty outcome");
+    }
+    if (selected === "T04b" && unheard.length >= 3) pass(selected, unheard.every((item) => item.reason === "newer_turn" || item.reason === "user_interrupted"), "All three replies must reach the new turn's unheard evidence");
     if (selected === "T02d" && notes.some((note) => note.kind === "turn_empty") && refused) pass(selected, true, "Refusal and empty notice reached the agent");
     if (selected === "T12" && notes.some((note) => note.kind === "reply_skipped")) pass(selected, !unheard.some((item) => item.reason === "user_skipped"), "Skip was reported as heard by choice");
     if (selected === "T06d" && notes.some((note) => note.kind === "user_returned")) pass(selected, true, "Return notice reached the agent");
+    if (selected === "T05" && notes.some((note) => note.kind === "reply_interrupted")) {
+      pass(selected, [...fates.values()].some((fate) => fate.fate === "cut" && Number.isInteger(fate.heard_chars)), "Checkpoint interruption must report its cut extent");
+    }
+    if (["T06a", "T06b"].includes(selected)) {
+      const reason = selected === "T06a" ? "agents_muted" : "voice_off";
+      const disabled = frames.some((frame) => frame.type === "voice-speech" && frame.reason === reason && (frame.on === false || frame.data?.on === false));
+      const unpublished = results.some((result) => result?.reason === reason && (result?.audio === "text_only" || status(result) === "text_only"));
+      if (disabled && results.length) pass(selected, unpublished && [...fates.values()].every((fate) => fate.fate !== "played"), "Output disabled before publication must save text without audio");
+    }
     if (selected === "T16" && inputs.length) checks[selected] = { state: "pending", reason: "Repeat in both modes and compare exported traces" };
-    if (selected === "T08" && frames.some((frame) => frame.type === "voice-reply") && inputs.some((input) => input.text)) checks[selected] = { state: "pending", reason: "Check that epoch and audio stayed unchanged" };
-    if (selected === "T04a" && accepted && fates.size === 3 && [...fates.values()].every((fate) => fate.fate === "played")) pass(selected, true, "Three replies played in order");
+    if (selected === "T08") {
+      const typed = frames.find((frame) => frame.type === "typed-message" && frame.status >= 200 && frame.status < 300);
+      const replyFates = [...fates.values()].filter((fate) => fate.text);
+      if (typed && replyFates.length >= 2 && replyFates.every((fate) => ["played", "cut", "not played", "stale"].includes(fate.fate))) {
+        pass(selected, replyFates.every((fate) => fate.fate === "played") && (currentEpoch == null || typed.epoch === currentEpoch), "Typing must keep the epoch and allow both replies to play");
+      }
+    }
+    if (selected === "T04a") {
+      const published = after.filter((event) => event.kind === "tool-result" && event.data.name === "voice_say").map((event) => event.data.args?.utterance_id).filter(Boolean);
+      const started = frames.filter((frame) => frame.type === "voice-playback" && frame.status === "playing").map((frame) => frame.utterance_id);
+      if (published.length >= 3 && started.length >= 3) {
+        const ordered = published.every((id, index) => started.indexOf(id) === index);
+        if (!ordered) pass(selected, false, "Three replies must begin in publication order");
+        else if (published.every((id) => fates.get(id)?.fate === "played")) pass(selected, true, "Three replies began in order and were heard");
+      }
+    }
   }
   return { currentEpoch, fates: [...fates].map(([utterance_id, fate]) => ({ utterance_id, ...fate })), notes, inputs, checks };
 }

@@ -116,3 +116,14 @@ test("earlier case verdicts and notices remain visible after another script star
   assert.equal(view.notes[0].kind, "turn_empty");
   assert.equal(view.currentEpoch, 1);
 });
+
+test("FIFO check requires observed playback starts in publication order", () => {
+  const events = [{ kind: "script-start", data: { id: "T04a" } }];
+  for (const id of ["a", "b", "c"]) events.push({ kind: "tool-result", data: { name: "voice_say", args: { utterance_id: id, text: id }, result: { status: "published", audio: "queued" } } });
+  for (const id of ["a", "c", "b"]) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "playing" } });
+  assert.equal(evidence(events).checks.T04a.state, "fail");
+  events.splice(4, 3, ...["a", "b", "c"].map((id) => ({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "playing" } })));
+  assert.equal(evidence(events).checks.T04a.state, "pending");
+  for (const id of ["a", "b", "c"]) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "heard" } });
+  assert.equal(evidence(events).checks.T04a.state, "pass");
+});

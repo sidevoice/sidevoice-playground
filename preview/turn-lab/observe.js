@@ -54,7 +54,7 @@
       const wire = value.startsWith("42") ? JSON.parse(value.slice(2)) : JSON.parse(value);
       const parsed = Array.isArray(wire) ? { type: wire[0], data: wire[1] } : wire;
       const data = parsed.data ?? parsed;
-      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, heard_chars: data.heard_chars, status: data.status, reason: data.reason, text: data.text, data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, heard_chars: data.heard_chars, status: data.status, reason: data.reason } };
+      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, heard_chars: data.heard_chars, status: data.status, reason: data.reason, on: data.on, text: data.text, data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, heard_chars: data.heard_chars, status: data.status, reason: data.reason, on: data.on } };
     } catch { return null; }
   };
   const NativeWebSocket = window.WebSocket;
@@ -70,6 +70,10 @@
     const response = await originalFetch(...args);
     try {
       const path = new URL(typeof args[0] === "string" ? args[0] : args[0].url, location.href).pathname;
+      if (path === "/api/presentation/text") {
+        const receipt = response.ok ? await response.clone().json().catch(() => ({})) : {};
+        report("browser-action", { type: "typed-message", status: response.status, epoch: receipt.epoch });
+      }
       if (path.startsWith("/api/presentation/") && response.ok) {
         const body = await response.clone().json();
         const rows = body.rows ?? body.messages ?? body.history ?? [];
@@ -78,6 +82,10 @@
     } catch {}
     return response;
   };
+  document.addEventListener("click", (event) => {
+    const control = event.target?.closest?.("#call-controls button, #call-menu button, #connect, #skip-reply, #mute");
+    if (control) report("browser-action", { type: "ui-click", control: control.id || control.getAttribute("aria-label") || control.textContent?.trim().slice(0, 50) });
+  }, true);
   if (navigator.mediaDevices?.getUserMedia) {
     const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = async (...args) => {
