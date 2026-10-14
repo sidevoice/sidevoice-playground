@@ -1,8 +1,9 @@
 // The mocked preview's desktop app: `window.__sidevoiceDesktop.host` as the desktop bridge gives it to the page
 // (sidevoice-desktop docs/BRIDGE.md; the page's side is apps/web/src/services/desktop-host.ts), with its local host
 // (`localHost`) answering from the world: its state, its pairing, starting and stopping it, its pairing codes and its
-// version. As the real desktop app, it does not install Sidevoice (that is the install command's, `npx sidevoice@latest
-// install`): `install` and `cancel` are there only where the world asks for an app that does (`local.appInstalls`).
+// version, and installing it as the desktop app does (`install`, `cancel`: download with its bytes, cancellable, then
+// verification, staging and the service's start), unless the world's app has no install seam (`local.appInstalls: false`),
+// where the page shows only the install command (`npx sidevoice@latest install`).
 // The command run by hand is the world's `local.commandRun`: this computer then starts, and answers or fails as a
 // start ends (`local.startsAs`). What a person's action changes takes the time it takes, on the world's clock.
 // @ts-check
@@ -56,8 +57,8 @@ export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", inst
 
 /** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost }`, as the bridge gives it:
  *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
- *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page shows the install command (or, where
- *  the world's app installs Sidevoice itself, `local.appInstalls`, offers to prepare this computer).
+ *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer (or,
+ *  where the world's app has no install seam, `local.appInstalls: false`, shows only the install command).
  *  `relaunch`: what the app restarting into its update does to the page (attach.mjs: loads it again, as a restart
  *  opens a new window); none, it stays. */
 export function desktopHost(world, identities, { relaunch = null } = {}) {
@@ -142,7 +143,7 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       return { ok: true, url, code: code ? "accepted" : null };
     },
   };
-  /** Installing Sidevoice from the app, where the world's app does (the desktop app does not, 2026-10-14). */
+  /** Installing Sidevoice from the app (the desktop app's, from the npm platform package), unless the world's app has none. */
   const appInstall = {
     /** @type {NonNullable<LocalHostBridge["install"]>} */
     install(onProgress) {
@@ -181,7 +182,7 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       return true;
     },
   };
-  if (local().appInstalls === true) Object.assign(localHost, appInstall);
+  if (local().appInstalls !== false) Object.assign(localHost, appInstall);
   Object.assign(localHost, {
     async version() {
       const bundled = { version: local()?.bundledVersion ?? LOCAL_VERSION };

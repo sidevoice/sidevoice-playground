@@ -322,8 +322,9 @@ test("a named list of agents has one in every state; a Connect may take its time
   assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } })).body.key, "no-connector");
 });
 
-test("the desktop app installs nothing, as the real one: the install command run leaves it starting, then running", async () => {
+test("an app with no install seam installs nothing: the install command run leaves it starting, then running", async () => {
   const { world, identities } = await setup();
+  world.patch({ "local.appInstalls": false });
   const local = desktopHost(world, identities).localHost;
   assert.equal(local.install, undefined);
   assert.equal(local.cancel, undefined);
@@ -345,9 +346,8 @@ test("the desktop app installs nothing, as the real one: the install command run
   assert.equal(local.state().state, "running");
 });
 
-test("a world whose app installs Sidevoice (local.appInstalls) has the install seam back", async () => {
+test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {
   const { world, identities } = await setup();
-  world.patch({ "local.appInstalls": true });
   const host = desktopHost(world, identities);
   const local = host.localHost;
   assert.equal(local.state().state, "absent");
@@ -378,7 +378,6 @@ test("a world whose app installs Sidevoice (local.appInstalls) has the install s
 
 test("an install fails where the world says, with the key and step the page reads, and can be cancelled", async () => {
   const { world, identities } = await setup();
-  world.patch({ "local.appInstalls": true });
   const local = desktopHost(world, identities).localHost;
   world.patch({ "local.install": "verification@install.checksum" });
   await assert.rejects(local.install(), (error) => error.key === "install.checksum" && error.step === "verification");
@@ -817,7 +816,7 @@ test("a desktop view lays the page out at a desktop's size at least, scaled to f
   assert.equal(phone.left, 105);
 });
 
-test("the first visit and the local host's scenario reach every state of this computer, and the app's own install on demand", async () => {
+test("the first visit and the local host's scenario reach every state of this computer, and an app with no install seam", async () => {
   const STATES = ["absent", "not-installed", "stopped-by-person", "starting", "backoff", "failed", "service-failed", "refused", "incompatible", "running"];
   const scenarios = await loadMockScenarios();
   for (const id of ["first-visit", "desktop-local-host"]) {
@@ -835,9 +834,9 @@ test("the first visit and the local host's scenario reach every state of this co
       assert.equal(typeof host.localHost.install === "function", offered, `${id} ${appInstalls}`);
     }
   }
-  // Nothing else installs from the app: the desktop app does not.
+  // Every scenario's app installs, as the desktop app does.
   for (const shipped of scenarios) {
     const world = createWorld(shipped, {}, instant);
-    assert.equal(desktopHost(world, await makeIdentities(world.state)).localHost.install, undefined, shipped.id);
+    assert.equal(typeof desktopHost(world, await makeIdentities(world.state)).localHost.install, "function", shipped.id);
   }
 });

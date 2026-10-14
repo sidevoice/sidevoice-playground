@@ -1,7 +1,7 @@
 {
   "id": "first-visit",
   "title": "First visit: no machine yet",
-  "summary": "Nothing paired, first-run setup not done. Pair the NUC with a code from the card, or, in the desktop app view, prepare this computer (the setup's Prepare this computer; Settings › Machines › This computer too): as the desktop app, it shows the install command. Pick “the install command run” in This computer's State: it starts, answers, and the setup moves on. Every other state this computer's Sidevoice can be in is there (Start, Retry, Reconnect…); “The app installs Sidevoice” brings the app's own Prepare back, with its install and its failures.",
+  "summary": "Nothing paired, first-run setup not done. Pair the NUC with a code from the card, or, in the desktop app view, prepare this computer (the setup's Prepare this computer; Settings › Machines › This computer too): as the desktop app, Prepare installs it (download, verification, staging, service start; its failures below), with the install command to run by hand under it. Pick “the install command run” in This computer's State to have it run by hand: it starts, answers, and the setup moves on. Every other state this computer's Sidevoice can be in is there (Start, Retry, Reconnect…); “The app installs Sidevoice: no” leaves only the command.",
   "view": "browser",
   "world": {
     "page": "room",
@@ -32,7 +32,7 @@
       { "value": "incompatible", "label": "incompatible", "set": { "local.state": "incompatible", "local.installed": true, "local.failure": null, "local.commandRun": null } },
       { "value": "running", "label": "running (answers)", "set": { "local.state": "running", "local.installed": true, "local.failure": null, "local.commandRun": null } }
     ] },
-    { "id": "install", "group": "This computer (desktop app)", "label": "The app's install (where it installs)", "values": [
+    { "id": "install", "group": "This computer (desktop app)", "label": "The app's install", "values": [
       { "value": "ok", "label": "works", "set": { "local.install": "ok" } },
       { "value": "network", "label": "fails: network", "set": { "local.install": "download@install.network" } },
       { "value": "proxy", "label": "fails: proxy", "set": { "local.install": "download@install.proxy" } },
@@ -41,7 +41,7 @@
       { "value": "disk", "label": "fails: disk full", "set": { "local.install": "staging@install.disk" } },
       { "value": "service", "label": "fails: service start", "set": { "local.install": "service-start@service.start.failed" } }
     ] },
-    { "id": "installSpeed", "group": "This computer (desktop app)", "label": "The app's download (where it installs)", "values": [
+    { "id": "installSpeed", "group": "This computer (desktop app)", "label": "The app's download", "values": [
       { "value": "normal", "label": "normal", "set": { "local.installSlow": false } },
       { "value": "slow", "label": "slow (×6)", "set": { "local.installSlow": true } }
     ] },
@@ -50,8 +50,8 @@
       { "value": "failed", "label": "and fails (missing module)", "set": { "local.startsAs": "failed", "local.startFailure": { "key": "import.missing-module", "step": "service-start" } } }
     ] },
     { "id": "appInstalls", "group": "This computer (desktop app)", "label": "The app installs Sidevoice", "reload": true, "values": [
-      { "value": "no", "label": "no: the install command (as the desktop app)", "set": { "local.appInstalls": false } },
-      { "value": "yes", "label": "yes: its own Prepare (the install seam)", "set": { "local.appInstalls": true } }
+      { "value": "yes", "label": "yes: Prepare this computer, the command below (as the desktop app)", "set": { "local.appInstalls": true } },
+      { "value": "no", "label": "no: only the install command (an app without the install seam)", "set": { "local.appInstalls": false } }
     ] },
     { "id": "page", "group": "This page", "label": "Served by", "values": [
       { "value": "room", "label": "the room", "set": { "page": "room" } },
