@@ -3,6 +3,28 @@ import { SCRIPTS } from "./agent.mjs";
 const MANUAL = new Set(["T09a", "T09b", "T10", "T13", "T14", "T15"]);
 
 export function evidence(events) {
+  const starts = events.flatMap((event, index) => event.kind === "script-start" ? [index] : []);
+  if (!starts.length) return judge(events);
+  const checks = judge([]).checks;
+  const fates = new Map();
+  const notes = [];
+  const inputs = [];
+  const knownEpochs = events.map((event) => event.data?.epoch ?? event.data?.data?.epoch).filter(Number.isInteger);
+  let currentEpoch = knownEpochs.length ? Math.max(...knownEpochs) : null;
+  starts.forEach((from, index) => {
+    const segment = events.slice(from, starts[index + 1] ?? events.length);
+    const result = judge(segment);
+    const id = events[from].data?.id;
+    if (id && result.checks[id]) checks[id] = result.checks[id];
+    for (const fate of result.fates) fates.set(fate.utterance_id, fate);
+    notes.push(...result.notes);
+    inputs.push(...result.inputs);
+    if (result.currentEpoch != null) currentEpoch = Math.max(currentEpoch ?? 0, result.currentEpoch);
+  });
+  return { currentEpoch, fates: [...fates.values()], notes, inputs, checks };
+}
+
+function judge(events) {
   const selected = [...events].reverse().find((event) => event.kind === "script-start")?.data?.id;
   const after = selected ? events.slice(events.findLastIndex((event) => event.kind === "script-start")) : [];
   const inputs = after.filter((event) => event.kind === "agent-input").map((event) => event.data);

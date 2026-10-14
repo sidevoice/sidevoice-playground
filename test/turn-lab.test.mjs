@@ -102,3 +102,17 @@ test("browser playback receipts and history settle reply fates", () => {
   assert.equal(evidence(events).fates[0].fate, "skipped");
   assert.equal(evidence(events).checks.T12.state, "pass");
 });
+
+test("earlier case verdicts and notices remain visible after another script starts", () => {
+  const events = [
+    { kind: "script-start", data: { id: "T02d" } },
+    { kind: "tool-result", data: { name: "voice_say", result: { status: "rejected", reason: "user_speaking" } } },
+    { kind: "agent-input", data: { channel: "note", notice: { kind: "turn_empty" }, epoch: 1 } },
+    { kind: "script-start", data: { id: "T03" } },
+  ];
+  const view = evidence(events);
+  assert.equal(view.checks.T02d.state, "pass");
+  assert.equal(view.checks.T03.state, "pending");
+  assert.equal(view.notes[0].kind, "turn_empty");
+  assert.equal(view.currentEpoch, 1);
+});
