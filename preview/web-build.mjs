@@ -162,7 +162,7 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
       if (Object.keys(replace).length) {
         Object.assign(manifest.dependencies, replace);
         await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-        await exec("npm", ["install", "--no-audit", "--no-fund", "--legacy-peer-deps"], { cwd: work });
+        await exec("npm", ["install", "--no-audit", "--no-fund"], { cwd: work });
       } else {
         await exec("npm", ["ci", "--no-audit", "--no-fund"], { cwd: work });
       }
