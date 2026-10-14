@@ -207,6 +207,11 @@ its own code.
 - **Scenarios** are `preview/mock/scenarios/*.json`: a world (the page's target, the machines this device knows or
   could pair with, the desktop app's local host) and options, each value a set of fields it changes. An option marked
   ↻ reloads the page from the storage the world says it had; any other one is live.
+- **This computer's Sidevoice**, in the app view, is as the desktop app's: Prepare installs it (`localHost.install`:
+  download with its bytes, cancellable, then verification, staging, service start), the install command under it to run by
+  hand. *First visit* (the setup's Prepare this computer) and
+  *Desktop app with its local host* (Settings) have its every state in *State*, and "the install command run": it
+  starts, then answers or fails as *A start ends* says. "The app installs Sidevoice ↻: no" leaves only the command.
 - **The card** (Alt+Shift+P, or its header, shows and hides it) picks the scenario, view, language and options; gives
   pairing codes for each machine (valid, expired, used, plain http, damaged, another machine answering) to paste into
   the page; runs the world's time at ×1, ×4 or paused; and lists what the mocks were asked. Everything it picks is in

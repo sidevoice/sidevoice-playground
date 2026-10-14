@@ -1,7 +1,11 @@
 // The mocked preview's desktop app: `window.__sidevoiceDesktop.host` as the desktop bridge gives it to the page
 // (sidevoice-desktop docs/BRIDGE.md; the page's side is apps/web/src/services/desktop-host.ts), with its local host
-// (`localHost`) answering from the world: its state, its pairing, installing it, starting and stopping it, its
-// pairing codes and its version. What a person's action changes takes the time it takes, on the world's clock.
+// (`localHost`) answering from the world: its state, its pairing, starting and stopping it, its pairing codes and its
+// version, and installing it as the desktop app does (`install`, `cancel`: download with its bytes, cancellable, then
+// verification, staging and the service's start), unless the world's app has no install seam (`local.appInstalls: false`),
+// where the page shows only the install command (`npx sidevoice@latest install`).
+// The command run by hand is the world's `local.commandRun`: this computer then starts, and answers or fails as a
+// start ends (`local.startsAs`). What a person's action changes takes the time it takes, on the world's clock.
 // @ts-check
 
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
@@ -49,11 +53,12 @@ const INSTALL_STEPS = [
 ];
 
 /** This computer's local host where a scenario names none: not installed yet, as on a desktop app just opened. */
-export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", install: "ok", participants: [] };
+export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", participants: [] };
 
 /** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost }`, as the bridge gives it:
  *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
- *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer.
+ *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer (or,
+ *  where the world's app has no install seam, `local.appInstalls: false`, shows only the install command).
  *  `relaunch`: what the app restarting into its update does to the page (attach.mjs: loads it again, as a restart
  *  opens a new window); none, it stays. */
 export function desktopHost(world, identities, { relaunch = null } = {}) {
@@ -72,7 +77,13 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
     set({ state: outcome, failure: outcome === "running" ? null : local().startFailure ?? { key: "start.failed", step: "service-start" } });
   }
 
-  /** @type {Required<LocalHostBridge>} */
+  /** Whatever the install command leaves: Sidevoice installed with its service, starting, then as a start ends. */
+  async function commandRun() {
+    set({ commandRun: null, installed: true, service: "launchd", state: "starting", failure: null });
+    await starting();
+  }
+
+  /** @type {LocalHostBridge} */
   const localHost = {
     state: () => status(),
     subscribe(listener) {
@@ -131,6 +142,10 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       set({ reach: "room" });
       return { ok: true, url, code: code ? "accepted" : null };
     },
+  };
+  /** Installing Sidevoice from the app (the desktop app's, from the npm platform package), unless the world's app has none. */
+  const appInstall = {
+    /** @type {NonNullable<LocalHostBridge["install"]>} */
     install(onProgress) {
       const job = `install-${++jobCount}`;
       const run = (async () => {
@@ -166,6 +181,9 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       running.cancelled = true;
       return true;
     },
+  };
+  if (local().appInstalls !== false) Object.assign(localHost, appInstall);
+  Object.assign(localHost, {
     async version() {
       const bundled = { version: local()?.bundledVersion ?? LOCAL_VERSION };
       return {
@@ -179,7 +197,10 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       await starting();
       return status();
     },
-  };
+  });
+  // The install command run by hand (a scenario's "ran the install command"), as the world loads or whenever it says so.
+  if (local().commandRun) void commandRun();
+  world.subscribe(() => { if (local()?.commandRun) void commandRun(); });
   const voice = fakeVoice(world);
   world.voiceRuntime = voice;
   const host = {

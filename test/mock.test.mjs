@@ -322,6 +322,30 @@ test("a named list of agents has one in every state; a Connect may take its time
   assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } })).body.key, "no-connector");
 });
 
+test("an app with no install seam installs nothing: the install command run leaves it starting, then running", async () => {
+  const { world, identities } = await setup();
+  world.patch({ "local.appInstalls": false });
+  const local = desktopHost(world, identities).localHost;
+  assert.equal(local.install, undefined);
+  assert.equal(local.cancel, undefined);
+  assert.equal(local.state().state, "absent");
+  const seen = [];
+  local.subscribe((status) => seen.push(status.state));
+  world.patch({ "local.commandRun": true });
+  await new Promise((resolve) => { const off = world.subscribe(() => { if (local.state().state === "running") { off(); resolve(); } }); });
+  assert.deepEqual(seen.filter((state, i) => state !== seen[i - 1]), ["starting", "running"]);
+  assert.equal(local.state().installed, true);
+  assert.equal(world.state.local.commandRun, null);
+  assert.equal(local.pairing().urls[0], LOCAL_URL);
+  // Run where a start fails, it fails, and Retry (a restart) brings it back once a start runs again.
+  world.patch({ "local.state": "absent", "local.installed": false, "local.startsAs": "failed" });
+  world.patch({ "local.commandRun": true });
+  await new Promise((resolve) => { const off = world.subscribe(() => { if (local.state().state === "failed") { off(); resolve(); } }); });
+  world.patch({ "local.startsAs": "running" });
+  await local.restart();
+  assert.equal(local.state().state, "running");
+});
+
 test("the desktop app's local host installs, starts, stops and pairs on the world's clock", async () => {
   const { world, identities } = await setup();
   const host = desktopHost(world, identities);
@@ -790,4 +814,29 @@ test("a desktop view lays the page out at a desktop's size at least, scaled to f
   const phone = deviceBox({ width: 600, height: 700 }, "phone");
   assert.deepEqual([phone.width, phone.height, phone.scale], [390, 700, 1]);
   assert.equal(phone.left, 105);
+});
+
+test("the first visit and the local host's scenario reach every state of this computer, and an app with no install seam", async () => {
+  const STATES = ["absent", "not-installed", "stopped-by-person", "starting", "backoff", "failed", "service-failed", "refused", "incompatible", "running"];
+  const scenarios = await loadMockScenarios();
+  for (const id of ["first-visit", "desktop-local-host"]) {
+    const shipped = scenarios.find((s) => s.id === id);
+    const option = shipped.options.find((o) => o.id === "localState");
+    assert.deepEqual([...new Set(option.values.map((v) => v.set["local.state"]))].sort(), [...STATES].sort(), id);
+    assert.ok(option.values.some((v) => v.set["local.commandRun"] === true), id);
+    for (const value of option.values) {
+      const status = localStatus(stateFor(shipped, choicesFor(shipped, { localState: value.value })).local, 0);
+      assert.equal(status.state, value.set["local.state"], `${id} ${value.value}`);
+    }
+    for (const [appInstalls, offered] of [["no", false], ["yes", true]]) {
+      const world = createWorld(shipped, { appInstalls }, instant);
+      const host = desktopHost(world, await makeIdentities(world.state));
+      assert.equal(typeof host.localHost.install === "function", offered, `${id} ${appInstalls}`);
+    }
+  }
+  // Every scenario's app installs, as the desktop app does.
+  for (const shipped of scenarios) {
+    const world = createWorld(shipped, {}, instant);
+    assert.equal(typeof desktopHost(world, await makeIdentities(world.state)).localHost.install, "function", shipped.id);
+  }
 });
