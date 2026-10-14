@@ -105,8 +105,8 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
         if (!simulateUser(frame, sampleUser.value || CONVERSATION_SAMPLES.user[0])) voiceNote.textContent = "Open a conversation in the page first.";
         else schedulePreview(frame, () => simulateUser(frame, AGAIN_SAMPLE), SPOKEN_TURN_MS + AGAIN_AFTER_MS);
       } }),
-      el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript", onclick: () => {
-        if (liveCall(world)) {
+      el("button", { type: "button", textContent: "Agent speaks", title: "A reply with its voice: the bubble, the karaoke, the transcript (joins the call first)", onclick: async () => {
+        if (await inPageCall(frame, world, voiceNote)) {
           if (!agentSpeaks(world, sampleAgent.value)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
           return;
         }
@@ -115,8 +115,8 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       el("button", { type: "button", textContent: "Remove preview turns", title: "Remove turns added by the visual sample buttons", onclick: () => {
         if (!removePreviewTurns(frame)) voiceNote.textContent = "Open a conversation in the page first.";
       } }),
-      el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds, then it answers with the reply above", onclick: () => {
-        if (liveCall(world)) {
+      el("button", { type: "button", textContent: "Agent working", title: "The agent busy for a few seconds, then it answers with the reply above (joins the call first)", onclick: async () => {
+        if (await inPageCall(frame, world, voiceNote)) {
           if (!agentWorks(world, WORKING_MS)) voiceNote.textContent = "The call is on no conversation: pick one in the page.";
           else void world.delay(WORKING_MS).then(() => agentSpeaks(world, sampleAgent.value));
           return;
@@ -438,6 +438,29 @@ export function removePreviewTurns(frame) {
   if (facts.karaokeState?.segment?.startsWith("preview-agent-")) Object.assign(patch, { botLive: false, karaokeState: null });
   page.store.patch(patch);
   return true;
+}
+/**
+ * The page in a call through the mock room, with the conversation it shows, as the person's Join puts it: what an agent
+ * says is heard only in a call, and only from the conversation the call is bound to; any other reply arrives unheard
+ * (the bicho's "!"). A synthetic call the sample buttons made (`pageConversation`: no socket, no binding) is left
+ * first. Resolves whether the page is in one, saying on `note` that it joins.
+ */
+async function inPageCall(frame, world, note, { wait = later, within = 10_000 } = {}) {
+  const page = frame?.contentWindow, store = page?.sidevoiceUI?.store, actions = page?.sidevoiceActions;
+  if (liveCall(world)?.thread) return true;
+  if (!store || !actions?.toggleCall || !store.getState().session.viewed) return false;
+  note.textContent = "Joining the call first: a reply is heard in one.";
+  if (store.getState().call.joined) await actions.toggleCall();
+  await actions.toggleCall();
+  for (const until = Date.now() + within; Date.now() < until; await wait(100)) {
+    const state = store.getState();
+    if (liveCall(world)?.thread && state.session.selected && state.session.selected === state.session.viewed) {
+      note.textContent = "";
+      return true;
+    }
+  }
+  note.textContent = "The page did not join the call: join it with its call button, then try again.";
+  return false;
 }
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
 function pageConversation(frame) {
