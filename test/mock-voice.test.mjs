@@ -26,15 +26,20 @@ test("the mocked speaker has its own levels, including zero gaps during playback
   assert.ok(output.some(([phase, level]) => phase === "playing" && level === 0));
   assert.equal(output.at(-1)[1], 0);
   assert.deepEqual(mic, [], "speaker output never leaks into the microphone channel");
-  const first = voice.host.say("First overlapping reply.");
-  const second = voice.host.say("Second overlapping reply.");
-  assert.deepEqual(await Promise.all([first.outcome, second.outcome]), [{ status: "heard" }, { status: "heard" }],
-    "telemetry does not change the mock's reply outcomes");
+  const first = voice.host.say("Short.");
+  const second = voice.host.say("A much longer overlapping reply that keeps sounding after the first finishes.");
+  assert.deepEqual(await first.outcome, { status: "heard" });
+  assert.equal(voice.state.playback, "playing", "one completed reply cannot idle another");
+  assert.deepEqual(await second.outcome, { status: "heard" });
+  assert.ok(output.filter(([, level]) => level > 0).every(([phase]) => phase === "playing"), "positive output is always reported under playing");
   assert.equal(output.at(-1)[1], 0);
   const running = voice.host.say("A longer sentence, with enough time to cancel.");
-  await new Promise((resolve) => setImmediate(resolve));
+  const continuing = voice.host.say("Another long reply that continues to sound after its neighbor is cancelled.");
+  for (let i = 0; i < 12 && voice.state.playback !== "playing"; i++) await new Promise((resolve) => setImmediate(resolve));
   running.cancel();
   await running.outcome;
+  assert.equal(voice.state.playback, "playing", "cancelling one reply cannot idle another");
+  await continuing.outcome;
   assert.equal(output.at(-1)[1], 0);
   w.patch({ "voice.tts": "error" });
   await voice.host.say("Failure").outcome;
@@ -76,12 +81,39 @@ test("direct agent simulation gives the stage output envelopes and abandons old 
   assert.equal(facts.botLive, false);
   assert.deepEqual(levels.at(-1), ["clear", 0]);
   assert.equal(simulateAgent(frame, "old", { wait }), true);
+  const switchedSegment = facts.history.at(-1).segment;
   const oldWait = pending.shift();
-  assert.equal(simulateAgent(frame, "new", { wait }), true);
-  const count = levels.length;
+  facts.viewedThread = "fp|other";
   oldWait();
   await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(facts.history.find((row) => row.segment === switchedSegment).audio, "interrupted");
+  assert.equal(facts.botLive, false);
+  assert.equal(facts.karaokeState, null);
+  facts.viewedThread = "fp|one";
+  assert.equal(simulateAgent(frame, "old again", { wait }), true);
+  const replacedSegment = facts.history.at(-1).segment;
+  const replacedWait = pending.shift();
+  assert.equal(simulateAgent(frame, "new", { wait }), true);
+  const newSegment = facts.history.at(-1).segment;
+  const count = levels.length;
+  replacedWait();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(levels.length, count, "abandoned playback published nothing");
+  assert.equal(facts.history.find((row) => row.segment === replacedSegment).audio, "interrupted");
+  assert.equal(facts.botLive, true, "the replaced run cannot stop its successor");
+  assert.equal(facts.karaokeState.segment, newSegment);
+});
+
+test("direct simulation uses the first participant when no conversation is explicitly selected", async () => {
+  const facts = { viewedThread: null, sessionId: "s", history: [], roomBinding: null, botLive: false, karaokeState: null };
+  const store = { getState: () => ({ facts, participants: [{ threadId: "fp|first", title: "First" }] }), patch: (values) => Object.assign(facts, values) };
+  const levels = [];
+  const frame = { contentWindow: { sidevoiceUI: { store, playbackLevel: { clear() {}, publish: (level) => levels.push(level) } } } };
+  assert.equal(simulateAgent(frame, "Hello", { wait: () => Promise.resolve() }), true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(levels.some((level) => level > 0));
+  assert.equal(facts.history[0].audio, "played");
+  assert.equal(facts.botLive, false);
 });
 
 test("local models run by place, list their voices once installed, and say which build to take", () => {

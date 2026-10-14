@@ -396,12 +396,13 @@ export function sampleLabel(text) {
 
 let simulated = 0;
 const agentRuns = new WeakMap();
+const selectedConversation = (state) => state.facts.viewedThread || state.facts.roomBinding?.thread_id || state.participants?.[0]?.threadId;
 /** The page's store and the conversation it shows, in a call as far as the page can tell: the facts the room sets. */
 function pageConversation(frame) {
   const store = frame?.contentWindow?.sidevoiceUI?.store;
   if (!store) return null;
   const state = store.getState();
-  const thread = state.facts.viewedThread || state.facts.roomBinding?.thread_id || state.participants?.[0]?.threadId;
+  const thread = selectedConversation(state);
   if (!thread) return null;
   if (!state.facts.sessionId) store.patch({ sessionId: "preview-session", ws: state.facts.ws || { readyState: 3, send() {}, close() {} } });
   return { store, thread, session: store.getState().facts.sessionId };
@@ -479,12 +480,17 @@ export function simulateAgent(frame, text, { wait = later } = {}) {
   channel?.clear?.();
   const current = () => agentRuns.get(frame) === run && frame.contentWindow?.sidevoiceUI?.store === store &&
     store.getState().facts.sessionId === session &&
-    (store.getState().facts.viewedThread || store.getState().facts.roomBinding?.thread_id) === thread;
-  const abandoned = () => { if (current()) return false; if (agentRuns.get(frame) === run) channel?.clear?.(); return true; };
+    selectedConversation(store.getState()) === thread;
   const segment = "preview-agent-" + ++simulated;
   const name = store.getState().participants?.find((row) => row.threadId === thread)?.title ?? "";
   const words = [...text.matchAll(/\S+/g)].map((match) => match.index + match[0].length);
   const set = (audio) => store.patch({ history: store.getState().facts.history.map((r) => r.segment === segment ? { ...r, audio } : r) });
+  const finish = (audio) => {
+    set(audio);
+    if (store.getState().facts.karaokeState?.segment === segment) store.patch({ botLive: false, karaokeState: null });
+    if (agentRuns.get(frame) === run) channel?.clear?.();
+  };
+  const abandoned = () => { if (current()) return false; finish("interrupted"); return true; };
   void (async () => {
     const history = store.getState().facts.history;
     store.patch({ history: [...history, { segment, thread, session, role: "assistant", text, name, time: Date.now(), seq: history.length + 1, audio: "playing" }],
@@ -498,12 +504,10 @@ export function simulateAgent(frame, text, { wait = later } = {}) {
       if (abandoned()) return;
       store.patch({ karaokeState: { segment, from: 0, to: end } });
     }
-    channel?.clear?.();
+    if (agentRuns.get(frame) === run) channel?.clear?.();
     await wait(400);
     if (abandoned()) return;
-    set("played");
-    store.patch({ botLive: false, karaokeState: null });
-    channel?.clear?.();
+    finish("played");
   })();
   return true;
 }
