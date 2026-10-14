@@ -11,8 +11,10 @@
   const report = (kind, data) => {
     try { parent.postMessage({ source: "turn-lab-browser", kind, data }, "*"); } catch {}
   };
+  // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
+  // but discard the previous room's pairing before the web app starts.
   let paired = false;
-  try { paired = (JSON.parse(localStorage.getItem("sidevoice.pairings") || "{}").pairings ?? []).length > 0; } catch {}
+  try { localStorage.removeItem("sidevoice.pairings"); localStorage.removeItem("sidevoice.local-host-selected"); } catch {}
   report("browser-ready", { path: location.pathname, microphone: Boolean(navigator.mediaDevices?.getUserMedia), paired });
   const readyAction = async () => {
     for (let i = 0; i < 100 && !window.sidevoiceActions?.pairDevice; i++) await new Promise((resolve) => setTimeout(resolve, 100));
