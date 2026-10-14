@@ -1,7 +1,7 @@
 {
   "id": "desktop-local-host",
   "title": "Desktop app with its local host",
-  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states, its updates and its reach. Seeded, to try removing them: this app, Mac de Ana, and two others on this computer's host (Safari on iPhone, Chrome on Mac) and three on the NUC (Safari on iPhone, Firefox on Windows, Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); the NUC and an old laptop (answering through the room; the card turns it off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search finds its three (the card makes it fail: timed out, or Sidevoice not running); the old laptop's finds Claude Code connected, Codex set up by an older Sidevoice and Cursor not connected. New: Codex just found here, an update of this computer's service (0.8.1 → 0.9.0), and a setting from What's new (set up on the release before). Seeded too: a transcript in the conversation on top (sidevoice-core on this computer), six messages to read (the card empties it).",
+  "summary": "The desktop app runs this computer's local host, in use, and the NUC is paired too. Walk the local host's states (every one, nothing installed and the install command run too), its updates and its reach; as the desktop app, it installs nothing (The app installs Sidevoice brings the app's own install back). Seeded, to try removing them: this app, Mac de Ana, and two others on this computer's host (Safari on iPhone, Chrome on Mac) and three on the NUC (Safari on iPhone, Firefox on Windows, Edge on Windows), each with when it paired and was last seen (Revoke; Rename any, this one too); the NUC and an old laptop (answering through the room; the card turns it off) paired (Forget); the models in use and three not used for 12, 45 and 120 days (this app can't delete them); ElevenLabs' key connected, OpenAI's not. Agents on this computer, every state at once: Claude Code connected; Codex just found (New); Gemini CLI not connected; OpenCode set up by an older Sidevoice (Connect updates it); Windsurf with another 'sidevoice' entry; Zed whose MCP settings can't be read; Goose unknown; Cursor by hand only; Amp, whose Connect takes 8 s; GitHub Copilot CLI, whose Connect fails; Kiro connected but no longer installed; Continue not installed (hidden). The NUC's agent search finds its three (the card makes it fail: timed out, or Sidevoice not running); the old laptop's finds Claude Code connected, Codex set up by an older Sidevoice and Cursor not connected. New: Codex just found here, an update of this computer's service (0.8.1 → 0.9.0), and a setting from What's new (set up on the release before). Seeded too: a transcript in the conversation on top (sidevoice-core on this computer), six messages to read (the card empties it).",
   "view": "app",
   "defaults": { "setup": "earlier", "update": "available", "installed": "seeded", "keys": "elevenlabs" },
   "world": {
@@ -51,15 +51,17 @@
       { "value": "pending", "label": "not done: opens on the setup", "set": { "setup": null } }
     ] },
     { "id": "localState", "group": "Local host", "label": "State", "values": [
-      { "value": "running", "label": "running", "set": { "local.state": "running", "local.failure": null } },
-      { "value": "starting", "label": "starting", "set": { "local.state": "starting", "local.failure": null } },
-      { "value": "backoff", "label": "retrying (backoff)", "set": { "local.state": "backoff", "local.failure": { "key": "import.missing-module", "step": "service-start" } } },
-      { "value": "failed", "label": "failed: missing module", "set": { "local.state": "failed", "local.failure": { "key": "import.missing-module", "step": "service-start" } } },
-      { "value": "service-failed", "label": "service failed: start limit", "set": { "local.state": "service-failed", "local.failure": { "key": "start-limit", "step": "service" } } },
-      { "value": "stopped", "label": "stopped by the person", "set": { "local.state": "stopped-by-person", "local.failure": null } },
-      { "value": "not-installed", "label": "not installed as a service", "set": { "local.state": "not-installed", "local.installed": false, "local.failure": null } },
-      { "value": "refused", "label": "refuses this app", "set": { "local.state": "refused", "local.failure": null } },
-      { "value": "incompatible", "label": "incompatible", "set": { "local.state": "incompatible", "local.failure": null } }
+      { "value": "running", "label": "running (answers)", "set": { "local.state": "running", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "absent", "label": "nothing installed (the install command)", "set": { "local.state": "absent", "local.installed": false, "local.failure": null, "local.commandRun": null } },
+      { "value": "command", "label": "the install command run: starting…, then as a start ends", "set": { "local.state": "absent", "local.installed": false, "local.failure": null, "local.commandRun": true } },
+      { "value": "not-installed", "label": "installed, its service not set up", "set": { "local.state": "not-installed", "local.installed": false, "local.failure": null, "local.commandRun": null } },
+      { "value": "stopped", "label": "stopped by the person", "set": { "local.state": "stopped-by-person", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "starting", "label": "starting", "set": { "local.state": "starting", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "backoff", "label": "retrying (backoff)", "set": { "local.state": "backoff", "local.installed": true, "local.failure": { "key": "import.missing-module", "step": "service-start" }, "local.commandRun": null } },
+      { "value": "failed", "label": "failed: missing module", "set": { "local.state": "failed", "local.installed": true, "local.failure": { "key": "import.missing-module", "step": "service-start" }, "local.commandRun": null } },
+      { "value": "service-failed", "label": "service failed: start limit", "set": { "local.state": "service-failed", "local.installed": true, "local.failure": { "key": "start-limit", "step": "service" }, "local.commandRun": null } },
+      { "value": "refused", "label": "refuses this app", "set": { "local.state": "refused", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "incompatible", "label": "incompatible", "set": { "local.state": "incompatible", "local.installed": true, "local.failure": null, "local.commandRun": null } }
     ] },
     { "id": "transcript", "group": "Local host", "label": "Transcript", "reload": true, "values": [
       { "value": "seeded", "label": "seeded: a conversation to read", "set": { "transcript": "seeded" } },
@@ -68,6 +70,10 @@
     { "id": "startsAs", "group": "Local host", "label": "A start ends", "values": [
       { "value": "running", "label": "running", "set": { "local.startsAs": "running" } },
       { "value": "failed", "label": "failed", "set": { "local.startsAs": "failed", "local.startFailure": { "key": "launch.exited", "step": "service-start" } } }
+    ] },
+    { "id": "appInstalls", "group": "Local host", "label": "The app installs Sidevoice", "reload": true, "values": [
+      { "value": "no", "label": "no: the install command (as the desktop app)", "set": { "local.appInstalls": false } },
+      { "value": "yes", "label": "yes: its own Prepare (the install seam)", "set": { "local.appInstalls": true } }
     ] },
     { "id": "reach", "group": "Local host", "label": "Reach of its codes", "values": [
       { "value": "local-only", "label": "this computer only", "set": { "local.reach": "local-only" } },

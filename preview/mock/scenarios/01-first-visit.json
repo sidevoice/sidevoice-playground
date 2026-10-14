@@ -1,7 +1,7 @@
 {
   "id": "first-visit",
   "title": "First visit: no machine yet",
-  "summary": "Nothing paired. Pair the NUC with a code from the card, or, in the desktop app view, install this computer's local host.",
+  "summary": "Nothing paired, first-run setup not done. Pair the NUC with a code from the card, or, in the desktop app view, prepare this computer (the setup's Prepare this computer; Settings › Machines › This computer too): as the desktop app, it shows the install command. Pick “the install command run” in This computer's State: it starts, answers, and the setup moves on. Every other state this computer's Sidevoice can be in is there (Start, Retry, Reconnect…); “The app installs Sidevoice” brings the app's own Prepare back, with its install and its failures.",
   "view": "browser",
   "world": {
     "page": "room",
@@ -10,7 +10,7 @@
         { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" }
       ] }
     },
-    "local": { "computerName": "Mac de Ana", "state": "absent", "installed": false, "reach": "local-only", "install": "ok", "participants": [] }
+    "local": { "computerName": "Mac de Ana", "state": "absent", "installed": false, "reach": "local-only", "participants": [] }
   },
   "options": [
     { "id": "nucReach", "group": "The NUC", "label": "Reachable", "values": [
@@ -19,7 +19,20 @@
       { "value": "offline", "label": "off (the room says so)", "set": { "machines.nuc.reach": "offline" } },
       { "value": "away", "label": "nowhere (no answer)", "set": { "machines.nuc.reach": "away" } }
     ] },
-    { "id": "install", "group": "This computer (desktop app)", "label": "Installing the local host", "values": [
+    { "id": "localState", "group": "This computer (desktop app)", "label": "State", "values": [
+      { "value": "absent", "label": "nothing installed (the install command)", "set": { "local.state": "absent", "local.installed": false, "local.failure": null, "local.commandRun": null } },
+      { "value": "command", "label": "the install command run: starting…, then as a start ends", "set": { "local.state": "absent", "local.installed": false, "local.failure": null, "local.commandRun": true } },
+      { "value": "not-installed", "label": "installed, its service not set up", "set": { "local.state": "not-installed", "local.installed": false, "local.failure": null, "local.commandRun": null } },
+      { "value": "stopped", "label": "stopped by the person", "set": { "local.state": "stopped-by-person", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "starting", "label": "starting", "set": { "local.state": "starting", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "backoff", "label": "retrying (backoff)", "set": { "local.state": "backoff", "local.installed": true, "local.failure": { "key": "import.missing-module", "step": "service-start" }, "local.commandRun": null } },
+      { "value": "failed", "label": "failed: missing module", "set": { "local.state": "failed", "local.installed": true, "local.failure": { "key": "import.missing-module", "step": "service-start" }, "local.commandRun": null } },
+      { "value": "service-failed", "label": "service failed: start limit", "set": { "local.state": "service-failed", "local.installed": true, "local.failure": { "key": "start-limit", "step": "service" }, "local.commandRun": null } },
+      { "value": "refused", "label": "refuses this app", "set": { "local.state": "refused", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "incompatible", "label": "incompatible", "set": { "local.state": "incompatible", "local.installed": true, "local.failure": null, "local.commandRun": null } },
+      { "value": "running", "label": "running (answers)", "set": { "local.state": "running", "local.installed": true, "local.failure": null, "local.commandRun": null } }
+    ] },
+    { "id": "install", "group": "This computer (desktop app)", "label": "The app's install (where it installs)", "values": [
       { "value": "ok", "label": "works", "set": { "local.install": "ok" } },
       { "value": "network", "label": "fails: network", "set": { "local.install": "download@install.network" } },
       { "value": "proxy", "label": "fails: proxy", "set": { "local.install": "download@install.proxy" } },
@@ -28,13 +41,17 @@
       { "value": "disk", "label": "fails: disk full", "set": { "local.install": "staging@install.disk" } },
       { "value": "service", "label": "fails: service start", "set": { "local.install": "service-start@service.start.failed" } }
     ] },
-    { "id": "installSpeed", "group": "This computer (desktop app)", "label": "Download", "values": [
+    { "id": "installSpeed", "group": "This computer (desktop app)", "label": "The app's download (where it installs)", "values": [
       { "value": "normal", "label": "normal", "set": { "local.installSlow": false } },
       { "value": "slow", "label": "slow (×6)", "set": { "local.installSlow": true } }
     ] },
-    { "id": "startsAs", "group": "This computer (desktop app)", "label": "Once installed, it starts", "values": [
+    { "id": "startsAs", "group": "This computer (desktop app)", "label": "A start (or the install) ends", "values": [
       { "value": "running", "label": "and runs", "set": { "local.startsAs": "running" } },
       { "value": "failed", "label": "and fails (missing module)", "set": { "local.startsAs": "failed", "local.startFailure": { "key": "import.missing-module", "step": "service-start" } } }
+    ] },
+    { "id": "appInstalls", "group": "This computer (desktop app)", "label": "The app installs Sidevoice", "reload": true, "values": [
+      { "value": "no", "label": "no: the install command (as the desktop app)", "set": { "local.appInstalls": false } },
+      { "value": "yes", "label": "yes: its own Prepare (the install seam)", "set": { "local.appInstalls": true } }
     ] },
     { "id": "page", "group": "This page", "label": "Served by", "values": [
       { "value": "room", "label": "the room", "set": { "page": "room" } },
