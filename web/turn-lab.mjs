@@ -26,8 +26,12 @@ async function boot() {
   $("script").onchange();
   const status = await ask("/preview/status");
   previewOrigin = new URL(status.link).origin;
-  await ask("/preview/turn-lab/start", {});
-  setStatus("Building pinned core, connector, web and voice. This can take several minutes on first use.");
+  if (status.job.state !== "starting" && (status.job.state !== "running" || status.current?.scenario !== "turn-lab")) {
+    await ask("/preview/turn-lab/start", {});
+  }
+  setStatus(status.job.state === "running" && status.current?.scenario === "turn-lab"
+    ? "Resuming the real room."
+    : "Building pinned core, connector, web and voice. This can take several minutes on first use.");
 }
 
 async function poll() {
@@ -87,7 +91,7 @@ $("export").onclick = async () => {
 };
 window.addEventListener("message", (event) => {
   if (event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
-  if (event.data.kind === "browser-ready" && !pairingSent) {
+  if (event.data.kind === "browser-ready" && event.data.data?.paired === false && !pairingSent) {
     pairingSent = true;
     void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));
   }
