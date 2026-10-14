@@ -162,16 +162,16 @@
 
       <section id="turns" class="screen card" hidden>
         <h2>Turn detection</h2>
-        <p class="muted">The voice module's chain on this engine: the microphone into the voice-activity detector's
-          stream, and at each end of speech either the end-of-turn model (smart-turn) or silence with patience, with
-          sidevoice-voice's numbers.</p>
+        <p class="muted">The voice module's chain on this engine, as Pipecat ran it: the microphone into the
+          voice-activity detector's stream, speech from each window's probability and volume, and at each stop of speech
+          either the end-of-turn model (smart-turn) or silence with patience, with sidevoice-voice's numbers.</p>
         <div class="field-row">
           <label class="field grow"><span class="label">Voice activity</span><select id="turns-vad"></select></label>
           <label class="field grow"><span class="label">End of turn</span><select id="turns-eot"></select></label>
         </div>
         <p id="turns-models" class="status" aria-live="polite"></p>
         <fieldset class="turns-options">
-          <legend class="muted">Detector (a new stream takes them)</legend>
+          <legend class="muted">Detector's own speech flag, used only where it gives no probability (a new stream takes them)</legend>
           <label class="field"><span class="label">Threshold <output id="turns-threshold-value"></output></span>
             <input id="turns-threshold" type="range" min="0.05" max="0.95" step="0.05" /></label>
           <div class="field-row">
@@ -191,7 +191,7 @@
           <label class="field grow"><span class="label">End-of-turn threshold <output id="turns-eot-threshold-value"></output></span>
             <input id="turns-eot-threshold" type="range" min="0.05" max="0.95" step="0.05" /></label>
         </div>
-        <label class="check"><input id="turns-smart" type="checkbox" /> Smart-turn: ask the end-of-turn model at each pause</label>
+        <label class="check"><input id="turns-smart" type="checkbox" /> Smart-turn: ask the end-of-turn model each time speech stops</label>
         <div class="actions">
           <button type="button" id="turns-start" class="primary">Listen</button>
           <button type="button" id="turns-stop" class="ghost" disabled>Stop</button>
