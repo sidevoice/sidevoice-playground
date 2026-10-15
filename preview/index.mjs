@@ -167,9 +167,9 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   async function route(req, url) {
     const path = url.pathname;
     if (path === "/preview/turn-lab/config" && req.method === "GET") return JSON.parse(await readFile(LAB_CONFIG, "utf8"));
-    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: evidence(events), agent: agent?.state ?? null, job, current: manager.current };
+    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: evidence(events, agent?.state.conversation), agent: agent?.state ?? null, job, current: manager.current };
     if (path === "/preview/turn-lab/scripts" && req.method === "GET") return SCRIPTS;
-    if (path === "/preview/turn-lab/export" && req.method === "GET") return { at: new Date().toISOString(), events, evidence: evidence(events) };
+    if (path === "/preview/turn-lab/export" && req.method === "GET") return { at: new Date().toISOString(), events, evidence: evidence(events, agent?.state.conversation) };
     if (path === "/preview/options" && req.method === "GET") {
       const [web, core, connector, worktrees] = await Promise.all([
         listWeb(api), listArchives(api, "core"), listArchives(api, "connector"), devRepo ? listWorktrees(devRepo) : [],

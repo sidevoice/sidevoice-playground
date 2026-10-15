@@ -9,7 +9,7 @@
     }));
   } catch {}
   const report = (kind, data) => {
-    try { parent.postMessage({ source: "turn-lab-browser", kind, data }, "*"); } catch {}
+    try { parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: wantedThread } : data }, "*"); } catch {}
   };
   // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
   // but discard the previous room's pairing before the web app starts.
@@ -76,7 +76,9 @@
       const wire = value.startsWith("42") ? JSON.parse(value.slice(2)) : JSON.parse(value);
       const parsed = Array.isArray(wire) ? { type: wire[0], data: wire[1] } : wire;
       const data = parsed.data ?? parsed;
-      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, heard_chars: data.heard_chars, status: data.status, reason: data.reason, on: data.on, text: data.text, data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, heard_chars: data.heard_chars, status: data.status, reason: data.reason, on: data.on } };
+      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, globally_heard: data.globally_heard, on: data.on, text: data.text,
+        phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq,
+        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
     } catch { return null; }
   };
   const NativeWebSocket = window.WebSocket;
@@ -99,7 +101,7 @@
       if (path.startsWith("/api/presentation/") && response.ok) {
         const body = await response.clone().json();
         const rows = body.rows ?? body.messages ?? body.history ?? [];
-        if (Array.isArray(rows)) for (const row of rows) report("room-frame", { type: "history", epoch: row.epoch, utterance_id: row.utterance_id, status: row.status, heard_chars: row.heard_chars, reason: row.audio_reason, text: row.text });
+        if (Array.isArray(rows)) for (const row of rows) report("room-frame", { type: "history", row });
       }
     } catch {}
     return response;

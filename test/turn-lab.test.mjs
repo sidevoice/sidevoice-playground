@@ -113,7 +113,8 @@ test("case verdicts stay pending without evidence, record refusals and keep phys
 test("the evidence log splits heard and unheard by Unicode scalars", () => {
   const events = [
     { kind: "script-start", data: { id: "T01" } },
-    { kind: "agent-input", data: { channel: "voice", text: "Wait", epoch: 2, unheard: { replies: [{ utterance_id: "u", text: "é🐙ab", fate: "interrupted", heard_chars: 2, reason: "user_interrupted" }] } } },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "u", text: "é🐙ab" }, result: { status: "published" } } },
+    { kind: "agent-input", data: { channel: "voice", text: "Wait", epoch: 2, unheard: { replies: [{ utterance_id: "u", text: "é🐙ab", fate: "interrupted", cut: true, heard_chars: 2, reason: "user_interrupted" }] } } },
   ];
   const view = evidence(events);
   assert.equal(view.currentEpoch, 2);
@@ -125,8 +126,10 @@ test("browser playback receipts and history settle reply fates", () => {
   const events = [
     { kind: "script-start", data: { id: "T12" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "skip", text: "First" }, result: { status: "published", audio: "queued" } } },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "next", text: "Second" }, result: { status: "published", audio: "queued" } } },
     { kind: "browser-action", data: { type: "voice-playback", utterance_id: "skip", status: "interrupted", reason: "user_skipped", heard_chars: 2 } },
     { kind: "room-frame", data: { type: "history", utterance_id: "skip", status: "skipped", reason: "user_skipped", heard_chars: 5 } },
+    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "next", status: "heard", heard_chars: 6 } },
     { kind: "agent-input", data: { channel: "note", notice: { kind: "reply_skipped" } } },
   ];
   assert.equal(evidence(events).fates[0].fate, "skipped");
@@ -151,7 +154,7 @@ test("earlier case verdicts and notices remain visible after another script star
   const events = [
     { kind: "script-start", data: { id: "T02d" } },
     { kind: "tool-result", data: { name: "voice_say", result: { status: "rejected", reason: "user_speaking" } } },
-    { kind: "agent-input", data: { channel: "note", notice: { kind: "turn_empty" }, epoch: 1 } },
+    { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, epoch: 1 } },
     { kind: "script-start", data: { id: "T03" } },
   ];
   const view = evidence(events);

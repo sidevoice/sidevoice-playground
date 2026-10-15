@@ -155,7 +155,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
         nextPullAt = now() + script.pullDelayMs;
         record("pull-delayed", { until: nextPullAt });
       }
-      record("script-start", { id, ...script });
+      record("script-start", { id, conversation, inputMode, session_id: replyContext?.session_id, revision: replyContext?.revision, epoch: replyContext?.epoch, ...script });
       if (script.delay) await new Promise((resolve) => setTimeout(resolve, script.delay));
       const results = [];
       for (const text of script.lines) results.push(await say(text, replyContext));
