@@ -61,7 +61,7 @@ function judge(events) {
       const result = item.result;
       const disposition = status(result);
       const textOnly = disposition === "text_only" || result?.audio === "text_only";
-      settle(item.args.utterance_id, { fate: disposition === "admission_unknown" ? "known limitation" : disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
+      settle(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
     }
     const row = item?.type === "history" ? item.row ?? item : null;
     const historyUtterance = row?.role && row.role !== "assistant" ? null : row?.id?.split(":voice:").at(-1);

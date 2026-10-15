@@ -26,7 +26,7 @@ export function verdict(id, events, fates) {
   const fate = (key) => fates.get(key)?.fate;
   const note = (kind) => notes.some((item) => item.kind === kind);
   const status = (item) => item.result?.status ?? item.result?.result?.status;
-  const unknown = publications.some((item) => status(item) === "admission_unknown");
+  const textOnly = (item, reason) => good(status(item)) && item.result?.audio === "text_only" && item.result?.reason === reason;
   const completed = (count) => publications.length >= count && ids.length === publications.length && distinct.size === publications.length;
   const duplicate = ids.length !== distinct.size;
   const unheardIds = unheard.map((item) => item.utterance_id);
@@ -43,7 +43,12 @@ export function verdict(id, events, fates) {
   }
   if (id === "T01" && publications.length && unheard.length) {
     const item = unheard.find((row) => ids.includes(row.utterance_id));
-    if (!item || item.fate !== "interrupted" || item.cut !== true || !Number.isInteger(item.heard_chars) || !inputs.some((input) => input.channel === "voice" && input.text))
+    const cutAt = events.findIndex((event) => event.kind === "agent-input" && event.data?.unheard?.replies?.some((row) => row.utterance_id === item?.utterance_id && row.fate === "interrupted" && row.cut === true));
+    const resumed = cutAt >= 0 && events.slice(cutAt + 1).some((event) => ["room-frame", "browser-action"].includes(event.kind) &&
+      (event.data?.utterance_id === item?.utterance_id || event.data?.row?.id?.endsWith(`:voice:${item?.utterance_id}`)) &&
+      ((event.data?.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(event.data.status)) ||
+       (event.data?.type === "history" && (event.data?.row?.globally_heard || event.data?.row?.status === "playback_finished"))));
+    if (!item || item.fate !== "interrupted" || item.cut !== true || !Number.isInteger(item.heard_chars) || !inputs.some((input) => input.channel === "voice" && input.text) || fate(item.utterance_id) === "played" || resumed)
       result = fail("Interrupted reply needs a matched cut extent and spoken input");
     else result = pass("Matched interrupted reply, cut extent, and spoken input");
   }
@@ -55,7 +60,7 @@ export function verdict(id, events, fates) {
     else result = pass("Accepted reply stayed unstarted and reached the matching outcome");
   }
   if (id === "T03" && publications.length && (note("reply_not_played") || unheard.length)) {
-    const stale = publications.some((item) => status(item) === "text_only" && item.result?.reason === "newer_turn" && item.id);
+    const stale = publications.some((item) => textOnly(item, "newer_turn") && item.id);
     const matched = unheard.some((item) => ids.includes(item.utterance_id) && item.reason === "newer_turn");
     result = stale && matched && note("reply_not_played") ? pass("Stale admission and matched not-played notice") : fail("Stale admission and not-played notice must identify the same reply");
   }
@@ -87,15 +92,15 @@ export function verdict(id, events, fates) {
   }
   if (id === "T06a" && outputDisabled("agents_muted") && publications.length >= 2) {
     if (!completed(2)) result = fail("Muted case needs two distinct publications");
-    else result = fate(ids[0]) === "cut" && status(publications[1]) === "text_only" && publications[1].result?.reason === "agents_muted" && fate(ids[1]) !== "played"
+    else result = fate(ids[0]) === "cut" && textOnly(publications[1], "agents_muted") && fate(ids[1]) !== "played"
       ? pass("Playing reply cut; muted publication saved without audio") : fail("Mute must cut playback and keep later speech text only");
   }
   if (id === "T06b" && outputDisabled("voice_off") && publications.length) {
-    result = publications.every((item) => status(item) === "text_only" && item.result?.reason === "voice_off" && fate(item.id) !== "played")
+    result = publications.every((item) => textOnly(item, "voice_off") && fate(item.id) !== "played")
       ? pass("Voice-off publication stayed text only") : fail("Voice-off publication must not play");
   }
   if (id === "T06d" && publications.length && note("user_returned")) {
-    const missed = ids.every((key) => publications.find((item) => item.id === key)?.result?.audio === "text_only" || status(publications.find((item) => item.id === key)) === "text_only");
+    const missed = ids.every((key) => publications.find((item) => item.id === key)?.result?.audio === "text_only");
     result = missed && ids.every((key) => fate(key) !== "played" && !begun(key))
       ? pass("Return notice followed missed text without replay") : fail("Missed speech must not replay on return");
   }
@@ -114,12 +119,12 @@ export function verdict(id, events, fates) {
     if (duplicate) result = fail("Skip case needs two distinct publications");
     else if (completed(2)) {
       const [first, second] = ids;
-      if (terminal(fate(first)) && fate(first) !== "skipped" || terminal(fate(second)) && fate(second) !== "played" || unheard.some((item) => item.utterance_id === first && item.reason === "user_skipped"))
+      const playedAfterSkip = events.some((event, index) => event.kind === "browser-action" && event.data?.utterance_id === first && event.data?.reason === "user_skipped" &&
+        events.slice(index + 1).some((later) => ["browser-action", "room-frame"].includes(later.kind) && later.data?.utterance_id === first && later.data?.type === "voice-playback" && ["playing", "heard"].includes(later.data.status)));
+      if (terminal(fate(first)) && fate(first) !== "skipped" || terminal(fate(second)) && fate(second) !== "played" || unheard.some((item) => item.utterance_id === first) || playedAfterSkip)
         result = fail("Skip must mark the first heard by choice and still play the next reply");
       else if (note("reply_skipped") && fate(first) === "skipped" && fate(second) === "played") result = pass("First reply skipped; second played; skip notice reached agent");
     }
   }
-  if (unknown && result.state !== "fail" && result.state !== "pass")
-    result = check("known-limitation", "Core cannot recover the original saved/refused outcome of uncertain speech admission");
   return result;
 }

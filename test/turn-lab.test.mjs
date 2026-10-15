@@ -258,14 +258,14 @@ test("FIFO check requires observed playback starts in publication order", () => 
   assert.equal(evidence(events).checks.T04a.state, "pass");
 });
 
-test("uncertain speech admission is a known core limitation, not a case failure", () => {
+test("uncertain speech admission is not reported as a resolved outcome", () => {
   const events = [
     { kind: "script-start", data: { id: "T07" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "uncertain", text: "Retry me" }, result: { status: "admission_unknown" } } },
   ];
   const view = evidence(events);
-  assert.equal(view.checks.T07.state, "known-limitation");
-  assert.equal(view.fates[0].fate, "known limitation");
+  assert.equal(view.checks.T07.state, "manual");
+  assert.equal(view.fates[0].fate, "admission_unknown");
 });
 
 test("mock voice discards short overlap but qualifies a sustained barge-in", async () => {

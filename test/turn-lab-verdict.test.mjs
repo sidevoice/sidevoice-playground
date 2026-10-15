@@ -34,6 +34,37 @@ test('every automatic case has an invalid-trace FAIL regression', () => {
   assert.deepEqual(Object.keys(bad).sort(), automatic);
 });
 
+test('real MCP text-only publication envelopes satisfy stale, muted, and voice-off checks', () => {
+  const stale = [start('T03'), say('a', 'published', 'newer_turn'), input('note', '', [reply('a', 'unplayed', 'newer_turn', false, null)], 'reply_not_played')];
+  stale[1].data.result.audio = 'text_only';
+  assert.equal(evidence(stale).checks.T03.state, 'pass');
+  const mutedEvents = [start('T06a'), say('a'), frame('voice-playback', 'a', 'interrupted', { heard_chars: 2 }), muted('agents_muted'), say('b', 'published', 'agents_muted')];
+  mutedEvents.at(-1).data.result.audio = 'text_only';
+  assert.equal(evidence(mutedEvents).checks.T06a.state, 'pass');
+  const off = [start('T06b'), muted('voice_off'), say('a', 'published', 'voice_off')];
+  off.at(-1).data.result.audio = 'text_only';
+  assert.equal(evidence(off).checks.T06b.state, 'pass');
+});
+
+test('T01 rejects completion or resumed playback after a matched cut', () => {
+  const cut = input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', true, 2)]);
+  const prefix = [start('T01'), say('a'), frame('voice-playback', 'a', 'playing'), cut];
+  assert.equal(evidence(prefix).checks.T01.state, 'pass');
+  for (const status of ['playing', 'heard']) {
+    assert.equal(evidence([...prefix, frame('voice-playback', 'a', status)]).checks.T01.state, 'fail');
+  }
+  assert.equal(evidence([...prefix, { kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', status: 'playback_finished', globally_heard: true } } }]).checks.T01.state, 'fail');
+});
+
+test('T12 rejects every unheard reason and replay after skip', () => {
+  const prefix = [start('T12'), say('a'), say('b'), frame('voice-playback', 'a', 'interrupted', { reason: 'user_skipped' }), frame('voice-playback', 'b', 'heard'), input('note', '', [], 'reply_skipped')];
+  assert.equal(evidence(prefix).checks.T12.state, 'pass');
+  for (const reason of ['newer_turn', 'agents_muted', 'user_skipped']) {
+    assert.equal(evidence([...prefix, input('note', '', [reply('a', 'unplayed', reason, false, null)])]).checks.T12.state, 'fail');
+  }
+  assert.equal(evidence([...prefix, frame('voice-playback', 'a', 'playing')]).checks.T12.state, 'fail');
+});
+
 test('an outcome from another conversation cannot complete a case', () => {
   const actual = evidence([start('T02c', { conversation: 'a' }), say('a', 'rejected', 'user_speaking'),
     { ...input('voice', 'Other words'), data: { ...input('voice', 'Other words').data, conversation: 'b' } }]).checks.T02c;

@@ -1,11 +1,11 @@
 {
-  "core": "b7eed0351b494f6d46be03a84f84f80c88be18b0",
-  "connector": "215b2ee1d8c1209e4704c5eb0caf0ae8b8edb4ae",
-  "web": "8d4f334cb3a9942d0ca93a7a4c865b63e5bbf9fd",
-  "voice": "b898c55cdffbbf5fe603e2e088e530163825ce06",
+  "core": "2f81d0e00a5ad7ed6e225b57289b2ca365d01956",
+  "connector": "0e035c2286e9b16aa16573dae03f85ee3683af74",
+  "web": "73b7770a97a3f9755a6f5bea6f08fb804771634e",
+  "voice": "85341d78e5b0147600695a3d09124110000ed5a3",
   "engine": "nightly",
   "notes": {
     "connector": "Connector T PR #126; recheck its moving head before a test run",
-    "web": "Web T PR #126; green source-build head"
+    "web": "Web T PR #126; recheck its moving head before a test run"
   }
 }
