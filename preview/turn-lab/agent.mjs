@@ -28,12 +28,12 @@ export const SCRIPTS = {
   T12: { title: "Skip first reply", lines: [longReply, "This next reply must still play."], instruction: "Press Skip during the first reply." },
   T13: { title: "Mute microphone mid-turn", lines: [], instruction: "Speak, then mute the microphone before the turn ends." },
   T14: { title: "Two device hearing", lines: [longReply], instruction: "Hear this on another device, then switch to this one." },
-  T15: { title: "Working after three seconds", lines: [], instruction: "Observe Working at 2.9 and 3.0 seconds of continuous activity." },
+  T15: { title: "Working after three seconds", lines: [], autoReply: "I finished checking.", autoReplyDelayMs: 3500, instruction: "Select this script, then speak. The agent waits 3.5 seconds before answering; watch Working appear at three seconds and clear when the reply arrives." },
   T16: { title: "Push and pull parity", lines: [longReply], pullDelayMs: 5000, instruction: "Repeat notice cases once per delivery mode. In Get messages mode, this script delays the next pull by five seconds." },
 };
 
 export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn }) {
-  let child, receiver, inputMode, conversation, context, script = SCRIPTS.T01, nextPullAt = 0, counter = 0;
+  let child, receiver, inputMode, conversation, context, script = SCRIPTS.T01, nextPullAt = 0, counter = 0, generation = 0;
   const pending = new Map();
   const received = new Set();
   const record = (kind, data) => emit({ at: now(), kind, data });
@@ -46,7 +46,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     const timer = setTimeout(() => { pending.delete(id); reject(new Error(`MCP ${method} timed out`)); }, 15_000);
     pending.set(id, { resolve: (value) => { clearTimeout(timer); resolve(value); }, reject: (error) => { clearTimeout(timer); reject(error); } });
     record("mcp-request", { id, method, params });
-    try { child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); }
+    try { if (!child) throw new Error("MCP is disconnected"); child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); }
     catch (error) { pending.get(id).reject(error); pending.delete(id); }
   });
   const tool = async (name, args) => {
@@ -71,9 +71,15 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     if (id && received.has(id)) return;
     if (id) received.add(id);
     if (message.session_id && message.epoch != null) context = { session_id: message.session_id, revision: message.revision, epoch: message.epoch };
-    if (script?.autoReply && message.channel === "voice" && message.text) void say(script.autoReply, {
-      session_id: message.session_id, revision: message.revision, epoch: message.epoch,
-    });
+    if (script?.autoReply && message.channel === "voice" && message.text) {
+      const selected = script;
+      const replyContext = { session_id: message.session_id, revision: message.revision, epoch: message.epoch };
+      const reply = async () => {
+        if (selected.autoReplyDelayMs) await new Promise((resolve) => setTimeout(resolve, selected.autoReplyDelayMs));
+        if (child) await say(selected.autoReply, replyContext);
+      };
+      void reply().catch((error) => record("auto-reply-error", { message: String(error?.message ?? error) }));
+    }
   };
   return {
     get state() { return { inputMode, conversation, ready: Boolean(conversation) }; },
@@ -90,6 +96,14 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       await new Promise((resolve) => receiver.listen(0, "127.0.0.1", resolve));
       const address = receiver.address();
       child = spawnProcess(program, ["mcp"], { env: { ...connectorEnv(profile), SIDEVOICE_THREAD: `turn-lab-${randomUUID()}`, SIDEVOICE_DELIVERY_URL: `http://127.0.0.1:${address.port}/`, SIDEVOICE_HARNESS: "http" }, stdio: ["pipe", "pipe", "pipe"] });
+      const running = child, runGeneration = ++generation;
+      const lost = (reason) => {
+        if (child !== running) return;
+        record("connector-exit", { reason });
+        child = null; conversation = null; context = null;
+        for (const item of pending.values()) item.reject(new Error(`MCP ${reason}`));
+        pending.clear();
+      };
       let line = "";
       child.stdout.on("data", (chunk) => {
         line += chunk;
@@ -105,7 +119,8 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
         }
       });
       child.stderr.on("data", (chunk) => record("connector-stderr", String(chunk).slice(0, 1000)));
-      child.on("exit", (code) => { record("connector-exit", { code }); for (const item of pending.values()) item.reject(new Error(`MCP exited ${code}`)); pending.clear(); });
+      child.on("exit", (code) => lost(`exited ${code}`));
+      child.on("error", (error) => lost(`failed: ${error.message}`));
       await send("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "turn-lab", version: "1.0.0" } });
       child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
       const joined = await tool("voice_connect", { title: "Turn Lab", input_mode: mode });
@@ -115,7 +130,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       if (!conversation) throw new Error(`voice_connect did not join: ${JSON.stringify(joined)}`);
       if (mode === "pull") {
         const pull = async () => {
-          if (!child || inputMode !== "pull") return;
+          if (!child || inputMode !== "pull" || generation !== runGeneration) return;
           try {
             if (now() >= nextPullAt) {
               const answer = await tool("get_messages", { conversation });
@@ -124,7 +139,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
               if (ids.length) await tool("get_messages", { conversation, ack_ids: ids, after: answer.cursor });
             }
           } catch (error) { record("pull-error", String(error)); }
-          setTimeout(pull, 850);
+          if (child && generation === runGeneration) setTimeout(pull, 850);
         };
         void pull();
       }
@@ -147,8 +162,11 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       return { script: id, results };
     },
     async stop() {
+      generation++;
       if (child && conversation) await tool("voice_disconnect", { conversation }).catch((error) => record("disconnect-error", String(error)));
       const old = child; child = null; conversation = null; context = null;
+      for (const item of pending.values()) item.reject(new Error("MCP stopped"));
+      pending.clear();
       old?.kill("SIGTERM");
       if (receiver) await new Promise((resolve) => receiver.close(resolve));
       receiver = null;

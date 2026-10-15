@@ -85,6 +85,11 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     return value;
   };
   const emit = (event) => { events.push(redact(event)); };
+  const candidate = (config) => ({ core: config.core, connector: config.connector, web: config.web, voice: config.voice, engine: config.engine });
+  const matchesCandidate = (current, config) => current?.mode === "real" && current.scenario === "turn-lab" &&
+    Object.entries(candidate(config)).every(([key, value]) => current.identity?.[key] === value);
+  const labPick = (config) => validStart({ mode: "real", scenario: "turn-lab", web: config.web, core: `sha:${config.core}`,
+    connector: `sha:${config.connector}`, voice: config.voice, engine: config.engine }, scenarios);
 
   async function start(pick) {
     if (agent) { await agent.stop(); agent = null; }
@@ -122,7 +127,8 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
       const { sha, site } = await builds.get(pick.web, tarballs);
       say(`Starting ${pick.scenario.title}: core ${core.tag}${core.source ? ` (${core.source.slice(0, 7)})` : ""}…`);
-      await manager.start({ scenario: pick.scenario, web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site }, core, connector });
+      await manager.start({ scenario: pick.scenario, web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site }, core, connector,
+        identity: { core: core.source ?? null, connector: connector.source ?? null, web: sha, voice: pick.voice ?? null, engine: pick.engine ?? null } });
       emit({ at: Date.now(), kind: "run-start", data: { core: { sha: core.source, digest: core.digest }, connector: { sha: connector.source, digest: connector.digest }, web: sha, voice: { sha: pick.voice, digest: tarballs.voiceDigest ?? null } } });
       job = { state: "running", error: null };
       say("Running: open the preview.");
@@ -173,13 +179,14 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     if (path === "/preview/status" && req.method === "GET") return { job, log: [...log], current: manager.current, origin, link };
     if (req.method !== "POST") return undefined;
-    if (path === "/preview/turn-lab/start") {
-      if (job.state === "starting") throw new RefError(409, "a preview is starting already");
+    if (path === "/preview/turn-lab/start" || path === "/preview/turn-lab/recover") {
       const config = JSON.parse(await readFile(LAB_CONFIG, "utf8"));
-      const scenario = scenarios.find((item) => item.id === "turn-lab");
-      if (!scenario) throw new RefError(500, "Turn Lab scenario missing");
-      void start(validStart({ mode: "real", scenario: scenario.id, web: config.web, core: `sha:${config.core}`, connector: `sha:${config.connector}`, voice: config.voice, engine: config.engine }, scenarios));
-      return { job: { state: "starting" }, config };
+      if (job.state === "starting") throw new RefError(409, "a preview is starting; retry after it finishes");
+      if (path.endsWith("/start") && matchesCandidate(manager.current, config) && job.state === "running") return { job, config, reused: true };
+      const pick = labPick(config);
+      job = { state: "starting", error: null };
+      void start(pick);
+      return { job, config, reused: false };
     }
     if (path === "/preview/turn-lab/connect") {
       if (job.state !== "running") throw new RefError(409, "real room is not ready");

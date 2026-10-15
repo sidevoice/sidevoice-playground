@@ -6,6 +6,12 @@ let attemptedAutoConnect = false;
 let pairingSent = false;
 let joinedThread = null;
 let scripts = {};
+let config = null;
+let activeRunId = null;
+let startRequested = false;
+let polling = false;
+const matchesCandidate = (current) => current?.mode === "real" && current.scenario === "turn-lab" &&
+  ["core", "connector", "web", "voice", "engine"].every((key) => current.identity?.[key] === config?.[key]);
 const ask = async (path, body) => {
   const response = await fetch(path, body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!response.ok) throw new Error(await response.text());
@@ -30,7 +36,7 @@ const preflightText = (event) => {
 };
 
 async function boot() {
-  const config = await ask("/preview/turn-lab/config");
+  config = await ask("/preview/turn-lab/config");
   $("pins").replaceChildren(...Object.entries(config).filter(([key]) => ["core", "connector", "web", "voice", "engine"].includes(key)).flatMap(([key, value]) => {
     const name = document.createElement("dt"), sha = document.createElement("dd"); name.textContent = key; sha.textContent = value ?? "pending"; return [name, sha];
   }));
@@ -41,29 +47,45 @@ async function boot() {
   $("script").onchange();
   const status = await ask("/preview/status");
   previewOrigin = new URL(status.link).origin;
-  if (status.job.state !== "starting" && (status.job.state !== "running" || status.current?.scenario !== "turn-lab")) {
-    await ask("/preview/turn-lab/start", {});
-  }
-  setStatus(status.job.state === "running" && status.current?.scenario === "turn-lab"
-    ? "Resuming the real room."
-    : "Building pinned core, connector, web and voice. This can take several minutes on first use.");
+  setStatus("Checking the pinned room. First source builds can take several minutes.");
+  await poll();
 }
 
 async function poll() {
+  if (polling || !config || !previewOrigin) return;
+  polling = true;
   try {
     const state = await ask("/preview/turn-lab/events");
-    if (state.job.state === "failed") setStatus(`Build failed: ${state.job.error}`);
+    if (!matchesCandidate(state.current) || state.job.state !== "running") {
+      $("room").hidden = true;
+      $("room-wait").hidden = false;
+      $("run").disabled = true;
+      $("connect").disabled = true;
+      if (state.job.state === "failed") setStatus(`Build failed: ${state.job.error}. Click Restart room to retry.`);
+      else if (state.job.state === "starting") setStatus("Waiting for the current build; the pinned room starts when it finishes.");
+      else if (!startRequested) {
+        startRequested = true;
+        await ask("/preview/turn-lab/start", {});
+        setStatus("Building the pinned room. This can take several minutes on first use.");
+      }
+      return;
+    }
     if (state.job.state === "running") {
-      if ($("room").hidden) {
+      if (activeRunId !== state.current.runId || $("room").hidden) {
         const status = await ask("/preview/status");
         const url = new URL(status.link); url.pathname = "/voice/";
         $("room").src = url.href;
+        activeRunId = state.current.runId;
         joinedThread = null;
+        pairingSent = false;
+        attemptedAutoConnect = false;
         $("room").hidden = false;
         $("room-wait").hidden = true;
         $("connect").disabled = false;
       }
       setStatus("Real room ready. Allow microphone access and wait for local models to download; then speak or choose a script.");
+      connected = Boolean(state.agent?.ready);
+      if (connected) $("mode").value = state.agent.inputMode;
       if (!connected && !autoConnecting && !attemptedAutoConnect) {
         attemptedAutoConnect = true;
         autoConnecting = true;
@@ -81,12 +103,12 @@ async function poll() {
       const div = document.createElement("div"); div.className = `check ${check.state}`; div.textContent = `${id} ${check.state.replaceAll("-", " ").toUpperCase()}`; div.title = check.reason; return div;
     }));
     $("events").replaceChildren(...state.events.slice(-100).reverse().map((event) => item(`${new Date(event.at).toLocaleTimeString()} ${event.kind} ${JSON.stringify(event.data).slice(0, 600)}`)));
-    connected = Boolean(state.agent?.ready);
     if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: state.agent.conversation }, previewOrigin);
     $("run").disabled = !connected || joinedThread !== state.agent?.conversation;
-    $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected";
+    $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected. Click Reconnect agent.";
     if (connected && joinedThread === state.agent?.conversation) setStatus("Ready. Speak in the room or choose a script; the real browser voice and scripted agent are connected.");
-  } catch (error) { setStatus(`Lab status: ${error.message}`); }
+  } catch (error) { if (String(error.message).includes("409")) startRequested = false; setStatus(`Lab status: ${error.message}`); }
+  finally { polling = false; }
 }
 
 $("connect").onclick = async () => {
@@ -95,6 +117,15 @@ $("connect").onclick = async () => {
   try { await ask("/preview/turn-lab/connect", { mode: $("mode").value }); connected = true; await poll(); }
   catch (error) { $("agent-status").textContent = error.message; }
   finally { $("connect").disabled = false; }
+};
+$("recover").onclick = async () => {
+  $("recover").disabled = true;
+  try {
+    await ask("/preview/turn-lab/recover", {});
+    activeRunId = null; joinedThread = null; attemptedAutoConnect = false; connected = false;
+    setStatus("Restarting the pinned room. Run the case again after it joins.");
+  } catch (error) { setStatus(`Restart failed: ${error.message}`); }
+  finally { $("recover").disabled = false; }
 };
 $("run").onclick = async () => {
   $("run").disabled = true;

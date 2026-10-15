@@ -177,8 +177,8 @@ The access-gated link is **`http://localhost:5174/turn-lab?access=<token from th
 For an isolated local run, use ports away from the live playground:
 
 ```sh
-PORT=5314 node server.mjs --preview-port 5315 --cache-dir /tmp/sidevoice-turn-lab-cache
-# Open http://localhost:5314/turn-lab?access=<token from ~/.agent/secrets/sidevoice-playground-access>
+PORT=5314 node server.mjs --preview-port 5315 --cache-dir /tmp/sidevoice-turn-lab-cache --access-file /tmp/sidevoice-turn-lab-access
+# Open http://localhost:5314/turn-lab?access=<token from /tmp/sidevoice-turn-lab-access>
 ```
 
 The four candidate SHA pins are in [`preview/turn-lab.config.json`](preview/turn-lab.config.json) and shown in the Turn Lab itself. Re-pin a producer by changing its one SHA entry and restarting the lab. Core and connector full SHAs are source-built in an isolated cache; the binary SHA-256 is recorded in the run trace. Web is built from its full SHA and its `@sidevoice/voice` dependency is forced to the chosen voice CI tarball even if npm already has the web commit's old version. The trace records the voice package digest as well. The current pins are core `b7eed0351b494f6d46be03a84f84f80c88be18b0`, voice `b898c55cdffbbf5fe603e2e088e530163825ce06`, connector `215b2ee1d8c1209e4704c5eb0caf0ae8b8edb4ae` (T PR #126), and web `8d4f334cb3a9942d0ca93a7a4c865b63e5bbf9fd` (T PR #126). The connector PR is still moving; resolve its current head before the next run. Build hosts need Rust 1.98, Cargo, a C compiler, and Node 22. The room runs no server-side inference; browser Silero, Smart Turn, and local TTS run in the real web/voice build.
