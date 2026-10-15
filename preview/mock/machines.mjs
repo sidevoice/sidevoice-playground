@@ -324,26 +324,8 @@ export function agentsOf(machine) {
  *  that agent, without what is the mock's alone. */
 const cursorBridge = (facts) => {
   if (!facts) return null;
-  const live = facts.bridge === "live";
-  const reason = !facts.editorAvailable ? "editor_unavailable"
-    : !live ? "bridge_missing"
-    : facts.registration !== "connected" ? "sidevoice_not_registered"
-    : !facts.cursorVersion ? "cursor_version_unknown" : null;
-  const state = reason === "editor_unavailable" ? "unsupported"
-    : reason === "cursor_version_unknown" ? "unknown" : reason ? "needs_attention" : "ready";
-  return {
-    state, reason, cursor_version: facts.cursorVersion,
-    minimum_cursor_version: "3.22.12", minimum_connector_version: "0.9.0",
-    steps: [
-      { id: "cursor_version", state: facts.cursorVersion ? "done" : "unknown" },
-      { id: "enable_desktop_bridge", state: live ? "done" : "unknown" },
-      { id: "bridge_running", state: live ? "done" : "needs_action" },
-      { id: "sqlite3", state: "done" },
-      { id: "register_sidevoice", state: facts.registration === "connected" ? "done" : "needs_action" },
-      { id: "join_editor_chat", state: "unknown" },
-      { id: "wait_for_chat_registration", state: "unknown" },
-    ],
-  };
+  const state = ["running", "not_running", "unsupported"].includes(facts.state) ? facts.state : "unsupported";
+  return { state, chat_known: typeof facts.chatKnown === "boolean" ? facts.chatKnown : null };
 };
 
 export function agentRows(agents, bridgeFacts = null) {
@@ -354,7 +336,7 @@ export function agentRows(agents, bridgeFacts = null) {
     const bridge = agent.id === "cursor" ? cursorBridge(bridgeFacts) : null;
     return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent,
       ...(bridge ? { registration: bridgeFacts.registration, actionable: !agent.dismissed && bridgeFacts.registration === "not-connected",
-        version: bridge.cursor_version, cursor_bridge: bridge } : {}) };
+        cursor_bridge: bridge } : {}) };
   });
 }
 
