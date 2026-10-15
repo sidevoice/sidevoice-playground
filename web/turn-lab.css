@@ -5,3 +5,5 @@
 @media(max-width:1100px){#guide{display:block}#guide ol{grid-template-columns:1fr}#guide button{margin-top:8px}main{height:auto}}
 @media(prefers-color-scheme:dark){.check.known-limitation{background:#473665;color:#e6dcff}#known-limitation{color:#b6c9dd}}
 @media(prefers-color-scheme:dark){#guide{background:#213a52;border-color:#34485f}}
+#guide{align-items:flex-start}#guide ol{display:block;font-size:.86rem;line-height:1.35}#guide li{margin:0 0 2px}main{height:calc(100vh - 300px)}
+@media(max-width:1100px){main{height:auto}}
