@@ -122,7 +122,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
   let started = false;
   let muted = false;
   let turns = 0;
-  /** @type {{ ended: boolean, lastSpeechAt: number, heard: string[], talk: ((part: string, ms?: number) => Promise<void>) | null } | null} The turn in progress, until its end of turn is decided. */
+  /** @type {{ ended: boolean, hold: boolean, closing: Promise<void> | null, lastSpeechAt: number, parts: { words: string[], captured: number, steps: number }[], talk: ((part: string, ms?: number) => Promise<void>) | null } | null} The turn in progress, until its end of turn is decided. */
   let open = null;
   let says = 0;
   let playbackRun = 0;
@@ -369,35 +369,39 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     // The microphone is shared: a step of speech reaches this call only while it is the routed one and unmuted; any
     // other step is silence to it, and what it captured before stays in its turn.
     const hears = () => started && !muted && group.active?.host === host;
-    const current = open = { ended: false, lastSpeechAt: world.now(), heard: /** @type {string[]} */ ([]), talk: null };
-    // The same time whatever is said: SPEAKING_MS in all, in two halves around a pause or a cut.
+    const current = open = { ended: false, hold: false, closing: null, lastSpeechAt: world.now(), parts: /** @type {{ words: string[], captured: number, steps: number }[]} */ ([]), talk: null };
+    // The same time whatever is said: SPEAKING_MS in all, in two halves around a pause or a cut. The utterance goes on
+    // on the shared microphone after this call's turn has closed; the call hears none of that remainder. The turn
+    // closes at its endpoint even while the utterance still runs elsewhere: the step that finds the endpoint expired
+    // finishes the turn, one thing at a time, then the remainder plays on.
     const talk = async (part, ms = SPEAKING_MS) => {
-      setState({ listening: "speaking" });
+      if (!current.ended) setState({ listening: "speaking" });
       const spoken = { from: at(), to: at(), levels: /** @type {{ at: number, level: number }[]} */ ([]) };
       take?.speech.push(spoken);
-      const words = part.split(/\s+/).filter(Boolean);
-      const steps = Math.max(1, Math.ceil(ms / LEVEL_STEP_MS));
-      let captured = 0;
+      const record = { words: part.split(/\s+/).filter(Boolean), captured: 0, steps: Math.max(1, Math.ceil(ms / LEVEL_STEP_MS)) };
+      current.parts.push(record);
       for (let elapsed = 0; elapsed < ms; elapsed += LEVEL_STEP_MS) {
-        const routed = hears();
+        if (!current.ended && !current.hold && world.now() >= current.lastSpeechAt + silence) await close();
+        const routed = !current.ended && hears();
         const level = routed ? speechLevel(elapsed, seed) : 0;
-        if (routed) captured++;
+        if (routed) record.captured++;
         spoken.levels.push({ at: at(), level });
         emit("level", level);
         await world.delay(LEVEL_STEP_MS);
         if (routed) current.lastSpeechAt = world.now();
       }
-      current.heard.push(words.slice(0, Math.ceil(words.length * captured / steps)).join(" "));
       spoken.to = at();
       emit("level", 0);
-      setState({ listening: "listening" });
+      if (!current.ended) setState({ listening: "listening" });
     };
     current.talk = talk;
     const half = (part) => { const words = part.split(/\s+/); const at = Math.max(1, Math.ceil(words.length / 2)); return [words.slice(0, at).join(" "), words.slice(at).join(" ") || part]; };
     setState({ listening: "speaking" });
     emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
+    const utterance = async () => {
     if (pause || cutOff) {
       const [first, rest] = half(text);
+      current.hold = cutOff;
       await talk(first, durationMs / 2);
       if (cutOff) {
         // The end of turn decided too soon: the turn goes to be recognised, and the person goes on.
@@ -411,6 +415,8 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
         emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: world.now() }));
         emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: cut, merged: true }));
         setState({ recognising: 0 });
+        current.hold = false;
+        current.lastSpeechAt = world.now();
       } else {
         const paused = at();
         await world.delay(Math.round(silence * 0.6));
@@ -418,23 +424,25 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       }
       await talk(rest, durationMs / 2);
     } else await talk(text, durationMs);
+    };
     // The endpoint is the end of turn's wait after the last speech this call captured; speech routed back sooner
-    // moves it.
+    // moves it. What the turn holds is what the call captured by then.
+    const close = () => current.closing ??= (async () => {
     for (let left = current.lastSpeechAt + silence - world.now(); left > 0; left = current.lastSpeechAt + silence - world.now()) await world.delay(left);
     current.ended = true;
-    const heardText = current.heard.filter(Boolean).join(" ");
+    const heardText = current.parts.map((part) => part.words.slice(0, Math.ceil(part.words.length * part.captured / part.steps)).join(" ")).filter(Boolean).join(" ");
     mark.end_ms = at();
     setState({ recognising: 1 });
     await world.delay(500);
     setState({ recognising: 0 });
     if (voice.stt === "silence" || !heardText.trim()) {
       emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
-      return true;
+      return;
     }
     if (voice.stt === "error") {
       emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
       emit("error", { code: "transcription-failed" });
-      return true;
+      return;
     }
     const endedAt = world.now();
     emit("turn", /** @type {VoiceTurnEvent} */ ({
@@ -442,6 +450,9 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       started_at: startedAt, ended_at: endedAt, merged: cutOff,
       timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: silence, recognition_ms: 500 },
     }));
+    })();
+    await utterance();
+    await close();
     return true;
   }
   /** The headset (the card plugs it in and out): its microphone and its speaker, beside the computer's own. */

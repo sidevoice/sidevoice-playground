@@ -594,6 +594,7 @@ for (const [name, leave] of [
     assert.ok(end, "A still ends its turn, with what it captured");
     assert.ok(end.event.text.length > 0 && end.event.text.length < FULL.length && FULL.startsWith(end.event.text), `A keeps only its captured words, got ${end.event.text}`);
     assert.ok(end.at - leftAt >= 2500, `the terminal came ${end.at - leftAt} ms after the change; the endpoint is 2500 ms`);
+    assert.ok(end.at - leftAt <= 2500 + 500 + 160, `the terminal came ${end.at - leftAt} ms after the change; the endpoint plus 500 ms recognition (and one 80 ms step) is the most`);
     await m.a.dispose();
     await m.b.dispose();
   });
@@ -636,6 +637,35 @@ test("mock voice: speech after the endpoint is a new turn, and an unrouted call 
   await m.voice.speak("for b");
   assert.equal(m.log.filter((item) => item.call === "a" && item.event?.phase === "started").length, 1);
   assert.equal(finished(m.log, "b")[0].event.text, "for b");
+  await m.a.dispose();
+  await m.b.dispose();
+});
+
+test("mock voice: A closes at its configured endpoint while a longer utterance goes on elsewhere, and a late return opens a new turn", async () => {
+  const m = await sharedMicrophone();
+  let routedAt = null, returned = null, closing = null;
+  m.a.onLevel((level) => {
+    if (level > 0 && routedAt === null && m.log.filter((item) => item.call === "a" && item.level > 0).length > 5) { routedAt = m.now(); m.voice.host.routeInput(m.b); }
+  });
+  // A's turn closing is observed while the 6 s utterance is still running: the person goes on, A has already finished.
+  m.a.onTurn((event) => {
+    if (event.phase !== "finished" || returned) return;
+    closing = { waited: m.now() - routedAt, silentStepsLeft: 0 };
+    returned = m.voice.host.routeInput(m.a).then(() => m.voice.speak("returned words"));
+  });
+  m.a.onLevel((level) => { if (closing && level === 0) closing.silentStepsLeft++; });
+  await m.voice.speak(FULL, { durationMs: 6000 });
+  await returned;
+  assert.ok(closing, "A finished");
+  assert.ok(closing.waited >= 2500 + 500, `A closed ${closing.waited} ms after the route moved; endpoint plus recognition is the least`);
+  assert.ok(closing.waited <= 2500 + 500 + 160, `A closed ${closing.waited} ms after the route moved; endpoint plus recognition is the most`);
+  assert.ok(closing.silentStepsLeft > 10, "the rest of the utterance was still being spoken when A closed");
+  const [first, second] = finished(m.log, "a").map((item) => item.event.text);
+  assert.ok(first.length > 0 && first !== FULL && FULL.startsWith(first), `A keeps the words it captured: ${first}`);
+  assert.equal(second, "returned words", "the return after the endpoint is a separate turn, not merged with the closed one");
+  const starts = m.log.filter((item) => item.call === "a" && item.event?.phase === "started");
+  assert.equal(starts.length, 2, "the return after the endpoint starts a new turn");
+  assert.notEqual(starts[0].event.turn_id, starts[1].event.turn_id);
   await m.a.dispose();
   await m.b.dispose();
 });
