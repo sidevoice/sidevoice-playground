@@ -103,6 +103,7 @@ function endpointMs(settings) {
 }
 
 export function fakeVoice(world, { source = null, shared = null } = {}) {
+  /** @type {any} Mock-only routing group; each call still keeps independent turn and playback state. */
   const group = shared ?? { calls: [], active: null, nextId: 0, firstCreated: false };
   const callId = `mock-call-${++group.nextId}`;
   /** @type {Record<string, Set<Function>>} */

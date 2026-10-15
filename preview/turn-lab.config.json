@@ -1,11 +1,13 @@
 {
-  "core": "74c687c68822083b4e160d0b6233987be9b054ed",
-  "connector": "68ecf8265b5fe06988c4bcf1055fec78587451b5",
-  "web": "77f56b5868b06da6cd6e89cad61e88ff29f11a69",
-  "voice": "91a823bd532514cf673a07f57e89397346cf9ec9",
+  "core": "e81cc67602fe6f99bc26f05bfb859ba9b1b6c82c",
+  "connector": "a731e2794396a0f3c41eb11aa1fd814c775a7994",
+  "web": "bc7f0bd096d18398880c0be6feade01be8701936",
+  "voice": "90db03280e172aa8f4708fdee93d89714e0954f2",
   "engine": "nightly",
   "notes": {
-    "connector": "Connector T PR #126; recheck its moving head before a test run",
-    "web": "TODO: replace web main with feat/voice-call-per-conversation PR head when available"
+    "core": "core main after the turns/epochs and semantic hearing merge",
+    "voice": "voice PR #31 head; moving (F1-F6 fixes and model leases pending), recheck before a test run",
+    "connector": "connector PR #126 head; being rebuilt against core main, recheck before a test run",
+    "web": "web PR #140 (feat/voice-call-per-conversation) head; adapter still being finished, recheck before a test run"
   }
 }
