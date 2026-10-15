@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { connectorEnv } from "../runs.mjs";
 
 const longReply = "I am walking through the result carefully. ".repeat(22) + "The final point is é🐙ab.";
+const muteReply = "I am walking through the result carefully. ".repeat(8) + "Please mute agents during this reply.";
 export const SCRIPTS = {
   T01: { title: "Interrupt a long reply", lines: [], autoReply: longReply, instruction: "Select this script, then speak. The agent answers with a long reply; speak again for at least one second while it plays." },
   T02a: { title: "Accepted before speech, with words", lines: [longReply], instruction: "Begin speaking just as playback would start." },
@@ -16,7 +17,7 @@ export const SCRIPTS = {
   T04a: { title: "Three replies, one epoch", lines: ["Acknowledged.", "Checkpoint: I found the first fact.", "Result: all three messages should play in order."] },
   T04b: { title: "Withdraw several replies", lines: [longReply, "Second queued reply.", "Third queued reply."], instruction: "Open a new spoken turn during the first reply." },
   T05: { title: "Acknowledgement, checkpoint, result", lines: ["I understand. I will check.", longReply, "Here is the result."], instruction: "Interrupt the checkpoint." },
-  T06a: { title: "Mute agents", lines: [longReply], instruction: "Mute agents during playback, then run again while muted." },
+  T06a: { title: "Mute agents", lines: [muteReply], afterMute: "This second reply should be saved while agents are muted.", instruction: "Speak a short setup message and wait for it to reach the agent. Run once and wait for playback. Mute agents while it plays, then click Run script again while muted; the second click continues this same case." },
   T06b: { title: "Turn voice off", lines: [longReply], instruction: "Turn voice off, then run the script." },
   T06c: { title: "Switch conversation", lines: [longReply], instruction: "Switch conversation while this plays." },
   T06d: { title: "Return with misses", lines: [longReply], instruction: "Mute agents, run, unmute, and wait five seconds." },
@@ -36,6 +37,7 @@ export const SCRIPTS = {
 
 export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
   let child, receiver, inputMode, conversation, context, script = null, nextPullAt = 0, counter = 0, generation = 0, rolloutFile = null;
+  let mutePhase = 0, muteRunId = null;
   const pending = new Map();
   const received = new Set();
   const record = (kind, data) => emit({ at: now(), kind, data });
@@ -97,6 +99,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     async start(mode) {
       if (child) await this.stop();
       inputMode = mode;
+      script = null; mutePhase = 0; muteRunId = null;
       received.clear();
       receiver = createServer(async (req, res) => {
         const chunks = [];
@@ -168,20 +171,26 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       return joined;
     },
     async choose(id) {
-      script = SCRIPTS[id];
-      if (!script) throw new Error(`Unknown script ${id}`);
+      const nextScript = SCRIPTS[id];
+      if (!nextScript) throw new Error(`Unknown script ${id}`);
+      if (nextScript.lines.length && !context) throw new Error("Speak a short setup message in the room first, then run this script again.");
+      const continuingMute = id === "T06a" && script === nextScript && mutePhase === 1;
+      script = nextScript;
+      if (!continuingMute) { mutePhase = 0; muteRunId = id === "T06a" ? randomUUID() : null; }
       // Keep the selected reply in the epoch it answered, even if a later spoken input
       // arrives while a delayed script is waiting. T03 depends on that real race.
       const replyContext = context && { ...context };
-      if (inputMode === "pull" && script.pullDelayMs) {
-        nextPullAt = now() + script.pullDelayMs;
+      if (inputMode === "pull" && nextScript.pullDelayMs) {
+        nextPullAt = now() + nextScript.pullDelayMs;
         record("pull-delayed", { until: nextPullAt });
       }
-      record("script-start", { id, conversation, inputMode, session_id: replyContext?.session_id, revision: replyContext?.revision, epoch: replyContext?.epoch, ...script });
-      if (script.delay) await new Promise((resolve) => setTimeout(resolve, script.delay));
+      if (continuingMute) record("script-phase", { id, phase: 2, run_id: muteRunId, conversation });
+      else record("script-start", { id, phase: 1, run_id: muteRunId, conversation, inputMode, session_id: replyContext?.session_id, revision: replyContext?.revision, epoch: replyContext?.epoch, ...nextScript });
+      if (nextScript.delay) await wait(nextScript.delay);
       const results = [];
-      for (const text of script.lines) results.push(await say(text, replyContext));
-      return { script: id, results };
+      for (const text of continuingMute ? [nextScript.afterMute] : nextScript.lines) results.push(await say(text, replyContext));
+      if (id === "T06a") mutePhase = continuingMute ? 2 : 1;
+      return { script: id, phase: continuingMute ? 2 : 1, results };
     },
     async stop() {
       generation++;
@@ -193,6 +202,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       if (receiver) await new Promise((resolve) => receiver.close(resolve));
       receiver = null;
       rolloutFile = null;
+      script = null; mutePhase = 0; muteRunId = null;
     },
   };
 }

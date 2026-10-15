@@ -256,7 +256,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
     el("p", { className: "note elsewhere-remote-state", textContent: remoteUpdateLine(world) }),
     elsewhereNote);
   const turnOutput = scenario.turn ? el("pre", { className: "turn-script-trace", textContent: world.state.turnScript?.id === scenario.turn.id ?
-    `${world.state.turnScript.status.toUpperCase()} · ${world.state.turnScript.trace.length} actions\n${world.state.turnScript.mismatches.join("\n")}` : "The fixture has not run." }) : null;
+    `${world.state.turnScript.status.replaceAll("-", " ").toUpperCase()} · reference model only · ${world.state.turnScript.trace.length} actions\n${world.state.turnScript.mismatches.join("\n")}` : "The fixture has not run. Reference model only; use Turn Lab for live acceptance." }) : null;
   const turnSection = scenario.turn ? el("fieldset", {},
     el("legend", { textContent: `${scenario.turn.id} mock fixture` }),
     el("button", { type: "button", textContent: "Run timed actions", onclick: async (event) => {
@@ -267,7 +267,7 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
           turnOutput.textContent = `${entry.atMs} ms · ${entry.action}\n${JSON.stringify(entry.fates)}\n${entry.notice.join(", ")}`;
         } });
         world.state.turnScript = result;
-        turnOutput.textContent = `${result.status.toUpperCase()} · ${result.trace.length} actions\n${result.mismatches.join("\n") || JSON.stringify(result.actual)}`;
+        turnOutput.textContent = `${result.status.replaceAll("-", " ").toUpperCase()} · reference model only · ${result.trace.length} actions\n${result.mismatches.join("\n") || JSON.stringify(result.actual)}`;
       } catch (error) { turnOutput.textContent = `Fixture error: ${error.message}`; }
       finally { event.currentTarget.disabled = false; }
     } }), turnOutput) : null;

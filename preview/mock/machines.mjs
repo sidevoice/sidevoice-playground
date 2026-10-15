@@ -511,7 +511,21 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const room = roomOf(world, id);
     const call = callOf(room, new URLSearchParams(query).get("session_id"));
     if (method === "GET" && path === "/api/presentation") return json(200, snapshot(room, call, identity));
-    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: told(world, room).map(rowView) });
+    if (method === "GET" && path === "/api/presentation/history") {
+      const params = new URLSearchParams(query);
+      const thread = params.get("thread_id");
+      const ids = params.getAll("resolve_id");
+      if (ids.length > 64 || ids.some((value) => !value || new TextEncoder().encode(value).length > 256) || (ids.length && !thread))
+        return refuse(422, REFUSALS["room.request_invalid"]);
+      const rows = told(world, room).filter((row) => !thread || row.thread === thread);
+      const recent = rows.slice(-1000);
+      const olderMisses = rows.slice(0, -1000).filter((row) => row.role === "assistant" && !rowView(row).globally_heard);
+      const messages = [...olderMisses, ...recent].map(rowView);
+      if (!ids.length) return json(200, { messages });
+      const resolved = ids.flatMap((wanted) => rows.find((row) => row.id === wanted) ? [rowView(rows.find((row) => row.id === wanted))] : []);
+      const missing_ids = ids.filter((wanted) => !rows.some((row) => row.id === wanted));
+      return json(200, { messages, resolved, missing_ids });
+    }
     if (method === "GET" && path === "/api/presentation/participants") {
       return json(200, { participants: participantsOf(machine, id, call?.binding?.thread_id) });
     }
@@ -647,7 +661,10 @@ const callOf = (room, sid) => (sid ? seated(room).find((call) => call.session ==
  *  `transcript` is `empty` (a choice that reloads the page, so it holds for a room already made too). */
 const told = (world, room) => (world.state.transcript === "empty" ? room.rows.filter((row) => !row.id.startsWith(`${room.id}-said-`)) : room.rows);
 /** What the room's history says of a row: all of it but the turn it was said in. */
-const rowView = ({ turn_id, ...row }) => row;
+const rowView = ({ turn_id, ...row }) => ({ ...row,
+  globally_heard: row.role === "assistant" && ["playback_finished", "skipped"].includes(row.status),
+  replayable: row.role === "assistant",
+});
 const refusal = (key, id = null) => ({ type: "error", data: { key, message: REFUSALS[key], ...(id ? { client_msg_id: id } : {}) } });
 
 /** Whether `url` is a mocked machine's call socket. */
@@ -698,6 +715,7 @@ export function callSocket(world, identities, { url, protocols = [], pageOrigin 
   const room = roomOf(world, id);
   const call = {
     url, via, onPage: !!place.onPage, peer, session: null, since: 0, binding: /** @type {RoomBinding | null} */ (null),
+    bindings: /** @type {Map<string, RoomBinding>} */ (new Map()),
     revision: 0, frames: 0, turns: [], speaking: false, speechOn: true, replies: new Map(), ended: false,
   };
   room.calls.add(call);
@@ -736,7 +754,10 @@ function seat(world, room, call, hello) {
   call.session = randomId();
   call.since = ++seats;
   const named = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === data.conversation);
-  if (named) call.binding = { thread_id: named.thread_id, title: named.title, binding_id: randomId() };
+  if (named) {
+    call.binding = { thread_id: named.thread_id, title: named.title, binding_id: randomId() };
+    call.bindings.set(call.binding.binding_id, call.binding);
+  }
   /** @type {VoiceSession & { room: { api: number, version: string }, resume_refused?: string }} */
   const session = {
     session_id: call.session, room: { api: API, version: "mock" }, resume: { token: secretText(), seconds: 60 }, resumed: false,
@@ -771,10 +792,14 @@ function userTurn(world, room, call, data, id) {
   const words = typeof data.text === "string" && data.text.trim() ? data.text : null;
   if (data.phase === "started") {
     if (!turnId) return [refusal("room.request_invalid", id)];
+    if (typeof data.thread_id !== "string" || typeof data.binding_id !== "string") return [refusal("room.request_invalid", id)];
+    const binding = data.thread_id === "" && data.binding_id === "" ? null : call.bindings.get(data.binding_id);
+    if (binding === undefined || (binding && binding.thread_id !== data.thread_id) || (!binding && (data.thread_id || data.binding_id)))
+      return [refusal("room.focus_changed", id)];
     const existing = call.turns.find((turn) => turn.turn_id === turnId);
+    if (existing && existing.binding?.binding_id !== binding?.binding_id) return [refusal("room.message_conflict", id)];
     if (existing) return [started(existing.revision, existing.binding?.thread_id ?? null, existing.epoch)];
     if (call.turns.length >= MAX_OPEN_TURNS) return [refusal("room.turns_full", id)];
-    const binding = call.binding?.thread_id ? call.binding : null;
     const epoch = binding ? (room.epochs.get(binding.thread_id) ?? 0) + 1 : null;
     if (binding) room.epochs.set(binding.thread_id, epoch);
     const turn = { turn_id: turnId, revision: ++call.revision, binding, epoch };
@@ -784,8 +809,10 @@ function userTurn(world, room, call, data, id) {
   }
   if (data.phase === "finished" && data.offline === true) {
     if (!turnId || !words) return [refusal("room.request_invalid", id)];
+    if (typeof data.thread_id !== "string" || typeof data.binding_id !== "string") return [refusal("room.request_invalid", id)];
+    const binding = call.bindings.get(data.binding_id);
+    if (!binding || binding.thread_id !== data.thread_id) return [refusal("room.focus_changed", id)];
     const revision = ++call.revision;
-    const binding = call.binding;
     const epoch = binding?.thread_id ? (room.epochs.get(binding.thread_id) ?? 0) + 1 : null;
     if (binding?.thread_id) room.epochs.set(binding.thread_id, epoch);
     const row = input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision, epoch, binding, turnId, offline: true });
@@ -850,15 +877,17 @@ async function deliver(world, room, row) {
 /** A call's report of how a reply played: the reply's row says it, while the reply is still queued or playing. */
 function playback(world, room, call, data, id) {
   const report = PLAYBACK[data.status];
-  if (!report || (data.heard_chars != null && !Number.isInteger(data.heard_chars))) return [refusal("room.receipt_invalid", id)];
+  if (!report || (data.heard_chars != null && (!Number.isInteger(data.heard_chars) || data.heard_chars < 0))) return [refusal("room.receipt_invalid", id)];
   const reply = call.replies.get(data.utterance_id);
   if (!reply) return [refusal("room.stale_utterance", id)];
+  if (data.heard_chars != null && data.heard_chars > [...reply.row.text].length) return [refusal("room.receipt_invalid", id)];
   if (!["queued", "playing"].includes(reply.status)) return [];
   const [status, reason] = report;
   reply.status = status;
   reply.row.status = status;
   reply.row.audio_reason = status === "interrupted" && typeof data.reason === "string" ? data.reason : reason;
-  reply.row.heard_chars = data.status === "interrupted" ? data.heard_chars ?? null : null;
+  reply.row.heard_chars = data.status === "heard" ? [...reply.row.text].length :
+    data.status === "interrupted" && data.heard_chars != null ? Math.max(reply.row.heard_chars ?? 0, data.heard_chars) : reply.row.heard_chars ?? null;
   if (data.reason === "user_skipped") {
     reply.row.status = "skipped";
     reply.row.heard_chars = [...reply.row.text].length;
@@ -911,6 +940,7 @@ function select(world, room, machine, body) {
   if (call.binding?.thread_id === thread) return json(200, { status: "already_active", binding: call.binding });
   const title = participantsOf(machine, room.id).find((p) => p.thread_id === thread)?.title ?? null;
   call.binding = { thread_id: thread, title, binding_id: randomId() };
+  call.bindings.set(call.binding.binding_id, call.binding);
   const withdrawn = stopReplies(call, "focus_changed");
   if (withdrawn.length) send(call, { type: "voice-reply-withdrawn", data: { session_id: call.session, utterance_ids: withdrawn, reason: "focus_changed" } });
   reportWorking(room, call);

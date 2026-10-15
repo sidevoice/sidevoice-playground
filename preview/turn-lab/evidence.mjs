@@ -43,7 +43,7 @@ function judge(events) {
   const status = (result) => result?.status ?? result?.result?.status;
   const currentEpoch = epochFor(after, selected ? after[0]?.data?.conversation : null);
   const fates = new Map();
-  const fateRank = (value) => ({ played: 5, skipped: 5, cut: 4, refused: 4, stale: 4, "not played": 4, "known limitation": 3, playing: 2, queued: 1, synthesizing: 1 }[value] ?? 0);
+  const fateRank = (value) => ({ played: 5, skipped: 5, cut: 4, refused: 4, stale: 4, "not played": 4, playing: 2, queued: 1, synthesizing: 1 }[value] ?? 0);
   const settle = (id, incoming) => {
     const previous = fates.get(id);
     if (!previous) { fates.set(id, incoming); return; }
@@ -61,7 +61,7 @@ function judge(events) {
       const result = item.result;
       const disposition = status(result);
       const textOnly = disposition === "text_only" || result?.audio === "text_only";
-      settle(item.args.utterance_id, { fate: disposition === "admission_unknown" ? "known limitation" : disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
+      settle(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
     }
     const row = item?.type === "history" ? item.row ?? item : null;
     const historyUtterance = row?.role && row.role !== "assistant" ? null : row?.id?.split(":voice:").at(-1);

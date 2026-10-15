@@ -81,8 +81,10 @@ async function joined(c, conversation = "nuc-thread-1") {
   call.socket.send(JSON.stringify({ label: "rtvi-ai", type: "client-ready", id: "hello", data: { conversation, ui_language: "en" } }));
   await until(() => call.sent("voice-session").length === 1, "the session");
   call.session = call.sent("voice-session")[0].data.session_id;
+  call.binding = (await c.ask(`/api/presentation?session_id=${call.session}`)).body.binding;
   return call;
 }
+const focus = (call) => ({ thread_id: call.binding.thread_id, binding_id: call.binding.binding_id });
 
 test("only a mocked machine's call socket is mocked: anything else is the page's own WebSocket", async () => {
   const { WebSocket } = await setup();
@@ -127,7 +129,7 @@ test("a call socket opens as a browser's, and the room answers the hello with a 
 test("a turn is acknowledged and answered with its revision; its words reach the agent, which reads them and works", async () => {
   const c = await setup();
   const call = await joined(c);
-  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m1", turn_id: "t1", phase: "started", started_at: 1 });
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m1", turn_id: "t1", phase: "started", started_at: 1, ...focus(call) });
   await until(() => call.sent("voice-user-turn").length === 1, "the turn's start answered");
   assert.deepEqual(call.frames.map((f) => f.type), ["voice-session", "voice-ack", "voice-user-turn"]);
   assert.deepEqual(call.frames.slice(1).map((f) => f.seq), [1, 2]);
@@ -167,8 +169,8 @@ test("a turn is acknowledged and answered with its revision; its words reach the
 test("mock room keeps conversation epochs separate from typing, duplicates and output eligibility", async () => {
   const c = await setup();
   const call = await joined(c);
-  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e1", turn_id: "t1", phase: "started" });
-  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e2", turn_id: "t1", phase: "started" });
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e1", turn_id: "t1", phase: "started", ...focus(call) });
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e2", turn_id: "t1", phase: "started", ...focus(call) });
   await until(() => call.sent("voice-user-turn").length === 2, "duplicate turn acknowledged");
   assert.deepEqual(call.sent("voice-user-turn").map((frame) => frame.data.epoch), [1, 1]);
   call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e3", turn_id: "t1", phase: "finished", text: "first" });
@@ -183,17 +185,53 @@ test("mock room keeps conversation epochs separate from typing, duplicates and o
   assert.equal(agentSpeaks(c.world, "Written only"), true);
   assert.equal(call.sent("voice-reply").length, replies);
   assert.equal((await c.ask("/api/presentation/history")).body.messages.at(-1).audio_reason, "voice_off");
-  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e5", turn_id: "t2", phase: "started" });
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e5", turn_id: "t2", phase: "started", ...focus(call) });
   await until(() => call.sent("voice-user-turn").length === 3, "new speech epoch");
   assert.equal(call.sent("voice-user-turn").at(-1).data.epoch, 2);
   assert.equal(agentSpeaks(c.world, "Must be refused"), false, "an open spoken turn refuses publication");
+});
+
+test("a delayed start keeps its captured focus after the mock call selects another conversation", async () => {
+  const c = await setup();
+  const call = await joined(c);
+  const capturedA = focus(call);
+  const selected = await c.ask("/api/presentation/select", { method: "POST", body: JSON.stringify({ session_id: call.session, thread_id: "nuc-thread-2" }) });
+  assert.equal(selected.status, 200);
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "late-start", turn_id: "turn-a", phase: "started", ...capturedA });
+  await until(() => call.sent("voice-user-turn").length === 1, "captured A start answered");
+  assert.deepEqual([call.sent("voice-user-turn")[0].data.thread_id, call.sent("voice-user-turn")[0].data.epoch], ["nuc-thread-1", 1]);
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "late-finish", turn_id: "turn-a", phase: "finished", text: "Only for A" });
+  await until(() => call.sent("voice-input-receipt").length > 0, "captured A words stored");
+  const row = (await c.ask("/api/presentation/history")).body.messages.find((item) => item.text === "Only for A");
+  assert.deepEqual([row.thread, row.epoch], ["nuc-thread-1", 1]);
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "bad-focus", turn_id: "turn-bad", phase: "started",
+    thread_id: "nuc-thread-1", binding_id: "not-captured" });
+  await until(() => call.sent("error").some((frame) => frame.data.client_msg_id === "bad-focus"), "bad focus refused");
+  assert.equal(call.sent("error").at(-1).data.key, "room.focus_changed");
+});
+
+test("history resolve_id returns authoritative hearing for the requested retained row", async () => {
+  const c = await setup();
+  const call = await joined(c);
+  assert.equal(agentSpeaks(c.world, "Four"), true);
+  await until(() => call.sent("voice-reply").length === 1, "reply offered");
+  const { utterance_id, history_id } = call.sent("voice-reply")[0].data;
+  const path = `/api/presentation/history?thread_id=nuc-thread-1&resolve_id=${encodeURIComponent(history_id)}&resolve_id=gone`;
+  const before = (await c.ask(path)).body;
+  assert.deepEqual(before.resolved.map((row) => [row.id, row.globally_heard]), [[history_id, false]]);
+  assert.deepEqual(before.missing_ids, ["gone"]);
+  call.send("voice-playback", { session_id: call.session, client_msg_id: "heard", utterance_id, status: "heard" });
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "heard"), "hearing recorded");
+  const after = (await c.ask(path)).body;
+  assert.deepEqual([after.resolved[0].globally_heard, after.resolved[0].heard_chars], [true, 4]);
+  assert.equal((await c.ask(`/api/presentation/history?thread_id=nuc-thread-1&resolve_id=${'x'.repeat(257)}`)).status, 422);
 });
 
 test("the agent speaks through the room: a reply to the call, its row in the history, and how it played", async () => {
   const c = await setup();
   assert.equal(agentSpeaks(c.world, "Hola"), false, "no call to say it to");
   const call = await joined(c);
-  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m1", turn_id: "t1", phase: "started" });
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m1", turn_id: "t1", phase: "started", ...focus(call) });
   call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m2", turn_id: "t1", phase: "finished", text: "Hi" });
   await until(() => call.sent("voice-conversation").length === 1, "read, and working");
   assert.equal(agentSpeaks(c.world, "The tests pass."), true);
@@ -233,8 +271,8 @@ test("selecting moves the call to another conversation and takes back the reply 
   assert.equal((await select({ thread_id: "nuc-thread-1", session_id: "gone" })).status, 409);
   assert.equal((await select({ session_id: call.session })).status, 400);
   // Words for a conversation that does not listen wait there.
-  await select({ thread_id: "nuc-thread-3", session_id: call.session });
-  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m1", turn_id: "t1", phase: "started" });
+  call.binding = (await select({ thread_id: "nuc-thread-3", session_id: call.session })).body.binding;
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m1", turn_id: "t1", phase: "started", ...focus(call) });
   call.send("voice-user-turn", { session_id: call.session, client_msg_id: "m2", turn_id: "t1", phase: "finished", text: "Hi" });
   await until(() => call.sent("voice-input-receipt").length === 1, "pending");
   await c.world.delay(1500);

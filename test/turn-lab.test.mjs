@@ -9,6 +9,7 @@ import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { fakeVoice } from "../preview/mock/voice.mjs";
 import { runTurnFixture } from "../preview/mock/turn-script.mjs";
+import { probeMockRoom } from "../preview/mock/turn-machine-probes.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
 import { SCRIPTS, scriptedAgent } from "../preview/turn-lab/agent.mjs";
 import { evidence } from "../preview/turn-lab/evidence.mjs";
@@ -40,12 +41,65 @@ test("each mock turn fixture executes timed actions and checks its observed outc
   for (const scenario of cases) {
     const seen = [];
     const result = await runTurnFixture(scenario.turn, { wait: async () => {}, onStep: (step) => seen.push(step.action) });
-    assert.equal(result.status, "pass", `${scenario.turn.id}: ${result.mismatches.join("; ")}`);
+    assert.equal(result.status, "model-match", `${scenario.turn.id}: ${result.mismatches.join("; ")}`);
     assert.deepEqual(seen, scenario.turn.actions.map((action) => action.type));
   }
   const changed = structuredClone(cases.find((scenario) => scenario.turn.id === "T04a").turn);
   changed.expect.fates[1] = "unplayed";
   assert.equal((await runTurnFixture(changed, { wait: async () => {} })).status, "fail");
+});
+
+test("every #19 model case rejects an omitted required step", async () => {
+  for (const scenario of (await loadMockScenarios()).filter((item) => item.turn)) {
+    const fixture = structuredClone(scenario.turn);
+    for (let index = 0; index < fixture.actions.length; index++) {
+      const missing = { ...fixture, actions: fixture.actions.filter((_, at) => at !== index) };
+      const result = await runTurnFixture(missing, { wait: async () => {} });
+      assert.equal(result.status, "fail", `${fixture.id}: omitting ${fixture.actions[index].type} must fail`);
+    }
+  }
+});
+
+test("T11 actually deduplicates turn IDs and rejects wrong out-of-order terminals", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T11").turn;
+  const result = await runTurnFixture(fixture, { wait: async () => {} });
+  assert.deepEqual(result.trace.at(-1).conversations, {
+    a: { turnId: "a-turn-1", epoch: 1, finished: true }, b: { turnId: "b-turn-1", epoch: 1, finished: true },
+  });
+  for (const [index, value] of [[2, { turnId: "a-turn-2" }], [3, { aTurnId: "wrong-turn" }]]) {
+    const invalid = structuredClone(fixture);
+    Object.assign(invalid.actions[index], value);
+    assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
+  }
+});
+
+test("T16 compares delivered envelope IDs and requires claim release before redelivery", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T16").turn;
+  const result = await runTurnFixture(fixture, { wait: async () => {} });
+  assert.deepEqual(result.trace.at(-1).deliveries.map(({ mode, id }) => [mode, id]),
+    [["push", "message-1"], ["pull", "message-1"], ["pull-redelivery", "message-1"]]);
+  for (const index of [1, 3]) {
+    const invalid = structuredClone(fixture);
+    invalid.actions[index].messageId = "different-message";
+    assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
+  }
+});
+
+test("T08 typing leaves playback active until the later playback outcome", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T08").turn;
+  const result = await runTurnFixture(fixture, { wait: async () => {} });
+  assert.deepEqual(result.trace.find((item) => item.action === "typed-message").fates, ["playing"]);
+  assert.equal(result.status, "model-match");
+});
+
+test("actual mock room probes reject missing typed context and wrong turn identity", async () => {
+  const cases = (await loadMockScenarios()).filter((item) => ["T08", "T11"].includes(item.turn?.id));
+  const typed = structuredClone(cases.find((item) => item.turn.id === "T08").turn);
+  typed.actions = typed.actions.filter((action) => action.type !== "typed-message");
+  assert.ok((await probeMockRoom(typed)).some((reason) => reason.includes("Typing changed")));
+  const turns = structuredClone(cases.find((item) => item.turn.id === "T11").turn);
+  turns.actions.find((action) => action.type === "out-of-order-finish").aTurnId = "wrong";
+  assert.ok((await probeMockRoom(turns)).some((reason) => reason.includes("reordered terminals")));
 });
 
 test("candidate picker accepts only a full SHA, and source build verifies commit and records binary digest", async () => {
@@ -138,6 +192,33 @@ test("automatic MCP refusal is logged and connector loss clears readiness withou
   } finally { await agent.stop(); }
 });
 
+test("T06a second click continues the same case with a distinct muted publication", async () => {
+  const events = [], stdout = new PassThrough();
+  const child = {
+    stdout, stderr: new PassThrough(), on() {}, kill() {},
+    stdin: { write(line) {
+      const request = JSON.parse(line);
+      if (request.id == null) return;
+      const name = request.params?.name;
+      const result = name === "voice_connect" ? { conversation: "mute-thread", initial_reply_context: { session_id: "s", revision: 1, epoch: 0 } }
+        : name === "voice_say" ? { status: "published", audio: "queued" } : {};
+      queueMicrotask(() => stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: JSON.stringify(result) }], isError: false } }) + "\n"));
+    } },
+  };
+  const agent = scriptedAgent({ program: "unused", profile: {}, emit: (event) => events.push(event), spawnProcess: () => child });
+  try {
+    await agent.start("push");
+    assert.equal((await agent.choose("T06a")).phase, 1);
+    assert.equal((await agent.choose("T06a")).phase, 2);
+    assert.equal(events.filter((event) => event.kind === "script-start").length, 1);
+    assert.equal(events.filter((event) => event.kind === "script-phase").length, 1);
+    const published = events.filter((event) => event.kind === "tool-result" && event.data.name === "voice_say");
+    assert.equal(published.length, 2);
+    assert.notEqual(published[0].data.args.utterance_id, published[1].data.args.utterance_id);
+    assert.equal(published[1].data.args.text, SCRIPTS.T06a.afterMute);
+  } finally { await agent.stop(); }
+});
+
 test("T15 uses a supported Codex working harness and emits real activity transitions", async () => {
   const home = await mkdtemp(join(tmpdir(), "turn-lab-activity-"));
   const events = [], stdout = new PassThrough();
@@ -193,7 +274,7 @@ test("the evidence log splits heard and unheard by Unicode scalars", () => {
   const view = evidence(events);
   assert.equal(view.currentEpoch, 2);
   assert.deepEqual(view.fates[0], { utterance_id: "u", fate: "cut", heard_chars: 2, text: "é🐙ab", reason: "user_interrupted", heard: "é🐙", unheard: "ab" });
-  assert.equal(view.checks.T01.state, "pass");
+  assert.equal(view.checks.T01.state, "pending", "a legal prefix alone does not prove playback and capture");
 });
 
 test("browser playback receipts and history settle reply fates", () => {
@@ -252,20 +333,23 @@ test("FIFO check requires observed playback starts in publication order", () => 
   for (const id of ["a", "b", "c"]) events.push({ kind: "tool-result", data: { name: "voice_say", args: { utterance_id: id, text: id }, result: { status: "published", audio: "queued" } } });
   for (const id of ["a", "c", "b"]) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "playing" } });
   assert.equal(evidence(events).checks.T04a.state, "fail");
-  events.splice(4, 3, ...["a", "b", "c"].map((id) => ({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "playing" } })));
+  events.splice(4, 3, { kind: "browser-action", data: { type: "voice-playback", utterance_id: "a", status: "playing" } });
   assert.equal(evidence(events).checks.T04a.state, "pending");
-  for (const id of ["a", "b", "c"]) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "heard" } });
+  for (const [index, id] of ["a", "b", "c"].entries()) {
+    if (index) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "playing" } });
+    events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "heard" } });
+  }
   assert.equal(evidence(events).checks.T04a.state, "pass");
 });
 
-test("uncertain speech admission is a known core limitation, not a case failure", () => {
+test("uncertain speech admission is not reported as a resolved outcome", () => {
   const events = [
     { kind: "script-start", data: { id: "T07" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "uncertain", text: "Retry me" }, result: { status: "admission_unknown" } } },
   ];
   const view = evidence(events);
-  assert.equal(view.checks.T07.state, "known-limitation");
-  assert.equal(view.fates[0].fate, "known limitation");
+  assert.equal(view.checks.T07.state, "manual");
+  assert.equal(view.fates[0].fate, "admission_unknown");
 });
 
 test("mock voice discards short overlap but qualifies a sustained barge-in", async () => {
@@ -310,5 +394,27 @@ test("mock voice completes three queued replies in FIFO order", async () => {
   });
   await Promise.all(says.map((say) => say.outcome));
   assert.deepEqual(seen, ["playing:1", "done:1", "playing:2", "done:2", "playing:3", "done:3"]);
+  await voice.host.stop();
+});
+
+test("mock voice keeps a source turn's capture boundary through transcription", async () => {
+  let clock = 0;
+  const world = createWorld({ id: "boundary", title: "Boundary", summary: "", world: {}, options: [] }, {}, {
+    now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
+  });
+  const voice = fakeVoice(world);
+  const turns = [];
+  let started;
+  const began = new Promise((resolve) => { started = resolve; });
+  voice.host.onTurn((event) => { turns.push(event); if (event.phase === "started") started(); });
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.start();
+  await voice.host.setCaptureBoundary("conversation-a");
+  const first = voice.speak("Words for A");
+  await began;
+  await voice.host.setCaptureBoundary("conversation-b");
+  await first;
+  await voice.speak("Words for B");
+  assert.deepEqual(turns.filter((event) => event.phase === "finished").map((event) => event.capture_boundary_id), ["conversation-a", "conversation-b"]);
   await voice.host.stop();
 });
