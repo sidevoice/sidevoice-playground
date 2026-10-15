@@ -22,10 +22,6 @@ export const VARIANTS = [
     { value: "center", label: "Centred, tail from the bottom-left corner" },
     { value: "left", label: "Pushed left, tail from the bottom-right corner toward the agent" },
   ] },
-  { name: "balloonLines", label: "Balloon lines", note: "How many lines of the reply the balloon shows at once.", values: [
-    { value: "3", label: "3 lines" },
-    { value: "2", label: "2 lines" },
-  ] },
   { name: "balloonPaging", label: "Balloon moves on", note: "How the balloon follows the voice. Neither ever shows an empty line.", values: [
     { value: "scroll", label: "A line at a time (the next line always in view)" },
     { value: "page", label: "A page at a time (the last page shrinks to its lines)" },
