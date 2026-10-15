@@ -322,10 +322,12 @@ export function agentsOf(machine) {
 
 /** Agents as the connector lists them: each row a scenario (or an action) gives over what the connector knows of
  *  that agent, without what is the mock's alone. */
-const cursorBridge = (facts) => {
+const cursorReadiness = (facts) => {
   if (!facts) return null;
-  const state = ["running", "not_running", "unsupported"].includes(facts.state) ? facts.state : "unsupported";
-  return { state, chat_known: typeof facts.chatKnown === "boolean" ? facts.chatKnown : null };
+  if (facts.state === "needs_attention") return { state: "needs_attention", reasons: ["cursor.bridge_not_running"] };
+  if (facts.state === "unknown_code") return { state: "needs_attention", reasons: ["cursor.future_code"] };
+  if (facts.state === "unsupported") return { state: "unsupported", reasons: ["cursor.unsupported"] };
+  return { state: "ready", reasons: [] };
 };
 
 export function agentRows(agents, bridgeFacts = null) {
@@ -333,10 +335,10 @@ export function agentRows(agents, bridgeFacts = null) {
     const { cli, ...known } = KNOWN_AGENTS[agent.id] ?? {};
     // The connector acts where it can reach the agent: its CLI found, or its file.
     const able = !cli || cliFound;
-    const bridge = agent.id === "cursor" ? cursorBridge(bridgeFacts) : null;
+    const readiness = agent.id === "cursor" ? cursorReadiness(bridgeFacts) : null;
     return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent,
-      ...(bridge ? { registration: bridgeFacts.registration, actionable: !agent.dismissed && bridgeFacts.registration === "not-connected",
-        cursor_bridge: bridge } : {}) };
+      ...(readiness ? { registration: bridgeFacts.registration, actionable: !agent.dismissed && bridgeFacts.registration === "not-connected",
+        readiness } : {}) };
   });
 }
 

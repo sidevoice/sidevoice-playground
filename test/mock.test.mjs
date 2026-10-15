@@ -304,11 +304,17 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
 });
 
-test("Cursor Desktop Bridge presets emit only the simplified contract", async () => {
+test("Cursor readiness presets emit only state and reason codes", async () => {
   const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
   const world = createWorld(desktop, {}, instant);
   const identities = await makeIdentities(world.state);
-  const states = ["running", "not_running", "unsupported"];
+  const states = ["ready", "needs_attention", "unsupported", "unknown_code"];
+  const expected = {
+    ready: { state: "ready", reasons: [] },
+    needs_attention: { state: "needs_attention", reasons: ["cursor.bridge_not_running"] },
+    unsupported: { state: "unsupported", reasons: ["cursor.unsupported"] },
+    unknown_code: { state: "needs_attention", reasons: ["cursor.future_code"] },
+  };
   assert.deepEqual(desktop.options.find((option) => option.id === "cursorBridge").values.map((value) => value.value), states);
   let otherAgents;
   for (const state of states) {
@@ -317,35 +323,33 @@ test("Cursor Desktop Bridge presets emit only the simplified contract", async ()
       headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
     assert.equal(response.status, 200);
     const cursor = response.body.agents.find((agent) => agent.id === "cursor");
-    assert.equal(cursor.registration, state === "running" ? "connected" : "not-connected");
-    assert.deepEqual(cursor.cursor_bridge, { state, chat_known: null });
+    assert.equal(cursor.registration, "connected", "MCP registration is independent of readiness");
+    assert.deepEqual(cursor.readiness, expected[state]);
+    assert.equal(Object.hasOwn(cursor, "cursor_bridge"), false);
     const others = response.body.agents.filter((agent) => agent.id !== "cursor");
-    assert.ok(others.every((agent) => !agent.cursor_bridge));
+    assert.ok(others.every((agent) => !agent.readiness));
     if (otherAgents) assert.deepEqual(others, otherAgents);
     else otherAgents = others;
   }
 });
 
-test("agent actions change registration without inventing bridge readiness", async () => {
+test("agent actions change registration without inventing readiness", async () => {
   const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
   const world = createWorld(desktop, {}, instant);
   const identities = await makeIdentities(world.state);
   const auth = { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } };
   const ask = (path, method = "GET") => answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}${path}`, method, ...auth });
   const cursor = (response) => response.body.agents.find((agent) => agent.id === "cursor");
-  const initial = await ask("/api/host/agents");
-  assert.deepEqual(cursor(initial).cursor_bridge, { state: "running", chat_known: null });
+  assert.deepEqual(cursor(await ask("/api/host/agents")).readiness, { state: "ready", reasons: [] });
   const disconnected = await ask("/api/host/agents/cursor/disconnect", "POST");
   assert.equal(cursor(disconnected).registration, "not-connected");
-  assert.deepEqual(cursor(disconnected).cursor_bridge, { state: "running", chat_known: null });
+  assert.deepEqual(cursor(disconnected).readiness, { state: "ready", reasons: [] });
   const connected = await ask("/api/host/agents/cursor/connect", "POST");
   assert.equal(cursor(connected).registration, "connected");
-  assert.deepEqual(cursor(connected).cursor_bridge, { state: "running", chat_known: null });
-  const codex = await ask("/api/host/agents/codex/connect", "POST");
-  assert.deepEqual(cursor(codex).cursor_bridge, { state: "running", chat_known: null });
+  assert.deepEqual(cursor(connected).readiness, { state: "ready", reasons: [] });
 });
 
-test("live Cursor picker refreshes the three states without a page reload", async () => {
+test("live Cursor readiness picker refreshes four states without a page reload", async () => {
   const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
   const world = createWorld(desktop, {}, instant);
   const identities = await makeIdentities(world.state);
@@ -353,7 +357,7 @@ test("live Cursor picker refreshes the three states without a page reload", asyn
   const ask = () => answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents`,
     headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
   const displayed = { status: "ready", value: (await ask()).body };
-  const card = () => displayed.value.agents.find((agent) => agent.id === "cursor").cursor_bridge;
+  const card = () => displayed.value.agents.find((agent) => agent.id === "cursor").readiness;
   let refresh;
   let calls = 0;
   const frame = { src: "/voice/", contentWindow: {
@@ -366,14 +370,19 @@ test("live Cursor picker refreshes the three states without a page reload", asyn
       return refresh;
     } },
   } };
-  assert.deepEqual(card(), { state: "running", chat_known: null });
-  for (const state of ["not_running", "unsupported", "running"]) {
-    assert.equal(chooseMockOption(world, "cursorBridge", state, frame, identities), false);
+  assert.deepEqual(card(), { state: "ready", reasons: [] });
+  for (const [choice, expected] of [
+    ["needs_attention", { state: "needs_attention", reasons: ["cursor.bridge_not_running"] }],
+    ["unsupported", { state: "unsupported", reasons: ["cursor.unsupported"] }],
+    ["unknown_code", { state: "needs_attention", reasons: ["cursor.future_code"] }],
+    ["ready", { state: "ready", reasons: [] }],
+  ]) {
+    assert.equal(chooseMockOption(world, "cursorBridge", choice, frame, identities), false);
     await refresh;
-    assert.deepEqual(card(), { state, chat_known: null });
+    assert.deepEqual(card(), expected);
     assert.equal(frame.src, "/voice/", "the framed page never reloads");
   }
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
 });
 
 test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {

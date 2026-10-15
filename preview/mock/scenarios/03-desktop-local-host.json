@@ -32,7 +32,7 @@
         { "id": "local-iphone", "name": "iPhone de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 1 },
         { "id": "local-chrome", "name": "Chrome on Mac", "kind": "code", "daysAgo": 55, "seenDaysAgo": 30 }
       ],
-      "agents": "every-state", "cursorBridge": { "state": "running", "chatKnown": null, "registration": "connected" },
+      "agents": "every-state", "cursorBridge": { "state": "ready", "registration": "connected" },
       "participants": [
         { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening", "history": [
           { "role": "user", "text": "Morning. Did the overnight build pass?", "minutesAgo": 40 },
@@ -45,10 +45,11 @@
       ] }
   },
   "options": [
-    { "id": "cursorBridge", "group": "Agents on this computer", "label": "Cursor Desktop Bridge", "values": [
-      { "value": "running", "label": "Ready", "set": { "local.cursorBridge": { "state": "running", "chatKnown": null, "registration": "connected" } } },
-      { "value": "not_running", "label": "Needs attention", "set": { "local.cursorBridge": { "state": "not_running", "chatKnown": null, "registration": "not-connected" } } },
-      { "value": "unsupported", "label": "Unsupported (no bridge card)", "set": { "local.cursorBridge": { "state": "unsupported", "chatKnown": null, "registration": "not-connected" } } }
+    { "id": "cursorBridge", "group": "Agents on this computer", "label": "Cursor readiness", "values": [
+      { "value": "ready", "label": "Ready", "set": { "local.cursorBridge": { "state": "ready", "registration": "connected" } } },
+      { "value": "needs_attention", "label": "Needs attention: bridge off", "set": { "local.cursorBridge": { "state": "needs_attention", "registration": "connected" } } },
+      { "value": "unsupported", "label": "Not supported", "set": { "local.cursorBridge": { "state": "unsupported", "registration": "connected" } } },
+      { "value": "unknown_code", "label": "Needs attention: unknown reason", "set": { "local.cursorBridge": { "state": "unknown_code", "registration": "connected" } } }
     ] },
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
       { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
