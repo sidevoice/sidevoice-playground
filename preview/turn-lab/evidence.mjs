@@ -4,7 +4,12 @@ const MANUAL = new Set(["T09a", "T09b", "T10", "T13", "T14", "T15"]);
 
 export function evidence(events) {
   const starts = events.flatMap((event, index) => event.kind === "script-start" ? [index] : []);
-  if (!starts.length) return judge(events);
+  if (!starts.length) {
+    const empty = judge(events);
+    const epochs = events.map((event) => event.data?.epoch ?? event.data?.data?.epoch).filter(Number.isInteger);
+    empty.currentEpoch = epochs.length ? Math.max(...epochs) : null;
+    return empty;
+  }
   const checks = judge([]).checks;
   const fates = new Map();
   const notes = [];

@@ -47,7 +47,7 @@ async function poll() {
         $("room-wait").hidden = true;
         $("connect").disabled = false;
       }
-      setStatus("Real room ready. Allow its microphone, finish local model setup, then speak. Run a script to test its reply.");
+      setStatus("Real room ready. Allow microphone access and wait for local models to download; then speak or choose a script.");
       if (!connected && !autoConnecting && !attemptedAutoConnect) {
         attemptedAutoConnect = true;
         autoConnecting = true;
