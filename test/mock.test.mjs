@@ -21,7 +21,7 @@ const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toSt
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
 test("only the stage's balloon, voice error and title are open; a decided choice stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["balloon", "balloonLines", "balloonPaging", "voiceError", "stageTitle"]);
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["balloonPlace", "balloonLines", "balloonPaging", "voiceError", "stageTitle"]);
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
   const current = { "sidevoice.variants": JSON.stringify({ "bubbles-style": "illustrated" }) };
