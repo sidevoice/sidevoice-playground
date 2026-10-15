@@ -300,6 +300,8 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.equal(world.state.local.agents[0].registration, "connected");
   // The page reads the local host's agents over its own route (the bridge has no agents()).
   assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, as(LOCAL_ID))).body.agents[0].label, "Codex");
+  // Any other agent is connected by hand from the entry the listing carries, as the connector's does.
+  assert.match((await ask(`${LOCAL_URL}/api/host/agents`, as(LOCAL_ID))).body.custom.snippet, /"sidevoice"/);
   assert.equal((await ask(`${LOCAL_URL}/api/device/devices/phone`, { method: "DELETE", ...as(LOCAL_ID) })).status, 200);
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
 });
