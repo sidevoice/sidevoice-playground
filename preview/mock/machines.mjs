@@ -322,28 +322,12 @@ export function agentsOf(machine) {
 
 /** Agents as the connector lists them: each row a scenario (or an action) gives over what the connector knows of
  *  that agent, without what is the mock's alone. */
-const cursorBridge = (facts) => {
+const cursorReadiness = (facts) => {
   if (!facts) return null;
-  const live = facts.bridge === "live";
-  const reason = !facts.editorAvailable ? "editor_unavailable"
-    : !live ? "bridge_missing"
-    : facts.registration !== "connected" ? "sidevoice_not_registered"
-    : !facts.cursorVersion ? "cursor_version_unknown" : null;
-  const state = reason === "editor_unavailable" ? "unsupported"
-    : reason === "cursor_version_unknown" ? "unknown" : reason ? "needs_attention" : "ready";
-  return {
-    state, reason, cursor_version: facts.cursorVersion,
-    minimum_cursor_version: "3.22.12", minimum_connector_version: "0.9.0",
-    steps: [
-      { id: "cursor_version", state: facts.cursorVersion ? "done" : "unknown" },
-      { id: "enable_desktop_bridge", state: live ? "done" : "unknown" },
-      { id: "bridge_running", state: live ? "done" : "needs_action" },
-      { id: "sqlite3", state: "done" },
-      { id: "register_sidevoice", state: facts.registration === "connected" ? "done" : "needs_action" },
-      { id: "join_editor_chat", state: "unknown" },
-      { id: "wait_for_chat_registration", state: "unknown" },
-    ],
-  };
+  if (facts.state === "needs_attention") return { state: "needs_attention", reasons: ["cursor.bridge_not_running"] };
+  if (facts.state === "unknown_code") return { state: "needs_attention", reasons: ["cursor.future_code"] };
+  if (facts.state === "unsupported") return { state: "unsupported", reasons: ["cursor.unsupported"] };
+  return { state: "ready", reasons: [] };
 };
 
 export function agentRows(agents, bridgeFacts = null) {
@@ -351,10 +335,10 @@ export function agentRows(agents, bridgeFacts = null) {
     const { cli, ...known } = KNOWN_AGENTS[agent.id] ?? {};
     // The connector acts where it can reach the agent: its CLI found, or its file.
     const able = !cli || cliFound;
-    const bridge = agent.id === "cursor" ? cursorBridge(bridgeFacts) : null;
+    const readiness = agent.id === "cursor" ? cursorReadiness(bridgeFacts) : null;
     return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent,
-      ...(bridge ? { registration: bridgeFacts.registration, actionable: !agent.dismissed && bridgeFacts.registration === "not-connected",
-        version: bridge.cursor_version, cursor_bridge: bridge } : {}) };
+      ...(readiness ? { registration: bridgeFacts.registration, actionable: !agent.dismissed && bridgeFacts.registration === "not-connected",
+        readiness } : {}) };
   });
 }
 
