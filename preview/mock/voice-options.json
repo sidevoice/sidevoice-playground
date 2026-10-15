@@ -1,7 +1,11 @@
 [
   { "id": "mic", "group": "Voice", "label": "Microphone", "values": [
-    { "value": "granted", "label": "works", "set": { "voice.mic": "granted" } },
-    { "value": "denied", "label": "denied", "set": { "voice.mic": "denied" } },
+    { "value": "granted", "label": "allowed", "set": { "voice.mic": "granted" } },
+    { "value": "prompt", "label": "not asked yet: allowed when asked", "set": { "voice.mic": "prompt" } },
+    { "value": "prompt-block", "label": "not asked yet: blocked when asked", "set": { "voice.mic": "prompt-block" } },
+    { "value": "prompt-dismiss", "label": "not asked yet: the request closed unanswered once, then allowed", "set": { "voice.mic": "prompt-dismiss" } },
+    { "value": "denied", "label": "blocked", "set": { "voice.mic": "denied" } },
+    { "value": "denied-then-allowed", "label": "blocked, then allowed: Check again finds it allowed", "set": { "voice.mic": "denied-then-allowed" } },
     { "value": "missing", "label": "none connected", "set": { "voice.mic": "missing" } }
   ] },
   { "id": "stt", "group": "Voice", "label": "What you say", "values": [

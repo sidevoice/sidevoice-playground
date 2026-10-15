@@ -11,6 +11,7 @@ import { answer, callSocket, isCallSocket } from "./machines.mjs";
 import { desktopHost } from "./bridge.mjs";
 import { webEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
+import { pagePermission } from "./microphone.mjs";
 
 /**
  * What the page's `import()` of @sidevoice/engine (`engine`) or @sidevoice/voice (`voice`) gives, mocked: their
@@ -188,6 +189,9 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
     });
   };
   win.WebSocket = /** @type {any} */ (mockedWebSocket(win, { world, identities }));
+  // In a browser the page asks for the microphone itself (the setup's microphone step): the world's permission answers.
+  // In the app it asks the app (`host.microphone`, bridge.mjs).
+  if (!desktop) pagePermission(win, world);
   // Restarting into an app update opens a new window: the page loads again, its session (sessionStorage: what it hid
   // for this run, an update notice's ×) started over, as a new window's is. The preview's own keys on this origin
   // (sidevoice-preview.*: the world kept over a reload) stay.

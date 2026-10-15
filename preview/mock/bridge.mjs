@@ -15,6 +15,7 @@
 import { LOCAL_ID, LOCAL_URL, SERVICE_VERSION, mintCode, nextMinor, storedPairing } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
+import { appMicrophone } from "./microphone.mjs";
 
 /** This computer's Sidevoice service's version where the world names none (`local.version`, `local.bundledVersion`):
  *  the one installed, and the one the app bundles — a service's number, as every machine's (machines.mjs). */
@@ -56,7 +57,7 @@ const INSTALL_STEPS = [
 /** This computer's local host where a scenario names none: not installed yet, as on a desktop app just opened. */
 export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", participants: [] };
 
-/** The desktop host for the world: `{ app, version, computerName, voice, engine, localHost }`, as the bridge gives it:
+/** The desktop host for the world: `{ app, version, computerName, voice, microphone, engine, localHost }`, as the bridge gives it:
  *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
  *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer (or,
  *  where the world's app has no install seam, `local.appInstalls: false`, shows only the install command).
@@ -260,6 +261,8 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
     ...(hasAppUpdater(world) ? { updater: appUpdaterOf(world) } : {}),
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
+    // Where the app runs the call (macOS), the microphone's permission is the app's to ask for (sidevoice-desktop#93).
+    microphone: appMicrophone(world),
     engine: desktopEngine(world),
     data,
     localHost,
