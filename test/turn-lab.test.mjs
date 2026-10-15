@@ -669,3 +669,74 @@ test("mock voice: A closes at its configured endpoint while a longer utterance g
   await m.a.dispose();
   await m.b.dispose();
 });
+
+test("mock voice: a barge-in stops playback within a step and says what was heard", async () => {
+  const world = createWorld({ id: "barge", title: "Barge", summary: "", world: {}, options: [] }, {}, { tick: () => new Promise((r) => setImmediate(r)) });
+  const voice = fakeVoice(world);
+  const states = [], events = [];
+  voice.host.onState((state) => states.push(state.playback));
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, barge_in_min_speech: 1 });
+  await voice.host.start();
+  const text = "First sentence goes here. Second sentence goes here too. Third one is the last.";
+  const saying = voice.host.say(text);
+  saying.onEvent((event) => events.push(event));
+  for (let i = 0; i < 200 && !events.some((event) => event.type === "progress" && event.heard_chars > 0); i++) await new Promise((r) => setImmediate(r));
+  assert.equal(voice.state.playback, "playing");
+  const first = [...text.match(/[^.!?]+[.!?]*\s*/)[0]].length;
+  // The person speaks over it, long and loud enough to count.
+  let settled = null;
+  saying.outcome.then((outcome) => { settled = outcome; });
+  const speaking = voice.speak("Stop there please", { durationMs: 1300 });
+  for (let i = 0; i < 400 && !settled; i++) await new Promise((r) => setImmediate(r));
+  assert.deepEqual(settled, { status: "heard-up-to", heard_chars: first, reason: "barge-in" });
+  assert.equal(voice.state.playback, "idle", "playback is idle as soon as the say is cut");
+  assert.equal(events.filter((event) => event.type === "done").length, 1);
+  await speaking;
+  await voice.host.stop();
+});
+
+test("mock voice: cutting the final sentence is never a success", async () => {
+  const world = createWorld({ id: "final", title: "Final", summary: "", world: {}, options: [] }, {}, { tick: () => new Promise((r) => setImmediate(r)) });
+  const voice = fakeVoice(world);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.start();
+  const text = "Only one long sentence that takes a while to be read out loud by the mock speaker";
+  const saying = voice.host.say(text);
+  const done = [];
+  saying.onEvent((event) => { if (event.type === "done") done.push(event.outcome); });
+  for (let i = 0; i < 200 && voice.state.playback !== "playing"; i++) await new Promise((r) => setImmediate(r));
+  saying.cancel();
+  assert.equal(voice.state.playback, "idle");
+  assert.deepEqual(await saying.outcome, { status: "heard-up-to", heard_chars: 0, reason: "cancelled" });
+  await new Promise((r) => setImmediate(r));
+  assert.equal(done.length, 1);
+  await voice.host.stop();
+});
+
+test("mock voice: endInput ends the open turn now, and does nothing without one", async () => {
+  let clock = 0;
+  const world = createWorld({ id: "end", title: "End", summary: "", world: {}, options: [] }, {}, {
+    now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
+  });
+  const voice = fakeVoice(world);
+  const turns = [];
+  voice.host.onTurn((turn) => turns.push(turn));
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.start();
+  await voice.host.endInput();
+  assert.equal(turns.length, 0);
+  // The person is cut off after twelve levels of speech (a quarter of it), from inside the call's own step.
+  let levels = 0, before = 0, ending = null;
+  voice.host.onLevel(() => { if (++levels === 12) { before = clock; ending = voice.host.endInput(); } });
+  const speaking = voice.speak("one two three four five six", { durationMs: 3000 });
+  while (!ending) await new Promise((r) => setImmediate(r));
+  await ending;
+  assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
+  await speaking;
+  const finished = turns.filter((turn) => turn.phase === "finished");
+  assert.equal(finished.length, 1);
+  assert.equal(finished[0].text, "one two", "only what was captured so far");
+  await voice.host.endInput();
+  assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
+  await voice.host.stop();
+});
