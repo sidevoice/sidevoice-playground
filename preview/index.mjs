@@ -123,7 +123,10 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     const conversation = event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
     const epoch = event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch;
     if (conversation && Number.isInteger(epoch)) epochs.set(conversation, epoch);
-    if (traceFile) traceWrites = traceWrites.then(() => appendFile(traceFile, JSON.stringify(event) + "\n"));
+    if (traceFile) traceWrites = traceWrites.then(() => appendFile(traceFile, JSON.stringify(event) + "\n")).catch((error) => {
+      say(`Trace export failed: ${error.message}`);
+      traceFile = null;
+    });
   };
   const candidate = (config) => ({ core: config.core, connector: config.connector, web: config.web, voice: config.voice, engine: config.engine });
   const matchesCandidate = (current, config) => current?.mode === "real" && current.scenario === "turn-lab" &&
@@ -132,17 +135,17 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     connector: `sha:${config.connector}`, voice: config.voice, engine: config.engine }, scenarios);
 
   async function start(pick) {
-    if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
-    if (agent) { await agent.stop(); agent = null; }
-    events.length = 0;
-    caseEvents = []; archivedChecks = {}; archivedFates = new Map(); archivedNotes = []; archivedInputs = []; epochs.clear();
-    await traceWrites;
-    await mkdir(join(cache, "turn-lab-traces"), { recursive: true });
-    traceFile = join(cache, "turn-lab-traces", `${Date.now()}-${randomUUID()}.ndjson`);
-    await writeFile(traceFile, "");
-    log.length = 0;
     job = { state: "starting", error: null };
     try {
+      if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
+      if (agent) { await agent.stop(); agent = null; }
+      events.length = 0;
+      caseEvents = []; archivedChecks = {}; archivedFates = new Map(); archivedNotes = []; archivedInputs = []; epochs.clear();
+      await traceWrites;
+      await mkdir(join(cache, "turn-lab-traces"), { recursive: true });
+      traceFile = join(cache, "turn-lab-traces", `${Date.now()}-${randomUUID()}.ndjson`);
+      await writeFile(traceFile, "");
+      log.length = 0;
       if (pick.mode === "dev") {
         // Only a worktree of the dev checkout, as it lists them now.
         const worktree = (await listWorktrees(devRepo)).find((w) => w.path === pick.worktree);
