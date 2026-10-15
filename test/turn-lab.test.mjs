@@ -277,12 +277,14 @@ test("case verdicts stay pending without evidence, record refusals and keep phys
   assert.equal(evidence([]).checks.T16.state, "manual");
   assert.equal(evidence([{ kind: "room-frame", data: { type: "voice-session", epoch: 2 } }]).currentEpoch, 2);
   const events = [
-    { kind: "script-start", data: { id: "T02d" } },
-    { kind: "tool-result", data: { name: "voice_say", result: { status: "rejected", reason: "user_speaking" } } },
-    { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, epoch: 1 } },
+    { kind: "script-start", data: { id: "T02d", epoch: 0 } },
+    { kind: "room-frame", data: { type: "voice-user-turn", phase: "started", epoch: 1 } },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "a", event_id: "e", session_id: "s", revision: 1, epoch: 1 },
+      result: { status: "rejected", reason: "user_speaking", terminal: true, utterance_id: "a", event_id: "e", instruction: "Wait for the person." } } },
+    { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, message_id: "m", session_id: "s", epoch: 1 } },
   ];
   assert.equal(evidence(events).checks.T02d.state, "pass");
-  events[1].data.result = { status: "accepted" };
+  events.find((event) => event.data?.name === "voice_say").data.result = { status: "accepted" };
   assert.equal(evidence(events).checks.T02d.state, "fail");
 });
 
@@ -333,9 +335,11 @@ test("late history snapshots cannot regress confirmed semantic hearing", () => {
 
 test("earlier case verdicts and notices remain visible after another script starts", () => {
   const events = [
-    { kind: "script-start", data: { id: "T02d" } },
-    { kind: "tool-result", data: { name: "voice_say", result: { status: "rejected", reason: "user_speaking" } } },
-    { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, epoch: 1 } },
+    { kind: "script-start", data: { id: "T02d", epoch: 0 } },
+    { kind: "room-frame", data: { type: "voice-user-turn", phase: "started", epoch: 1 } },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "a", event_id: "e", session_id: "s", revision: 1, epoch: 1 },
+      result: { status: "rejected", reason: "user_speaking", terminal: true, utterance_id: "a", event_id: "e", instruction: "Wait for the person." } } },
+    { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, message_id: "m", session_id: "s", epoch: 1 } },
     { kind: "script-start", data: { id: "T03" } },
   ];
   const view = evidence(events);
@@ -367,7 +371,7 @@ test("FIFO check requires observed playback starts in publication order", () => 
   }
   assert.equal(evidence(events).checks.T04a.state, "pending", "physical FIFO still needs semantic acknowledgements");
   for (const id of ["a", "b", "c"]) events.push({ kind: "browser-action", data: { type: "reply-hearing", utterance_id: id, outcome: "heard" } });
-  assert.equal(evidence(events).checks.T04a.state, "pass");
+  assert.equal(evidence(events).checks.T04a.state, "pending", "unacknowledged semantic submissions still need IDs and core confirmation");
 });
 
 test("uncertain speech admission is not reported as a resolved outcome", () => {

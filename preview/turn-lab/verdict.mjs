@@ -204,10 +204,11 @@ export function verdict(id, events, fates) {
   if (id === "T04a") {
     if (publications.length > 3 || !distinct || publications.some((item) => status(item) === "rejected")) return fail("Three distinct replies must be accepted");
     if (!complete(3)) return pending();
+    const sequence = orderedPlayback(ids);
+    if (sequence === "fail") return fail("Replies must play once in FIFO order and be heard");
     if (ids.some((key) => envelopeGap(key)) || !caseIdentity()) return pending();
     if (publications.some((item) => item.args.epoch !== publications[0].args.epoch || item.args.session_id !== publications[0].args.session_id ||
       item.args.revision !== publications[0].args.revision)) return fail("Three replies crossed epochs or sessions");
-    const sequence = orderedPlayback(ids);
     if (sequence === "fail" || ids.some((key) => contradictory(key, "heard") || misses.some((row) => row.utterance_id === key))) return fail("Replies must play once in FIFO order and be heard");
     return sequence === "complete" && ids.every((key) => match(key, "heard")) ? pass("Three replies played once in order and were heard") : pending();
   }
