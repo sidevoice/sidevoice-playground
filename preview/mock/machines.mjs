@@ -644,7 +644,10 @@ function seededRows(world, id) {
     seq: n + 1, id: `${id}-said-${n + 1}`, thread: conversation.thread_id, role: entry.role, text: entry.text,
     name: entry.role === "user" ? "You" : conversation.title, session: null, revision: 0, epoch: 0,
     time: world.now() - Math.round(entry.minutesAgo * 60_000),
-    status: entry.status ?? (entry.role === "user" ? "read" : "playback_finished"), audio_reason: null, heard_chars: null, offline: null,
+    status: entry.status ?? (entry.role === "user" ? "read" : "playback_finished"), audio_reason: null,
+    hearing: entry.role === "assistant" && (!entry.status || entry.status === "playback_finished") ? "heard" : null,
+    hearing_unconfirmed: entry.role === "assistant" && entry.status && entry.status !== "playback_finished",
+    heard_chars: entry.role === "assistant" && (!entry.status || entry.status === "playback_finished") ? [...entry.text].length : null, offline: null,
   }));
 }
 
@@ -662,7 +665,7 @@ const callOf = (room, sid) => (sid ? seated(room).find((call) => call.session ==
 const told = (world, room) => (world.state.transcript === "empty" ? room.rows.filter((row) => !row.id.startsWith(`${room.id}-said-`)) : room.rows);
 /** What the room's history says of a row: all of it but the turn it was said in. */
 const rowView = ({ turn_id, ...row }) => ({ ...row,
-  globally_heard: row.role === "assistant" && ["playback_finished", "skipped"].includes(row.status),
+  globally_heard: row.role === "assistant" && row.hearing === "heard",
   replayable: row.role === "assistant",
 });
 const refusal = (key, id = null) => ({ type: "error", data: { key, message: REFUSALS[key], ...(id ? { client_msg_id: id } : {}) } });
@@ -744,6 +747,7 @@ function take(world, room, call, text) {
   if (data.session_id !== call.session) return;
   if (frame.type === "voice-user-turn") once(world, room, call, data, userTurn);
   else if (frame.type === "voice-playback") once(world, room, call, data, playback);
+  else if (frame.type === "reply-hearing") once(world, room, call, data, replyHearing);
   else if (frame.type === "voice-speech") once(world, room, call, data, speechOutput);
 }
 
@@ -886,17 +890,28 @@ function playback(world, room, call, data, id) {
   reply.status = status;
   reply.row.status = status;
   reply.row.audio_reason = status === "interrupted" && typeof data.reason === "string" ? data.reason : reason;
-  reply.row.heard_chars = data.status === "heard" ? [...reply.row.text].length :
-    data.status === "interrupted" && data.heard_chars != null ? Math.max(reply.row.heard_chars ?? 0, data.heard_chars) : reply.row.heard_chars ?? null;
-  if (data.reason === "user_skipped") {
-    reply.row.status = "skipped";
-    reply.row.heard_chars = [...reply.row.text].length;
-    reply.row.audio_reason = "user_skipped";
-  }
+  // Physical playback never asserts semantic hearing. The app sends reply-hearing separately.
   return [];
 }
 
 /** Output eligibility changes the room's audience without changing its epoch. */
+function replyHearing(_world, room, call, data, id) {
+  const row = room.rows.find((item) => item.role === "assistant" && item.id === data.history_id &&
+    item.id.endsWith(`:voice:${data.utterance_id}`) && item.thread === call.binding?.thread_id);
+  if (!row) return [refusal("room.stale_utterance", id)];
+  const n = [...row.text].length;
+  const extent = data.outcome === "heard" ? n : data.outcome === "not_heard" ? 0 : data.heard_chars;
+  if (!["heard", "partial", "not_heard"].includes(data.outcome) || !Number.isInteger(extent) || extent < 0 || extent > n ||
+    data.outcome === "partial" && extent === n || data.outcome !== "partial" && data.heard_chars != null)
+    return [refusal("room.receipt_invalid", id)];
+  if (row.heard_chars == null || extent >= row.heard_chars) {
+    row.heard_chars = extent;
+    row.hearing = data.outcome;
+    row.hearing_unconfirmed = false;
+  }
+  return [];
+}
+
 function speechOutput(_world, _room, call, data, id) {
   if (typeof data.on !== "boolean" || (!data.on && !["voice_off", "agents_muted"].includes(data.reason))) return [refusal("room.request_invalid", id)];
   call.speechOn = data.on;
@@ -1037,7 +1052,7 @@ export function agentSpeaks(world, text) {
   const epoch = room.epochs.get(thread) ?? 0;
   const row = {
     seq: ++room.seq, id: `${call.session}:voice:${uid}`, thread, role: "assistant", text, name: call.binding.title ?? null,
-    session: call.session, revision, epoch, time: world.now(), status: "queued", audio_reason: null, heard_chars: null, offline: null,
+    session: call.session, revision, epoch, time: world.now(), status: "queued", audio_reason: null, hearing: null, hearing_unconfirmed: true, heard_chars: null, offline: null,
   };
   room.rows.push(row);
   let delivered = false;

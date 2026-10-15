@@ -172,7 +172,7 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 ### Turn Lab: real spoken conversation
 
-The access-gated link is **`http://localhost:5174/turn-lab?access=<token from the playground access file>`**. Open it once; the gate stores a cookie and redirects to `/turn-lab`. For a remote browser, use the same `/turn-lab?access=…` path on the playground tunnel and set `--preview-origin` to the second, browser-reachable preview tunnel. The Turn Lab starts the pinned real room, pairs its browser through the web build's own pairing protocol, connects a scripted MCP agent in inject mode, and puts the room, script menu, event log, reply fates and case checks together. Allow the microphone prompt; the browser downloads its local models automatically on first use. Once the call joins, speak. Use **Get messages** to reconnect the scripted agent in pull mode.
+The access-gated link is **`http://localhost:5174/turn-lab?access=<token from the playground access file>`**. Open it once; the gate stores a cookie and redirects to `/turn-lab`. For a remote browser, use the same `/turn-lab?access=…` path on the playground tunnel and set `--preview-origin` to the second, browser-reachable preview tunnel. The Turn Lab starts the pinned real room, pairs its browser through the web build's own pairing protocol, connects a scripted MCP agent in inject mode, and puts the room, script menu, event log, reply hearing (including unconfirmed rows), agent notices and case checks together. Allow the microphone prompt; the browser downloads its local models automatically on first use. Once the call joins, speak. Use **Get messages** to reconnect the scripted agent in pull mode.
 
 For an isolated local run, use ports away from the live playground:
 

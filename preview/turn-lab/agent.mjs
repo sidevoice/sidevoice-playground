@@ -76,6 +76,16 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
   };
   const receive = (message) => {
     record("agent-input", { ...message, conversation });
+    if (message.notice) record("agent-notice", { message_id: message.message_id, conversation, ...message.notice });
+    for (const row of message.unheard?.replies ?? []) {
+      const chars = [...(row.text ?? "")], extent = row.heard_chars ?? 0;
+      record("agent-hearing", { message_id: message.message_id, conversation, utterance_id: row.utterance_id,
+        history_id: row.history_id, outcome: row.fate, heard_chars: row.heard_chars,
+        heard: chars.slice(0, extent).join(""), unheard: chars.slice(extent).join("") });
+    }
+    for (const row of message.notice?.heard ?? []) record("agent-hearing", { message_id: message.message_id,
+      conversation, utterance_id: row.utterance_id, history_id: row.history_id, outcome: row.fate,
+      heard_chars: row.heard_chars, correction: message.notice.corrects_message_id });
     const id = message.message_id;
     if (id && received.has(id)) return;
     if (id) received.add(id);
