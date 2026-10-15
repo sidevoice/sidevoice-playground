@@ -119,6 +119,10 @@
         const receipt = response.ok ? await response.clone().json().catch(() => ({})) : {};
         report("browser-action", { type: "typed-message", status: response.status, epoch: receipt.epoch });
       }
+      if (path === "/api/presentation/select") {
+        const selected = JSON.parse(args[1]?.body ?? "{}");
+        report("browser-action", { type: "focus-selection", thread_id: selected.thread_id, status: response.status });
+      }
       if (path.startsWith("/api/presentation/") && response.ok) {
         const body = await response.clone().json();
         const rows = [...(body.rows ?? body.messages ?? body.history ?? []), ...(body.resolved ?? [])];

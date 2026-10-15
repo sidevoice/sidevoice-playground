@@ -498,6 +498,10 @@ test("mock voice keeps A and B turns in separate running calls across an input r
   });
   const voice = fakeVoice(world);
   const a = voice.host.createCall(), b = voice.host.createCall();
+  assert.notEqual(a.id, b.id);
+  assert.equal(typeof voice.host.setCaptureBoundary, "undefined");
+  assert.equal(typeof a.onAgentInterrupted, "undefined");
+  await assert.rejects(voice.host.routeInput({ id: "foreign" }), { code: "unknown-voice-call" });
   const turns = [];
   let aStarted, aStoppedSpeaking;
   const began = new Promise((resolve) => { aStarted = resolve; });
@@ -520,6 +524,8 @@ test("mock voice keeps A and B turns in separate running calls across an input r
   assert.deepEqual(turns.filter(([, event]) => event.phase === "finished").map(([call, event]) => [call, event.text]),
     [["a", "Words for A"], ["b", "Words for B"]]);
   assert.ok(turns.every(([, event]) => !Object.hasOwn(event, "capture_boundary_id")));
+  await voice.host.routeInput(null);
+  assert.equal(await voice.speak("No routed call"), false);
   await a.dispose();
   await b.dispose();
 });
