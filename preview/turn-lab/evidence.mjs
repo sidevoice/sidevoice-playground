@@ -14,7 +14,13 @@ export function evidence(events, conversation = null) {
   const notes = [], inputs = [];
   for (const [from, to] of [[0, starts[0]], ...starts.map((at, index) => [at, starts[index + 1] ?? events.length])]) {
     const segment = events.slice(from, to);
-    const result = judge(segment, conversation);
+    // Output settings are deliberately changed before Run in T06b/T06d.
+    // Carry only the latest setting into the case, never an earlier reply or notice.
+    const scope = segment[0]?.data?.conversation;
+    const setting = events.slice(0, from).reverse().find((event) =>
+      ["room-frame", "browser-action"].includes(event.kind) && event.data?.type === "voice-speech" &&
+      (!scope || !event.data?.conversation || event.data.conversation === scope));
+    const result = judge(setting ? [setting, ...segment] : segment, conversation);
     for (const row of result.fates) replies.set(row.utterance_id, row);
     notes.push(...result.notes);
     inputs.push(...result.inputs);

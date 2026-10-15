@@ -91,3 +91,12 @@ test('a played cut with zero confirmed characters is not_heard, while its physic
   assert.equal(judge('T01', zero).state, 'pass');
   assert.equal(judge('T01', [...zero, sound('a', 'playing')]).state, 'fail');
 });
+test('T06b and T06d include an output setting chosen before Run without borrowing earlier replies', () => {
+  const off = evidence([mute('voice_off'), start('T06b'), say('a', 'text_only'), hearing('a', 'not_heard')]);
+  assert.equal(off.checks.T06b.state, 'pass');
+  const returned = evidence([mute('agents_muted'), start('T06d'), say('a', 'text_only'), hearing('a', 'not_heard'),
+    mute(null, true), input('note', '', [miss('a', 'not_heard')], 'user_returned')]);
+  assert.equal(returned.checks.T06d.state, 'pass');
+  const old = evidence([start('T04a'), say('old'), mute('voice_off'), start('T06b'), say('a', 'text_only'), hearing('a', 'not_heard')]);
+  assert.equal(old.checks.T06b.state, 'pass');
+});
