@@ -24,10 +24,10 @@
   "expect": {
     "epochDelta": 1,
     "fates": [
-      "interrupted"
+      "partial"
     ],
     "notice": [
-      "reply_interrupted"
+      "reply_not_heard"
     ],
     "screen": [
       "cut"

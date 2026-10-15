@@ -24,7 +24,7 @@
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "unplayed"
+      "not_heard"
     ],
     "notice": [
       "user_returned"

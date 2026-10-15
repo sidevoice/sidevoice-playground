@@ -20,14 +20,12 @@
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "skipped",
+      "heard",
       "heard"
     ],
-    "notice": [
-      "reply_skipped"
-    ],
+    "notice": [],
     "screen": [
-      "heard-by-choice"
+      "heard"
     ]
   },
   "fixture": {

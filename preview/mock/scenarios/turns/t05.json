@@ -25,11 +25,11 @@
     "epochDelta": 1,
     "fates": [
       "heard",
-      "interrupted",
-      "unplayed"
+      "partial",
+      "not_heard"
     ],
     "notice": [
-      "reply_interrupted"
+      "reply_not_heard"
     ],
     "screen": [
       "checkpoint-cut"

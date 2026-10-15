@@ -24,7 +24,7 @@
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "text_only"
+      "not_heard"
     ],
     "notice": [
       "user_returned"

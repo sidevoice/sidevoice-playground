@@ -27,7 +27,7 @@ export function evidence(events, conversation = null) {
 function judge(events, conversation) {
   const selected = events.find((event) => event.kind === "script-start")?.data?.id;
   const inputs = events.filter((event) => event.kind === "agent-input").map((event) => event.data);
-  const notes = inputs.filter((input) => input.notice).map((input) => input.notice);
+  const notes = inputs.filter((input) => input.notice).map((input) => ({ ...input.notice, unheard: input.unheard?.replies ?? [] }));
   const replies = new Map();
   const get = (id) => {
     if (!replies.has(id)) replies.set(id, { utterance_id: id, fate: "unconfirmed", hearing_unconfirmed: true });

@@ -6,6 +6,8 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
   const state = { epochDelta: 0, fates: [], notice: [], screen: [], tool: null, trace: [], turnOpen: false,
     output: 'on', playing: null, queued: [], misses: false, activity: false,
     conversations: new Map(), finishes: [], duplicateStarts: 0, envelopes: new Map(), deliveries: [], claims: new Map() };
+  const hearing = (value) => ({ interrupted: 'partial', unplayed: 'not_heard', text_only: 'not_heard' }[value] ?? value);
+  const notice = (value) => ({ reply_interrupted: 'reply_not_heard', reply_not_played: 'reply_not_heard' }[value] ?? value);
   const mark = (items, value) => { if (value && !items.includes(value)) items.push(value); };
   const add = (fate) => { state.fates.push(fate); return state.fates.length - 1; };
   const settle = (fate) => { if (state.playing != null) { state.fates[state.playing] = fate; state.playing = null; } };
@@ -69,7 +71,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
         }
         break;
       }
-      case 'skip': settle('skipped'); mark(state.notice, 'reply_skipped'); mark(state.screen, 'heard-by-choice'); break;
+      case 'skip': settle('heard'); mark(state.screen, 'heard'); break;
       case 'next-reply': add('heard'); break;
       case 'mic-mute': mark(state.screen, 'normal-turn-end'); break;
       case 'reply-partial-device-a': state.playing = add('playing'); break;
@@ -82,7 +84,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'activity-restart': state.activity = true; break;
       case 'push-input': case 'pull-input': {
         const id = action.messageId ?? 'message-1';
-        if (!state.envelopes.has(id)) state.envelopes.set(id, { id, channel: 'note', text: 'The person is back', notice: { kind: 'user_returned' } });
+        if (!state.envelopes.has(id)) state.envelopes.set(id, { id, channel: 'note', text: 'The person is back', notice: { kind: 'reply_not_heard' }, unheard: { count: 1, replies: [{ utterance_id: 'reply-1', fate: 'not_heard', heard_chars: 0, text: 'A reply' }] } });
         const mode = type === 'push-input' ? 'push' : 'pull';
         state.deliveries.push({ mode, id, envelope: structuredClone(state.envelopes.get(id)) });
         state.claims.set(mode, id);
@@ -104,7 +106,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
     await wait(action.atMs - elapsed);
     elapsed = action.atMs;
     act(action);
-    const entry = { atMs: elapsed, action: action.type, epoch: state.epochDelta, fates: [...state.fates], notice: [...state.notice],
+    const entry = { atMs: elapsed, action: action.type, epoch: state.epochDelta, fates: state.fates.map(hearing), notice: state.notice.map(notice),
       conversations: Object.fromEntries([...state.conversations].map(([key, value]) => [key, { ...value }])), deliveries: [...state.deliveries] };
     state.trace.push(entry);
     onStep(entry);
@@ -119,7 +121,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       state.deliveries.map((item) => item.mode).join(',') === 'push,pull,pull-redelivery') {
     mark(state.notice, 'same-in-push-and-pull'); mark(state.screen, 'stable-message-ids');
   }
-  const actual = { epochDelta: state.epochDelta, fates: state.fates, notice: state.notice, screen: state.screen, tool: state.tool };
+  const actual = { epochDelta: state.epochDelta, fates: state.fates.map(hearing), notice: [...new Set(state.notice.map(notice))], screen: state.screen, tool: state.tool };
   const contract = TURN_CONTRACT[fixture.id];
   const mismatches = [];
   if (!contract) mismatches.push(`Unknown #19 case: ${fixture.id}`);

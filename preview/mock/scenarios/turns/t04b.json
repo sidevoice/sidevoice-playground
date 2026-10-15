@@ -24,12 +24,12 @@
   "expect": {
     "epochDelta": 1,
     "fates": [
-      "interrupted",
-      "unplayed",
-      "unplayed"
+      "partial",
+      "not_heard",
+      "not_heard"
     ],
     "notice": [
-      "reply_interrupted"
+      "reply_not_heard"
     ],
     "screen": [
       "unheard"

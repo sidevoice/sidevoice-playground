@@ -20,7 +20,7 @@
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "text_only"
+      "not_heard"
     ],
     "screen": [
       "unheard"

@@ -20,7 +20,7 @@
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "interrupted"
+      "partial"
     ],
     "screen": [
       "inactive-conversation"

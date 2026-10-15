@@ -1,246 +1,87 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { evidence } from '../preview/turn-lab/evidence.mjs';
 
-const start = (id, extra = {}) => ({ kind: 'script-start', data: { id, ...extra } });
-const say = (id, status = 'published', reason, text = id) => ({ kind: 'tool-result', data: { name: 'voice_say', args: { utterance_id: id, text }, result: { status, reason, audio: status === 'rejected' ? null : status === 'text_only' ? 'text_only' : 'queued' } } });
-const input = (channel, text, replies = [], kind) => ({ kind: 'agent-input', data: { channel, text, unheard: { replies }, ...(kind ? { notice: { kind } } : {}) } });
-const reply = (id, fate, reason, cut, heard_chars, text = id) => ({ utterance_id: id, text, fate, reason, cut, heard_chars });
-const frame = (type, id, status, extra = {}) => ({ kind: 'browser-action', data: { type, utterance_id: id, status, ...extra } });
-const muted = (reason) => ({ kind: 'room-frame', data: { type: 'voice-speech', on: false, reason } });
+const start = (id, extra = {}) => ({ kind: 'script-start', data: { id, epoch: 0, ...extra } });
+const say = (id, audio = 'queued', text = id) => ({ kind: 'tool-result', data: { name: 'voice_say', args: { utterance_id: id, text }, result: { status: 'published', audio } } });
+const refused = (id = 'a') => ({ kind: 'tool-result', data: { name: 'voice_say', args: { utterance_id: id, text: id }, result: { status: 'rejected', reason: 'user_speaking' } } });
+const frame = (type, id, data = {}) => ({ kind: 'browser-action', data: { type, ...(id ? { utterance_id: id } : {}), ...data } });
+const sound = (id, status, data = {}) => frame('voice-playback', id, { status, ...data });
+const hearing = (id, outcome, heard_chars) => frame('reply-hearing', id, { outcome, ...(heard_chars == null ? {} : { heard_chars }) });
+const miss = (id, fate, heard_chars, text = id) => ({ utterance_id: id, text, fate, heard_chars: fate === 'not_heard' ? 0 : heard_chars });
+const input = (channel, text, replies = [], kind) => ({ kind: 'agent-input', data: { channel, text, ...(replies.length ? { unheard: { count: replies.length, replies } } : {}), ...(kind ? { notice: { kind } } : {}) } });
+const mute = (reason, on = false) => frame('voice-speech', null, { on, ...(on ? {} : { reason }) });
+const history = (id, hearingOutcome, audio_reason) => ({ kind: 'room-frame', data: { type: 'history', row: { role: 'assistant', id: `s:voice:${id}`, text: id, hearing: hearingOutcome, hearing_unconfirmed: hearingOutcome == null, heard_chars: hearingOutcome === 'not_heard' ? 0 : hearingOutcome === 'heard' ? 1 : null, audio_reason } } });
 const phase = () => ({ kind: 'script-phase', data: { id: 'T06a', phase: 2 } });
-const bad = {
-  T01: [say('a'), input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', false, 2)])],
-  T02a: [say('a'), input('voice', 'Hello', [reply('a', 'interrupted', 'user_interrupted', true, 2)])],
-  T02b: [say('a'), input('note', '', [reply('a', 'interrupted', 'user_interrupted', true, 2)], 'turn_empty')],
-  T02c: [say('a', 'rejected', 'room_speech_context_invalid'), input('voice', 'Hello')],
-  T02d: [say('a', 'rejected', 'room_speech_context_invalid'), input('note', '', [], 'turn_empty')],
-  T03: [say('a', 'text_only', 'newer_turn'), input('note', '', [reply('other', 'unplayed', 'newer_turn', false, null)], 'reply_not_played')],
-  T04a: [say('a'), say('b'), say('c'), frame('voice-playback', 'a', 'playing'), frame('voice-playback', 'c', 'playing'), frame('voice-playback', 'b', 'playing')],
-  T04b: [say('a'), say('b'), say('c'), input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', true, 2), reply('a', 'interrupted', 'user_interrupted', true, 2), reply('a', 'interrupted', 'user_interrupted', true, 2)])],
-  T05: [say('a'), say('b'), say('c'), frame('voice-playback', 'a', 'heard'), frame('voice-playback', 'b', 'heard'), frame('voice-playback', 'c', 'heard'), input('note', '', [], 'reply_interrupted')],
-  T06a: [say('a'), frame('voice-playback', 'a', 'heard'), muted('agents_muted'), say('b', 'text_only', 'agents_muted')],
-  T06b: [muted('voice_off'), say('a'), frame('voice-playback', 'a', 'heard')],
-  T06d: [muted('agents_muted'), say('a', 'text_only', 'agents_muted'), input('note', '', [], 'user_returned'), frame('voice-playback', 'a', 'heard')],
-  T08: [say('a'), say('b'), frame('voice-playback', 'a', 'heard'), frame('typed-message', null, 200, { epoch: 1 }), frame('voice-playback', 'b', 'heard')],
-  T12: [say('a'), say('b'), frame('voice-playback', 'a', 'interrupted', { reason: 'user_skipped' }), frame('voice-playback', 'b', 'interrupted', { reason: 'user_interrupted' }), input('note', '', [], 'reply_skipped')],
+const judge = (id, events) => evidence([start(id), ...events]).checks[id];
+const pair = (id) => [sound(id, 'playing'), sound(id, 'heard'), hearing(id, 'heard')];
+const baseline = {
+  T01: [say('a', 'queued', 'é🐙ab'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 2 }), hearing('a', 'partial', 2), input('voice', 'Stop', [miss('a', 'partial', 2, 'é🐙ab')], 'reply_not_heard')],
+  T02a: [say('a'), sound('a', 'unplayed'), hearing('a', 'not_heard'), input('voice', 'Next', [miss('a', 'not_heard')], 'reply_not_heard')],
+  T02b: [say('a'), sound('a', 'unplayed'), hearing('a', 'not_heard'), input('note', '', [miss('a', 'not_heard')], 'turn_empty')],
+  T02c: [refused(), input('voice', 'Words')],
+  T02d: [refused(), input('note', '', [], 'turn_empty')],
+  T03: [say('a', 'text_only'), history('a', 'not_heard', 'newer_turn'), input('note', '', [miss('a', 'not_heard')], 'reply_not_heard')],
+  T04a: [say('a'), say('b'), say('c'), ...pair('a'), ...pair('b'), ...pair('c')],
+  T04b: [say('a'), say('b'), say('c'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 0 }), hearing('a', 'partial', 0), sound('b', 'unplayed'), hearing('b', 'not_heard'), sound('c', 'unplayed'), hearing('c', 'not_heard'), input('voice', 'Stop', [miss('a', 'partial', 0), miss('b', 'not_heard'), miss('c', 'not_heard')], 'reply_not_heard')],
+  T05: [say('a'), say('b'), say('c'), ...pair('a'), sound('b', 'playing'), sound('b', 'interrupted', { heard_chars: 0 }), hearing('b', 'partial', 0), sound('c', 'unplayed'), hearing('c', 'not_heard'), input('voice', 'Stop', [miss('b', 'partial', 0), miss('c', 'not_heard')], 'reply_not_heard')],
+  T06a: [say('a'), sound('a', 'playing'), mute('agents_muted'), sound('a', 'interrupted', { heard_chars: 0 }), hearing('a', 'partial', 0), phase(), say('b', 'text_only'), hearing('b', 'not_heard')],
+  T06b: [mute('voice_off'), say('a', 'text_only'), hearing('a', 'not_heard')],
+  T06d: [mute('agents_muted'), say('a', 'text_only'), hearing('a', 'not_heard'), mute(null, true), input('note', '', [miss('a', 'not_heard')], 'user_returned')],
+  T08: [say('a'), say('b'), sound('a', 'playing'), frame('typed-message', null, { status: 200, epoch: 0 }), sound('a', 'heard'), hearing('a', 'heard'), ...pair('b')],
+  T12: [say('a'), say('b'), sound('a', 'playing'), frame('ui-click', null, { control: 'skip-reply' }), sound('a', 'interrupted'), hearing('a', 'heard'), ...pair('b')],
 };
-for (const [id, events] of Object.entries(bad)) test(`${id} rejects an invalid trace`, () => {
-  const actual = evidence([start(id, id === 'T08' ? { epoch: 0 } : {}), ...events]).checks[id];
-  assert.equal(actual.state, 'fail', actual.reason);
+const invalid = {
+  T01: (events) => events.map((event) => event.data?.type === 'reply-hearing' ? hearing('a', 'heard') : event),
+  T02a: (events) => [...events, sound('a', 'playing')],
+  T02b: (events) => events.map((event) => event.data?.type === 'reply-hearing' ? hearing('a', 'partial', 0) : event),
+  T02c: (events) => [...events, history('a', null)],
+  T02d: (events) => events.map((event) => event.data?.name === 'voice_say' ? say('a') : event),
+  T03: (events) => [...events, sound('a', 'playing')],
+  T04a: (events) => [...events, sound('a', 'playing')],
+  T04b: (events) => [...events, hearing('b', 'heard')],
+  T05: (events) => [...events, hearing('c', 'heard')],
+  T06a: (events) => [...events, sound('b', 'playing')],
+  T06b: (events) => [...events, sound('a', 'playing')],
+  T06d: (events) => [...events, hearing('a', 'heard')],
+  T08: (events) => [...events, sound('a', 'playing')],
+  T12: (events) => [...events, input('note', '', [], 'reply_skipped')],
+};
+for (const [id, events] of Object.entries(baseline)) {
+  test(`${id}: confirmed outcome passes, prohibited outcome fails, missing evidence stays insufficient`, () => {
+    assert.equal(judge(id, events).state, 'pass', `${id}: ${judge(id, events).reason}`);
+    assert.equal(judge(id, invalid[id](events)).state, 'fail', `${id}: invalid trace`);
+    const without = events.filter((event) => event.data?.type !== 'reply-hearing' && event.data?.type !== 'history');
+    if (!['T02c', 'T02d'].includes(id)) assert.notEqual(judge(id, without).state, 'pass', `${id}: no semantic confirmation`);
+  });
+}
+test('the invalid trace table covers every automatic check', () => {
+  const automatic = Object.entries(evidence([]).checks).filter(([, value]) => value.state === 'pending').map(([id]) => id).sort();
+  assert.deepEqual(Object.keys(invalid).sort(), automatic);
 });
-
-test('every automatic case has an invalid-trace FAIL regression', () => {
-  const automatic = Object.entries(evidence([]).checks).filter(([, check]) => check.state === 'pending').map(([id]) => id).sort();
-  assert.deepEqual(Object.keys(bad).sort(), automatic);
+test('T01 allows a fresh response after the original partial cut, but never replays it', () => {
+  assert.equal(judge('T01', [...baseline.T01, say('b'), sound('b', 'playing')]).state, 'pass');
+  assert.equal(judge('T01', [...baseline.T01, say('b'), sound('a', 'playing')]).state, 'fail');
 });
-
-test('real MCP text-only publication envelopes satisfy stale, muted, and voice-off checks', () => {
-  const stale = [start('T03'), say('a', 'published', 'newer_turn'), input('note', '', [reply('a', 'unplayed', 'newer_turn', false, null)], 'reply_not_played')];
-  stale[1].data.result.audio = 'text_only';
-  assert.equal(evidence(stale).checks.T03.state, 'pass');
-  const mutedEvents = [start('T06a'), say('a'), frame('voice-playback', 'a', 'playing'), muted('agents_muted'),
-    frame('voice-playback', 'a', 'interrupted', { heard_chars: 0, reason: 'agents_muted' }), phase(), say('b', 'published', 'agents_muted')];
-  mutedEvents.at(-1).data.result.audio = 'text_only';
-  assert.equal(evidence(mutedEvents).checks.T06a.state, 'pass');
-  const off = [start('T06b'), muted('voice_off'), say('a', 'published', 'voice_off')];
-  off.at(-1).data.result.audio = 'text_only';
-  assert.equal(evidence(off).checks.T06b.state, 'pass');
-});
-
-test('real MCP text-only success fails if stale, muted, or voice-off audio starts anyway', () => {
-  const scenarios = [
-    ['T03', [say('a', 'published', 'newer_turn'), input('note', '', [reply('a', 'unplayed', 'newer_turn', false, null)], 'reply_not_played')], 'a'],
-    ['T06a', [say('a'), frame('voice-playback', 'a', 'playing'), muted('agents_muted'),
-      frame('voice-playback', 'a', 'interrupted', { heard_chars: 0, reason: 'agents_muted' }), phase(), say('b', 'published', 'agents_muted')], 'b'],
-    ['T06b', [muted('voice_off'), say('a', 'published', 'voice_off')], 'a'],
-  ];
-  for (const [id, events, forbiddenId] of scenarios) {
-    for (const event of events) if (event.kind === 'tool-result' && event.data.result.reason) event.data.result.audio = 'text_only';
-    assert.equal(evidence([start(id), ...events]).checks[id].state, 'pass', id);
-    assert.equal(evidence([start(id), ...events, frame('voice-playback', forbiddenId, 'playing')]).checks[id].state, 'fail', id);
+test('agent evidence refuses old causes, cut flags, skipped fates and skip notices', () => {
+  for (const row of [{ ...miss('a', 'partial', 2, 'é🐙ab'), reason: 'user_interrupted' }, { ...miss('a', 'partial', 2, 'é🐙ab'), cut: true }, { ...miss('a', 'partial', 2, 'é🐙ab'), fate: 'skipped' }]) {
+    const trace = baseline.T01.map((event) => event.kind === 'agent-input' ? input('voice', 'Stop', [row], 'reply_not_heard') : event);
+    assert.equal(judge('T01', trace).state, 'fail');
   }
 });
-
-test('T01 rejects completion or resumed playback after a matched cut', () => {
-  const cut = input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', true, 2, 'é🐙ab')]);
-  const prefix = [start('T01'), say('a', 'published', undefined, 'é🐙ab'), frame('voice-playback', 'a', 'playing'),
-    frame('voice-playback', 'a', 'interrupted', { reason: 'user_interrupted', heard_chars: 2 }), cut];
-  assert.equal(evidence(prefix).checks.T01.state, 'pass');
-  for (const status of ['playing', 'heard']) {
-    assert.equal(evidence([...prefix, frame('voice-playback', 'a', status)]).checks.T01.state, 'fail');
+test('the pinned core shared fixture keeps physical playback separate from semantic hearing', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const fixture = JSON.parse(await readFile(new URL('./fixtures/core-hearing.json', import.meta.url), 'utf8'));
+  assert.equal(fixture.text, 'é🐙ab');
+  assert.deepEqual(fixture.hearing.map((item) => item.frame.data.outcome), ['heard', 'partial', 'not_heard', 'heard']);
+  assert.equal(fixture.hearing[3].publication_status, 'text_only', 'written delivery may still be heard');
+  assert.equal(fixture.unconfirmed.agent_evidence, null);
+  for (const item of fixture.hearing) {
+    const id = item.frame.data.utterance_id;
+    const events = [say(id, item.publication_status ?? 'queued', fixture.text), { kind: 'browser-action', data: { ...item.frame.data, type: item.frame.type } }];
+    const row = evidence([start('T14'), ...events]).fates[0];
+    assert.equal(row.fate, item.history.hearing);
+    assert.equal(row.heard_chars, item.history.heard_chars);
+    assert.equal(row.hearing_unconfirmed, false);
   }
-  assert.equal(evidence([...prefix, { kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', status: 'playback_finished', globally_heard: true } } }]).checks.T01.state, 'fail');
-  const fresh = say('b'); fresh.data.args.epoch = 2;
-  assert.equal(evidence([...prefix, fresh, frame('voice-playback', 'b', 'playing')]).checks.T01.state, 'pass',
-    'a fresh answer to the interrupting words is not a resumption of the cut reply');
-  assert.equal(evidence([...prefix, fresh, frame('voice-playback', 'a', 'playing')]).checks.T01.state, 'fail');
-});
-
-test('T01 rejects impossible Unicode scalar extent and stays pending without observed playback and cut', () => {
-  const text = 'é🐙abcd';
-  const sayLong = say('a', 'published', undefined, text);
-  const cut = input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', true, 2, text)]);
-  const begun = frame('voice-playback', 'a', 'playing');
-  const stopped = frame('voice-playback', 'a', 'interrupted', { reason: 'user_interrupted', heard_chars: 2 });
-  const state = (events) => evidence([start('T01'), sayLong, ...events]).checks.T01.state;
-  assert.equal(state([begun, stopped, cut]), 'pass');
-  assert.equal(state([begun, stopped, input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', true, 999, text)])]), 'fail');
-  assert.equal(state([stopped, cut]), 'pending');
-  assert.equal(state([begun, cut]), 'pending');
-  assert.equal(state([begun, stopped, frame('voice-playback', 'a', 'playing'), cut]), 'fail');
-});
-
-test('T02 accepted-but-unstarted outcomes reject heard history and require a matched terminal envelope', () => {
-  for (const [id, channel, text, kind] of [['T02a', 'voice', 'Next', 'reply_not_played'], ['T02b', 'note', '', 'turn_empty']]) {
-    const missed = reply('a', 'interrupted', 'newer_turn', false, null);
-    const done = input(channel, text, [missed], kind);
-    const state = (events) => evidence([start(id), say('a'), ...events]).checks[id].state;
-    assert.equal(state([done]), 'pass', id);
-    assert.equal(state([frame('voice-playback', 'a', 'heard'), done]), 'fail', `${id}: heard receipt`);
-    assert.equal(state([{ kind: 'room-frame', data: { type: 'history', row: { role: 'assistant', id: 'binding:voice:a', status: 'playback_finished', globally_heard: true } } }, done]), 'fail', `${id}: full history`);
-    assert.equal(state([input(channel, text, [reply('other', 'interrupted', 'newer_turn', false, null)], kind),
-      input('note', '', [missed], 'reply_not_played')]), 'pending', `${id}: unrelated terminal input`);
-  }
-});
-
-test('T02 refusal outcomes reject every assistant row and need the terminal input after refusal', () => {
-  for (const [id, terminal] of [['T02c', input('voice', 'Words')], ['T02d', input('note', '', [], 'turn_empty')]]) {
-    const refused = say('a', 'rejected', 'user_speaking');
-    const state = (events) => evidence([start(id), ...events]).checks[id].state;
-    assert.equal(state([refused, terminal]), 'pass', id);
-    assert.equal(state([refused, frame('voice-playback', 'a', 'heard'), terminal]), 'fail', `${id}: played`);
-    assert.equal(state([refused, { kind: 'room-frame', data: { type: 'voice-reply', utterance_id: 'a' } }, terminal]), 'fail', `${id}: queued`);
-    assert.equal(state([refused, { kind: 'room-frame', data: { type: 'history', row: { role: 'assistant', id: 'binding:voice:a', status: 'queued' } } }, terminal]), 'fail', `${id}: assistant row`);
-    assert.equal(state([terminal, refused]), 'pending', `${id}: old input`);
-  }
-});
-
-test('T06d return verdict needs the missed identity and an observed mute-to-return sequence', () => {
-  const saved = say('a', 'published', 'agents_muted'); saved.data.result.audio = 'text_only';
-  const back = { kind: 'room-frame', data: { type: 'voice-speech', on: true } };
-  const missed = reply('a', 'text_only', 'agents_muted', false, null);
-  const returned = input('note', '', [missed], 'user_returned');
-  const state = (events) => evidence([start('T06d'), ...events]).checks.T06d.state;
-  assert.equal(state([muted('agents_muted'), saved, back, returned]), 'pass');
-  assert.equal(state([muted('agents_muted'), saved, back, input('note', '', [], 'user_returned')]), 'fail');
-  assert.equal(state([muted('agents_muted'), saved, back, input('note', '', [reply('other', 'unplayed', 'agents_muted', false, null)], 'user_returned')]), 'fail');
-  assert.equal(state([muted('agents_muted'), saved, returned]), 'pending');
-  assert.equal(state([saved, back, returned]), 'pending');
-  assert.equal(state([muted('agents_muted'), saved, back, frame('voice-playback', 'a', 'heard'), returned]), 'fail');
-  assert.equal(state([muted('agents_muted'), saved, back,
-    input('note', '', [reply('a', 'unplayed', 'agents_muted', false, null)], 'user_returned')]), 'fail',
-    'the core journal reports the saved publication as text_only');
-});
-
-test('T06d accepts a return envelope produced by the pinned core', async () => {
-  // Captured by the c3d186a core's Case::pull after publishing while agents_muted.
-  const fixture = JSON.parse(await readFile(new URL('./fixtures/core-t06d-return.json', import.meta.url), 'utf8'));
-  const config = JSON.parse(await readFile(new URL('../preview/turn-lab.config.json', import.meta.url), 'utf8'));
-  assert.equal(fixture.core_sha, config.core);
-  const publication = fixture.publication, returned = fixture.return_envelope;
-  const missed = returned.unheard.replies[0];
-  assert.equal(publication.status, 'text_only');
-  assert.equal(missed.fate, 'text_only');
-  assert.equal(missed.session_id, publication.session_id);
-  const saved = { kind: 'tool-result', data: { name: 'voice_say', args: { utterance_id: publication.utterance_id, text: missed.text },
-    result: { status: 'published', audio: publication.status, reason: publication.reason, text_saved: publication.text_saved } } };
-  const back = { kind: 'browser-action', data: { type: 'voice-speech', on: true } };
-  const events = [start('T06d'), muted('agents_muted'), saved, back, { kind: 'agent-input', data: returned }];
-  assert.equal(evidence(events).checks.T06d.state, 'pass');
-  for (const patch of [{ fate: 'played' }, { cut: true }, { heard_chars: 1 }, { reason: 'user_interrupted' }]) {
-    const invalid = structuredClone(returned);
-    Object.assign(invalid.unheard.replies[0], patch);
-    assert.equal(evidence([...events.slice(0, -1), { kind: 'agent-input', data: invalid }]).checks.T06d.state, 'fail');
-  }
-});
-
-test('T04a rejects duplicate playback and duplicate terminal receipts after the correct FIFO sequence', () => {
-  const prefix = [start('T04a'), say('a'), say('b'), say('c'),
-    frame('voice-playback', 'a', 'playing'), frame('voice-playback', 'a', 'heard'),
-    frame('voice-playback', 'b', 'playing'), frame('voice-playback', 'b', 'heard'),
-    frame('voice-playback', 'c', 'playing'), frame('voice-playback', 'c', 'heard')];
-  assert.equal(evidence(prefix).checks.T04a.state, 'pass');
-  assert.equal(evidence([...prefix, frame('voice-playback', 'a', 'playing'), frame('voice-playback', 'a', 'heard')]).checks.T04a.state, 'fail');
-  assert.equal(evidence([...prefix, frame('voice-playback', 'c', 'heard')]).checks.T04a.state, 'fail');
-});
-
-test('T08 requires typing during a continuous first playback and rejects a cut hidden by final hearing', () => {
-  const typed = frame('typed-message', null, 200, { epoch: 1 });
-  const prefix = [start('T08', { epoch: 1 }), say('a'), say('b'), frame('voice-playback', 'a', 'playing')];
-  const suffix = [frame('voice-playback', 'a', 'heard'), frame('voice-playback', 'b', 'playing'), frame('voice-playback', 'b', 'heard')];
-  assert.equal(evidence([...prefix, typed, ...suffix]).checks.T08.state, 'pass');
-  assert.equal(evidence([...prefix, typed, frame('voice-playback', 'a', 'interrupted', { reason: 'user_interrupted', heard_chars: 2 }),
-    frame('voice-playback', 'a', 'playing'), ...suffix]).checks.T08.state, 'fail');
-  assert.equal(evidence([...prefix, ...suffix, typed]).checks.T08.state, 'fail');
-  assert.equal(evidence([...prefix, typed, ...suffix, frame('voice-playback', 'a', 'playing')]).checks.T08.state, 'fail');
-});
-
-test('T06a second phase stays inside one case but a separate script-start cannot borrow its first publication', () => {
-  const second = say('b', 'published', 'agents_muted'); second.data.result.audio = 'text_only';
-  const first = [start('T06a'), say('a'), frame('voice-playback', 'a', 'playing'), muted('agents_muted'),
-    frame('voice-playback', 'a', 'interrupted', { reason: 'agents_muted', heard_chars: 0 })];
-  assert.equal(evidence([...first, phase(), second]).checks.T06a.state, 'pass');
-  assert.equal(evidence([...first, start('T06a'), second]).checks.T06a.state, 'pending');
-});
-
-test('T06a completes with a real withdrawal and fails a cut recorded for the wrong cause', () => {
-  const second = say('b', 'published', 'agents_muted'); second.data.result.audio = 'text_only';
-  const withdrawal = { kind: 'room-frame', data: { type: 'voice-reply-withdrawn', utterance_ids: ['a'], reason: 'agents_muted' } };
-  const first = [start('T06a'), say('a'), frame('voice-playback', 'a', 'playing'), muted('agents_muted')];
-  const history = (reason) => ({ kind: 'room-frame', data: { type: 'history', row: { role: 'assistant', id: 'binding:voice:a', status: 'interrupted', audio_reason: reason, heard_chars: 0 } } });
-  const complete = (cut, reason) => evidence([...first, cut, withdrawal, history(reason), phase(), second]).checks.T06a.state;
-  assert.equal(complete(frame('voice-playback', 'a', 'interrupted', { reason: 'agents_muted', heard_chars: 0 }), 'agents_muted'), 'pass');
-  assert.equal(complete(frame('voice-playback', 'a', 'interrupted', { heard_chars: 0 }), 'user_interrupted'), 'fail');
-  assert.match(evidence([...first, frame('voice-playback', 'a', 'interrupted', { heard_chars: 0 }), withdrawal,
-    history('user_interrupted'), phase(), second]).checks.T06a.reason, /recorded as user_interrupted/);
-  assert.equal(evidence([...first, withdrawal, phase(), second]).checks.T06a.state, 'pending');
-});
-
-test('T12 rejects every unheard reason and replay after skip', () => {
-  const prefix = [start('T12'), say('a'), say('b'), frame('voice-playback', 'a', 'interrupted', { reason: 'user_skipped' }), frame('voice-playback', 'b', 'heard'), input('note', '', [], 'reply_skipped')];
-  assert.equal(evidence(prefix).checks.T12.state, 'pass');
-  for (const reason of ['newer_turn', 'agents_muted', 'user_skipped']) {
-    assert.equal(evidence([...prefix, input('note', '', [reply('a', 'unplayed', reason, false, null)])]).checks.T12.state, 'fail');
-  }
-  assert.equal(evidence([...prefix, frame('voice-playback', 'a', 'playing')]).checks.T12.state, 'fail');
-});
-
-test('an outcome from another conversation cannot complete a case', () => {
-  const actual = evidence([start('T02c', { conversation: 'a' }), say('a', 'rejected', 'user_speaking'),
-    { ...input('voice', 'Other words'), data: { ...input('voice', 'Other words').data, conversation: 'b' } }]).checks.T02c;
-  assert.equal(actual.state, 'pending');
-});
-
-test('missing evidence stays pending, including refusal without its empty notice and skip without its next reply', () => {
-  assert.equal(evidence([start('T02d'), say('a', 'rejected', 'user_speaking')]).checks.T02d.state, 'pending');
-  assert.equal(evidence([start('T12'), input('note', '', [], 'reply_skipped')]).checks.T12.state, 'pending');
-});
-
-test('an uncertain publication cannot hide an unrelated definite failure', () => {
-  assert.equal(evidence([start('T02d'), say('a', 'rejected', 'wrong_reason'), say('b', 'admission_unknown')]).checks.T02d.state, 'fail');
-});
-
-test('actual core history rows reconcile terminal fate after reconnect', () => {
-  const row = { id: 'session-1:voice:u', thread: 'thread-1', session: 'session-1', role: 'assistant', revision: 1, epoch: 2,
-    status: 'playback_finished', audio_reason: null, heard_chars: 4, globally_heard: true, text: 'Done' };
-  const events = [start('T04a'), say('u'), { kind: 'room-frame', data: { type: 'history', row } }];
-  assert.deepEqual(evidence(events).fates[0], { utterance_id: 'u', fate: 'played', text: 'Done', reason: undefined, heard_chars: 4, history_id: row.id, heard: 'Done', unheard: '' });
-});
-
-test('never-started interrupted evidence is not displayed as a cut', () => {
-  const events = [start('T02a'), say('u'), input('voice', 'Next', [reply('u', 'interrupted', 'newer_turn', false, null)], 'reply_not_played')];
-  assert.equal(evidence(events).fates[0].fate, 'not played');
-  assert.equal(evidence(events).checks.T02a.state, 'pass');
-});
-
-test('current epoch follows the selected conversation, not the largest observed epoch', () => {
-  const events = [
-    { kind: 'room-frame', data: { type: 'voice-user-turn', conversation: 'a', epoch: 5, turn_id: 'a1', phase: 'started' } },
-    { kind: 'room-frame', data: { type: 'voice-user-turn', conversation: 'b', epoch: 1, turn_id: 'b1', phase: 'started' } },
-    { kind: 'room-frame', data: { type: 'voice-user-turn', conversation: 'b', epoch: 1, turn_id: 'b1', phase: 'started' } },
-  ];
-  assert.equal(evidence(events, 'b').currentEpoch, 1);
-  assert.equal(evidence(events, 'a').currentEpoch, 5);
 });

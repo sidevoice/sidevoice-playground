@@ -265,44 +265,46 @@ test("case verdicts stay pending without evidence, record refusals and keep phys
   assert.equal(evidence(events).checks.T02d.state, "fail");
 });
 
-test("the evidence log splits heard and unheard by Unicode scalars", () => {
+test("the evidence log splits semantic hearing by Unicode scalars", () => {
   const events = [
     { kind: "script-start", data: { id: "T01" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "u", text: "é🐙ab" }, result: { status: "published" } } },
-    { kind: "agent-input", data: { channel: "voice", text: "Wait", epoch: 2, unheard: { replies: [{ utterance_id: "u", text: "é🐙ab", fate: "interrupted", cut: true, heard_chars: 2, reason: "user_interrupted" }] } } },
+    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "u", status: "interrupted", heard_chars: 2, reason: "user_interrupted" } },
+    { kind: "browser-action", data: { type: "reply-hearing", utterance_id: "u", outcome: "partial", heard_chars: 2 } },
+    { kind: "agent-input", data: { channel: "voice", text: "Wait", epoch: 2, unheard: { replies: [{ utterance_id: "u", text: "é🐙ab", fate: "partial", heard_chars: 2 }] } } },
   ];
   const view = evidence(events);
   assert.equal(view.currentEpoch, 2);
-  assert.deepEqual(view.fates[0], { utterance_id: "u", fate: "cut", heard_chars: 2, text: "é🐙ab", reason: "user_interrupted", heard: "é🐙", unheard: "ab" });
-  assert.equal(view.checks.T01.state, "pending", "a legal prefix alone does not prove playback and capture");
+  assert.equal(view.fates[0].fate, "partial");
+  assert.equal(view.fates[0].heard, "é🐙");
+  assert.equal(view.fates[0].unheard, "ab");
+  assert.equal(view.fates[0].hearing_unconfirmed, false);
+  assert.equal(view.checks.T01.state, "pending", "a prefix alone does not prove the full playback sequence");
 });
 
-test("browser playback receipts and history settle reply fates", () => {
+test("physical playback alone cannot certify hearing, including local Skip", () => {
   const events = [
     { kind: "script-start", data: { id: "T12" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "skip", text: "First" }, result: { status: "published", audio: "queued" } } },
-    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "next", text: "Second" }, result: { status: "published", audio: "queued" } } },
-    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "skip", status: "interrupted", reason: "user_skipped", heard_chars: 2 } },
-    { kind: "room-frame", data: { type: "history", utterance_id: "skip", status: "skipped", reason: "user_skipped", heard_chars: 5 } },
-    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "next", status: "heard", heard_chars: 6 } },
-    { kind: "agent-input", data: { channel: "note", notice: { kind: "reply_skipped" } } },
+    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "skip", status: "interrupted" } },
   ];
-  assert.equal(evidence(events).fates[0].fate, "skipped");
-  assert.equal(evidence(events).checks.T12.state, "pass");
+  assert.equal(evidence(events).fates[0].fate, "unconfirmed");
+  assert.equal(evidence(events).fates[0].hearing_unconfirmed, true);
+  events.push({ kind: "browser-action", data: { type: "reply-hearing", utterance_id: "skip", outcome: "heard" } });
+  assert.equal(evidence(events).fates[0].fate, "heard");
 });
 
-test("late snapshots cannot regress a terminal reply fate or confirmed hearing", () => {
+test("late history snapshots cannot regress confirmed semantic hearing", () => {
   const events = [
     { kind: "script-start", data: { id: "T04a" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "u", text: "é🐙ab" }, result: { status: "published", audio: "queued" } } },
-    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "u", status: "heard", heard_chars: 4 } },
-    { kind: "room-frame", data: { type: "history", utterance_id: "u", status: "playing", heard_chars: 1, text: "é🐙ab" } },
-    { kind: "room-frame", data: { type: "voice-reply", utterance_id: "u", text: "é🐙ab" } },
+    { kind: "browser-action", data: { type: "reply-hearing", utterance_id: "u", outcome: "heard" } },
+    { kind: "room-frame", data: { type: "history", row: { role: "assistant", id: "s:voice:u", hearing: null, hearing_unconfirmed: true, status: "playing", text: "é🐙ab" } } },
   ];
-  const fate = evidence(events).fates[0];
-  assert.equal(fate.fate, "played");
-  assert.equal(fate.heard_chars, 4);
-  assert.equal(fate.unheard, "");
+  const row = evidence(events).fates[0];
+  assert.equal(row.fate, "heard");
+  assert.equal(row.heard_chars, 4);
+  assert.equal(row.unheard, "");
 });
 
 test("earlier case verdicts and notices remain visible after another script starts", () => {
@@ -339,6 +341,8 @@ test("FIFO check requires observed playback starts in publication order", () => 
     if (index) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "playing" } });
     events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "heard" } });
   }
+  assert.equal(evidence(events).checks.T04a.state, "pending", "physical FIFO still needs semantic acknowledgements");
+  for (const id of ["a", "b", "c"]) events.push({ kind: "browser-action", data: { type: "reply-hearing", utterance_id: id, outcome: "heard" } });
   assert.equal(evidence(events).checks.T04a.state, "pass");
 });
 
@@ -349,7 +353,8 @@ test("uncertain speech admission is not reported as a resolved outcome", () => {
   ];
   const view = evidence(events);
   assert.equal(view.checks.T07.state, "manual");
-  assert.equal(view.fates[0].fate, "admission_unknown");
+  assert.equal(view.fates[0].fate, "unconfirmed");
+  assert.equal(view.fates[0].audio, "admission_unknown");
 });
 
 test("mock voice discards short overlap but qualifies a sustained barge-in", async () => {

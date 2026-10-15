@@ -20,10 +20,10 @@
   "expect": {
     "epochDelta": 2,
     "fates": [
-      "text_only"
+      "not_heard"
     ],
     "notice": [
-      "reply_not_played"
+      "reply_not_heard"
     ],
     "screen": [
       "unheard"

@@ -105,7 +105,7 @@ async function poll() {
     const browser = state.events.filter((event) => event.kind === "browser-ready" || event.kind === "browser-error");
     $("preflight").replaceChildren(...(browser.length ? browser.slice(-7).map((event) => item(preflightText(event))) : [item("Waiting for the real browser room") ]));
     $("fates").replaceChildren(...state.evidence.fates.map((fate) => item(`${short(fate.utterance_id)}: ${fate.fate}${fate.hearing_unconfirmed ? " (unconfirmed)" : ""}${fate.heard_chars == null ? "" : ` at ${fate.heard_chars}`} · audio: ${fate.audio ?? "pending"}${fate.heard != null ? ` · heard: “${fate.heard}” · unheard: “${fate.unheard}”` : ""}`)));
-    $("notices").replaceChildren(...state.evidence.notes.map((notice) => item(`${notice.kind}: ${notice.instruction ?? ""}`)));
+    $("notices").replaceChildren(...state.evidence.notes.map((notice) => item(`${notice.kind}: ${notice.instruction ?? ""}${(notice.unheard ?? []).map((reply) => { const chars = [...(reply.text ?? "")]; const n = reply.heard_chars ?? 0; return ` · ${short(reply.utterance_id)} ${reply.fate} at ${n}: heard “${chars.slice(0, n).join("")}”, unheard “${chars.slice(n).join("")}"`; }).join("")}${(notice.heard ?? []).map((reply) => ` · ${short(reply.utterance_id)} ${reply.fate} at ${reply.heard_chars}`).join("")}`)));
     $("checks").replaceChildren(...Object.entries(state.evidence.checks).map(([id, check]) => {
       const div = document.createElement("div"); div.className = `check ${check.state}`; div.textContent = `${id} ${check.state.replaceAll("-", " ").toUpperCase()}`; div.title = check.reason; return div;
     }));
