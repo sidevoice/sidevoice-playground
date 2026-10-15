@@ -26,10 +26,6 @@ export const VARIANTS = [
     { value: "scroll", label: "A line at a time (the next line always in view)" },
     { value: "page", label: "A page at a time (the last page shrinks to its lines)" },
   ] },
-  { name: "voiceError", label: "Voice error placement", note: "Where \"Algo falló con la voz\" shows during a call; its Details open in place. Use the button below to raise one.", values: [
-    { value: "a", label: "A · Above the stage, as it is today" },
-    { value: "b", label: "B · Compact card on the stage's bottom-right, Details inside it" },
-  ] },
   { name: "stageTitle", label: "Conversation title", note: "The conversation's name and machine over the stage (desktop above the tile, phone on its corner).", values: [
     { value: "a", label: "A · Display name with the agent's colour swatch, machine chip beside" },
     { value: "b", label: "B · Small avatar, name over the machine chip" },
