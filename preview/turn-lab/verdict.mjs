@@ -32,6 +32,8 @@ export function verdict(id, events, fates) {
   const unheardIds = unheard.map((item) => item.utterance_id);
   const unstarted = (key) => unheard.some((item) => item.utterance_id === key && item.reason === "newer_turn" && item.cut === false && item.heard_chars == null);
   const begun = (key) => frames.some((frame) => frame.type === "voice-playback" && frame.status === "playing" && frame.utterance_id === key);
+  const played = (key) => frames.some((frame) => frame.utterance_id === key && frame.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(frame.status)) ||
+    frames.some((frame) => frame.type === "history" && (frame.row?.id?.endsWith(`:voice:${key}`) || frame.utterance_id === key) && (frame.row?.globally_heard || frame.row?.status === "playback_finished"));
   const outputDisabled = (reason) => frames.some((frame) => frame.type === "voice-speech" && frame.reason === reason && (frame.on === false || frame.data?.on === false));
   let result = MANUAL.has(id) ? check("manual", "Follow the case instruction and review the room and exported trace") : pending();
 
@@ -48,7 +50,7 @@ export function verdict(id, events, fates) {
       (event.data?.utterance_id === item?.utterance_id || event.data?.row?.id?.endsWith(`:voice:${item?.utterance_id}`)) &&
       ((event.data?.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(event.data.status)) ||
        (event.data?.type === "history" && (event.data?.row?.globally_heard || event.data?.row?.status === "playback_finished"))));
-    if (!item || item.fate !== "interrupted" || item.cut !== true || !Number.isInteger(item.heard_chars) || !inputs.some((input) => input.channel === "voice" && input.text) || fate(item.utterance_id) === "played" || resumed)
+    if (!item || !publications.every((publication) => good(status(publication))) || item.fate !== "interrupted" || item.cut !== true || !Number.isInteger(item.heard_chars) || !inputs.some((input) => input.channel === "voice" && input.text) || fate(item.utterance_id) === "played" || resumed)
       result = fail("Interrupted reply needs a matched cut extent and spoken input");
     else result = pass("Matched interrupted reply, cut extent, and spoken input");
   }
@@ -62,7 +64,7 @@ export function verdict(id, events, fates) {
   if (id === "T03" && publications.length && (note("reply_not_played") || unheard.length)) {
     const stale = publications.some((item) => textOnly(item, "newer_turn") && item.id);
     const matched = unheard.some((item) => ids.includes(item.utterance_id) && item.reason === "newer_turn");
-    result = stale && matched && note("reply_not_played") ? pass("Stale admission and matched not-played notice") : fail("Stale admission and not-played notice must identify the same reply");
+    result = stale && matched && note("reply_not_played") && ids.every((key) => !played(key) && fate(key) !== "played") ? pass("Stale admission and matched not-played notice") : fail("Stale admission and not-played notice must identify the same reply without playback");
   }
   if (id === "T04a") {
     if (duplicate || publications.some((item) => status(item) === "rejected")) result = fail("Three distinct publications must be accepted");
@@ -92,11 +94,11 @@ export function verdict(id, events, fates) {
   }
   if (id === "T06a" && outputDisabled("agents_muted") && publications.length >= 2) {
     if (!completed(2)) result = fail("Muted case needs two distinct publications");
-    else result = fate(ids[0]) === "cut" && textOnly(publications[1], "agents_muted") && fate(ids[1]) !== "played"
+    else result = fate(ids[0]) === "cut" && textOnly(publications[1], "agents_muted") && !played(ids[1])
       ? pass("Playing reply cut; muted publication saved without audio") : fail("Mute must cut playback and keep later speech text only");
   }
   if (id === "T06b" && outputDisabled("voice_off") && publications.length) {
-    result = publications.every((item) => textOnly(item, "voice_off") && fate(item.id) !== "played")
+    result = publications.every((item) => textOnly(item, "voice_off") && !played(item.id))
       ? pass("Voice-off publication stayed text only") : fail("Voice-off publication must not play");
   }
   if (id === "T06d" && publications.length && note("user_returned")) {

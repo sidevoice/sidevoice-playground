@@ -46,6 +46,19 @@ test('real MCP text-only publication envelopes satisfy stale, muted, and voice-o
   assert.equal(evidence(off).checks.T06b.state, 'pass');
 });
 
+test('real MCP text-only success fails if stale, muted, or voice-off audio starts anyway', () => {
+  const scenarios = [
+    ['T03', [say('a', 'published', 'newer_turn'), input('note', '', [reply('a', 'unplayed', 'newer_turn', false, null)], 'reply_not_played')], 'a'],
+    ['T06a', [say('a'), frame('voice-playback', 'a', 'interrupted', { heard_chars: 2 }), muted('agents_muted'), say('b', 'published', 'agents_muted')], 'b'],
+    ['T06b', [muted('voice_off'), say('a', 'published', 'voice_off')], 'a'],
+  ];
+  for (const [id, events, forbiddenId] of scenarios) {
+    for (const event of events) if (event.kind === 'tool-result' && event.data.result.reason) event.data.result.audio = 'text_only';
+    assert.equal(evidence([start(id), ...events]).checks[id].state, 'pass', id);
+    assert.equal(evidence([start(id), ...events, frame('voice-playback', forbiddenId, 'playing')]).checks[id].state, 'fail', id);
+  }
+});
+
 test('T01 rejects completion or resumed playback after a matched cut', () => {
   const cut = input('voice', 'Stop', [reply('a', 'interrupted', 'user_interrupted', true, 2)]);
   const prefix = [start('T01'), say('a'), frame('voice-playback', 'a', 'playing'), cut];
