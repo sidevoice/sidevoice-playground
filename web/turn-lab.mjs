@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 let previewOrigin = null;
 let connected = false;
 let autoConnecting = false;
+let reconnecting = false;
 let attemptedAutoConnect = false;
 let pairingSent = false;
 let joinedThread = null;
@@ -111,7 +112,7 @@ async function poll() {
     $("events").replaceChildren(...state.events.slice(-100).reverse().map((event) => item(`${new Date(event.at).toLocaleTimeString()} ${event.kind} ${JSON.stringify(event.data).slice(0, 600)}`)));
     const selectedThread = observingSecond && secondConversation ? secondConversation : state.agent?.conversation;
     if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: selectedThread }, previewOrigin);
-    $("run").disabled = !connected || joinedThread !== state.agent?.conversation;
+    $("run").disabled = reconnecting || !connected || joinedThread !== state.agent?.conversation;
     $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected. Click Reconnect agent.";
     if (connected && joinedThread === state.agent?.conversation) setStatus("Ready. Speak in the room or choose a script; the real browser voice and scripted agent are connected.");
   } catch (error) { if (String(error.message).includes("409")) startRequested = false; setStatus(`Lab status: ${error.message}`); }
@@ -119,11 +120,15 @@ async function poll() {
 }
 
 $("connect").onclick = async () => {
+  reconnecting = true;
   $("connect").disabled = true;
+  $("run").disabled = true;
+  connected = false;
   joinedThread = null;
+  setStatus("Reconnecting the scripted agent. Wait for the room to join its new conversation.");
   try { await ask("/preview/turn-lab/connect", { mode: $("mode").value }); connected = true; await poll(); }
   catch (error) { $("agent-status").textContent = error.message; }
-  finally { $("connect").disabled = false; }
+  finally { reconnecting = false; $("connect").disabled = false; void poll(); }
 };
 $("recover").onclick = async () => {
   $("recover").disabled = true;
