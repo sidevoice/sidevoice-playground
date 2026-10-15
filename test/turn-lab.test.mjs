@@ -72,6 +72,7 @@ test("Turn Lab forces the exact voice candidate even when its old version is pub
 test("case verdicts stay pending without evidence, record refusals and keep physical echo manual", () => {
   assert.equal(evidence([]).checks.T01.state, "pending");
   assert.equal(evidence([]).checks.T10.state, "manual");
+  assert.equal(evidence([]).checks.T16.state, "manual");
   assert.equal(evidence([{ kind: "room-frame", data: { type: "voice-session", epoch: 2 } }]).currentEpoch, 2);
   const events = [
     { kind: "script-start", data: { id: "T02d" } },

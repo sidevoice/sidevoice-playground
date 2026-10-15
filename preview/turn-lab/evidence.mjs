@@ -1,6 +1,6 @@
 import { SCRIPTS } from "./agent.mjs";
 
-const MANUAL = new Set(["T09a", "T09b", "T10", "T13", "T14", "T15"]);
+const MANUAL = new Set(["T06c", "T06e", "T07", "T09a", "T09b", "T10", "T11", "T13", "T14", "T15", "T16"]);
 
 export function evidence(events) {
   const starts = events.flatMap((event, index) => event.kind === "script-start" ? [index] : []);
@@ -79,7 +79,10 @@ function judge(events) {
     settle(item.utterance_id, { fate: playbackFate(item.fate, item.reason), heard_chars: cut, text: item.text, reason: item.reason,
       heard: cut == null ? null : scalars.slice(0, cut).join(""), unheard: cut == null ? item.text : scalars.slice(cut).join("") });
   }
-  const checks = Object.fromEntries(Object.keys(SCRIPTS).map((id) => [id, { state: MANUAL.has(id) ? "manual" : "pending", reason: "Awaiting evidence" }]));
+  const checks = Object.fromEntries(Object.keys(SCRIPTS).map((id) => [id, {
+    state: MANUAL.has(id) ? "manual" : "pending",
+    reason: MANUAL.has(id) ? "Review the exported trace and the real room behavior" : "Awaiting evidence",
+  }]));
   const pass = (id, condition, reason) => { checks[id] = { state: condition ? "pass" : "fail", reason }; };
   if (selected && !MANUAL.has(selected)) {
     if (["T02c", "T02d"].includes(selected) && results.length) pass(selected, refused, "The MCP tool result must refuse the open turn");
@@ -107,7 +110,6 @@ function judge(events) {
       const unpublished = results.some((result) => result?.reason === reason && (result?.audio === "text_only" || status(result) === "text_only"));
       if (disabled && results.length) pass(selected, unpublished && [...fates.values()].every((fate) => fate.fate !== "played"), "Output disabled before publication must save text without audio");
     }
-    if (selected === "T16" && inputs.length) checks[selected] = { state: "pending", reason: "Repeat in both modes and compare exported traces" };
     if (selected === "T08") {
       const typed = frames.find((frame) => frame.type === "typed-message" && frame.status >= 200 && frame.status < 300);
       const replyFates = [...fates.values()].filter((fate) => fate.text);
