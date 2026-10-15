@@ -1,13 +1,13 @@
 {
   "core": "e81cc67602fe6f99bc26f05bfb859ba9b1b6c82c",
-  "connector": "a731e2794396a0f3c41eb11aa1fd814c775a7994",
-  "web": "bc7f0bd096d18398880c0be6feade01be8701936",
-  "voice": "bc7b60f67d16ae11e8db2d50366a5cccb0083307",
+  "connector": "b8d9058067faa8dd4211feb2a34472890dd53a98",
+  "web": "9ef27de15a56fa7b0a6fa0f5760d0d02c63e9071",
+  "voice": "1e5c69e10ee345a23eef5f03b4db52c1bcd0ef35",
   "engine": "nightly",
   "notes": {
     "core": "core main after the turns/epochs and semantic hearing merge",
-    "voice": "voice PR #31 head (model leases); still moving, recheck before a test run",
-    "connector": "connector PR #126 head; being rebuilt against core main, recheck before a test run",
-    "web": "web PR #140 (feat/voice-call-per-conversation) head; adapter still being finished, recheck before a test run"
+    "voice": "voice PR #31 final head",
+    "connector": "connector PR #126 head; recheck before a test run",
+    "web": "web PR #140 head; recheck before a test run"
   }
 }
