@@ -64,6 +64,20 @@ test('open page refreshes changed pins through restart and displays the new run'
   assert.equal(lab.state.current.runId, 'run-B');
 });
 
+test('an open page starts the re-pinned candidate after the server restarts', async () => {
+  const lab = page();
+  await lab.tick();
+  const next = { core: 'core-B', connector: 'connector-A', web: 'web-A', voice: 'voice-A', engine: null, notes: {} };
+  lab.setConfig(next);
+  lab.state.job.state = 'idle'; lab.state.current = null;
+  await lab.tick();
+  assert.ok(lab.element('pins').children.some((entry) => entry.textContent === 'core-B'));
+  assert.equal(lab.requests.filter((request) => request.path === '/preview/turn-lab/start').length, 1);
+  lab.state.job.state = 'running'; lab.state.current = { mode: 'real', scenario: 'turn-lab', identity: next, runId: 'run-B' };
+  await lab.tick();
+  assert.equal(lab.element('room').hidden, false);
+});
+
 test('history observation preserves each row thread and browser-side time', async () => {
   const messages = [], handlers = new Map();
   const parent = { postMessage(message) { messages.push(message); } };

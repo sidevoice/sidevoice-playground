@@ -65,9 +65,13 @@ async function poll() {
   polling = true;
   try {
     const state = await ask("/preview/turn-lab/events");
-    if (state.job.state === "running" && !matchesCandidate(state.current)) {
+    if (!matchesCandidate(state.current) && state.job.state !== "starting") {
       const latest = await ask("/preview/turn-lab/config");
-      if (JSON.stringify(latest) !== JSON.stringify(config)) showConfig(latest);
+      if (JSON.stringify(latest) !== JSON.stringify(config)) { showConfig(latest); startRequested = false; }
+    }
+    if (state.job.state === "idle" && activeRunId && !state.current?.runId) {
+      activeRunId = null;
+      startRequested = false;
     }
     if (!matchesCandidate(state.current) || state.job.state !== "running") {
       $("room").hidden = true;
