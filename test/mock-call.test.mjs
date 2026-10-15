@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createWorld } from "../preview/mock/world.mjs";
-import { agentSpeaks, agentWorks, answer, directUrl, isCallSocket, liveCall, makeIdentities, ROOM_URL } from "../preview/mock/machines.mjs";
+import { agentSpeaks, agentWorks, answer, directUrl, isCallSocket, liveCall, makeIdentities, roomOf, ROOM_URL } from "../preview/mock/machines.mjs";
 import { mockedWebSocket } from "../preview/mock/attach.mjs";
 
 const PAGE = "https://preview.example";
@@ -229,6 +229,33 @@ test("history resolve_id returns authoritative hearing for the requested retaine
   const after = (await c.ask(path)).body;
   assert.deepEqual([after.resolved[0].hearing, after.resolved[0].globally_heard, after.resolved[0].heard_chars, after.resolved[0].hearing_unconfirmed], ["heard", true, 4, false]);
   assert.equal((await c.ask(`/api/presentation/history?thread_id=nuc-thread-1&resolve_id=${'x'.repeat(257)}`)).status, 422);
+});
+
+test("hearing accepts retained originals across focus, rejects zero partial and mismatched identity", async () => {
+  const c = await setup();
+  const call = await joined(c);
+  assert.equal(agentSpeaks(c.world, "abcd"), true);
+  await until(() => call.sent("voice-reply").length === 1, "original reply offered");
+  const original = call.sent("voice-reply")[0].data;
+  const select = (thread_id) => c.ask("/api/presentation/select", { method: "POST", body: JSON.stringify({ session_id: call.session, thread_id }) });
+  assert.equal((await select("nuc-thread-2")).status, 200);
+  const report = (client_msg_id, history_id, utterance_id, outcome, heard_chars) =>
+    call.send("reply-hearing", { session_id: call.session, client_msg_id, history_id, utterance_id, outcome,
+      ...(heard_chars === undefined ? {} : { heard_chars }) });
+  report("zero", original.history_id, original.utterance_id, "partial", 0);
+  await until(() => call.sent("error").some((frame) => frame.data.client_msg_id === "zero"), "zero partial refused");
+  assert.equal(call.sent("error").at(-1).data.key, "room.receipt_invalid");
+  assert.equal((await c.ask("/api/presentation/history")).body.messages.find((row) => row.id === original.history_id).hearing, null);
+  report("wrong", original.history_id, "another-reply", "heard");
+  await until(() => call.sent("error").some((frame) => frame.data.client_msg_id === "wrong"), "mismatched identity refused");
+  assert.equal(call.sent("error").at(-1).data.key, "room.stale_utterance");
+  report("other-focus", original.history_id, original.utterance_id, "heard");
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "other-focus"), "other-focus reading accepted");
+  const room = roomOf(c.world, "nuc");
+  room.rows.push({ ...room.rows.find((row) => row.id === original.history_id), id: "saved:voice:unfocused", thread: "nuc-thread-3", text: "saved", hearing: null, heard_chars: null, hearing_unconfirmed: true });
+  report("unfocused", "saved:voice:unfocused", "unfocused", "heard");
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "unfocused"), "never-focused reading accepted");
+  assert.equal(room.rows.find((row) => row.id === "saved:voice:unfocused").hearing, "heard");
 });
 
 test("the agent speaks through the room: a reply to the call, its row in the history, and how it played", async () => {

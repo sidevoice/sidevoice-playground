@@ -897,12 +897,12 @@ function playback(world, room, call, data, id) {
 /** Output eligibility changes the room's audience without changing its epoch. */
 function replyHearing(_world, room, call, data, id) {
   const row = room.rows.find((item) => item.role === "assistant" && item.id === data.history_id &&
-    item.id.endsWith(`:voice:${data.utterance_id}`) && item.thread === call.binding?.thread_id);
+    item.id.endsWith(`:voice:${data.utterance_id}`));
   if (!row) return [refusal("room.stale_utterance", id)];
   const n = [...row.text].length;
   const extent = data.outcome === "heard" ? n : data.outcome === "not_heard" ? 0 : data.heard_chars;
   if (!["heard", "partial", "not_heard"].includes(data.outcome) || !Number.isInteger(extent) || extent < 0 || extent > n ||
-    data.outcome === "partial" && extent === n || data.outcome !== "partial" && data.heard_chars != null)
+    data.outcome === "partial" && (extent === 0 || extent === n) || data.outcome !== "partial" && data.heard_chars != null)
     return [refusal("room.receipt_invalid", id)];
   if (row.heard_chars == null || extent >= row.heard_chars) {
     row.heard_chars = extent;
