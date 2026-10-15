@@ -206,16 +206,19 @@ export const TURN_CONTRACT = {
   "T06c": {
     "actions": [
       "reply-playing",
+      "conversation-a",
       "focus-switch",
-      "turn-finished"
+      "conversation-b",
+      "out-of-order-finish"
     ],
     "outcome": {
-      "epochDelta": 0,
+      "epochDelta": 2,
       "fates": [
         "partial"
       ],
       "screen": [
-        "inactive-conversation"
+        "inactive-conversation",
+        "independent-conversations"
       ]
     }
   },
@@ -336,6 +339,7 @@ export const TURN_CONTRACT = {
   "T11": {
     "actions": [
       "conversation-a",
+      "focus-switch",
       "conversation-b",
       "duplicate-start",
       "out-of-order-finish"

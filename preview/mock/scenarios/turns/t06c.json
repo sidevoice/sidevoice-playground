@@ -1,7 +1,7 @@
 {
   "id": "T06c",
   "title": "Switch conversation",
-  "summary": "Switch conversation while this plays.",
+  "summary": "Switch A to B while A's reply and user turn are open. B speaks; A's words reach A only at its normal end.",
   "extends": "04-room-ready",
   "actions": [
     {
@@ -9,12 +9,20 @@
       "type": "reply-playing"
     },
     {
+      "atMs": 100,
+      "type": "conversation-a"
+    },
+    {
       "atMs": 1000,
       "type": "focus-switch"
     },
     {
-      "atMs": 2000,
-      "type": "turn-finished",
+      "atMs": 1100,
+      "type": "conversation-b"
+    },
+    {
+      "atMs": 4000,
+      "type": "out-of-order-finish",
       "semantic": [
         {
           "reply": 0,
@@ -25,12 +33,13 @@
     }
   ],
   "expect": {
-    "epochDelta": 0,
+    "epochDelta": 2,
     "fates": [
       "partial"
     ],
     "screen": [
-      "inactive-conversation"
+      "inactive-conversation",
+      "independent-conversations"
     ]
   },
   "fixture": {

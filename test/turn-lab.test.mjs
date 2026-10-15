@@ -43,6 +43,12 @@ test("T06c mock case rejects a trace without the required focus switch", async (
   const invalid = structuredClone(fixture);
   invalid.actions = invalid.actions.filter((action) => action.type !== "focus-switch");
   assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
+  const early = structuredClone(fixture);
+  early.actions.at(-1).atMs = 2000;
+  assert.equal((await runTurnFixture(early, { wait: async () => {} })).status, "fail", "A cannot flush at the focus boundary");
+  const wrongCall = structuredClone(fixture);
+  wrongCall.actions[3].type = "conversation-a";
+  assert.equal((await runTurnFixture(wrongCall, { wait: async () => {} })).status, "fail", "B speech cannot enter A's call");
 });
 
 test("all 25 numbered cases are selectable mock fixtures with timed actions and expected outcomes", async () => {
@@ -93,11 +99,19 @@ test("T11 actually deduplicates turn IDs and rejects wrong out-of-order terminal
   assert.deepEqual(result.trace.at(-1).conversations, {
     a: { turnId: "a-turn-1", epoch: 1, finished: true }, b: { turnId: "b-turn-1", epoch: 1, finished: true },
   });
-  for (const [index, value] of [[2, { turnId: "a-turn-2" }], [3, { aTurnId: "wrong-turn" }]]) {
+  for (const [index, value] of [[3, { turnId: "a-turn-2" }], [4, { aTurnId: "wrong-turn" }]]) {
     const invalid = structuredClone(fixture);
     Object.assign(invalid.actions[index], value);
     assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
   }
+});
+
+test("T13 mute waits for an ordinary terminal instead of ending the turn at the switch", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T13").turn;
+  assert.equal((await runTurnFixture(fixture, { wait: async () => {} })).status, "model-match");
+  const early = structuredClone(fixture);
+  early.actions.at(-1).atMs = 1100;
+  assert.equal((await runTurnFixture(early, { wait: async () => {} })).status, "fail");
 });
 
 test("T16 compares delivered envelope IDs and requires claim release before redelivery", async () => {

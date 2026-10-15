@@ -1,11 +1,11 @@
 {
-  "core": "a4b8dc95f54f4d1a73b83dc3dc35f7727bdb64b9",
+  "core": "74c687c68822083b4e160d0b6233987be9b054ed",
   "connector": "68ecf8265b5fe06988c4bcf1055fec78587451b5",
-  "web": "f52082809e4d58b07a17fd078d0a56fc17cc171c",
-  "voice": "1aa57b0c05f15207def0fda0572b47b1dfd36712",
+  "web": "77f56b5868b06da6cd6e89cad61e88ff29f11a69",
+  "voice": "91a823bd532514cf673a07f57e89397346cf9ec9",
   "engine": "nightly",
   "notes": {
     "connector": "Connector T PR #126; recheck its moving head before a test run",
-    "web": "Web PR #126 merged into main at squash commit f520828; recheck main before a test run"
+    "web": "TODO: replace web main with feat/voice-call-per-conversation PR head when available"
   }
 }

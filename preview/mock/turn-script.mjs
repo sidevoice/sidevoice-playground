@@ -5,7 +5,8 @@ import { probeMockRoom } from "./turn-machine-probes.mjs";
 export async function runTurnFixture(fixture, { wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), onStep = () => {} } = {}) {
   const state = { epochDelta: 0, fates: [], notice: [], screen: [], tool: null, trace: [], turnOpen: false,
     output: 'on', playing: null, queued: [], misses: false, activity: false,
-    conversations: new Map(), finishes: [], duplicateStarts: 0, envelopes: new Map(), deliveries: [], claims: new Map() };
+    conversations: new Map(), finishes: [], duplicateStarts: 0, envelopes: new Map(), deliveries: [], claims: new Map(),
+    inputRoute: 'a', switchAt: null, muteAt: null, routeErrors: [] };
   const semantic = [];
   const notices = [];
   const invalidSemantic = [];
@@ -20,7 +21,9 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'speech-finished': state.epochDelta++; state.turnOpen = false; break;
       case 'speech-short-silent': state.epochDelta++; mark(state.screen, 'user-message'); break;
       case 'speech-qualified': settle('interrupted'); mark(state.notice, 'reply_interrupted'); mark(state.screen, 'cut'); break;
-      case 'turn-finished': state.turnOpen = false; break;
+      case 'turn-finished': state.turnOpen = false;
+        if (fixture.id === 'T13' && state.muteAt != null && action.atMs - state.muteAt >= 2500) mark(state.screen, 'normal-turn-end');
+        break;
       case 'turn-cancelled': state.turnOpen = false; if (state.tool === 'user_speaking') mark(state.notice, 'turn_empty'); break;
       case 'reply-accepted': state.queued.push(add('queued')); break;
       case 'reply-playing': state.playing = add('playing'); break;
@@ -35,8 +38,9 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'agents-unmute': state.output = 'on'; break;
       case 'voice-off': state.output = 'off'; break;
       case 'voice-on': state.output = 'on'; break;
-      case 'focus-switch': if (state.playing != null) { settle('interrupted'); mark(state.screen, 'inactive-conversation'); } break;
-      case 'focus-return': break;
+      case 'focus-switch': state.inputRoute = 'b'; state.switchAt = action.atMs;
+        if (state.playing != null) { settle('interrupted'); mark(state.screen, 'inactive-conversation'); } break;
+      case 'focus-return': state.inputRoute = 'a'; break;
       case 'return-grace': if (state.fates.includes('text_only')) mark(state.notice, 'user_returned'); break;
       case 'disconnect': settle('unplayed'); mark(state.screen, 'hearing-unconfirmed'); break;
       case 'reconnect': break;
@@ -46,6 +50,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'speaker-only-echo': mark(state.screen, 'no-user-message'); break;
       case 'conversation-a': case 'conversation-b': {
         const conversation = type.slice(-1);
+        if (state.inputRoute !== conversation) state.routeErrors.push(`Speech entered ${conversation} while input was routed to ${state.inputRoute}`);
         const turnId = action.turnId ?? `${conversation}-turn-1`;
         const current = state.conversations.get(conversation);
         if (current?.turnId !== turnId) {
@@ -74,7 +79,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       }
       case 'skip': settle('heard'); mark(state.screen, 'heard'); break;
       case 'next-reply': add('heard'); break;
-      case 'mic-mute': mark(state.screen, 'normal-turn-end'); break;
+      case 'mic-mute': state.muteAt = action.atMs; break;
       case 'reply-partial-device-a': state.playing = add('playing'); break;
       case 'reply-heard': add('heard'); mark(state.screen, 'heard'); break;
       case 'reply-heard-device-b': settle('heard'); mark(state.screen, 'global-heard'); break;
@@ -146,7 +151,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
   }
   const contract = TURN_CONTRACT[fixture.id];
   const mismatches = [];
-  mismatches.push(...invalidSemantic, ...envelopeProblems);
+  mismatches.push(...invalidSemantic, ...envelopeProblems, ...state.routeErrors);
   if (!contract) mismatches.push(`Unknown #19 case: ${fixture.id}`);
   else {
     if (JSON.stringify(fixture.actions.map((action) => action.type)) !== JSON.stringify(contract.actions)) mismatches.push('Required #19 case steps are missing or reordered');
@@ -158,6 +163,13 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
   if (fixture.id === 'T08' && state.trace.find((item) => item.action === 'typed-message')?.fates[0] !== 'playing') mismatches.push('Typing must leave the first reply playing');
   if (fixture.id === 'T11' && (state.conversations.get('a')?.epoch !== 1 || state.conversations.get('b')?.epoch !== 1 ||
       state.duplicateStarts !== 1 || state.finishes.join(',') !== 'b:b-turn-1,a:a-turn-1')) mismatches.push('Separate epochs, deduplicated turn IDs, and out-of-order terminals are required');
+  if (fixture.id === 'T06c' && (state.conversations.get('a')?.epoch !== 1 || state.conversations.get('b')?.epoch !== 1 ||
+      state.finishes.join(',') !== 'b:b-turn-1,a:a-turn-1' || state.switchAt == null ||
+      fixture.actions.find((action) => action.type === 'out-of-order-finish')?.atMs - state.switchAt < 2500))
+    mismatches.push('A must keep its own pending turn across focus and finish normally after B starts');
+  if (fixture.id === 'T13' && (state.muteAt == null ||
+      fixture.actions.find((action) => action.type === 'turn-finished')?.atMs - state.muteAt < 2500))
+    mismatches.push('Muting routes silence; it must not force an early terminal');
   if (fixture.id === 'T16' && (state.deliveries.length !== 3 || state.claims.get('pull') !== state.deliveries[0]?.id)) mismatches.push('Push/pull envelope identity, claim release, and redelivery are required');
   mismatches.push(...await probeMockRoom(fixture));
   // A synthetic reference model cannot certify the real producers. Reserve
