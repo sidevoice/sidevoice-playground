@@ -18,10 +18,9 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "balloon", label: "Agent's speech balloon", note: "How the agent's words look on the stage, drawn as the bichos are; its tail leaves off-centre and curves down to the agent.", values: [
-    { value: "a", label: "A · Paper & ink (classic comic, both themes)" },
-    { value: "b", label: "B · Soft blob in the agent's colour (follows the theme)" },
-    { value: "c", label: "C · The agent's own skin (pale colour, ink, gloss)" },
+  { name: "balloonPlace", label: "Agent's balloon place", note: "The balloon is decided (the agent's own skin). Where it sits over the agent.", values: [
+    { value: "center", label: "Centred, tail from the bottom-left corner" },
+    { value: "left", label: "Pushed left, tail from the bottom-right corner toward the agent" },
   ] },
   { name: "balloonLines", label: "Balloon lines", note: "How many lines of the reply the balloon shows at once.", values: [
     { value: "3", label: "3 lines" },
