@@ -12,7 +12,7 @@ import {
   CHECK_MS, DOWNLOAD_STEPS, DOWNLOAD_STEP_MS, UPDATER_STATES, UPDATE_VERSION, checkForUpdate, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState,
   updaterMode,
 } from "../preview/mock/bridge.mjs";
-import { DESKTOP, VARIANTS, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
+import { DESKTOP, VARIANTS, chooseMockOption, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
 
@@ -325,6 +325,41 @@ test("agent action responses keep the Cursor bridge card and reconcile registrat
   assert.equal(cursor(codex).cursor_bridge.state, "ready");
   assert.equal(codex.body.agents.find((agent) => agent.id === "codex").registration, "connected");
   assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(codex));
+});
+
+test("live Cursor picker refreshes an already displayed agent card without a reload", async () => {
+  const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
+  const world = createWorld(desktop, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const fp = identities[LOCAL_ID].fingerprint;
+  const ask = () => answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents`,
+    headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
+  const displayed = { status: "ready", value: (await ask()).body };
+  const card = () => displayed.value.agents.find((agent) => agent.id === "cursor").cursor_bridge;
+  let refresh;
+  let calls = 0;
+  const frame = { src: "/voice/", contentWindow: {
+    sidevoiceUI: { store: { getState: () => ({ facts: { hostAgents: { [fp]: displayed } } }) } },
+    sidevoiceActions: { loadHostAgents(askedFp, options) {
+      assert.equal(askedFp, fp);
+      assert.deepEqual(options, { rescan: true });
+      calls++;
+      refresh = ask().then((response) => { displayed.value = response.body; });
+      return refresh;
+    } },
+  } };
+  assert.equal(card().state, "ready", "the card is mounted from its initial listing");
+  for (const state of ["needs_attention", "unknown", "unsupported", "ready"]) {
+    assert.equal(chooseMockOption(world, "cursorBridge", state, frame, identities), false);
+    await refresh;
+    assert.equal(card().state, state);
+    assert.equal(card().reason, { needs_attention: "bridge_missing", unknown: "cursor_version_unknown",
+      unsupported: "editor_unavailable", ready: null }[state]);
+    assert.equal(card().steps.find((step) => step.id === "bridge_running").state,
+      state === "ready" || state === "unknown" ? "done" : "needs_action");
+    assert.equal(frame.src, "/voice/", "the framed page never reloads");
+  }
+  assert.equal(calls, 4, "each live picker change caused the web listing action");
 });
 
 test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {

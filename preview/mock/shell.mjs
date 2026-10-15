@@ -6,7 +6,7 @@
 // it was, and a view, a language or a ↻ option changes only what the world owns of it (`mergeSeed`).
 
 import { createWorld, changedCount } from "./world.mjs";
-import { loadIdentities, makeIdentities, saveIdentities, seededStorage } from "./machines.mjs";
+import { LOCAL_ID, loadIdentities, makeIdentities, saveIdentities, seededStorage } from "./machines.mjs";
 import { attach, mockModule } from "./attach.mjs";
 import { cardHost } from "./card-host.mjs";
 
@@ -255,6 +255,19 @@ function problem(card, message) {
   }), " (clears what this browser keeps for it).");
 }
 
+/** Live Cursor choices refresh the already mounted agent card through the web's normal listing action. */
+export function chooseMockOption(world, id, value, frame, identities) {
+  const reload = world.choose(id, value);
+  if (id === "cursorBridge" && !reload) {
+    const page = frame?.contentWindow;
+    const fp = identities?.[LOCAL_ID]?.fingerprint;
+    if (fp && page?.sidevoiceUI?.store && typeof page.sidevoiceActions?.loadHostAgents === "function") {
+      void Promise.resolve(page.sidevoiceActions.loadHostAgents(fp, { rescan: true })).catch(() => {});
+    }
+  }
+  return reload;
+}
+
 async function main() {
   const card = document.getElementById("card");
   addEventListener("error", (event) => problem(card, String(event.message ?? event.error)));
@@ -420,7 +433,7 @@ async function run(card) {
         load({ fresh: !!next.scenario });
       },
       choose(id, value) {
-        const reload = world.choose(id, value);
+        const reload = chooseMockOption(world, id, value, frame, identities);
         params.options = world.choices;
         if (reload) load();
         else {
