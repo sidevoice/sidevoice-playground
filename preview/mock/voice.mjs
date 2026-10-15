@@ -156,7 +156,8 @@ export function fakeVoice(world, { source = null } = {}) {
     }
   }
 
-  /** @type {TakingVoiceHost} */
+  // setCaptureBoundary and onAgentInterrupted: a voice candidate's extra seams, absent from published 0.4.0.
+  /** @type {TakingVoiceHost & { setCaptureBoundary?: (id: string) => Promise<void>, onAgentInterrupted?: (listener: (event: any) => void) => () => void }} */
   const host = {
     async setCaptureBoundary(id) {
       captureBoundary = id;
@@ -326,7 +327,7 @@ export function fakeVoice(world, { source = null } = {}) {
     if (!started || muted) return false;
     const overlapping = [...sayHandles].filter(([id]) => activeSays.has(id));
     if (overlapping.length) {
-      const threshold = Math.ceil((settings?.barge_in_min_speech ?? 1) * 1000);
+      const threshold = Math.ceil(((/** @type {any} */ (settings))?.barge_in_min_speech ?? 1) * 1000);
       // Simulated detector gate: short or quiet overlap is discarded before any
       // turn event. In silence, the same short word remains an ordinary turn.
       if (durationMs < threshold || level < 0.8) { await world.delay(durationMs); return true; }
