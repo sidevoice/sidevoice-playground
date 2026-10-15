@@ -274,7 +274,7 @@ test("the evidence log splits heard and unheard by Unicode scalars", () => {
   const view = evidence(events);
   assert.equal(view.currentEpoch, 2);
   assert.deepEqual(view.fates[0], { utterance_id: "u", fate: "cut", heard_chars: 2, text: "é🐙ab", reason: "user_interrupted", heard: "é🐙", unheard: "ab" });
-  assert.equal(view.checks.T01.state, "pass");
+  assert.equal(view.checks.T01.state, "pending", "a legal prefix alone does not prove playback and capture");
 });
 
 test("browser playback receipts and history settle reply fates", () => {

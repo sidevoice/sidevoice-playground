@@ -4,7 +4,7 @@ const MANUAL = new Set(["T06c", "T06e", "T07", "T09a", "T09b", "T10", "T11", "T1
 const good = (status) => ["accepted", "queued", "spoken", "published"].includes(status);
 const terminal = (fate) => ["played", "skipped", "cut", "refused", "stale", "not played"].includes(fate);
 const check = (state, reason) => ({ state, reason });
-const pending = (reason = "Awaiting complete case evidence") => check("pending", reason);
+const pending = (reason = "Insufficient case evidence") => check("pending", reason);
 const pass = (reason) => check("pass", reason);
 const fail = (reason) => check("fail", reason);
 
@@ -31,17 +31,30 @@ export function verdict(id, events, fates) {
   const duplicate = ids.length !== distinct.size;
   const unheardIds = unheard.map((item) => item.utterance_id);
   const unstarted = (key) => unheard.some((item) => item.utterance_id === key && item.reason === "newer_turn" && item.cut === false && item.heard_chars == null);
-  const begun = (key) => frames.some((frame) => frame.type === "voice-playback" && frame.status === "playing" && frame.utterance_id === key);
-  const played = (key) => frames.some((frame) => frame.utterance_id === key && frame.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(frame.status)) ||
-    frames.some((frame) => frame.type === "history" && (frame.row?.id?.endsWith(`:voice:${key}`) || frame.utterance_id === key) && (frame.row?.globally_heard || frame.row?.status === "playback_finished"));
-  const outputDisabled = (reason) => frames.some((frame) => frame.type === "voice-speech" && frame.reason === reason && (frame.on === false || frame.data?.on === false));
+  const matches = (frame, key) => frame.utterance_id === key || frame.utterance_ids?.includes(key) ||
+    (frame.type === "history" && frame.row?.role === "assistant" && frame.row.id?.endsWith(`:voice:${key}`));
+  const observed = (key, predicate) => frames.some((frame) => matches(frame, key) && predicate(frame));
+  const begun = (key) => observed(key, (frame) => frame.type === "voice-playback" && frame.status === "playing");
+  const played = (key) => observed(key, (frame) => frame.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(frame.status) ||
+    frame.type === "history" && (frame.row?.globally_heard || ["playing", "playback_finished"].includes(frame.row?.status)));
+  const audible = (key) => played(key) || observed(key, (frame) => frame.type === "voice-playback" && frame.status === "interrupted" && frame.cut !== false ||
+    frame.type === "history" && Number.isInteger(frame.row?.heard_chars) && frame.row.heard_chars > 0);
+  const hasAssistantRow = (key) => observed(key, (frame) => ["voice-reply", "voice-playback", "history"].includes(frame.type)) || unheardIds.includes(key);
+  const legalExtent = (value, text) => Number.isInteger(value) && value >= 0 && value <= [...text].length;
+  const actionAt = (predicate) => events.findIndex((event) => ["room-frame", "browser-action"].includes(event.kind) && predicate(event.data));
+  const outputDisabled = (reason) => actionAt((frame) => frame.type === "voice-speech" && frame.reason === reason && (frame.on === false || frame.data?.on === false));
   let result = MANUAL.has(id) ? check("manual", "Follow the case instruction and review the room and exported trace") : pending();
 
   if (["T02c", "T02d"].includes(id) && publications.length) {
     const refused = publications.every((item) => status(item) === "rejected" && item.result?.reason === "user_speaking");
-    if (!refused) result = fail("Open-turn publication must be refused specifically for user_speaking");
-    else if (id === "T02c" && inputs.some((input) => input.channel === "voice" && input.text)) result = pass("Open-turn refusal and spoken words reached the agent");
-    else if (id === "T02d" && inputs.some((input) => input.channel === "note" && input.text === "" && input.notice?.kind === "turn_empty")) result = pass("Open-turn refusal and empty-turn notice reached the agent");
+    const refusalAt = events.findIndex((event) => event.kind === "tool-result" && event.data?.name === "voice_say");
+    const terminal = events.slice(refusalAt + 1).some((event) => event.kind === "agent-input" &&
+      (id === "T02c" ? event.data?.channel === "voice" && Boolean(event.data.text) :
+        event.data?.channel === "note" && event.data.text === "" && event.data.notice?.kind === "turn_empty"));
+    if (!refused || publications.length !== 1 || publications.some((item) => item.result?.audio === "queued" || item.result?.text_saved === true))
+      result = fail("Open-turn publication must be refused specifically for user_speaking");
+    else if (ids.some(hasAssistantRow)) result = fail("Refused speech must have no assistant row, queued audio, or unheard evidence");
+    else if (terminal) result = pass(id === "T02c" ? "Open-turn refusal and spoken words reached the agent" : "Open-turn refusal and empty-turn notice reached the agent");
   }
   if (id === "T01" && publications.length && unheard.length) {
     const item = unheard.find((row) => ids.includes(row.utterance_id));
@@ -50,15 +63,41 @@ export function verdict(id, events, fates) {
       (event.data?.utterance_id === item?.utterance_id || event.data?.row?.id?.endsWith(`:voice:${item?.utterance_id}`)) &&
       ((event.data?.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(event.data.status)) ||
        (event.data?.type === "history" && (event.data?.row?.globally_heard || event.data?.row?.status === "playback_finished"))));
-    if (!item || !publications.every((publication) => good(status(publication))) || item.fate !== "interrupted" || item.cut !== true || !Number.isInteger(item.heard_chars) || !inputs.some((input) => input.channel === "voice" && input.text) || fate(item.utterance_id) === "played" || resumed)
-      result = fail("Interrupted reply needs a matched cut extent and spoken input");
-    else result = pass("Matched interrupted reply, cut extent, and spoken input");
+    const text = publications[0]?.args.text;
+    const startAt = actionAt((frame) => frame.type === "voice-playback" && frame.status === "playing" && frame.utterance_id === item?.utterance_id);
+    const cutReceiptAt = actionAt((frame) => frame.type === "voice-playback" && frame.status === "interrupted" &&
+      frame.reason === "user_interrupted" && frame.utterance_id === item?.utterance_id);
+    const cutReceipt = events[cutReceiptAt];
+    const spokenWithCut = events.slice(cutAt).some((event) => event.kind === "agent-input" && event.data?.channel === "voice" && Boolean(event.data.text) &&
+      event.data.unheard?.replies?.some((row) => row.utterance_id === item?.utterance_id && row.cut === true));
+    if (!item || publications.length !== 1 || !good(status(publications[0])) || item.fate !== "interrupted" || item.reason !== "user_interrupted" || item.cut !== true ||
+      typeof text !== "string" || !legalExtent(item.heard_chars, text) || item.text !== text || fate(item.utterance_id) === "played" || resumed ||
+      (cutReceiptAt >= 0 && events.slice(cutReceiptAt + 1, cutAt < 0 ? undefined : cutAt).some((event) =>
+        ["room-frame", "browser-action"].includes(event.kind) && event.data?.type === "voice-playback" &&
+        event.data.utterance_id === item.utterance_id && ["playing", "heard"].includes(event.data.status))) ||
+      observed(item.utterance_id, (frame) => frame.type === "voice-playback" && frame.status === "heard" ||
+        frame.type === "history" && (frame.row?.globally_heard || frame.row?.status === "playback_finished")))
+      result = fail("Interrupted reply needs a legal matched extent and must never finish or resume");
+    else if (startAt < 0 || cutReceiptAt <= startAt || cutAt <= cutReceiptAt || !legalExtent(cutReceipt.data.heard_chars, text) ||
+      cutReceipt.data.heard_chars > item.heard_chars || !spokenWithCut)
+      result = pending("Insufficient playback start, cut receipt, or matched spoken input");
+    else result = pass("Matched playback start, legal cut extent, and spoken input");
   }
   if (["T02a", "T02b"].includes(id) && publications.length && unheard.length) {
-    const properInput = id === "T02a" ? inputs.some((input) => input.channel === "voice" && input.text) :
-      inputs.some((input) => input.channel === "note" && input.text === "" && input.notice);
-    if (!completed(1) || !good(status(publications[0])) || !unstarted(ids[0]) || begun(ids[0]) || !properInput)
-      result = fail("Accepted reply must never start and reach the matching spoken or empty outcome");
+    const publication = publications[0], key = ids[0];
+    const publishedAt = events.findIndex((event) => event.kind === "tool-result" && event.data?.args?.utterance_id === key);
+    const matchedAt = events.findIndex((event, index) => index > publishedAt && event.kind === "agent-input" &&
+      event.data?.unheard?.replies?.some((row) => row.utterance_id === key) &&
+      (id === "T02a" ? event.data.channel === "voice" && Boolean(event.data.text) && event.data.notice?.kind === "reply_not_played" :
+        event.data.channel === "note" && event.data.text === "" && event.data.notice?.kind === "turn_empty"));
+    const matched = events[matchedAt]?.data;
+    const record = matched?.unheard.replies.find((row) => row.utterance_id === key);
+    if (publications.length !== 1 || !completed(1) || !good(status(publication)) || audible(key) ||
+      ["played", "cut", "skipped"].includes(fate(key)) || unheard.some((row) => row.utterance_id === key &&
+        (row.cut !== false || row.heard_chars != null || !["interrupted", "unplayed"].includes(row.fate) || row.text !== publication.args.text)))
+      result = fail("Accepted unstarted reply cannot have playback or contradictory unheard evidence");
+    else if (!matched || !record || record.reason !== "newer_turn" || record.text !== publication.args.text || !unstarted(key))
+      result = pending("Insufficient matched unstarted evidence with the spoken or empty outcome");
     else result = pass("Accepted reply stayed unstarted and reached the matching outcome");
   }
   if (id === "T03" && publications.length && (note("reply_not_played") || unheard.length)) {
@@ -92,19 +131,44 @@ export function verdict(id, events, fates) {
         ? pass("Acknowledgement heard, checkpoint cut, result unplayed") : fail("Checkpoint sequence or cut extent is wrong");
     }
   }
-  if (id === "T06a" && outputDisabled("agents_muted") && publications.length >= 2) {
-    if (!completed(2)) result = fail("Muted case needs two distinct publications");
-    else result = fate(ids[0]) === "cut" && textOnly(publications[1], "agents_muted") && !played(ids[1])
-      ? pass("Playing reply cut; muted publication saved without audio") : fail("Mute must cut playback and keep later speech text only");
+  if (id === "T06a" && publications.length >= 2) {
+    const muteAt = outputDisabled("agents_muted");
+    const firstAt = events.findIndex((event) => event.kind === "tool-result" && event.data?.args?.utterance_id === ids[0]);
+    const secondAt = events.findIndex((event) => event.kind === "tool-result" && event.data?.args?.utterance_id === ids[1]);
+    const phaseAt = events.findIndex((event) => event.kind === "script-phase" && event.data?.id === "T06a" && event.data.phase === 2);
+    const cutAt = actionAt((frame) => frame.type === "voice-playback" && frame.utterance_id === ids[0] &&
+      frame.status === "interrupted" && frame.reason === "agents_muted");
+    if (!completed(2) || publications.length !== 2 || audible(ids[1]) || ["played", "cut", "skipped"].includes(fate(ids[1])) ||
+      fate(ids[0]) === "played" || !textOnly(publications[1], "agents_muted"))
+      result = fail("Mute must cut the playing reply and save the second without audio");
+    else if (muteAt < 0 || firstAt < 0 || secondAt < 0 || phaseAt < 0 || cutAt < 0 ||
+      !events.slice(firstAt + 1, muteAt).some((event) => ["room-frame", "browser-action"].includes(event.kind) &&
+        event.data?.type === "voice-playback" && event.data.utterance_id === ids[0] && event.data.status === "playing") ||
+      !(firstAt < muteAt && muteAt < cutAt && cutAt < phaseAt && phaseAt < secondAt) || fate(ids[0]) !== "cut")
+      result = pending("Insufficient ordered playback, mute, and second-phase evidence");
+    else result = pass("Playing reply cut; second-phase publication saved without audio");
   }
-  if (id === "T06b" && outputDisabled("voice_off") && publications.length) {
+  if (id === "T06b" && outputDisabled("voice_off") >= 0 && publications.length) {
     result = publications.every((item) => textOnly(item, "voice_off") && !played(item.id))
       ? pass("Voice-off publication stayed text only") : fail("Voice-off publication must not play");
   }
   if (id === "T06d" && publications.length && note("user_returned")) {
-    const missed = ids.every((key) => publications.find((item) => item.id === key)?.result?.audio === "text_only");
-    result = missed && ids.every((key) => fate(key) !== "played" && !begun(key))
-      ? pass("Return notice followed missed text without replay") : fail("Missed speech must not replay on return");
+    const key = ids[0], muteAt = outputDisabled("agents_muted");
+    const publishedAt = events.findIndex((event) => event.kind === "tool-result" && event.data?.args?.utterance_id === key);
+    const returnAt = events.findIndex((event) => event.kind === "agent-input" && event.data?.notice?.kind === "user_returned");
+    const backAt = events.findIndex((event, index) => index > publishedAt && ["room-frame", "browser-action"].includes(event.kind) &&
+      event.data?.type === "voice-speech" && (event.data.on === true || event.data.data?.on === true));
+    const returned = events[returnAt]?.data;
+    const matched = returned?.unheard?.replies?.find((row) => row.utterance_id === key);
+    if (publications.length !== 1 || !textOnly(publications[0], "agents_muted") || audible(key) ||
+      ["played", "cut", "skipped"].includes(fate(key)) || returned?.channel !== "note" || returned.text !== "" ||
+      !matched || matched.text !== publications[0].args.text || matched.reason !== "agents_muted" ||
+      matched.cut !== false || matched.heard_chars != null || !["unplayed", "interrupted"].includes(matched.fate) ||
+      returned.unheard.count === 0)
+      result = fail("Return notice must identify the saved missed reply without replay");
+    else if (muteAt < 0 || publishedAt < muteAt || backAt < 0 || returnAt < backAt)
+      result = pending("Insufficient observed mute, return, and matched notice sequence");
+    else result = pass("Observed return notice identified the missed reply without replay");
   }
   if (id === "T08") {
     const typed = frames.find((frame) => frame.type === "typed-message" && frame.status >= 200 && frame.status < 300);
