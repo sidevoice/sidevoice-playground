@@ -358,6 +358,13 @@ test("live Cursor readiness picker refreshes four states without a page reload",
     headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
   const displayed = { status: "ready", value: (await ask()).body };
   const card = () => displayed.value.agents.find((agent) => agent.id === "cursor").readiness;
+  const cursor = () => displayed.value.agents.find((agent) => agent.id === "cursor");
+  const disconnected = await answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents/cursor/disconnect`,
+    method: "POST", headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
+  assert.equal(disconnected.status, 200);
+  displayed.value = disconnected.body;
+  assert.equal(cursor().registration, "not-connected");
+  assert.equal(cursor().actionable, true);
   let refresh;
   let calls = 0;
   const frame = { src: "/voice/", contentWindow: {
@@ -380,9 +387,15 @@ test("live Cursor readiness picker refreshes four states without a page reload",
     assert.equal(chooseMockOption(world, "cursorBridge", choice, frame, identities), false);
     await refresh;
     assert.deepEqual(card(), expected);
+    assert.equal(cursor().registration, "not-connected", `${choice} must not reconnect Cursor`);
+    assert.equal(cursor().actionable, true, `${choice} must leave Connect available`);
     assert.equal(frame.src, "/voice/", "the framed page never reloads");
   }
   assert.equal(calls, 4);
+  const connected = await answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents/cursor/connect`,
+    method: "POST", headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
+  assert.equal(connected.status, 200);
+  assert.equal(connected.body.agents.find((agent) => agent.id === "cursor").registration, "connected");
 });
 
 test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {
