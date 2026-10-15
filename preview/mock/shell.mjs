@@ -18,18 +18,9 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "balloonPlace", label: "Agent's balloon place", note: "The balloon is decided (the agent's own skin). Where it sits over the agent.", values: [
-    { value: "center", label: "Centred, tail from the bottom-left corner" },
-    { value: "left", label: "Pushed left, tail from the bottom-right corner toward the agent" },
-  ] },
-  { name: "balloonPaging", label: "Balloon moves on", note: "How the balloon follows the voice. Neither ever shows an empty line.", values: [
-    { value: "scroll", label: "A line at a time (the next line always in view)" },
-    { value: "page", label: "A page at a time (the last page shrinks to its lines)" },
-  ] },
-  { name: "stageTitle", label: "Conversation title", note: "The conversation's name and machine over the stage (desktop above the tile, phone on its corner).", values: [
-    { value: "a", label: "A · Display name with the agent's colour swatch, machine chip beside" },
-    { value: "b", label: "B · Small avatar, name over the machine chip" },
-    { value: "c", label: "C · Inked paper sticker with the agent's colour" },
+  { name: "titleDetail", label: "Call details (from the stage title)", note: "Click the conversation's title over the stage: the machine, the agent and the voice models. A dot on the title when a model needs something.", values: [
+    { value: "popover", label: "Popover under the title" },
+    { value: "sheet", label: "Sheet from the right edge (bottom sheet on a phone)" },
   ] },
 ];
 
