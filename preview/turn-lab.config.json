@@ -5,6 +5,7 @@
   "voice": "b898c55cdffbbf5fe603e2e088e530163825ce06",
   "engine": "nightly",
   "notes": {
+    "connector": "Connector T PR #126; last source-built head, re-pin after newer PR commits finish",
     "web": "Web T PR #126; last source-built head, re-pin after newer PR commits pass the web build"
   }
 }
