@@ -202,8 +202,10 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
      */
     async get(ref, tarballs = {}) {
       const sha = await resolve(ref);
-      // The same commit with other picked builds is another site.
-      const picked = [tarballs.engine ?? null, tarballs.voice ?? null, Boolean(tarballs.forceVoice)];
+      // CI downloads use new temporary paths on each server start. Cache by their
+      // actual bytes so the same pinned candidate keeps its built site.
+      const digest = async (path) => path ? createHash("sha256").update(await readFile(path)).digest("hex") : null;
+      const picked = [await digest(tarballs.engine), await digest(tarballs.voice), Boolean(tarballs.forceVoice)];
       const key = `${picked.some(Boolean) ? `${sha}-${shortHash(JSON.stringify(picked))}` : sha}-m${await mockDigest()}`;
       if (!pending.has(key)) {
         const promise = build(sha, key, tarballs);
