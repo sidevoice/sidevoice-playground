@@ -24,6 +24,7 @@ import { commitOf, listEngineBuilds, publicApi } from "./engine/listing.mjs";
 import { loadEngine, loadServedEngine } from "./engine/load.mjs";
 import { NATIVE, NATIVE_METHODS, nativeEngine, onNativeExit, prepareNative, tauri } from "./engine/native.mjs";
 import { parseSpec } from "./engine/spec.mjs";
+import { searchable } from "./combobox.mjs";
 import { connectorSection } from "./connector.mjs";
 import { turnsScreen } from "./turns.mjs";
 import { voiceSection } from "./voice.mjs";
@@ -132,7 +133,7 @@ function renderChoices() {
     );
     if (list?.some((choice) => choice.value === chosen)) select.value = chosen;
     select.disabled = !list?.length;
-    select.form.querySelector("button").disabled = !list?.length || serverOnly(kind);
+    select.form.querySelector('[type="submit"]').disabled =!list?.length || serverOnly(kind);
     renderDetail(kind);
   }
 }
@@ -693,6 +694,8 @@ for (const kind of KINDS) {
   };
 }
 $("#engine-refresh").onclick = () => fillChoices({ fresh: true });
+// Every dropdown of the page gets a filter (combobox.mjs); the selects stay what the scripts fill and read.
+for (const select of document.querySelectorAll("select")) searchable(select);
 if (app) {
   $(".subtitle").textContent = "Try Sidevoice's parts by hand: an engine build (its web build, or its native build, built on this Mac) and the connector's bench. The voice module loads in the web playground.";
   $("#engine-runtime-field").hidden = false;

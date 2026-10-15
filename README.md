@@ -96,7 +96,9 @@ tarball: `nightly`, whose tarball changes, is checked again each time it is load
 
 **Picking an engine.** Three dropdowns, each with its Load button and, below it, the details of what is picked.
 Nothing is typed: the server lists them through the GitHub API with its token (`/engine-builds`, behind the access
-gate like every route, kept a minute; *Refresh lists* asks anew), and only the listing reaches the page.
+gate like every route, kept a minute; *Refresh lists* asks anew), and only the listing reaches the page. Like every
+dropdown of the page, each opens with a filter box (`web/combobox.mjs`): typing narrows its options (any case, each
+word anywhere in the label), the arrow keys move, Enter picks and Escape closes.
 
 | Dropdown | Lists | Details shown | It loads |
 |---|---|---|---|
@@ -172,7 +174,7 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 ### Turn Lab: real spoken conversation
 
-The access-gated link is **`http://localhost:5174/turn-lab?access=<token from the playground access file>`**. Open it once; the gate stores a cookie and redirects to `/turn-lab`. For a remote browser, use the same `/turn-lab?access=…` path on the playground tunnel and set `--preview-origin` to the second, browser-reachable preview tunnel. The Turn Lab starts the pinned real room, pairs its browser through the web build's own pairing protocol, connects a scripted MCP agent in inject mode, and puts the room, script menu, event log, reply hearing (including unconfirmed rows), agent notices and case checks together. Allow the microphone prompt; the browser downloads its local models automatically on first use. Once the call joins, speak. Use **Get messages** to reconnect the scripted agent in pull mode.
+A page of its own, which the playground's header links to. The access-gated link is **`http://localhost:5174/turn-lab?access=<token from the playground access file>`**. Open it once; the gate stores a cookie and redirects to `/turn-lab`. For a remote browser, use the same `/turn-lab?access=…` path on the playground tunnel and set `--preview-origin` to the second, browser-reachable preview tunnel. The Turn Lab starts the pinned real room, pairs its browser through the web build's own pairing protocol, connects a scripted MCP agent in inject mode, and puts the room, script menu, event log, reply hearing (including unconfirmed rows), agent notices and case checks together. Allow the microphone prompt; the browser downloads its local models automatically on first use. Once the call joins, speak. Use **Get messages** to reconnect the scripted agent in pull mode.
 
 For an isolated local run, use ports away from the live playground:
 

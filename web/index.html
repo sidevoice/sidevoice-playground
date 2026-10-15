@@ -10,10 +10,19 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
+      <div class="topbar-title">
         <h1>sidevoice playground</h1>
         <p class="subtitle">Try Sidevoice's parts by hand: an engine build, the voice module on it, and the connector.</p>
       </div>
+      <nav class="pages" aria-label="Other pages">
+        <a href="/turn-lab" class="page-link">
+          <span class="page-link-text">
+            <strong>Turn Lab</strong>
+            <small>Its own page: speak in the real room, with a scripted agent and case checks beside it.</small>
+          </span>
+          <span class="page-link-go" aria-hidden="true">→</span>
+        </a>
+      </nav>
     </header>
 
     <nav id="sections" class="screens sections" aria-label="Sections">
@@ -21,7 +30,6 @@
       <button type="button" data-section="voice" aria-pressed="false">Voice</button>
       <button type="button" data-section="connector" aria-pressed="false">Connector</button>
       <button type="button" data-section="preview" aria-pressed="false">Web preview</button>
-      <a href="/turn-lab" class="section-link">Turn Lab</a>
     </nav>
 
     <main>
