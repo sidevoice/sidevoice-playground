@@ -100,3 +100,15 @@ test('T06b and T06d include an output setting chosen before Run without borrowin
   const old = evidence([start('T04a'), say('old'), mute('voice_off'), start('T06b'), say('a', 'text_only'), hearing('a', 'not_heard')]);
   assert.equal(old.checks.T06b.state, 'pass');
 });
+test('reply_heard correction advances a known missed extent without a skip-specific notice', () => {
+  const first = input('note', '', [miss('a', 'not_heard', 0, 'é🐙ab')], 'reply_not_heard');
+  first.data.message_id = 'original';
+  const correction = input('note', '', [], 'reply_heard');
+  correction.data.notice.corrects_message_id = 'original';
+  correction.data.notice.heard = [{ utterance_id: 'a', history_id: 's:voice:a', fate: 'partial', heard_chars: 2 }];
+  const result = evidence([start('T14'), say('a', 'queued', 'é🐙ab'), first, correction]);
+  assert.equal(result.fates[0].fate, 'partial');
+  assert.deepEqual(result.notes.map((notice) => notice.kind), ['reply_not_heard', 'reply_heard']);
+  assert.equal(result.notes[1].corrects_message_id, 'original');
+  assert.equal(result.notes[1].heard[0].fate, 'partial');
+});
