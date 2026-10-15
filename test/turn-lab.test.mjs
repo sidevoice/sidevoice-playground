@@ -355,3 +355,25 @@ test("mock voice completes three queued replies in FIFO order", async () => {
   assert.deepEqual(seen, ["playing:1", "done:1", "playing:2", "done:2", "playing:3", "done:3"]);
   await voice.host.stop();
 });
+
+test("mock voice keeps a source turn's capture boundary through transcription", async () => {
+  let clock = 0;
+  const world = createWorld({ id: "boundary", title: "Boundary", summary: "", world: {}, options: [] }, {}, {
+    now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
+  });
+  const voice = fakeVoice(world);
+  const turns = [];
+  let started;
+  const began = new Promise((resolve) => { started = resolve; });
+  voice.host.onTurn((event) => { turns.push(event); if (event.phase === "started") started(); });
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.start();
+  await voice.host.setCaptureBoundary("conversation-a");
+  const first = voice.speak("Words for A");
+  await began;
+  await voice.host.setCaptureBoundary("conversation-b");
+  await first;
+  await voice.speak("Words for B");
+  assert.deepEqual(turns.filter((event) => event.phase === "finished").map((event) => event.capture_boundary_id), ["conversation-a", "conversation-b"]);
+  await voice.host.stop();
+});

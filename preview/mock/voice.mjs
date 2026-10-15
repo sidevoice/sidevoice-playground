@@ -119,6 +119,7 @@ export function fakeVoice(world, { source = null } = {}) {
   let started = false;
   let muted = false;
   let turns = 0;
+  let captureBoundary = "initial";
   let says = 0;
   let playbackRun = 0;
   let playbackTail = null;
@@ -157,6 +158,10 @@ export function fakeVoice(world, { source = null } = {}) {
 
   /** @type {TakingVoiceHost} */
   const host = {
+    async setCaptureBoundary(id) {
+      captureBoundary = id;
+      world.log({ method: "VOICE", url: `setCaptureBoundary(${id})`, status: "ok", mocked: true });
+    },
     async setSettings(next) {
       settings = next;
     },
@@ -334,6 +339,7 @@ export function fakeVoice(world, { source = null } = {}) {
     }
     const voice = voiceState(world);
     let turn = `turn-${++turns}`;
+    const turnBoundary = captureBoundary;
     const startedAt = world.now();
     const silence = endpointMs(settings);
     // The take this is said into, if one is kept: where in it each moment falls, and the turn's marks.
@@ -363,7 +369,7 @@ export function fakeVoice(world, { source = null } = {}) {
     };
     const half = (part) => { const words = part.split(/\s+/); const at = Math.max(1, Math.ceil(words.length / 2)); return [words.slice(0, at).join(" "), words.slice(at).join(" ") || part]; };
     setState({ listening: "speaking" });
-    emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
+    emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt, capture_boundary_id: turnBoundary }));
     if (pause || cutOff) {
       const [first, rest] = half(text);
       await talk(first, durationMs / 2);
@@ -376,8 +382,8 @@ export function fakeVoice(world, { source = null } = {}) {
         const cut = turn;
         turn = `turn-${++turns}`;
         mark = opened();
-        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: world.now() }));
-        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: cut, merged: true }));
+        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: world.now(), capture_boundary_id: turnBoundary }));
+        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: cut, merged: true, capture_boundary_id: turnBoundary }));
         setState({ recognising: 0 });
       } else {
         const paused = at();
@@ -392,17 +398,17 @@ export function fakeVoice(world, { source = null } = {}) {
     await world.delay(500);
     setState({ recognising: 0 });
     if (voice.stt === "silence" || !text.trim()) {
-      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
+      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false, capture_boundary_id: turnBoundary }));
       return true;
     }
     if (voice.stt === "error") {
-      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
+      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false, capture_boundary_id: turnBoundary }));
       emit("error", { code: "transcription-failed" });
       return true;
     }
     const endedAt = world.now();
     emit("turn", /** @type {VoiceTurnEvent} */ ({
-      phase: "finished", turn_id: turn, text, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
+      phase: "finished", turn_id: turn, text, capture_boundary_id: turnBoundary, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
       started_at: startedAt, ended_at: endedAt, merged: cutOff,
       timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: silence, recognition_ms: 500 },
     }));
