@@ -267,6 +267,27 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
 });
 
+test("Cursor Desktop Bridge card can show every readiness state from the local host's agent listing", async () => {
+  const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
+  const world = createWorld(desktop, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const states = ["ready", "needs_attention", "unknown", "unsupported"];
+  assert.deepEqual(desktop.options.find((option) => option.id === "cursorBridge").values.map((value) => value.value), states);
+  for (const state of states) {
+    world.choose("cursorBridge", state);
+    const response = await answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents`,
+      headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
+    assert.equal(response.status, 200);
+    const cursor = response.body.agents.find((agent) => agent.id === "cursor");
+    assert.equal(cursor.cursor_bridge.state, state);
+    assert.equal(cursor.cursor_bridge.steps.length, 7);
+    assert.equal(cursor.cursor_bridge.steps.find((step) => step.id === "enable_desktop_bridge").state,
+      state === "ready" ? "done" : "unknown");
+    assert.equal(cursor.cursor_bridge.reason, { ready: null, needs_attention: "bridge_missing", unknown: "cursor_version_unknown", unsupported: "editor_unavailable" }[state]);
+    assert.ok(response.body.agents.filter((agent) => agent.id !== "cursor").every((agent) => !agent.cursor_bridge));
+  }
+});
+
 test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {
   const { world, identities, ask } = await setup();
   const as = (id) => ({ headers: { authorization: `Bearer ${identities[id].token}` } });

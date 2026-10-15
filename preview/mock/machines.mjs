@@ -322,12 +322,33 @@ export function agentsOf(machine) {
 
 /** Agents as the connector lists them: each row a scenario (or an action) gives over what the connector knows of
  *  that agent, without what is the mock's alone. */
-export function agentRows(agents) {
+const cursorBridge = (state) => {
+  const reason = { ready: null, needs_attention: "bridge_missing", unknown: "cursor_version_unknown", unsupported: "editor_unavailable" }[state];
+  if (reason === undefined) return null;
+  const usable = state === "ready";
+  return {
+    state, reason, cursor_version: state === "unknown" || state === "unsupported" ? null : "3.22.12",
+    minimum_cursor_version: "3.22.12", minimum_connector_version: "0.9.0",
+    steps: [
+      { id: "cursor_version", state: state === "unknown" || state === "unsupported" ? "unknown" : "done" },
+      { id: "enable_desktop_bridge", state: usable ? "done" : "unknown" },
+      { id: "bridge_running", state: usable ? "done" : state === "unsupported" ? "unknown" : "needs_action" },
+      { id: "sqlite3", state: "done" },
+      { id: "register_sidevoice", state: "done" },
+      { id: "join_editor_chat", state: "unknown" },
+      { id: "wait_for_chat_registration", state: "unknown" },
+    ],
+  };
+};
+
+export function agentRows(agents, bridgeState = null) {
   return agents.map(({ connectMs, connectFails, cliFound = true, ...agent }) => {
     const { cli, ...known } = KNOWN_AGENTS[agent.id] ?? {};
     // The connector acts where it can reach the agent: its CLI found, or its file.
     const able = !cli || cliFound;
-    return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent };
+    const bridge = agent.id === "cursor" ? cursorBridge(bridgeState) : null;
+    return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent,
+      ...(bridge ? { version: bridge.cursor_version, cursor_bridge: bridge } : {}) };
   });
 }
 
@@ -344,7 +365,7 @@ export async function agentsListing(world, machine) {
     await world.delay(1500);
     return agentFailure(machine.agentsFail);
   }
-  return json(200, { agents: agentRows(agentsOf(machine)), scanned_at: new Date(world.now()).toISOString() });
+  return json(200, { agents: agentRows(agentsOf(machine), machine?.cursorBridge), scanned_at: new Date(world.now()).toISOString() });
 }
 
 /** Where machine `id` is in the world's state: what a mock's action on it patches. */

@@ -32,7 +32,7 @@
         { "id": "local-iphone", "name": "iPhone de Ana", "kind": "code", "daysAgo": 20, "seenDaysAgo": 1 },
         { "id": "local-chrome", "name": "Chrome on Mac", "kind": "code", "daysAgo": 55, "seenDaysAgo": 30 }
       ],
-      "agents": "every-state",
+      "agents": "every-state", "cursorBridge": "ready",
       "participants": [
         { "title": "sidevoice-core", "harness": "claude-code", "reach": "listening", "history": [
           { "role": "user", "text": "Morning. Did the overnight build pass?", "minutesAgo": 40 },
@@ -45,6 +45,12 @@
       ] }
   },
   "options": [
+    { "id": "cursorBridge", "group": "Agents on this computer", "label": "Cursor Desktop Bridge", "values": [
+      { "value": "ready", "label": "Ready", "set": { "local.cursorBridge": "ready" } },
+      { "value": "needs_attention", "label": "Needs attention", "set": { "local.cursorBridge": "needs_attention" } },
+      { "value": "unknown", "label": "Cannot verify", "set": { "local.cursorBridge": "unknown" } },
+      { "value": "unsupported", "label": "Unsupported: editor unavailable", "set": { "local.cursorBridge": "unsupported" } }
+    ] },
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
       { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
       { "value": "earlier", "label": "done on the release before: what's new shows", "set": { "setup": "earlier" } },
