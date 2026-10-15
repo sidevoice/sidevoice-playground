@@ -511,7 +511,21 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const room = roomOf(world, id);
     const call = callOf(room, new URLSearchParams(query).get("session_id"));
     if (method === "GET" && path === "/api/presentation") return json(200, snapshot(room, call, identity));
-    if (method === "GET" && path === "/api/presentation/history") return json(200, { messages: told(world, room).map(rowView) });
+    if (method === "GET" && path === "/api/presentation/history") {
+      const params = new URLSearchParams(query);
+      const thread = params.get("thread_id");
+      const ids = params.getAll("resolve_id");
+      if (ids.length > 64 || ids.some((value) => !value || Buffer.byteLength(value) > 256) || (ids.length && !thread))
+        return refuse(422, REFUSALS["room.request_invalid"]);
+      const rows = told(world, room).filter((row) => !thread || row.thread === thread);
+      const recent = rows.slice(-1000);
+      const olderMisses = rows.slice(0, -1000).filter((row) => row.role === "assistant" && !rowView(row).globally_heard);
+      const messages = [...olderMisses, ...recent].map(rowView);
+      if (!ids.length) return json(200, { messages });
+      const resolved = ids.flatMap((wanted) => rows.find((row) => row.id === wanted) ? [rowView(rows.find((row) => row.id === wanted))] : []);
+      const missing_ids = ids.filter((wanted) => !rows.some((row) => row.id === wanted));
+      return json(200, { messages, resolved, missing_ids });
+    }
     if (method === "GET" && path === "/api/presentation/participants") {
       return json(200, { participants: participantsOf(machine, id, call?.binding?.thread_id) });
     }
@@ -647,7 +661,10 @@ const callOf = (room, sid) => (sid ? seated(room).find((call) => call.session ==
  *  `transcript` is `empty` (a choice that reloads the page, so it holds for a room already made too). */
 const told = (world, room) => (world.state.transcript === "empty" ? room.rows.filter((row) => !row.id.startsWith(`${room.id}-said-`)) : room.rows);
 /** What the room's history says of a row: all of it but the turn it was said in. */
-const rowView = ({ turn_id, ...row }) => row;
+const rowView = ({ turn_id, ...row }) => ({ ...row,
+  globally_heard: row.role === "assistant" && ["playback_finished", "skipped"].includes(row.status),
+  replayable: row.role === "assistant",
+});
 const refusal = (key, id = null) => ({ type: "error", data: { key, message: REFUSALS[key], ...(id ? { client_msg_id: id } : {}) } });
 
 /** Whether `url` is a mocked machine's call socket. */
@@ -860,15 +877,17 @@ async function deliver(world, room, row) {
 /** A call's report of how a reply played: the reply's row says it, while the reply is still queued or playing. */
 function playback(world, room, call, data, id) {
   const report = PLAYBACK[data.status];
-  if (!report || (data.heard_chars != null && !Number.isInteger(data.heard_chars))) return [refusal("room.receipt_invalid", id)];
+  if (!report || (data.heard_chars != null && (!Number.isInteger(data.heard_chars) || data.heard_chars < 0))) return [refusal("room.receipt_invalid", id)];
   const reply = call.replies.get(data.utterance_id);
   if (!reply) return [refusal("room.stale_utterance", id)];
+  if (data.heard_chars != null && data.heard_chars > [...reply.row.text].length) return [refusal("room.receipt_invalid", id)];
   if (!["queued", "playing"].includes(reply.status)) return [];
   const [status, reason] = report;
   reply.status = status;
   reply.row.status = status;
   reply.row.audio_reason = status === "interrupted" && typeof data.reason === "string" ? data.reason : reason;
-  reply.row.heard_chars = data.status === "interrupted" ? data.heard_chars ?? null : null;
+  reply.row.heard_chars = data.status === "heard" ? [...reply.row.text].length :
+    data.status === "interrupted" && data.heard_chars != null ? Math.max(reply.row.heard_chars ?? 0, data.heard_chars) : reply.row.heard_chars ?? null;
   if (data.reason === "user_skipped") {
     reply.row.status = "skipped";
     reply.row.heard_chars = [...reply.row.text].length;

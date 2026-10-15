@@ -210,6 +210,23 @@ test("a delayed start keeps its captured focus after the mock call selects anoth
   assert.equal(call.sent("error").at(-1).data.key, "room.focus_changed");
 });
 
+test("history resolve_id returns authoritative hearing for the requested retained row", async () => {
+  const c = await setup();
+  const call = await joined(c);
+  assert.equal(agentSpeaks(c.world, "Four"), true);
+  await until(() => call.sent("voice-reply").length === 1, "reply offered");
+  const { utterance_id, history_id } = call.sent("voice-reply")[0].data;
+  const path = `/api/presentation/history?thread_id=nuc-thread-1&resolve_id=${encodeURIComponent(history_id)}&resolve_id=gone`;
+  const before = (await c.ask(path)).body;
+  assert.deepEqual(before.resolved.map((row) => [row.id, row.globally_heard]), [[history_id, false]]);
+  assert.deepEqual(before.missing_ids, ["gone"]);
+  call.send("voice-playback", { session_id: call.session, client_msg_id: "heard", utterance_id, status: "heard" });
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "heard"), "hearing recorded");
+  const after = (await c.ask(path)).body;
+  assert.deepEqual([after.resolved[0].globally_heard, after.resolved[0].heard_chars], [true, 4]);
+  assert.equal((await c.ask(`/api/presentation/history?thread_id=nuc-thread-1&resolve_id=${'x'.repeat(257)}`)).status, 422);
+});
+
 test("the agent speaks through the room: a reply to the call, its row in the history, and how it played", async () => {
   const c = await setup();
   assert.equal(agentSpeaks(c.world, "Hola"), false, "no call to say it to");
