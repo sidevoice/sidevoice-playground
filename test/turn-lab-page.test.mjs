@@ -8,9 +8,10 @@ const observerSource = await readFile(new URL('../preview/turn-lab/observe.js', 
 
 function page() {
   const elements = new Map();
+  const messages = [];
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, { id, hidden: id === 'room', disabled: false, textContent: '', value: 'push',
-      children: [], className: '', contentWindow: { postMessage() {} }, replaceChildren(...children) {
+      children: [], className: '', contentWindow: { postMessage(message, origin) { messages.push({ message, origin }); } }, replaceChildren(...children) {
         this.children = children; if (this.id === 'script') this.value = children[0]?.value;
       } });
     return elements.get(id);
@@ -35,8 +36,38 @@ function page() {
     setInterval() {}, setTimeout, Blob, console });
   vm.runInContext(source, ctx, { filename: 'turn-lab.mjs' });
   const tick = async () => { await new Promise((resolve) => setImmediate(resolve)); await vm.runInContext('poll()', ctx); };
-  return { element, state, requests, tick, setConfig: (value) => { config = value; } };
+  return { element, state, requests, messages, tick, join: () => vm.runInContext('joinedThread = "thread"', ctx),
+    setConfig: (value) => { config = value; } };
 }
+
+test('Lab output controls target the pinned room without using the removed web menu', async () => {
+  const lab = page();
+  await lab.tick(); lab.join(); await lab.tick();
+  for (const [id, output] of [['output-unavailable', 'agents_muted'], ['output-voice-off', 'voice_off'], ['output-restore', 'on']]) {
+    assert.equal(lab.element(id).disabled, false);
+    lab.element(id).onclick();
+    assert.deepEqual(JSON.parse(JSON.stringify(lab.messages.at(-1))),
+      { message: { type: 'turn-lab-output', output }, origin: 'http://localhost:5199' });
+  }
+});
+
+test('the Lab bridge applies only allowed output policies from its parent', async () => {
+  const messages = [], applied = [], handlers = new Map(), parent = { postMessage(message) { messages.push(message); } };
+  const win = { WebSocket: class {}, fetch: async () => ({}),
+    sidevoiceActions: { pairDevice() {}, setSpeechOutput(output) { applied.push(output); } },
+    addEventListener(name, handler) { handlers.set(name, handler); } };
+  vm.runInNewContext(observerSource, { window: win, parent, URL, Date, setInterval() {}, setTimeout,
+    location: { pathname: '/voice/' }, document: { referrer: 'http://parent/', addEventListener() {} }, navigator: {},
+    localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} } });
+  const send = (origin, output) => handlers.get('message')({ source: parent, origin, data: { type: 'turn-lab-output', output } });
+  await send('http://parent', 'agents_muted');
+  await send('http://parent', 'voice_off');
+  await send('http://parent', 'on');
+  await send('http://parent', 'invalid');
+  await send('http://other', 'voice_off');
+  assert.deepEqual(applied, ['agents_muted', 'voice_off', 'on']);
+  assert.deepEqual(messages.filter((message) => message.data?.output).map((message) => message.data.output), applied);
+});
 
 test('polling preserves the operator-selected pull mode until reconnect', async () => {
   const lab = page();

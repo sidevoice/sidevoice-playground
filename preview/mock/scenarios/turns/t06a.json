@@ -1,7 +1,7 @@
 {
   "id": "T06a",
   "title": "Mute agents",
-  "summary": "Mute agents during playback, then run again while muted.",
+  "summary": "Make output unavailable during playback, then run again before restoring output.",
   "extends": "04-room-ready",
   "actions": [
     {

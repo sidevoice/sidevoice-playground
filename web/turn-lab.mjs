@@ -78,6 +78,7 @@ async function poll() {
       $("room-wait").hidden = false;
       $("run").disabled = true;
       $("connect").disabled = true;
+      for (const id of ["output-unavailable", "output-voice-off", "output-restore"]) $(id).disabled = true;
       if (state.job.state === "failed") setStatus(`Build failed: ${state.job.error}. Click Restart room to retry.`);
       else if (state.job.state === "starting") setStatus("Waiting for the current build; the pinned room starts when it finishes.");
       else if (!startRequested) {
@@ -131,6 +132,7 @@ async function poll() {
     const selectedThread = observingSecond && secondConversation ? secondConversation : state.agent?.conversation;
     if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: selectedThread }, previewOrigin);
     $("run").disabled = reconnecting || !connected || joinedThread !== state.agent?.conversation;
+    for (const id of ["output-unavailable", "output-voice-off", "output-restore"]) $(id).disabled = $("run").disabled;
     $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` :
       autoConnectAttempts < 3 ? `Connecting scripted agent (attempt ${Math.max(autoConnectAttempts, 1)}/3)…` : "Agent not connected. Click Reconnect agent.";
     if (connected && joinedThread === state.agent?.conversation) setStatus("Ready. Speak in the room or choose a script; the real browser voice and scripted agent are connected.");
@@ -176,6 +178,13 @@ $("run").onclick = async () => {
   catch (error) { $("agent-status").textContent = error.message; }
   finally { await poll(); }
 };
+for (const [id, output] of [["output-unavailable", "agents_muted"], ["output-voice-off", "voice_off"], ["output-restore", "on"]]) {
+  $(id).onclick = () => {
+    if ($("room").hidden) return;
+    $("room").contentWindow.postMessage({ type: "turn-lab-output", output }, previewOrigin);
+    $("output-status").textContent = `Applying ${output} in the test room…`;
+  };
+}
 $("export").onclick = async () => {
   const trace = await ask("/preview/turn-lab/export");
   const url = URL.createObjectURL(new Blob([JSON.stringify(trace, null, 2)], { type: "application/json" }));
@@ -185,6 +194,7 @@ $("export").onclick = async () => {
 window.addEventListener("message", (event) => {
   if (event.source !== $("room").contentWindow || event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
   if (event.data.kind === "browser-ready" && event.data.data?.voice === "joined") joinedThread = event.data.data.thread;
+  if (event.data.kind === "browser-ready" && event.data.data?.output) $("output-status").textContent = `Test room output: ${event.data.data.output}`;
   if (event.data.kind === "browser-ready" && event.data.data?.paired === false && !pairingSent) {
     pairingSent = true;
     void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));
