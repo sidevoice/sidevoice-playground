@@ -44,6 +44,7 @@ function judge(events) {
   const status = (result) => result?.status ?? result?.result?.status;
   const accepted = results.some((result) => ["accepted", "queued", "spoken", "published"].includes(status(result)));
   const refused = results.some((result) => status(result) === "rejected" || /user.speaking/.test(JSON.stringify(result)));
+  const admissionUnknown = results.some((result) => status(result) === "admission_unknown");
   const epochs = [...inputs, ...frames].map((item) => item?.epoch ?? item?.data?.epoch).filter(Number.isInteger);
   const currentEpoch = epochs.length ? Math.max(...epochs) : null;
   const fates = new Map();
@@ -65,7 +66,7 @@ function judge(events) {
       const result = item.result;
       const disposition = status(result);
       const textOnly = disposition === "text_only" || result?.audio === "text_only";
-      settle(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
+      settle(item.args.utterance_id, { fate: disposition === "admission_unknown" ? "known limitation" : disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
     }
     const utterances = item?.utterance_ids ?? (item?.utterance_id ? [item.utterance_id] : []);
     if (event.kind === "room-frame" || event.kind === "browser-action") for (const id of utterances) {
@@ -131,6 +132,7 @@ function judge(events) {
       }
     }
   }
+  if (selected && admissionUnknown) checks[selected] = { state: "known-limitation", reason: "Core cannot recover the original saved or refused outcome of a replayed uncertain speech admission" };
   return { currentEpoch, fates: [...fates].map(([utterance_id, fate]) => ({ utterance_id, ...fate })), notes, inputs, checks };
 }
 
