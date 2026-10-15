@@ -175,9 +175,9 @@ export function verdict(id, events, fates) {
       frames.some((frame) => frame.utterance_id === ids[0] && ["voice-reply", "voice-playback"].includes(frame.type)) ||
       frames.some((frame) => frame.type === "history" && frame.row?.role === "assistant" && frame.row.id?.endsWith(`:voice:${ids[0]}`)) || misses.some((row) => row.utterance_id === ids[0]))
       return fail("Open-turn publication must be refused for user_speaking without an assistant row");
-    const opened = startFrames.find((frame) => frame.at < item.at && frame.epoch === item.args.epoch);
+    const opened = startFrames.find((frame) => frame.at < item.at && Number.isInteger(item.args.epoch) && frame.epoch > item.args.epoch);
     const terminal = inputs.find((input) => input.at > item.at && input.session_id === item.args.session_id &&
-      input.epoch === item.args.epoch && input.message_id && (id === "T02c" ? input.channel === "voice" && input.text :
+      input.epoch === opened?.epoch && input.message_id && (id === "T02c" ? input.channel === "voice" && input.text :
         input.channel === "note" && input.text === "" && input.notice?.kind === "turn_empty"));
     if (terminal && !opened || terminal && terminal.notice?.related_message_id &&
       !inputs.some((prior) => prior.message_id === terminal.notice.related_message_id && prior.at < terminal.at)) return fail("Refusal terminal message is on the wrong turn");

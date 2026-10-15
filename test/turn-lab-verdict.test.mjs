@@ -30,7 +30,7 @@ const trace = (id, events) => {
     if (['T02a', 'T02b'].includes(id) && event.kind === 'agent-input') open();
     if (event.kind === 'tool-result' && data.name === 'voice_say') {
       Object.assign(data.args, { event_id: data.args.event_id ?? `event-${data.args.utterance_id}`, session_id: 's',
-        revision: 1, epoch: ['T02c', 'T02d'].includes(id) ? 1 : data.args.epoch ?? 0 });
+        revision: 1, epoch: data.args.epoch ?? 0 });
       Object.assign(data.result, { event_id: data.args.event_id, utterance_id: data.args.utterance_id });
       if (data.result.status === 'rejected') Object.assign(data.result, { terminal: true,
         instruction: 'Wait for the person to finish speaking.' });

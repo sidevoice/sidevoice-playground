@@ -279,7 +279,7 @@ test("case verdicts stay pending without evidence, record refusals and keep phys
   const events = [
     { kind: "script-start", data: { id: "T02d", epoch: 0 } },
     { kind: "room-frame", data: { type: "voice-user-turn", phase: "started", epoch: 1 } },
-    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "a", event_id: "e", session_id: "s", revision: 1, epoch: 1 },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "a", event_id: "e", session_id: "s", revision: 1, epoch: 0 },
       result: { status: "rejected", reason: "user_speaking", terminal: true, utterance_id: "a", event_id: "e", instruction: "Wait for the person." } } },
     { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, message_id: "m", session_id: "s", epoch: 1 } },
   ];
@@ -337,7 +337,7 @@ test("earlier case verdicts and notices remain visible after another script star
   const events = [
     { kind: "script-start", data: { id: "T02d", epoch: 0 } },
     { kind: "room-frame", data: { type: "voice-user-turn", phase: "started", epoch: 1 } },
-    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "a", event_id: "e", session_id: "s", revision: 1, epoch: 1 },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "a", event_id: "e", session_id: "s", revision: 1, epoch: 0 },
       result: { status: "rejected", reason: "user_speaking", terminal: true, utterance_id: "a", event_id: "e", instruction: "Wait for the person." } } },
     { kind: "agent-input", data: { channel: "note", text: "", notice: { kind: "turn_empty" }, message_id: "m", session_id: "s", epoch: 1 } },
     { kind: "script-start", data: { id: "T03" } },
