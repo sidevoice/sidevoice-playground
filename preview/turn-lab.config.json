@@ -1,10 +1,10 @@
 {
   "core": "b7eed0351b494f6d46be03a84f84f80c88be18b0",
   "connector": "e53748705fc837e30e87916b695b3e513c257e7f",
-  "web": "e0f5e01e5f747317e30b5245b789df057f728e1e",
+  "web": "47e90380bd14444c4544d11153d58c695a89afca",
   "voice": "b898c55cdffbbf5fe603e2e088e530163825ce06",
   "engine": "nightly",
   "notes": {
-    "web": "Web T PR #126; re-pin this SHA when its head moves"
+    "web": "Web T PR #126; last source-built head, re-pin after newer PR commits pass the web build"
   }
 }
