@@ -74,12 +74,14 @@ export function verdict(id, events, fates) {
   }
   if (id === "T01") {
     if (!publications.length) return pending();
-    const key = ids[0], item = miss(key, "partial"), begin = started(key), stop = stopped(key);
-    if (!good(status(publications[0])) || wrongMiss(key, "partial") || contradictory(key, "partial") ||
+    const key = ids[0], item = misses.find((row) => row.utterance_id === key && ["partial", "not_heard"].includes(row.fate) &&
+      row.text === text(key) && !Object.hasOwn(row, "reason") && !Object.hasOwn(row, "cut") && valid({ outcome: row.fate, heard_chars: row.heard_chars }, key)),
+      begin = started(key), stop = stopped(key);
+    if (!good(status(publications[0])) || (item && (wrongMiss(key, item.fate) || contradictory(key, item.fate))) ||
       physical(key).some((frame) => ["heard", "playback_finished"].includes(frame.status)) ||
       physical(key).filter((frame) => frame.status === "playing").length > 1 ||
-      (item && hearing(key) !== "partial")) return fail("Interrupted reply needs a matched partial extent and no resumed playback");
-    if (!item || !begin || !stop || stop.status !== "interrupted" || !match(key, "partial") || !spoken ||
+      (item && hearing(key) !== item.fate)) return fail("Interrupted reply needs a matched partial extent and no resumed playback");
+    if (!item || !begin || !stop || stop.status !== "interrupted" || !match(key, item?.fate) || !spoken ||
       !(begin.at < stop.at && stop.at < item.at) || !Number.isInteger(stop.heard_chars) || stop.heard_chars > item.heard_chars)
       return pending("Insufficient playback, semantic cut, or spoken input");
     return pass("Original reply partially heard; new-epoch replies remain allowed");
@@ -110,7 +112,9 @@ export function verdict(id, events, fates) {
     if (!publications.length) return pending();
     if (publications.length > 3 || !distinct || publications.some((item) => !good(status(item)))) return fail("Three distinct replies must be accepted");
     if (!complete(3)) return pending();
-    const expected = id === "T04b" ? ["partial", "not_heard", "not_heard"] : ["heard", "partial", "not_heard"];
+    const cutKey = id === "T04b" ? ids[0] : ids[1];
+    const cutOutcome = semantic(cutKey).find((value) => ["partial", "not_heard"].includes(value.outcome))?.outcome ?? "partial";
+    const expected = id === "T04b" ? [cutOutcome, "not_heard", "not_heard"] : ["heard", cutOutcome, "not_heard"];
     if (ids.some((key, index) => contradictory(key, expected[index]) || (index && expected[index] === "not_heard" && !noAudio(key)) || wrongMiss(key, expected[index])) ||
       misses.filter((row) => ids.includes(row.utterance_id)).length > 3) return fail("Reply hearing or playback contradicts the ordered outcome");
     const found = ids.every((key, index) => match(key, expected[index]) && (expected[index] === "heard" || miss(key, expected[index])));

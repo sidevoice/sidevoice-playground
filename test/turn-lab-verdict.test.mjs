@@ -85,3 +85,9 @@ test('the pinned core shared fixture keeps physical playback separate from seman
     assert.equal(row.hearing_unconfirmed, false);
   }
 });
+test('a played cut with zero confirmed characters is not_heard, while its physical cut remains visible', () => {
+  const zero = [say('a', 'queued', 'é🐙ab'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 0 }),
+    hearing('a', 'not_heard'), input('voice', 'Stop', [miss('a', 'not_heard', 0, 'é🐙ab')], 'reply_not_heard')];
+  assert.equal(judge('T01', zero).state, 'pass');
+  assert.equal(judge('T01', [...zero, sound('a', 'playing')]).state, 'fail');
+});
