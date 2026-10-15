@@ -17,7 +17,26 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [];
+export const VARIANTS = [
+  { name: "balloon", label: "Agent's speech balloon", note: "How the agent's words look on the stage, drawn as the bichos are; its tail leaves off-centre and curves down to the agent.", values: [
+    { value: "a", label: "A · Paper & ink (classic comic, both themes)" },
+    { value: "b", label: "B · Soft blob in the agent's colour (follows the theme)" },
+    { value: "c", label: "C · The agent's own skin (pale colour, ink, gloss)" },
+  ] },
+  { name: "balloonLines", label: "Balloon lines", note: "How many lines of the reply the balloon shows at once.", values: [
+    { value: "3", label: "3 lines" },
+    { value: "2", label: "2 lines" },
+  ] },
+  { name: "balloonPaging", label: "Balloon moves on", note: "How the balloon follows the voice. Neither ever shows an empty line.", values: [
+    { value: "scroll", label: "A line at a time (the next line always in view)" },
+    { value: "page", label: "A page at a time (the last page shrinks to its lines)" },
+  ] },
+  { name: "stageTitle", label: "Conversation title", note: "The conversation's name and machine over the stage (desktop above the tile, phone on its corner).", values: [
+    { value: "a", label: "A · Display name with the agent's colour swatch, machine chip beside" },
+    { value: "b", label: "B · Small avatar, name over the machine chip" },
+    { value: "c", label: "C · Inked paper sticker with the agent's colour" },
+  ] },
+];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
