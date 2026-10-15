@@ -130,6 +130,10 @@ $("recover").onclick = async () => {
   try {
     await ask("/preview/turn-lab/recover", {});
     activeRunId = null; joinedThread = null; attemptedAutoConnect = false; connected = false;
+    $("run").disabled = true;
+    $("connect").disabled = true;
+    $("room").hidden = true;
+    $("room-wait").hidden = false;
     setStatus("Restarting the pinned room. Run the case again after it joins.");
   } catch (error) { setStatus(`Restart failed: ${error.message}`); }
   finally { $("recover").disabled = false; }
