@@ -329,4 +329,10 @@ test('unresolved admission is insufficient until recovery or terminal rejection'
       utterance_id: first.data.args.utterance_id, event_id: first.data.args.event_id };
     assert.equal(direct(id, unresolved).state, 'fail', `${id}: terminal refusal`);
   }
+  const historyResolved = prepared('T04a');
+  historyResolved.find((e) => e.data?.name === 'voice_say').data.result.status = 'admission_unknown';
+  assert.equal(direct('T04a', historyResolved).state, 'pending');
+  historyResolved.push({ kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', role: 'assistant',
+    text: 'a', status: 'queued', hearing: 'heard', heard_chars: 1, hearing_unconfirmed: false } } });
+  assert.equal(direct('T04a', historyResolved).state, 'pass', 'matching core history resolves uncertain admission');
 });
