@@ -125,9 +125,12 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       const index = caseEvents.findIndex((item) => item.kind === "room-frame" && item.data?.type === "history");
       caseEvents.splice(index < 0 ? 1 : index, 1);
     }
-    const conversation = event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
-    const epoch = event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch;
-    if (conversation && Number.isInteger(epoch)) epochs.set(conversation, epoch);
+    const conversation = event.data?.type === "history" ? event.data?.row?.thread_id ?? event.data?.row?.thread :
+      event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
+    const epoch = event.data?.epoch ?? event.data?.data?.epoch;
+    if (conversation && event.data?.type !== "history" && Number.isInteger(epoch) &&
+      (["voice-session", "voice-user-turn", "voice-input-receipt"].includes(event.data?.type) || event.kind === "agent-input"))
+      epochs.set(conversation, Math.max(epochs.get(conversation) ?? epoch, epoch));
     if (traceFile) traceWrites = traceWrites.then(() => appendFile(traceFile, JSON.stringify(event) + "\n")).catch((error) => {
       say(`Trace export failed: ${error.message}`);
       traceFile = null;

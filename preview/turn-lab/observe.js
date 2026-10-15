@@ -9,7 +9,10 @@
     }));
   } catch {}
   const report = (kind, data) => {
-    try { parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: wantedThread } : data }, "*"); } catch {}
+    try {
+      const thread = data?.type === "history" ? data.row?.thread_id ?? data.row?.thread : data?.thread_id ?? wantedThread;
+      parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: thread } : data }, "*");
+    } catch {}
   };
   // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
   // but discard the previous room's pairing before the web app starts.

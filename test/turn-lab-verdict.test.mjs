@@ -131,3 +131,10 @@ test('reliable playback retransmission is not a second play, but a distinct star
   const replay = structuredClone(first); replay.data.client_msg_id = 'new-receipt';
   assert.equal(judge('T12', [...events, replay]).state, 'fail');
 });
+test('historical epochs and other-thread rows cannot rewind the selected open turn', () => {
+  const turn = { kind: 'room-frame', data: { type: 'voice-user-turn', conversation: 'selected', thread_id: 'selected', epoch: 2, phase: 'started' } };
+  const old = { kind: 'room-frame', data: { type: 'history', conversation: 'selected', row: { thread_id: 'selected', epoch: 1, role: 'assistant' } } };
+  const other = { kind: 'room-frame', data: { type: 'history', conversation: 'other', row: { thread_id: 'other', epoch: 9, role: 'assistant' } } };
+  assert.equal(evidence([turn, old, other], 'selected').currentEpoch, 2);
+  assert.equal(evidence([other], 'selected').currentEpoch, null);
+});

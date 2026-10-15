@@ -2,8 +2,11 @@ import { SCRIPTS } from "./agent.mjs";
 import { initialChecks, verdict } from "./verdict.mjs";
 
 function epochFor(events, conversation) {
-  const scope = events.filter((event) => event.kind !== "script-start" && (!conversation || !event.data?.conversation || event.data.conversation === conversation));
-  return scope.map((event) => event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch).filter(Number.isInteger).at(-1) ?? null;
+  const scope = events.filter((event) => event.data?.type !== "history" &&
+    (["voice-session", "voice-user-turn", "voice-input-receipt"].includes(event.data?.type) || event.kind === "agent-input") &&
+    (!conversation || event.data?.conversation === conversation || event.data?.thread_id === conversation));
+  const epochs = scope.map((event) => event.data?.epoch ?? event.data?.data?.epoch).filter(Number.isInteger);
+  return epochs.length ? Math.max(...epochs) : null;
 }
 
 export function evidence(events, conversation = null) {
