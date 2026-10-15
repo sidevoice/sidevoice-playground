@@ -76,7 +76,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     record("script-activity", { phase, turn_id: turnId, conversation });
   };
   const receive = (message) => {
-    record("agent-input", { ...message, conversation });
+    record("agent-input", { ...message, conversation, received_at: Date.now() });
     if (message.notice) record("agent-notice", { message_id: message.message_id, conversation, ...message.notice });
     for (const row of message.unheard?.replies ?? []) {
       if (typeof row.text === "string") replyTexts.set(row.utterance_id, row.text);

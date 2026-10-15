@@ -13,7 +13,52 @@ const input = (channel, text, replies = [], kind) => ({ kind: 'agent-input', dat
 const mute = (reason, on = false) => frame('voice-speech', null, { on, ...(on ? {} : { reason }) });
 const history = (id, hearingOutcome, audio_reason) => ({ kind: 'room-frame', data: { type: 'history', row: { role: 'assistant', id: `s:voice:${id}`, text: id, hearing: hearingOutcome, hearing_unconfirmed: hearingOutcome == null, heard_chars: hearingOutcome === 'not_heard' ? 0 : hearingOutcome === 'heard' ? 1 : null, audio_reason } } });
 const phase = () => ({ kind: 'script-phase', data: { id: 'T06a', phase: 2 } });
-const judge = (id, events) => evidence([start(id), ...events]).checks[id];
+// Add the real wire identities, reliable acknowledgement and qualified turn to
+// small case traces. Individual regressions below mutate these complete traces.
+const trace = (id, events) => {
+  const out = [start(id)];
+  const activeTurn = ['T01', 'T02a', 'T02b', 'T02c', 'T02d', 'T04b', 'T05'].includes(id);
+  let opened = false, receipts = 0, messages = 0;
+  const open = () => { if (!opened) { out.push({ kind: 'room-frame', data: { type: 'voice-user-turn', phase: 'started', epoch: 1,
+    session_id: 's', thread_id: 'thread' } }); opened = true; } };
+  const textById = new Map(events.filter((event) => event.data?.name === 'voice_say').map((event) =>
+    [event.data.args.utterance_id, event.data.args.text]));
+  for (const original of events) {
+    const event = structuredClone(original), data = event.data ?? {};
+    if (id === 'T02c' || id === 'T02d') { if (event.kind === 'tool-result') open(); }
+    if (['T01', 'T04b', 'T05'].includes(id) && data.type === 'voice-playback' && data.status === 'interrupted') open();
+    if (['T02a', 'T02b'].includes(id) && event.kind === 'agent-input') open();
+    if (event.kind === 'tool-result' && data.name === 'voice_say') {
+      Object.assign(data.args, { event_id: data.args.event_id ?? `event-${data.args.utterance_id}`, session_id: 's',
+        revision: 1, epoch: ['T02c', 'T02d'].includes(id) ? 1 : data.args.epoch ?? 0 });
+      Object.assign(data.result, { event_id: data.args.event_id, utterance_id: data.args.utterance_id });
+      if (data.result.status === 'rejected') Object.assign(data.result, { terminal: true,
+        instruction: 'Wait for the person to finish speaking.' });
+    }
+    if (data.type === 'reply-hearing') Object.assign(data, { client_msg_id: data.client_msg_id ?? `receipt-${++receipts}`,
+      history_id: data.history_id ?? `s:voice:${data.utterance_id}`, session_id: 's' });
+    if (data.type === 'history' && data.row?.role === 'assistant') {
+      data.row.utterance_id = data.row.id?.split(':voice:').at(-1);
+      data.row.text = textById.get(data.row.utterance_id) ?? data.row.text;
+      data.row.heard_chars = data.row.hearing === 'heard' ? [...data.row.text].length : data.row.heard_chars;
+    }
+    if (event.kind === 'agent-input') {
+      Object.assign(data, { message_id: data.message_id ?? `message-${++messages}`, session_id: 's',
+        revision: 2, epoch: activeTurn ? 1 : 0 });
+      if (id === 'T06d' && data.notice?.kind === 'user_returned') data.received_at = 7000;
+      for (const row of data.unheard?.replies ?? []) Object.assign(row, { history_id: row.history_id ?? `s:voice:${row.utterance_id}`,
+        session_id: 's', revision: 1, epoch: 0 });
+    }
+    if (id === 'T06d' && data.type === 'voice-speech' && data.on === true) data.observed_at = 1000;
+    out.push(event);
+    if (data.name === 'voice_say' && data.result.status !== 'rejected') out.push({ kind: 'room-frame', data: {
+      type: 'voice-reply', utterance_id: data.args.utterance_id, history_id: `s:voice:${data.args.utterance_id}`,
+      text: data.args.text, session_id: 's', epoch: data.args.epoch } });
+    if (data.type === 'reply-hearing') out.push({ kind: 'room-frame', data: { type: 'voice-ack', client_msg_id: data.client_msg_id } });
+  }
+  return out;
+};
+const judge = (id, events) => evidence(trace(id, events)).checks[id];
 const pair = (id) => [sound(id, 'playing'), sound(id, 'heard'), hearing(id, 'heard')];
 const baseline = {
   T01: [say('a', 'queued', 'é🐙ab'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 2 }), hearing('a', 'partial', 2), input('voice', 'Stop', [miss('a', 'partial', 2, 'é🐙ab')], 'reply_not_heard')],
@@ -98,12 +143,12 @@ test('a played cut with zero confirmed characters is not_heard, while its physic
   assert.equal(judge('T01', [...zero, sound('a', 'playing')]).state, 'fail');
 });
 test('T06b and T06d include an output setting chosen before Run without borrowing earlier replies', () => {
-  const off = evidence([mute('voice_off'), start('T06b'), say('a', 'text_only'), hearing('a', 'not_heard')]);
+  const off = evidence([mute('voice_off'), ...trace('T06b', [say('a', 'text_only'), hearing('a', 'not_heard')])]);
   assert.equal(off.checks.T06b.state, 'pass');
-  const returned = evidence([mute('agents_muted'), start('T06d'), say('a', 'text_only'), hearing('a', 'not_heard'),
-    mute(null, true), input('note', '', [miss('a', 'not_heard')], 'user_returned')]);
+  const returned = evidence([mute('agents_muted'), ...trace('T06d', [say('a', 'text_only'), hearing('a', 'not_heard'),
+    mute(null, true), input('note', '', [miss('a', 'not_heard')], 'user_returned')])]);
   assert.equal(returned.checks.T06d.state, 'pass');
-  const old = evidence([start('T04a'), say('old'), mute('voice_off'), start('T06b'), say('a', 'text_only'), hearing('a', 'not_heard')]);
+  const old = evidence([start('T04a'), say('old'), mute('voice_off'), ...trace('T06b', [say('a', 'text_only'), hearing('a', 'not_heard')])]);
   assert.equal(old.checks.T06b.state, 'pass');
 });
 test('reply_heard correction advances a known missed extent without a skip-specific notice', () => {
@@ -167,4 +212,103 @@ test('rejected and unacknowledged decisions do not erase history uncertainty', (
   }
   assert.equal(evidence([...base, { kind: 'room-frame', data: { type: 'history', row: { ...coreHistory.data.row,
     hearing_unconfirmed: false } } }]).fates[0].hearing_unconfirmed, false);
+});
+const direct = (id, events) => evidence(events).checks[id];
+const prepared = (id) => trace(id, baseline[id]);
+test('H6: zero partial fails on receipt, history, agent row and correction; missing text stays insufficient', () => {
+  const modify = (change) => { const events = prepared('T01'); change(events); return direct('T01', events); };
+  assert.equal(modify((events) => { events.find((e) => e.data?.type === 'reply-hearing').data.heard_chars = 0; }).state, 'fail');
+  assert.equal(modify((events) => { events.push({ kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a',
+    role: 'assistant', text: 'é🐙ab', hearing: 'partial', heard_chars: 0, hearing_unconfirmed: false } } }); }).state, 'fail');
+  assert.equal(modify((events) => { events.find((e) => e.kind === 'agent-input').data.unheard.replies[0].heard_chars = 0; }).state, 'fail');
+  const corrected = prepared('T12');
+  corrected.push({ kind: 'agent-input', data: { channel: 'note', text: '', message_id: 'correction', session_id: 's',
+    revision: 2, epoch: 0, notice: { kind: 'reply_heard', corrects_message_id: 'message-1', heard: [
+      { utterance_id: 'a', history_id: 's:voice:a', fate: 'partial', heard_chars: 0 }] } } });
+  assert.equal(direct('T12', corrected).state, 'fail');
+  assert.equal(modify((events) => { delete events.find((e) => e.data?.name === 'voice_say').data.args.text; }).state, 'pending');
+  assert.equal(modify((events) => { events.find((e) => e.data?.type === 'reply-hearing').data.heard_chars = 4;
+    events.find((e) => e.data?.type === 'reply-hearing').data.outcome = 'heard'; }).state, 'fail');
+});
+test('a submitted hearing decision needs matching core acknowledgement and history identity', () => {
+  const valid = prepared('T12');
+  assert.equal(direct('T12', valid).state, 'pass');
+  const noAck = valid.filter((e) => !(e.data?.type === 'voice-ack' && e.data.client_msg_id === 'receipt-1'));
+  assert.equal(direct('T12', noAck).state, 'pending');
+  const rejected = [...noAck, { kind: 'room-frame', data: { type: 'error', client_msg_id: 'receipt-1', key: 'room.stale_utterance' } }];
+  assert.equal(direct('T12', rejected).state, 'fail');
+  const wrong = structuredClone(valid);
+  wrong.find((e) => e.data?.type === 'reply-hearing').data.history_id = 'other:voice:a';
+  assert.notEqual(direct('T12', wrong).state, 'pass');
+});
+test('agent extent and notice must match the confirmed reply on the exposed message', () => {
+  const wrongExtent = prepared('T01');
+  wrongExtent.find((e) => e.kind === 'agent-input').data.unheard.replies[0].heard_chars = 3;
+  assert.equal(direct('T01', wrongExtent).state, 'fail');
+  const detached = prepared('T02a');
+  const original = detached.find((e) => e.kind === 'agent-input');
+  const detachedNote = structuredClone(original);
+  detachedNote.data.message_id = 'unrelated-note'; detachedNote.data.channel = 'note'; detachedNote.data.text = '';
+  original.data.unheard = undefined;
+  detached.push(detachedNote);
+  assert.notEqual(direct('T02a', detached).state, 'pass');
+  const linked = prepared('T02a');
+  const words = linked.find((e) => e.kind === 'agent-input');
+  const note = structuredClone(words);
+  note.data.message_id = 'linked-note'; note.data.channel = 'note'; note.data.text = '';
+  note.data.notice.related_message_id = words.data.message_id;
+  words.data.unheard = undefined; words.data.notice = undefined;
+  linked.push(note);
+  assert.equal(direct('T02a', linked).state, 'pass');
+  const wrongTurn = prepared('T02a');
+  wrongTurn.find((e) => e.kind === 'agent-input').data.unheard.replies[0].epoch = 9;
+  assert.notEqual(direct('T02a', wrongTurn).state, 'pass');
+  for (const id of ['T02c', 'T02d']) {
+    const noInstruction = prepared(id);
+    delete noInstruction.find((e) => e.data?.name === 'voice_say').data.result.instruction;
+    assert.equal(direct(id, noInstruction).state, 'pending');
+    const wrongIdentity = prepared(id);
+    wrongIdentity.find((e) => e.data?.name === 'voice_say').data.result.utterance_id = 'wrong';
+    assert.equal(direct(id, wrongIdentity).state, 'fail');
+  }
+});
+test('lifecycle counterexamples cannot pass and absent transitions stay insufficient', () => {
+  const a = prepared('T04a');
+  a.filter((e) => e.data?.name === 'voice_say').forEach((e, i) => { e.data.args.epoch = i; });
+  assert.equal(direct('T04a', a).state, 'fail');
+  const b = prepared('T04b');
+  b.splice(b.findIndex((e) => e.data?.type === 'voice-playback' && e.data.status === 'interrupted'), 0, sound('a', 'heard'));
+  assert.equal(direct('T04b', b).state, 'fail');
+  const five = prepared('T05').filter((e) => !(e.data?.type === 'voice-playback' && e.data.utterance_id === 'a' && e.data.status === 'playing'));
+  assert.equal(direct('T05', five).state, 'pending');
+  const skip = prepared('T12');
+  const stopAt = skip.findIndex((e) => e.data?.type === 'voice-playback' && e.data.utterance_id === 'a' && e.data.status === 'interrupted');
+  const [stop] = skip.splice(stopAt, 1); skip.push(stop);
+  assert.equal(direct('T12', skip).state, 'fail');
+  const returned = prepared('T06d');
+  returned.find((e) => e.kind === 'agent-input').data.received_at = 1001;
+  assert.equal(direct('T06d', returned).state, 'fail');
+  const offLate = prepared('T06b');
+  const offAt = offLate.findIndex((e) => e.data?.type === 'voice-speech');
+  const [off] = offLate.splice(offAt, 1); offLate.push(off);
+  assert.equal(direct('T06b', offLate).state, 'fail');
+  for (const id of ['T01', 'T02a', 'T02b', 'T04b', 'T05']) {
+    assert.equal(direct(id, prepared(id).filter((e) => e.data?.type !== 'voice-user-turn')).state, 'pending');
+  }
+  assert.equal(direct('T06d', returned.map((e) => { if (e.data?.type === 'voice-speech' && e.data.on === true) delete e.data.observed_at; return e; })).state, 'pending');
+});
+test('unresolved admission is insufficient until recovery or terminal rejection', () => {
+  for (const id of ['T01', 'T02a', 'T02b', 'T03', 'T04b', 'T05', 'T06a', 'T06b', 'T06d']) {
+    const unresolved = prepared(id);
+    const first = unresolved.find((e) => e.data?.name === 'voice_say');
+    const original = structuredClone(first);
+    first.data.result = { status: 'admission_unknown', utterance_id: first.data.args.utterance_id,
+      event_id: first.data.args.event_id, instruction: 'Wait for a disposition' };
+    assert.equal(direct(id, unresolved).state, 'pending', id);
+    unresolved.splice(unresolved.indexOf(first) + 1, 0, original);
+    assert.equal(direct(id, unresolved).state, 'pass', `${id}: successful same-ID recovery`);
+    original.data.result = { status: 'rejected', terminal: true, reason: 'newer_turn',
+      utterance_id: first.data.args.utterance_id, event_id: first.data.args.event_id };
+    assert.equal(direct(id, unresolved).state, 'fail', `${id}: terminal refusal`);
+  }
 });

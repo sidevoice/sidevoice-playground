@@ -11,7 +11,7 @@
   const report = (kind, data) => {
     try {
       const thread = data?.type === "history" ? data.row?.thread_id ?? data.row?.thread : data?.thread_id ?? wantedThread;
-      parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: thread } : data }, "*");
+      parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: thread, observed_at: Date.now() } : data }, "*");
     } catch {}
   };
   // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
