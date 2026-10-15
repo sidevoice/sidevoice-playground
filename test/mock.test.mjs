@@ -313,7 +313,7 @@ test("Cursor readiness presets emit only state and reason codes", async () => {
     ready: { state: "ready", reasons: [] },
     needs_attention: { state: "needs_attention", reasons: [{ code: "cursor.bridge_not_running",
       message: "Voice in the Cursor editor needs Cursor's Desktop Bridge: in Cursor, open Settings › Beta, enable “Allow CLI to access desktop agents”, then restart Cursor." }] },
-    unsupported: { state: "unsupported", reasons: [{ code: "cursor.unsupported", message: "Cursor voice requires a Mac with the Cursor editor installed." }] },
+    unsupported: { state: "unsupported", reasons: [{ code: "cursor.unsupported", message: "Cursor editor voice is not supported on this computer." }] },
     unknown_code: { state: "needs_attention", reasons: [{ code: "cursor.future_code", message: "Check the new Cursor setup." }] },
     unknown_no_message: { state: "needs_attention", reasons: [{ code: "cursor.future_code" }] },
   };
@@ -383,7 +383,7 @@ test("live Cursor readiness picker refreshes all reason-message choices without 
   for (const [choice, expected] of [
     ["needs_attention", { state: "needs_attention", reasons: [{ code: "cursor.bridge_not_running",
       message: "Voice in the Cursor editor needs Cursor's Desktop Bridge: in Cursor, open Settings › Beta, enable “Allow CLI to access desktop agents”, then restart Cursor." }] }],
-    ["unsupported", { state: "unsupported", reasons: [{ code: "cursor.unsupported", message: "Cursor voice requires a Mac with the Cursor editor installed." }] }],
+    ["unsupported", { state: "unsupported", reasons: [{ code: "cursor.unsupported", message: "Cursor editor voice is not supported on this computer." }] }],
     ["unknown_code", { state: "needs_attention", reasons: [{ code: "cursor.future_code", message: "Check the new Cursor setup." }] }],
     ["unknown_no_message", { state: "needs_attention", reasons: [{ code: "cursor.future_code" }] }],
     ["ready", { state: "ready", reasons: [] }],

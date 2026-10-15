@@ -329,7 +329,7 @@ const cursorReadiness = (facts) => {
   if (facts.state === "unknown_code") return { state: "needs_attention", reasons: [{ code: "cursor.future_code", message: "Check the new Cursor setup." }] };
   if (facts.state === "unknown_no_message") return { state: "needs_attention", reasons: [{ code: "cursor.future_code" }] };
   if (facts.state === "unsupported") return { state: "unsupported", reasons: [{ code: "cursor.unsupported",
-    message: "Cursor voice requires a Mac with the Cursor editor installed." }] };
+    message: "Cursor editor voice is not supported on this computer." }] };
   return { state: "ready", reasons: [] };
 };
 
