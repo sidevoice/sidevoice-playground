@@ -1,0 +1,44 @@
+{
+  "core_sha": "c3d186aae83b92bf5ee49f5e582537b299261db6",
+  "publication": {
+    "status": "text_only",
+    "utterance_id": "missed",
+    "session_id": "678a493f-a518-4b68-884a-f6a798475d2b",
+    "revision": 1,
+    "epoch": 0,
+    "text_saved": true,
+    "reason": "agents_muted"
+  },
+  "return_envelope": {
+    "message_id": "note:ce75d949-bdec-4e59-ba1e-e934b6a292b0",
+    "session_id": "678a493f-a518-4b68-884a-f6a798475d2b",
+    "revision": 1,
+    "epoch": 0,
+    "channel": "note",
+    "text": "",
+    "arrival_time": 1792044446131,
+    "cursor": 2,
+    "unheard": {
+      "count": 1,
+      "replies": [
+        {
+          "utterance_id": "missed",
+          "history_id": "678a493f-a518-4b68-884a-f6a798475d2b:voice:missed",
+          "session_id": "678a493f-a518-4b68-884a-f6a798475d2b",
+          "revision": 1,
+          "epoch": 0,
+          "text": "A missed update",
+          "fate": "text_only",
+          "reason": "agents_muted",
+          "cut": false,
+          "heard_chars": null
+        }
+      ]
+    },
+    "notice": {
+      "kind": "user_returned",
+      "related_message_id": null,
+      "instruction": "The person is back. These replies were not heard. Send a fresh response if still relevant."
+    }
+  }
+}

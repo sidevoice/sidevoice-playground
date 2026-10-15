@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { evidence } from '../preview/turn-lab/evidence.mjs';
 
 const start = (id, extra = {}) => ({ kind: 'script-start', data: { id, ...extra } });
@@ -131,6 +132,28 @@ test('T06d return verdict needs the missed identity and an observed mute-to-retu
   assert.equal(state([muted('agents_muted'), saved, back,
     input('note', '', [reply('a', 'unplayed', 'agents_muted', false, null)], 'user_returned')]), 'fail',
     'the core journal reports the saved publication as text_only');
+});
+
+test('T06d accepts a return envelope produced by the pinned core', async () => {
+  // Captured by the c3d186a core's Case::pull after publishing while agents_muted.
+  const fixture = JSON.parse(await readFile(new URL('./fixtures/core-t06d-return.json', import.meta.url), 'utf8'));
+  const config = JSON.parse(await readFile(new URL('../preview/turn-lab.config.json', import.meta.url), 'utf8'));
+  assert.equal(fixture.core_sha, config.core);
+  const publication = fixture.publication, returned = fixture.return_envelope;
+  const missed = returned.unheard.replies[0];
+  assert.equal(publication.status, 'text_only');
+  assert.equal(missed.fate, 'text_only');
+  assert.equal(missed.session_id, publication.session_id);
+  const saved = { kind: 'tool-result', data: { name: 'voice_say', args: { utterance_id: publication.utterance_id, text: missed.text },
+    result: { status: 'published', audio: publication.status, reason: publication.reason, text_saved: publication.text_saved } } };
+  const back = { kind: 'browser-action', data: { type: 'voice-speech', on: true } };
+  const events = [start('T06d'), muted('agents_muted'), saved, back, { kind: 'agent-input', data: returned }];
+  assert.equal(evidence(events).checks.T06d.state, 'pass');
+  for (const patch of [{ fate: 'played' }, { cut: true }, { heard_chars: 1 }, { reason: 'user_interrupted' }]) {
+    const invalid = structuredClone(returned);
+    Object.assign(invalid.unheard.replies[0], patch);
+    assert.equal(evidence([...events.slice(0, -1), { kind: 'agent-input', data: invalid }]).checks.T06d.state, 'fail');
+  }
 });
 
 test('T04a rejects duplicate playback and duplicate terminal receipts after the correct FIFO sequence', () => {
