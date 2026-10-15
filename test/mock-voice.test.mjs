@@ -283,7 +283,7 @@ test("a turn ends after the silence the settings wait; a pause shorter than it i
   turns.length = 0;
   await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "smart-turn", patience: "fast" });
   await voice.speak("uno dos tres cuatro", { cutOff: true });
-  assert.deepEqual(turns.map((t) => `${t.phase}:${t.turn_id}${t.merged ? ":merged" : ""}`), ["started:turn-2", "started:turn-3", "cancelled:turn-2:merged", "finished:turn-3:merged"]);
+  assert.deepEqual(turns.map((t) => `${t.phase}:${t.turn_id}${t.merged ? ":merged" : ""}`), ["started:mock-call-1-turn-2", "started:mock-call-1-turn-3", "cancelled:mock-call-1-turn-2:merged", "finished:mock-call-1-turn-3:merged"]);
   assert.equal(turns.at(-1).text, "uno dos tres cuatro");
   assert.equal(turns.at(-1).timings.endpoint_silence_ms, 600);
 });
@@ -404,7 +404,7 @@ test("a try's take (web gap #40): asked for, what the voice heard from listening
   assert.equal(take.started_at, listened);
   assert.equal(take.ended_at, clock);
   assert.equal(take.samples.length, ((clock - listened) / 1000) * 16000);
-  assert.deepEqual(take.turns, [{ turn_id: "turn-1", speech_ms: 1000, pauses: [{ from_ms: 2500, to_ms: 4000 }], end_ms: 8000 }]);
+  assert.deepEqual(take.turns, [{ turn_id: "mock-call-1-turn-1", speech_ms: 1000, pauses: [{ from_ms: 2500, to_ms: 4000 }], end_ms: 8000 }]);
   // Its marks are the turn the voice told: it started where the take says speech did.
   assert.equal(turns[0].started_at - take.started_at, take.turns[0].speech_ms);
   // Loud where the person spoke, quiet before, in the pause, and in the silence the end waited for.
@@ -440,8 +440,8 @@ test("a cut-off's take marks both turns: the end decided too soon, and the turn 
   await voice.host.stop();
   // 990 ms said, 600 ms to the cut, 400 ms recognising, then the rest: 990 ms, and 600 ms to its end.
   assert.deepEqual(takes[0].turns, [
-    { turn_id: "turn-1", speech_ms: 0, pauses: [], end_ms: 2100 },
-    { turn_id: "turn-2", speech_ms: 2500, pauses: [], end_ms: 4600 },
+    { turn_id: "mock-call-1-turn-1", speech_ms: 0, pauses: [], end_ms: 2100 },
+    { turn_id: "mock-call-1-turn-2", speech_ms: 2500, pauses: [], end_ms: 4600 },
   ]);
 });
 

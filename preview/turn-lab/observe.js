@@ -8,10 +8,18 @@
       deferred_at: null, completed_at: null, trials: {}, chosen: {}, baseline_release: 0, features: {},
     }));
   } catch {}
+  const turnTargets = new Map();
   const report = (kind, data) => {
     try {
-      const thread = data?.type === "history" ? data.row?.thread_id ?? data.row?.thread : data?.thread_id ?? wantedThread;
-      parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: thread, observed_at: Date.now() } : data }, "*");
+      const turnKey = data?.turn_id ? `${data.session_id ?? ""}:${data.turn_id}` : null;
+      if (turnKey && data.type === "voice-user-turn" && data.phase === "started" && data.thread_id)
+        turnTargets.set(turnKey, { thread_id: data.thread_id, binding_id: data.binding_id });
+      if (turnTargets.size > 512) turnTargets.delete(turnTargets.keys().next().value);
+      const target = turnKey ? turnTargets.get(turnKey) : null;
+      const thread = data?.type === "history" ? data.row?.thread_id ?? data.row?.thread : data?.thread_id ?? target?.thread_id ?? wantedThread;
+      const observed = (kind === "room-frame" || kind === "browser-action") ?
+        { ...data, binding_id: data?.binding_id ?? target?.binding_id, conversation: thread, observed_at: Date.now() } : data;
+      parent.postMessage({ source: "turn-lab-browser", kind, data: observed }, "*");
     } catch {}
   };
   // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
@@ -90,8 +98,8 @@
       const parsed = Array.isArray(wire) ? { type: wire[0], data: wire[1] } : wire;
       const data = parsed.data ?? parsed;
       return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, outcome: data.outcome, client_msg_id: data.client_msg_id, key: data.key, hearing: data.hearing, hearing_unconfirmed: data.hearing_unconfirmed, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, globally_heard: data.globally_heard, working: data.working, on: data.on, text: data.text,
-        phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq,
-        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, outcome: data.outcome, client_msg_id: data.client_msg_id, key: data.key, hearing: data.hearing, hearing_unconfirmed: data.hearing_unconfirmed, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, working: data.working, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
+        phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, binding_id: data.binding_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq,
+        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, outcome: data.outcome, client_msg_id: data.client_msg_id, key: data.key, hearing: data.hearing, hearing_unconfirmed: data.hearing_unconfirmed, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, working: data.working, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, binding_id: data.binding_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
     } catch { return null; }
   };
   const NativeWebSocket = window.WebSocket;

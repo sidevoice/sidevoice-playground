@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
+import { runInNewContext } from "node:vm";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { fakeVoice } from "../preview/mock/voice.mjs";
@@ -18,6 +19,26 @@ import { plannedPins } from "../preview/web-build.mjs";
 import { archiveChoices } from "../web/preview/choices.mjs";
 
 const SHA = "a".repeat(40);
+
+test("browser observer retains a turn's original thread and binding after focus changes", async () => {
+  const posted = [];
+  class Socket {
+    addEventListener() {}
+    send() {}
+  }
+  const window = { addEventListener() {}, WebSocket: Socket, fetch: async () => ({}), sidevoiceActions: null };
+  const script = await readFile(new URL("../preview/turn-lab/observe.js", import.meta.url), "utf8");
+  runInNewContext(script, { window, parent: { postMessage: (event) => posted.push(event) },
+    localStorage: { getItem: () => "ready", removeItem() {} }, document: { addEventListener() {} },
+    navigator: {}, location: { pathname: "/" }, setInterval() {}, URL, Date });
+  const socket = new window.WebSocket();
+  socket.send(JSON.stringify({ type: "voice-user-turn", data: { session_id: "s", turn_id: "a-turn", phase: "started",
+    thread_id: "a", binding_id: "binding-a" } }));
+  socket.send(JSON.stringify({ type: "voice-user-turn", data: { session_id: "s", turn_id: "a-turn", phase: "finished", text: "A's words" } }));
+  const turns = posted.filter((event) => event.kind === "browser-action");
+  assert.deepEqual(turns.map((event) => [event.data.conversation, event.data.binding_id]),
+    [["a", "binding-a"], ["a", "binding-a"]]);
+});
 
 test("T06c prepares a distinct real conversation before its first publication from a fresh Lab", async () => {
   const events = [], calls = [], other = { state: { ready: false, conversation: null },
@@ -34,7 +55,7 @@ test("T06c prepares a distinct real conversation before its first publication fr
   assert.equal(events[0].data.conversation, "other-thread");
   assert.equal(await ensureCaseConversation("T11", first, create, () => {}), first, "T11 reuses the prepared conversation");
   assert.equal(created, 1);
-  assert.match(SCRIPTS.T06c.instruction, /select Turn Lab \(other\) in the room/);
+  assert.match(SCRIPTS.T06c.instruction, /select Turn Lab \(other\) and speak there/);
 });
 
 test("T06c mock case rejects a trace without the required focus switch", async () => {
@@ -432,21 +453,20 @@ test("mock voice discards short overlap but qualifies a sustained barge-in", asy
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);
-  const turns = [], cuts = [];
+  const turns = [];
   voice.host.onTurn((turn) => turns.push(turn));
-  voice.host.onAgentInterrupted((cut) => cuts.push(cut));
   await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, barge_in_min_speech: 1 });
   await voice.host.start();
   const saying = voice.host.say("Long reply for the duration gate. ".repeat(50));
   await Promise.resolve();
   await voice.speak("ajá", { durationMs: 990 });
   assert.equal(turns.length, 0);
-  assert.equal(cuts.length, 0);
   await voice.speak("Please stop there", { durationMs: 1300 });
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
-  assert.equal(cuts.length, 1);
-  assert.equal(cuts[0].played, true);
-  assert.equal((await saying.outcome).status, "heard-up-to");
+  const outcome = await saying.outcome;
+  assert.equal(outcome.status, "heard-up-to");
+  assert.equal(outcome.reason, "barge-in");
+  assert.ok(outcome.heard_chars >= 0 && outcome.heard_chars < [..."Long reply for the duration gate. ".repeat(50)].length);
   await voice.speak("vale", { durationMs: 300 });
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 2);
   await voice.host.stop();
@@ -471,24 +491,35 @@ test("mock voice completes three queued replies in FIFO order", async () => {
   await voice.host.stop();
 });
 
-test("mock voice keeps a source turn's capture boundary through transcription", async () => {
+test("mock voice keeps A and B turns in separate running calls across an input route", async () => {
   let clock = 0;
   const world = createWorld({ id: "boundary", title: "Boundary", summary: "", world: {}, options: [] }, {}, {
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);
+  const a = voice.host.createCall(), b = voice.host.createCall();
   const turns = [];
-  let started;
-  const began = new Promise((resolve) => { started = resolve; });
-  voice.host.onTurn((event) => { turns.push(event); if (event.phase === "started") started(); });
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
-  await voice.host.start();
-  await voice.host.setCaptureBoundary("conversation-a");
+  let aStarted, aStoppedSpeaking;
+  const began = new Promise((resolve) => { aStarted = resolve; });
+  const paused = new Promise((resolve) => { aStoppedSpeaking = resolve; });
+  a.onTurn((event) => { turns.push(["a", event]); if (event.phase === "started") aStarted(); });
+  b.onTurn((event) => turns.push(["b", event]));
+  a.onLevel((level) => { if (level === 0) aStoppedSpeaking(); });
+  for (const call of [a, b]) {
+    await call.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, end_of_turn: "silence", patience: "normal" });
+    await call.start();
+  }
+  await voice.host.routeInput(a);
   const first = voice.speak("Words for A");
   await began;
-  await voice.host.setCaptureBoundary("conversation-b");
-  await first;
-  await voice.speak("Words for B");
-  assert.deepEqual(turns.filter((event) => event.phase === "finished").map((event) => event.capture_boundary_id), ["conversation-a", "conversation-b"]);
-  await voice.host.stop();
+  await paused;
+  await voice.host.routeInput(b);
+  assert.equal(turns.filter(([, event]) => event.phase === "finished").length, 0, "routing does not flush A");
+  const second = voice.speak("Words for B");
+  await Promise.all([first, second]);
+  assert.deepEqual(turns.filter(([, event]) => event.phase === "finished").map(([call, event]) => [call, event.text]),
+    [["a", "Words for A"], ["b", "Words for B"]]);
+  assert.ok(turns.every(([, event]) => !Object.hasOwn(event, "capture_boundary_id")));
+  await a.dispose();
+  await b.dispose();
 });

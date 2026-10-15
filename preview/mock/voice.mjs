@@ -102,11 +102,13 @@ function endpointMs(settings) {
   return mode[/** @type {keyof typeof mode} */ (settings?.patience ?? "normal")] ?? mode.normal;
 }
 
-export function fakeVoice(world, { source = null } = {}) {
+export function fakeVoice(world, { source = null, shared = null } = {}) {
+  const group = shared ?? { calls: [], active: null, nextId: 0, firstCreated: false };
+  const callId = `mock-call-${++group.nextId}`;
   /** @type {Record<string, Set<Function>>} */
-  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), interrupted: new Set(), error: new Set(), devices: new Set(), take: new Set() };
+  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), error: new Set(), devices: new Set(), take: new Set() };
   // The devices: the headset plugged in, nothing chosen (the system's defaults), the speaker choosable.
-  const devices = { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
+  const devices = group.devices ??= { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
   const emit = (kind, value) => {
     for (const listener of [...listeners[kind]]) listener(value);
   };
@@ -119,7 +121,6 @@ export function fakeVoice(world, { source = null } = {}) {
   let started = false;
   let muted = false;
   let turns = 0;
-  let captureBoundary = "initial";
   let says = 0;
   let playbackRun = 0;
   let playbackTail = null;
@@ -156,12 +157,18 @@ export function fakeVoice(world, { source = null } = {}) {
     }
   }
 
-  // setCaptureBoundary and onAgentInterrupted: a voice candidate's extra seams, absent from published 0.4.0.
-  /** @type {TakingVoiceHost & { setCaptureBoundary?: (id: string) => Promise<void>, onAgentInterrupted?: (listener: (event: any) => void) => () => void }} */
+  /** @type {any} The owner exposes createCall/routeInput; each call exposes the current call surface. */
   const host = {
-    async setCaptureBoundary(id) {
-      captureBoundary = id;
-      world.log({ method: "VOICE", url: `setCaptureBoundary(${id})`, status: "ok", mocked: true });
+    id: callId,
+    createCall() {
+      if (!group.firstCreated) { group.firstCreated = true; return host; }
+      return fakeVoice(world, { source, shared: group }).host;
+    },
+    async routeInput(target) {
+      const call = target == null ? null : group.calls.find((item) => item.host === target);
+      if (target != null && !call) throw refusal("unknown-voice-call");
+      group.active = call;
+      world.log({ method: "VOICE", url: `routeInput(${target?.id ?? "none"})`, status: "ok", mocked: true });
     },
     async setSettings(next) {
       settings = next;
@@ -194,6 +201,11 @@ export function fakeVoice(world, { source = null } = {}) {
       if (kept) emit("take", synthesisedTake(kept, world.now()));
       setState({ listening: "idle", recognising: 0, playback: "idle" });
     },
+    async dispose() {
+      await host.stop();
+      group.calls.splice(group.calls.findIndex((item) => item.host === host), 1);
+      if (group.active?.host === host) group.active = null;
+    },
     say(text, options) {
       const id = `say-${++says}`;
       const run = playbackRun;
@@ -203,7 +215,7 @@ export function fakeVoice(world, { source = null } = {}) {
       const events = new Set();
       let cancelled = false;
       let cancelReason = "cancelled";
-      const tracked = { heard: 0, played: false, cancelForBarge: () => { cancelReason = "barge-in"; cancelled = true; quiet(); } };
+      const tracked = { cancelForBarge: () => { cancelReason = "barge-in"; cancelled = true; quiet(); } };
       sayHandles.set(id, tracked);
       const tell = (event) => {
         for (const listener of [...events]) listener(event);
@@ -228,7 +240,6 @@ export function fakeVoice(world, { source = null } = {}) {
         }
         if (run === playbackRun && started) {
           activeSays.set(id, "playing");
-          tracked.played = true;
           refreshPlayback();
         }
         tell({ type: "playing" });
@@ -254,7 +265,6 @@ export function fakeVoice(world, { source = null } = {}) {
           }
           quiet();
           from += [...chunk].length;
-          tracked.heard = from;
         }
         tell({ type: "progress", sounding: null, heard_chars: from });
         quiet();
@@ -310,7 +320,6 @@ export function fakeVoice(world, { source = null } = {}) {
     onState: on("state"),
     onLevel: on("level"),
     onPlaybackLevel: on("playbackLevel"),
-    onAgentInterrupted: on("interrupted"),
     onError: on("error"),
     onTake: on("take"),
   };
@@ -335,12 +344,10 @@ export function fakeVoice(world, { source = null } = {}) {
       for (const [id, handle] of overlapping) {
         if (!activeSays.has(id)) continue;
         handle.cancelForBarge();
-        emit("interrupted", { utterance_id: id, heard_until: handle.heard, played: handle.played });
       }
     }
     const voice = voiceState(world);
-    let turn = `turn-${++turns}`;
-    const turnBoundary = captureBoundary;
+    let turn = `${callId}-turn-${++turns}`;
     const startedAt = world.now();
     const silence = endpointMs(settings);
     // The take this is said into, if one is kept: where in it each moment falls, and the turn's marks.
@@ -370,7 +377,7 @@ export function fakeVoice(world, { source = null } = {}) {
     };
     const half = (part) => { const words = part.split(/\s+/); const at = Math.max(1, Math.ceil(words.length / 2)); return [words.slice(0, at).join(" "), words.slice(at).join(" ") || part]; };
     setState({ listening: "speaking" });
-    emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt, capture_boundary_id: turnBoundary }));
+    emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
     if (pause || cutOff) {
       const [first, rest] = half(text);
       await talk(first, durationMs / 2);
@@ -381,10 +388,10 @@ export function fakeVoice(world, { source = null } = {}) {
         setState({ recognising: 1 });
         await world.delay(400);
         const cut = turn;
-        turn = `turn-${++turns}`;
+        turn = `${callId}-turn-${++turns}`;
         mark = opened();
-        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: world.now(), capture_boundary_id: turnBoundary }));
-        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: cut, merged: true, capture_boundary_id: turnBoundary }));
+        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: world.now() }));
+        emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: cut, merged: true }));
         setState({ recognising: 0 });
       } else {
         const paused = at();
@@ -399,17 +406,17 @@ export function fakeVoice(world, { source = null } = {}) {
     await world.delay(500);
     setState({ recognising: 0 });
     if (voice.stt === "silence" || !text.trim()) {
-      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false, capture_boundary_id: turnBoundary }));
+      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
       return true;
     }
     if (voice.stt === "error") {
-      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false, capture_boundary_id: turnBoundary }));
+      emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
       emit("error", { code: "transcription-failed" });
       return true;
     }
     const endedAt = world.now();
     emit("turn", /** @type {VoiceTurnEvent} */ ({
-      phase: "finished", turn_id: turn, text, capture_boundary_id: turnBoundary, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
+      phase: "finished", turn_id: turn, text, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
       started_at: startedAt, ended_at: endedAt, merged: cutOff,
       timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: silence, recognition_ms: 500 },
     }));
@@ -439,5 +446,10 @@ export function fakeVoice(world, { source = null } = {}) {
     emit("devices", deviceList());
   }
 
-  return { host, speak, plugHeadset, outputSelectable, get devices() { return { ...devices }; }, get state() { return { ...state, started }; } };
+  const runtime = { host, speak: (...args) => group.active?.host === host ? speak(...args) : group.active?.speak(...args) ?? false,
+    plugHeadset, outputSelectable, get devices() { return { ...devices }; },
+    get state() { return group.active?.host !== host && group.active ? group.active.state : { ...state, started }; } };
+  group.calls.push(runtime);
+  if (!shared) group.active = runtime;
+  return runtime;
 }
