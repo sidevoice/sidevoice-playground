@@ -40,6 +40,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
   let mutePhase = 0, muteRunId = null;
   const pending = new Map();
   const received = new Set();
+  const replyTexts = new Map();
   const record = (kind, data) => emit({ at: now(), kind, data });
   const decode = (value) => {
     const content = value?.result?.content?.find((part) => part.type === "text")?.text;
@@ -78,14 +79,20 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     record("agent-input", { ...message, conversation });
     if (message.notice) record("agent-notice", { message_id: message.message_id, conversation, ...message.notice });
     for (const row of message.unheard?.replies ?? []) {
+      if (typeof row.text === "string") replyTexts.set(row.utterance_id, row.text);
       const chars = [...(row.text ?? "")], extent = row.heard_chars ?? 0;
       record("agent-hearing", { message_id: message.message_id, conversation, utterance_id: row.utterance_id,
         history_id: row.history_id, outcome: row.fate, heard_chars: row.heard_chars,
         heard: chars.slice(0, extent).join(""), unheard: chars.slice(extent).join("") });
     }
-    for (const row of message.notice?.heard ?? []) record("agent-hearing", { message_id: message.message_id,
-      conversation, utterance_id: row.utterance_id, history_id: row.history_id, outcome: row.fate,
-      heard_chars: row.heard_chars, correction: message.notice.corrects_message_id });
+    for (const row of message.notice?.heard ?? []) {
+      const text = replyTexts.get(row.utterance_id), chars = [...(text ?? "")], extent = row.heard_chars ?? 0;
+      record("agent-hearing", { message_id: message.message_id, conversation, utterance_id: row.utterance_id,
+        history_id: row.history_id, outcome: row.fate, heard_chars: row.heard_chars,
+        heard: text == null ? null : chars.slice(0, extent).join(""),
+        unheard: text == null ? null : chars.slice(extent).join(""),
+        correction: message.notice.corrects_message_id });
+    }
     const id = message.message_id;
     if (id && received.has(id)) return;
     if (id) received.add(id);
@@ -110,7 +117,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       if (child) await this.stop();
       inputMode = mode;
       script = null; mutePhase = 0; muteRunId = null;
-      received.clear();
+      received.clear(); replyTexts.clear();
       receiver = createServer(async (req, res) => {
         const chunks = [];
         for await (const chunk of req) chunks.push(chunk);
