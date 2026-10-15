@@ -9,6 +9,7 @@ import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { fakeVoice } from "../preview/mock/voice.mjs";
 import { runTurnFixture } from "../preview/mock/turn-script.mjs";
+import { probeMockRoom } from "../preview/mock/turn-machine-probes.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
 import { SCRIPTS, scriptedAgent } from "../preview/turn-lab/agent.mjs";
 import { evidence } from "../preview/turn-lab/evidence.mjs";
@@ -89,6 +90,16 @@ test("T08 typing leaves playback active until the later playback outcome", async
   const result = await runTurnFixture(fixture, { wait: async () => {} });
   assert.deepEqual(result.trace.find((item) => item.action === "typed-message").fates, ["playing"]);
   assert.equal(result.status, "model-match");
+});
+
+test("actual mock room probes reject missing typed context and wrong turn identity", async () => {
+  const cases = (await loadMockScenarios()).filter((item) => ["T08", "T11"].includes(item.turn?.id));
+  const typed = structuredClone(cases.find((item) => item.turn.id === "T08").turn);
+  typed.actions = typed.actions.filter((action) => action.type !== "typed-message");
+  assert.ok((await probeMockRoom(typed)).some((reason) => reason.includes("Typing changed")));
+  const turns = structuredClone(cases.find((item) => item.turn.id === "T11").turn);
+  turns.actions.find((action) => action.type === "out-of-order-finish").aTurnId = "wrong";
+  assert.ok((await probeMockRoom(turns)).some((reason) => reason.includes("reordered terminals")));
 });
 
 test("candidate picker accepts only a full SHA, and source build verifies commit and records binary digest", async () => {
