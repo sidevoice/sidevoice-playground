@@ -134,6 +134,17 @@ test('T06a second phase stays inside one case but a separate script-start cannot
   assert.equal(evidence([...first, start('T06a'), second]).checks.T06a.state, 'pending');
 });
 
+test('T06a completes with a real withdrawal and fails a cut recorded for the wrong cause', () => {
+  const second = say('b', 'published', 'agents_muted'); second.data.result.audio = 'text_only';
+  const withdrawal = { kind: 'room-frame', data: { type: 'voice-reply-withdrawn', utterance_ids: ['a'], reason: 'agents_muted' } };
+  const first = [start('T06a'), say('a'), frame('voice-playback', 'a', 'playing'), muted('agents_muted')];
+  const history = (reason) => ({ kind: 'room-frame', data: { type: 'history', row: { role: 'assistant', id: 'binding:voice:a', status: 'interrupted', audio_reason: reason, heard_chars: 0 } } });
+  const complete = (cut, reason) => evidence([...first, cut, withdrawal, history(reason), phase(), second]).checks.T06a.state;
+  assert.equal(complete(frame('voice-playback', 'a', 'interrupted', { reason: 'agents_muted', heard_chars: 0 }), 'agents_muted'), 'pass');
+  assert.equal(complete(frame('voice-playback', 'a', 'interrupted', { heard_chars: 0 }), 'user_interrupted'), 'fail');
+  assert.equal(evidence([...first, withdrawal, phase(), second]).checks.T06a.state, 'pending');
+});
+
 test('T12 rejects every unheard reason and replay after skip', () => {
   const prefix = [start('T12'), say('a'), say('b'), frame('voice-playback', 'a', 'interrupted', { reason: 'user_skipped' }), frame('voice-playback', 'b', 'heard'), input('note', '', [], 'reply_skipped')];
   assert.equal(evidence(prefix).checks.T12.state, 'pass');

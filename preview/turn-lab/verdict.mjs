@@ -137,14 +137,20 @@ export function verdict(id, events, fates) {
     const secondAt = events.findIndex((event) => event.kind === "tool-result" && event.data?.args?.utterance_id === ids[1]);
     const phaseAt = events.findIndex((event) => event.kind === "script-phase" && event.data?.id === "T06a" && event.data.phase === 2);
     const cutAt = actionAt((frame) => frame.type === "voice-playback" && frame.utterance_id === ids[0] &&
-      frame.status === "interrupted" && frame.reason === "agents_muted");
+      frame.status === "interrupted");
+    const withdrawalAt = actionAt((frame) => frame.type === "voice-reply-withdrawn" &&
+      frame.utterance_ids?.includes(ids[0]) && frame.reason === "agents_muted");
+    const cutReason = events[cutAt]?.data?.reason ?? fates.get(ids[0])?.reason;
     if (!completed(2) || publications.length !== 2 || audible(ids[1]) || ["played", "cut", "skipped"].includes(fate(ids[1])) ||
-      fate(ids[0]) === "played" || !textOnly(publications[1], "agents_muted"))
+      fate(ids[0]) === "played" || !textOnly(publications[1], "agents_muted") ||
+      (cutAt >= 0 && cutReason && cutReason !== "agents_muted"))
       result = fail("Mute must cut the playing reply and save the second without audio");
     else if (muteAt < 0 || firstAt < 0 || secondAt < 0 || phaseAt < 0 || cutAt < 0 ||
+      (cutReason !== "agents_muted" && withdrawalAt < 0) ||
       !events.slice(firstAt + 1, muteAt).some((event) => ["room-frame", "browser-action"].includes(event.kind) &&
         event.data?.type === "voice-playback" && event.data.utterance_id === ids[0] && event.data.status === "playing") ||
-      !(firstAt < muteAt && muteAt < cutAt && cutAt < phaseAt && phaseAt < secondAt) || fate(ids[0]) !== "cut")
+      !(firstAt < muteAt && muteAt < cutAt && cutAt < phaseAt && phaseAt < secondAt) ||
+      (withdrawalAt >= 0 && !(muteAt < withdrawalAt && withdrawalAt < phaseAt)) || fate(ids[0]) !== "cut")
       result = pending("Insufficient ordered playback, mute, and second-phase evidence");
     else result = pass("Playing reply cut; second-phase publication saved without audio");
   }
