@@ -110,7 +110,12 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       if (archivedFates.size > 100) archivedFates.delete(archivedFates.keys().next().value);
       archivedNotes = [...archivedNotes, ...previous.notes].slice(-100);
       archivedInputs = [...archivedInputs, ...previous.inputs].slice(-100);
-      caseEvents = [];
+      // T06b and T06d change output before Run. Preserve only the latest
+      // output setting for the new case, never old publications or notices.
+      const setting = [...caseEvents].reverse().find((item) =>
+        ["room-frame", "browser-action"].includes(item.kind) && item.data?.type === "voice-speech" &&
+        (!event.data?.conversation || !item.data?.conversation || item.data.conversation === event.data.conversation));
+      caseEvents = setting ? [setting] : [];
     }
     events.push(event);
     if (events.length > 300) events.shift();
