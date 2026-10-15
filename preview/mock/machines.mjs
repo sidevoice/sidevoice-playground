@@ -698,6 +698,7 @@ export function callSocket(world, identities, { url, protocols = [], pageOrigin 
   const room = roomOf(world, id);
   const call = {
     url, via, onPage: !!place.onPage, peer, session: null, since: 0, binding: /** @type {RoomBinding | null} */ (null),
+    bindings: /** @type {Map<string, RoomBinding>} */ (new Map()),
     revision: 0, frames: 0, turns: [], speaking: false, speechOn: true, replies: new Map(), ended: false,
   };
   room.calls.add(call);
@@ -736,7 +737,10 @@ function seat(world, room, call, hello) {
   call.session = randomId();
   call.since = ++seats;
   const named = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === data.conversation);
-  if (named) call.binding = { thread_id: named.thread_id, title: named.title, binding_id: randomId() };
+  if (named) {
+    call.binding = { thread_id: named.thread_id, title: named.title, binding_id: randomId() };
+    call.bindings.set(call.binding.binding_id, call.binding);
+  }
   /** @type {VoiceSession & { room: { api: number, version: string }, resume_refused?: string }} */
   const session = {
     session_id: call.session, room: { api: API, version: "mock" }, resume: { token: secretText(), seconds: 60 }, resumed: false,
@@ -771,10 +775,14 @@ function userTurn(world, room, call, data, id) {
   const words = typeof data.text === "string" && data.text.trim() ? data.text : null;
   if (data.phase === "started") {
     if (!turnId) return [refusal("room.request_invalid", id)];
+    if (typeof data.thread_id !== "string" || typeof data.binding_id !== "string") return [refusal("room.request_invalid", id)];
+    const binding = data.thread_id === "" && data.binding_id === "" ? null : call.bindings.get(data.binding_id);
+    if (binding === undefined || (binding && binding.thread_id !== data.thread_id) || (!binding && (data.thread_id || data.binding_id)))
+      return [refusal("room.focus_changed", id)];
     const existing = call.turns.find((turn) => turn.turn_id === turnId);
+    if (existing && existing.binding?.binding_id !== binding?.binding_id) return [refusal("room.message_conflict", id)];
     if (existing) return [started(existing.revision, existing.binding?.thread_id ?? null, existing.epoch)];
     if (call.turns.length >= MAX_OPEN_TURNS) return [refusal("room.turns_full", id)];
-    const binding = call.binding?.thread_id ? call.binding : null;
     const epoch = binding ? (room.epochs.get(binding.thread_id) ?? 0) + 1 : null;
     if (binding) room.epochs.set(binding.thread_id, epoch);
     const turn = { turn_id: turnId, revision: ++call.revision, binding, epoch };
@@ -784,8 +792,10 @@ function userTurn(world, room, call, data, id) {
   }
   if (data.phase === "finished" && data.offline === true) {
     if (!turnId || !words) return [refusal("room.request_invalid", id)];
+    if (typeof data.thread_id !== "string" || typeof data.binding_id !== "string") return [refusal("room.request_invalid", id)];
+    const binding = call.bindings.get(data.binding_id);
+    if (!binding || binding.thread_id !== data.thread_id) return [refusal("room.focus_changed", id)];
     const revision = ++call.revision;
-    const binding = call.binding;
     const epoch = binding?.thread_id ? (room.epochs.get(binding.thread_id) ?? 0) + 1 : null;
     if (binding?.thread_id) room.epochs.set(binding.thread_id, epoch);
     const row = input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision, epoch, binding, turnId, offline: true });
@@ -911,6 +921,7 @@ function select(world, room, machine, body) {
   if (call.binding?.thread_id === thread) return json(200, { status: "already_active", binding: call.binding });
   const title = participantsOf(machine, room.id).find((p) => p.thread_id === thread)?.title ?? null;
   call.binding = { thread_id: thread, title, binding_id: randomId() };
+  call.bindings.set(call.binding.binding_id, call.binding);
   const withdrawn = stopReplies(call, "focus_changed");
   if (withdrawn.length) send(call, { type: "voice-reply-withdrawn", data: { session_id: call.session, utterance_ids: withdrawn, reason: "focus_changed" } });
   reportWorking(room, call);

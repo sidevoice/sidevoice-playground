@@ -22,22 +22,25 @@ export async function probeMockRoom(fixture) {
   const session = frames.find((frame) => frame.type === "voice-session")?.data?.session_id;
   if (!session) return ["Mock room did not create a session"];
   const room = roomOf(world, "nuc");
+  const call = [...room.calls][0];
+  const captured = new Map([["a", call?.binding]]);
   let serial = 0;
-  const turn = (phase, id, text) => send("voice-user-turn", { session_id: session, client_msg_id: `case-${++serial}`, phase,
-    turn_id: id, ...(text ? { text } : {}) });
+  const turn = (phase, id, text, focus) => send("voice-user-turn", { session_id: session, client_msg_id: `case-${++serial}`, phase,
+    turn_id: id, ...(phase === "started" ? { thread_id: focus?.thread_id, binding_id: focus?.binding_id } : {}), ...(text ? { text } : {}) });
   const playback = (id, status) => send("voice-playback", { session_id: session, client_msg_id: `case-${++serial}`,
     utterance_id: id, status });
   const failures = [];
   try {
     if (fixture.id === "T11") {
       for (const action of fixture.actions) {
-        if (action.type === "conversation-a") turn("started", action.turnId ?? "a-turn-1");
+        if (action.type === "conversation-a") turn("started", action.turnId ?? "a-turn-1", null, captured.get("a"));
         if (action.type === "conversation-b") {
           const selected = await request("/api/presentation/select", { session_id: session, thread_id: "b" });
           if (selected.status !== 200) failures.push("Mock room refused conversation B");
-          turn("started", action.turnId ?? "b-turn-1");
+          captured.set("b", call.binding);
+          turn("started", action.turnId ?? "b-turn-1", null, captured.get("b"));
         }
-        if (action.type === "duplicate-start") turn("started", action.turnId ?? "a-turn-1");
+        if (action.type === "duplicate-start") turn("started", action.turnId ?? "a-turn-1", null, captured.get("a"));
         if (action.type === "out-of-order-finish") {
           turn("finished", action.bTurnId ?? "b-turn-1", "Words for B");
           turn("finished", action.aTurnId ?? "a-turn-1", "Words for A");
