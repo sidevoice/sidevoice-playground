@@ -78,7 +78,11 @@ test('the pinned core shared fixture keeps physical playback separate from seman
   assert.equal(fixture.unconfirmed.agent_evidence, null);
   for (const item of fixture.hearing) {
     const id = item.frame.data.utterance_id;
-    const events = [say(id, item.publication_status ?? 'queued', fixture.text), { kind: 'browser-action', data: { ...item.frame.data, type: item.frame.type } }];
+    const events = [say(id, item.publication_status ?? 'queued', fixture.text),
+      { kind: 'browser-action', data: { ...item.frame.data, type: item.frame.type } },
+      { kind: 'room-frame', data: { type: 'voice-ack', client_msg_id: item.frame.data.client_msg_id } },
+      { kind: 'room-frame', data: { type: 'history', utterance_id: id, row: { ...item.history, id: item.frame.data.history_id,
+        role: 'assistant', text: fixture.text } } }];
     const row = evidence([start('T14'), ...events]).fates[0];
     assert.equal(row.fate, item.history.hearing);
     assert.equal(row.heard_chars, item.history.heard_chars);
@@ -137,4 +141,30 @@ test('historical epochs and other-thread rows cannot rewind the selected open tu
   const other = { kind: 'room-frame', data: { type: 'history', conversation: 'other', row: { thread_id: 'other', epoch: 9, role: 'assistant' } } };
   assert.equal(evidence([turn, old, other], 'selected').currentEpoch, 2);
   assert.equal(evidence([other], 'selected').currentEpoch, null);
+});
+test('late correction retains the original text and extent across case boundaries', () => {
+  const first = input('note', '', [miss('a', 'partial', 2, 'abcd')], 'reply_not_heard');
+  first.data.unheard.replies[0].history_id = 's:voice:a';
+  const correction = input('note', '', [], 'reply_heard');
+  correction.data.notice.heard = [{ utterance_id: 'a', history_id: 's:voice:a', fate: 'heard', heard_chars: 4 }];
+  const old = { kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', role: 'assistant', text: 'abcd',
+    hearing: 'partial', heard_chars: 2, hearing_unconfirmed: true } } };
+  const row = evidence([start('T14'), say('a', 'queued', 'abcd'), first, start('T01'), correction, old]).fates[0];
+  assert.deepEqual([row.fate, row.heard_chars, row.text, row.heard, row.unheard], ['heard', 4, 'abcd', 'abcd', '']);
+  const sparse = evidence([start('T14'), correction]).fates[0];
+  assert.deepEqual([sparse.fate, sparse.heard_chars, sparse.text, sparse.heard], ['heard', 4, undefined, null]);
+});
+test('rejected and unacknowledged decisions do not erase history uncertainty', () => {
+  const submitted = hearing('a', 'partial', 2);
+  Object.assign(submitted.data, { client_msg_id: 'r1', history_id: 's:voice:a' });
+  const coreHistory = { kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', role: 'assistant', text: 'abcd',
+    hearing: 'partial', heard_chars: 2, hearing_unconfirmed: true } } };
+  const base = [start('T14'), say('a', 'queued', 'abcd'), coreHistory, submitted];
+  for (const ending of [[], [{ kind: 'room-frame', data: { type: 'error', client_msg_id: 'r1', key: 'room.stale_utterance' } }],
+    [{ kind: 'room-frame', data: { type: 'voice-ack', client_msg_id: 'r1' } }]]) {
+    const row = evidence([...base, ...ending]).fates[0];
+    assert.deepEqual([row.fate, row.heard_chars, row.hearing_unconfirmed], ['partial', 2, true]);
+  }
+  assert.equal(evidence([...base, { kind: 'room-frame', data: { type: 'history', row: { ...coreHistory.data.row,
+    hearing_unconfirmed: false } } }]).fates[0].hearing_unconfirmed, false);
 });

@@ -299,7 +299,7 @@ test("the evidence log splits semantic hearing by Unicode scalars", () => {
   assert.equal(view.fates[0].fate, "partial");
   assert.equal(view.fates[0].heard, "é🐙");
   assert.equal(view.fates[0].unheard, "ab");
-  assert.equal(view.fates[0].hearing_unconfirmed, false);
+  assert.equal(view.fates[0].hearing_unconfirmed, true, "an agent report does not settle other targets");
   assert.equal(view.checks.T01.state, "pending", "a prefix alone does not prove the full playback sequence");
 });
 
@@ -311,7 +311,9 @@ test("physical playback alone cannot certify hearing, including local Skip", () 
   ];
   assert.equal(evidence(events).fates[0].fate, "unconfirmed");
   assert.equal(evidence(events).fates[0].hearing_unconfirmed, true);
-  events.push({ kind: "browser-action", data: { type: "reply-hearing", utterance_id: "skip", outcome: "heard" } });
+  events.push({ kind: "browser-action", data: { type: "reply-hearing", client_msg_id: "r1", history_id: "s:voice:skip", utterance_id: "skip", outcome: "heard" } });
+  assert.equal(evidence(events).fates[0].fate, "unconfirmed", "submission is not core confirmation");
+  events.push({ kind: "room-frame", data: { type: "voice-ack", client_msg_id: "r1" } });
   assert.equal(evidence(events).fates[0].fate, "heard");
 });
 
@@ -319,7 +321,8 @@ test("late history snapshots cannot regress confirmed semantic hearing", () => {
   const events = [
     { kind: "script-start", data: { id: "T04a" } },
     { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "u", text: "é🐙ab" }, result: { status: "published", audio: "queued" } } },
-    { kind: "browser-action", data: { type: "reply-hearing", utterance_id: "u", outcome: "heard" } },
+    { kind: "browser-action", data: { type: "reply-hearing", client_msg_id: "r1", history_id: "s:voice:u", utterance_id: "u", outcome: "heard" } },
+    { kind: "room-frame", data: { type: "voice-ack", client_msg_id: "r1" } },
     { kind: "room-frame", data: { type: "history", row: { role: "assistant", id: "s:voice:u", hearing: null, hearing_unconfirmed: true, status: "playing", text: "é🐙ab" } } },
   ];
   const row = evidence(events).fates[0];
