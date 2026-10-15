@@ -185,6 +185,8 @@ The four candidate SHA pins are in [`preview/turn-lab.config.json`](preview/turn
 
 Each T01–T16 case variant is selectable from the scripted agent menu and from the mock scenario picker. Turn fixtures live under `preview/mock/scenarios/turns/`; they specify timed actions, expected epoch changes, fates, screen marks, agent notices and tool results. The mock speech gate is simulated; the fixtures do not yet execute the full mock/real conformance matrix. The live judge only marks an automatic case passed after observing its evidence. T10 speaker echo/AEC and other physical microphone behavior require an operator's actual speakers and microphone; a synthetic browser stream cannot prove them.
 
+The existing mock/core API shape check accepts only the binaries matching this config's SHA and digest receipts: set `PLAYGROUND_CONFORMANCE=1`, `PLAYGROUND_CORE_BIN` and `PLAYGROUND_CONNECTOR_BIN` to those source-built executable paths, then run `node --test test/mock-conformance.test.mjs`. The ordinary CI suite leaves this candidate-only test skipped; it does not compare the T mock against an older nightly release.
+
 The real sidevoice-web, at a release, `main`, a branch or a pull request, built by checkout and opened on an origin
 of its own. **Mocked** (the default) for UX: everything it talks to answers from a scenario, picked with its options
 in a card over the page and switched live. Or on the **real core and connector** of a picked release, in a scenario

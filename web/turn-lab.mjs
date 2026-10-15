@@ -66,7 +66,9 @@ async function poll() {
     }));
     $("events").replaceChildren(...state.events.slice(-100).reverse().map((event) => item(`${new Date(event.at).toLocaleTimeString()} ${event.kind} ${JSON.stringify(event.data).slice(0, 600)}`)));
     connected = Boolean(state.agent?.ready);
-    $("run").disabled = !connected;
+    if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: state.agent.conversation }, previewOrigin);
+    const browserJoined = state.events.some((event) => event.kind === "browser-ready" && event.data?.voice === "joined" && event.data?.thread === state.agent?.conversation);
+    $("run").disabled = !connected || !browserJoined;
     $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected";
   } catch (error) { setStatus(`Lab status: ${error.message}`); }
 }
@@ -81,7 +83,7 @@ $("run").onclick = async () => {
   $("run").disabled = true;
   try { await ask("/preview/turn-lab/choose", { id: $("script").value }); }
   catch (error) { $("agent-status").textContent = error.message; }
-  finally { $("run").disabled = !connected; await poll(); }
+  finally { await poll(); }
 };
 $("export").onclick = async () => {
   const trace = await ask("/preview/turn-lab/export");

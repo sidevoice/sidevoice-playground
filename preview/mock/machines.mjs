@@ -942,7 +942,7 @@ function snapshot(room, call, identity) {
   const calls = seated(room);
   return {
     binding: call?.binding?.thread_id ? call.binding : null,
-    room: { revision: call?.revision ?? 0, epoch: call?.binding?.thread_id ? room.epochs.get(call.binding.thread_id) ?? 0 : null, speaking: !!call?.speaking, switching: false, clients: calls.length, utterances: [], client_errors: [] },
+    room: { revision: call?.revision ?? 0, speaking: !!call?.speaking, switching: false, clients: calls.length, utterances: [], client_errors: [] },
     clients: calls.map((c) => ({ id: c.session, device_id: identity.deviceId, connected: true, user_speaking: c.speaking, turn_revision: c.revision })),
     call: call ? {
       id: call.session, target: call.binding ?? {}, connected: true, user_speaking: call.speaking, error: null, sent: 0,

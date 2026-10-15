@@ -14,6 +14,7 @@
   // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
   // but discard the previous room's pairing before the web app starts.
   let paired = false;
+  let wantedThread = null;
   try { localStorage.removeItem("sidevoice.pairings"); localStorage.removeItem("sidevoice.local-host-selected"); } catch {}
   report("browser-ready", { path: location.pathname, microphone: Boolean(navigator.mediaDevices?.getUserMedia), paired });
   const readyAction = async () => {
@@ -22,7 +23,12 @@
     return window.sidevoiceActions;
   };
   window.addEventListener("message", async (event) => {
-    if (event.source !== parent || event.origin !== new URL(document.referrer).origin || event.data?.type !== "turn-lab-pair") return;
+    if (event.source !== parent || event.origin !== new URL(document.referrer).origin) return;
+    if (event.data?.type === "turn-lab-thread" && typeof event.data.thread === "string") {
+      wantedThread = event.data.thread;
+      return;
+    }
+    if (event.data?.type !== "turn-lab-pair") return;
     try {
       const actions = await readyAction();
       const result = await actions.pairDevice(event.data.code, "Turn Lab browser", location.origin);
@@ -41,12 +47,18 @@
       const next = document.getElementById("wizard-stage-action");
       if (next && !next.disabled && !clicked.has(`${step}:continue`)) { clicked.add(`${step}:continue`); next.click(); report("browser-ready", { modelStep: step, state: "ready" }); }
       if (step === "W6" && !clicked.has("enter")) { clicked.add("enter"); wizard.querySelector(".wizard-enter")?.click(); }
-    } else if (paired) {
-      const person = [...document.querySelectorAll(".participant-row button.person")].find((button) => button.textContent?.includes("Turn Lab"));
-      if (person && !clicked.has("select")) { clicked.add("select"); person.click(); return; }
+    } else if (paired && wantedThread) {
+      const participant = window.sidevoiceUI?.store?.getState?.().participants?.find((row) => row.threadId?.endsWith(`|${wantedThread}`));
+      if (!participant) return;
+      if (!participant.selected) { window.sidevoiceActions?.selectParticipant?.(participant.threadId); return; }
+      if (!clicked.has(`selected:${wantedThread}`)) { clicked.add(`selected:${wantedThread}`); report("browser-ready", { thread: wantedThread, selected: true }); }
       const join = document.getElementById("connect");
       if (join && !join.classList.contains("joined") && !clicked.has("join") && !join.disabled) {
         clicked.add("join"); join.click(); report("browser-ready", { voice: "starting" });
+      }
+      if (join?.classList.contains("joined") && !clicked.has(`joined:${wantedThread}`)) {
+        clicked.add(`joined:${wantedThread}`);
+        setTimeout(() => report("browser-ready", { voice: "joined", thread: wantedThread }), 1500);
       }
     }
   }, 500);
