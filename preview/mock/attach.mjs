@@ -191,7 +191,10 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
   // Restarting into an app update opens a new window: the page loads again, its session (sessionStorage: what it hid
   // for this run, an update notice's ×) started over, as a new window's is. The preview's own keys on this origin
   // (sidevoice-preview.*: the world kept over a reload) stay.
-  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: () => {
+  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: ({ reset } = {}) => {
+    if (reset) try {
+      for (const key of Object.keys(win.localStorage)) if (key.startsWith("sidevoice.") && !key.startsWith("sidevoice-preview.")) win.localStorage.removeItem(key);
+    } catch { /* The reset report still names what failed. */ }
     try {
       for (const key of Object.keys(win.sessionStorage)) if (!key.startsWith("sidevoice-preview.")) win.sessionStorage.removeItem(key);
     } catch { /* Nothing kept. */ }

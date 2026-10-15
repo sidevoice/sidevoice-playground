@@ -92,6 +92,11 @@
       { "value": "off", "label": "not set", "set": { "app.desktopSettings": true, "app.shortcut": null, "app.shortcutRefused": false } },
       { "value": "absent", "label": "not offered (an older app)", "set": { "app.desktopSettings": false } }
     ] },
+    { "id": "resetFailure", "group": "Desktop app", "label": "Data deletion", "values": [
+      { "value": "none", "label": "succeeds after restart", "set": { "app.resetFailure": null } },
+      { "value": "service", "label": "service uninstall fails", "set": { "app.resetFailure": "service" } },
+      { "value": "models", "label": "models remain (partial result)", "set": { "app.resetFailure": "models" } }
+    ] },
     { "id": "appChannel", "group": "Version", "label": "Desktop app build", "reload": true, "values": [
       { "value": "release", "label": "release", "set": { "app.channel": "release" } },
       { "value": "nightly", "label": "nightly", "set": { "app.channel": "nightly" } },
