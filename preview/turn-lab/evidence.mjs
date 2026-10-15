@@ -43,28 +43,40 @@ function judge(events) {
   const epochs = [...inputs, ...frames].map((item) => item?.epoch ?? item?.data?.epoch).filter(Number.isInteger);
   const currentEpoch = epochs.length ? Math.max(...epochs) : null;
   const fates = new Map();
+  const fateRank = (value) => ({ played: 5, skipped: 5, cut: 4, refused: 4, stale: 4, "not played": 4, playing: 2, queued: 1, synthesizing: 1 }[value] ?? 0);
+  const settle = (id, incoming) => {
+    const previous = fates.get(id);
+    if (!previous) { fates.set(id, incoming); return; }
+    const stronger = fateRank(incoming.fate) >= fateRank(previous.fate) ? incoming : previous;
+    const defined = Object.fromEntries(Object.entries(incoming).filter(([, value]) => value !== undefined));
+    const next = { ...previous, ...defined, ...stronger };
+    const extent = Math.max(previous.heard_chars ?? -1, incoming.heard_chars ?? -1);
+    if (extent >= 0) next.heard_chars = extent;
+    if (next.fate === "played" && next.text) { next.heard = next.text; next.unheard = ""; }
+    fates.set(id, next);
+  };
   for (const event of after) {
     const item = event.data;
     if (event.kind === "tool-result" && item?.name === "voice_say" && item.args?.utterance_id) {
       const result = item.result;
       const disposition = status(result);
       const textOnly = disposition === "text_only" || result?.audio === "text_only";
-      fates.set(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
+      settle(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
     }
     const utterances = item?.utterance_ids ?? (item?.utterance_id ? [item.utterance_id] : []);
     if (event.kind === "room-frame" || event.kind === "browser-action") for (const id of utterances) {
       const type = item.type ?? item.event;
-      if (type === "voice-reply") fates.set(id, { fate: "queued", text: item.text, epoch: item.epoch });
-      if (type === "voice-reply-withdrawn") fates.set(id, { ...fates.get(id), fate: "not played", reason: item.reason });
-      if (type === "voice-playback") fates.set(id, { ...fates.get(id), fate: playbackFate(item.status, item.reason), heard_chars: item.heard_chars, reason: item.reason });
-      if (type === "history") fates.set(id, { ...fates.get(id), fate: playbackFate(item.status, item.reason), heard_chars: item.heard_chars, reason: item.reason, text: item.text ?? fates.get(id)?.text });
+      if (type === "voice-reply") settle(id, { fate: "queued", text: item.text, epoch: item.epoch });
+      if (type === "voice-reply-withdrawn") settle(id, { fate: "not played", reason: item.reason });
+      if (type === "voice-playback") settle(id, { fate: playbackFate(item.status, item.reason), heard_chars: item.heard_chars, reason: item.reason });
+      if (type === "history") settle(id, { fate: playbackFate(item.status, item.reason), heard_chars: item.heard_chars, reason: item.reason, text: item.text });
     }
   }
   for (const item of unheard) {
     if (["played", "skipped", "heard"].includes(fates.get(item.utterance_id)?.fate)) continue;
     const scalars = [...(item.text ?? "")];
     const cut = item.heard_chars;
-    fates.set(item.utterance_id, { fate: playbackFate(item.fate, item.reason), heard_chars: cut, text: item.text, reason: item.reason,
+    settle(item.utterance_id, { fate: playbackFate(item.fate, item.reason), heard_chars: cut, text: item.text, reason: item.reason,
       heard: cut == null ? null : scalars.slice(0, cut).join(""), unheard: cut == null ? item.text : scalars.slice(cut).join("") });
   }
   const checks = Object.fromEntries(Object.keys(SCRIPTS).map((id) => [id, { state: MANUAL.has(id) ? "manual" : "pending", reason: "Awaiting evidence" }]));

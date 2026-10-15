@@ -106,6 +106,20 @@ test("browser playback receipts and history settle reply fates", () => {
   assert.equal(evidence(events).checks.T12.state, "pass");
 });
 
+test("late snapshots cannot regress a terminal reply fate or confirmed hearing", () => {
+  const events = [
+    { kind: "script-start", data: { id: "T04a" } },
+    { kind: "tool-result", data: { name: "voice_say", args: { utterance_id: "u", text: "é🐙ab" }, result: { status: "published", audio: "queued" } } },
+    { kind: "browser-action", data: { type: "voice-playback", utterance_id: "u", status: "heard", heard_chars: 4 } },
+    { kind: "room-frame", data: { type: "history", utterance_id: "u", status: "playing", heard_chars: 1, text: "é🐙ab" } },
+    { kind: "room-frame", data: { type: "voice-reply", utterance_id: "u", text: "é🐙ab" } },
+  ];
+  const fate = evidence(events).fates[0];
+  assert.equal(fate.fate, "played");
+  assert.equal(fate.heard_chars, 4);
+  assert.equal(fate.unheard, "");
+});
+
 test("earlier case verdicts and notices remain visible after another script starts", () => {
   const events = [
     { kind: "script-start", data: { id: "T02d" } },
