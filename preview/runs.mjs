@@ -9,6 +9,7 @@
 // run runs a worktree's Vite dev server (dev.mjs), the mocks around it the same way.
 
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -143,13 +144,21 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
         port: current.port,
         site: current.web.site,
         reset: current.reset,
+        runId: current.runId,
+        identity: current.identity ?? null,
       };
+    },
+    /** Private, server-side candidate details for the scripted MCP agent. */
+    labConnection() {
+      if (current?.mode !== "real") throw new RefError(409, "start a real preview first");
+      current.connectorUsed = true;
+      return { program: current.connector.program, profile: current.profile };
     },
     /**
      * Starts `scenario` on the web build `web` ({ label, site }), the core and the connector archives (archives.mjs),
      * after stopping whatever ran.
      */
-    async start({ scenario, web, core, connector: connectorArchive }) {
+    async start({ scenario, web, core, connector: connectorArchive, identity = null }) {
       await stopCurrent();
       const profile = profileOf(join(cache, "profiles", scenario.id));
       if (scenario.state === "fresh") await rm(profile.root, { recursive: true, force: true });
@@ -171,9 +180,11 @@ export function runs({ cache, origin, spawnProcess = spawn, wait = (ms) => new P
         throw new RefError(504, `core ${core.tag} was not ready within ${READY_MS / 1000} s`);
       }
       current = {
-        mode: "real", scenario, web, core, connector: connectorArchive, profile, process: child, port, connectorUsed: false,
+        mode: "real", scenario, web, core, connector: connectorArchive, profile, process: child, port, connectorUsed: false, identity, runId: randomUUID(),
         // A fresh scenario starts with a browser that remembers nothing of the preview origin.
-        reset: scenario.state === "fresh",
+        // The lab refreshes its room profile each run, but keeps this browser's downloaded local models.
+        // Its browser pairs again through the real web controller when the new room starts.
+        reset: scenario.state === "fresh" && scenario.id !== "turn-lab",
       };
       return this.current;
     },

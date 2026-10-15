@@ -55,15 +55,16 @@ export function previewSection({ inApp }) {
   async function list() {
     status("#preview-status", "Listing what there is to pick…");
     try {
-      const [listed, engines, voices] = await Promise.all([
+      const [listed, engines, voices, lab] = await Promise.all([
         ask("/preview/options"),
         ask("/engine-builds").catch(() => null),
         ask("/voice-builds").catch(() => null),
+        ask("/preview/turn-lab/config").catch(() => null),
       ]);
       options = listed;
       fill($("#preview-web"), webChoices(listed.web));
-      fill($("#preview-core"), archiveChoices(listed.core, "nightly"));
-      fill($("#preview-connector"), archiveChoices(listed.connector, "release"));
+      fill($("#preview-core"), archiveChoices(listed.core, "nightly", lab?.core));
+      fill($("#preview-connector"), archiveChoices(listed.connector, "release", lab?.connector));
       fill($("#preview-engine"), buildChoices(engines));
       fill($("#preview-voice"), buildChoices(voices));
       fill($("#preview-scenario"), listed.scenarios.map((s) => ({ value: s.id, label: s.title })));

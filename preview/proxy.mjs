@@ -22,6 +22,7 @@ import { validMockScenario } from "./mock/world.mjs";
 import { chunkFor, exportedNames, mockChunk, packageOf } from "./mock/chunks.mjs";
 
 const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
+const OBSERVE = fileURLToPath(new URL("./turn-lab/observe.js", import.meta.url));
 /** What the shell may load from mock/: a module or a stylesheet right in it, by a plain name — no path, nothing
  *  hidden, so nothing outside mock/ — read when asked, so a module added there is served without a restart. Its
  *  types, its scenarios and the page's target are not served under it. */
@@ -35,8 +36,13 @@ export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
   const files = (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
   const shared = JSON.parse(await readFile(join(MOCK_DIR, "voice-options.json"), "utf8"));
   const scenarios = [];
+  const base = new Map();
   for (const file of files) {
     const { defaults = {}, ...value } = JSON.parse(await readFile(join(dir, file), "utf8"));
+    base.set(file.replace(/\.json$/, ""), { defaults, ...value });
+  }
+  for (const file of files) {
+    const { defaults = {}, ...value } = base.get(file.replace(/\.json$/, ""));
     value.options = [...(value.options ?? []), ...shared.filter((option) => !value.options?.some((own) => own.id === option.id))];
     if (!validMockScenario(value)) throw new Error(`${file} is not a mocked scenario`);
     for (const [id, start] of Object.entries(defaults)) {
@@ -47,6 +53,24 @@ export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
       value.options[at] = { ...value.options[at], values: [first, ...value.options[at].values.filter((v) => v !== first)] };
     }
     scenarios.push(value);
+  }
+  // Turn fixtures inherit one real-looking room; each remains a separate selectable scenario.
+  const turns = await readdir(join(dir, "turns")).catch(() => []);
+  for (const file of turns.filter((name) => name.endsWith(".json")).sort()) {
+    const fixture = JSON.parse(await readFile(join(dir, "turns", file), "utf8"));
+    const parent = base.get(fixture.extends);
+    if (!parent) throw new Error(`${file}: no base scenario ${fixture.extends}`);
+    const scenario = { ...structuredClone(parent), id: fixture.id.toLowerCase(), title: `${fixture.id} · ${fixture.title}`, summary: fixture.summary,
+      turn: fixture, options: structuredClone(parent.options ?? []), world: structuredClone(parent.world) };
+    scenario.options.push(...shared.filter((option) => !scenario.options.some((own) => own.id === option.id)));
+    for (const [id, start] of Object.entries(parent.defaults ?? {})) {
+      const option = scenario.options.find((item) => item.id === id);
+      const first = option?.values.find((item) => item.value === start);
+      if (!first) throw new Error(`${file}: invalid inherited default ${id}=${start}`);
+      option.values = [first, ...option.values.filter((item) => item !== first)];
+    }
+    if (!validMockScenario(scenario)) throw new Error(`${file}: invalid turn scenario`);
+    scenarios.push(scenario);
   }
   return scenarios;
 }
@@ -144,7 +168,10 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
       return res.end(chunk);
     }
     try {
-      const body = await readFile(target.path);
+      let body = await readFile(target.path);
+      if (run.scenario === "turn-lab" && url.pathname === "/voice/target.js") {
+        body = Buffer.concat([body, Buffer.from("\n"), await readFile(OBSERVE)]);
+      }
       // Mocked, scripts are never kept: a package chunk the browser kept from a run with the real one would win.
       const noStore = target.fallback || target.path.endsWith("target.js") || target.path.endsWith("index.html") ||
         (run.mode === "mock" && target.path.endsWith(".js"));

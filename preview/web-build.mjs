@@ -64,7 +64,7 @@ export async function plannedPins(pins, published, tarballs) {
   const replace = {};
   const missing = [];
   for (const [name, version] of pins) {
-    if (await published(name, version)) continue;
+    if (!(name === "@sidevoice/voice" && tarballs.forceVoice) && await published(name, version)) continue;
     const tarball = tarballs[SUPPLIED[name]];
     if (tarball) replace[name] = `file:${tarball}`;
     else missing.push(`${name}@${version}`);
@@ -162,7 +162,7 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
       if (Object.keys(replace).length) {
         Object.assign(manifest.dependencies, replace);
         await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-        await exec("npm", ["install", "--no-audit", "--no-fund", "--legacy-peer-deps"], { cwd: work });
+        await exec("npm", ["install", "--no-audit", "--no-fund"], { cwd: work });
       } else {
         await exec("npm", ["ci", "--no-audit", "--no-fund"], { cwd: work });
       }
@@ -202,8 +202,10 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
      */
     async get(ref, tarballs = {}) {
       const sha = await resolve(ref);
-      // The same commit with other picked builds is another site.
-      const picked = [tarballs.engine ?? null, tarballs.voice ?? null];
+      // CI downloads use new temporary paths on each server start. Cache by their
+      // actual bytes so the same pinned candidate keeps its built site.
+      const digest = async (path) => path ? createHash("sha256").update(await readFile(path)).digest("hex") : null;
+      const picked = [await digest(tarballs.engine), await digest(tarballs.voice), Boolean(tarballs.forceVoice)];
       const key = `${picked.some(Boolean) ? `${sha}-${shortHash(JSON.stringify(picked))}` : sha}-m${await mockDigest()}`;
       if (!pending.has(key)) {
         const promise = build(sha, key, tarballs);

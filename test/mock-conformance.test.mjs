@@ -1,19 +1,18 @@
-// The mocked machines against a real one: the nightly core (room-only, no models) and the newest connector release,
+// The mocked machines against the matching candidate core (room-only, no models) and connector,
 // asked the same routes as the mocks, in the same order — a code, its redemption, the device's own routes. Every
 // answer the mocks give must have the core's status, and nothing the core's answer lacks or types otherwise (the
 // core may say more). Lists the core leaves empty (no agents here) are checked by the protocol's types instead
-// (web-build.mjs). It downloads both releases: PLAYGROUND_CONFORMANCE=1 runs it.
+// (web-build.mjs). Set PLAYGROUND_CONFORMANCE=1 and both candidate binary paths to run it.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { archives, listArchives } from "../preview/archives.mjs";
 import { connectorEnv, coreLaunch, profileOf } from "../preview/runs.mjs";
-import { publicApi } from "../web/engine/listing.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { answer, directUrl, makeIdentities, mintCode } from "../preview/mock/machines.mjs";
 
@@ -36,12 +35,29 @@ test("shapes: what the mocks have, the core has, typed alike", () => {
   assert.deepEqual(shapeDifferences({ z: 1 }, {}), ["$.z: the core has no such field"]);
 });
 
-test("the mocked machines answer as the nightly core does", { skip: process.env.PLAYGROUND_CONFORMANCE !== "1", timeout: 300_000 }, async () => {
-  const api = publicApi();
+const REQUESTED = process.env.PLAYGROUND_CONFORMANCE === "1";
+const CANDIDATE = REQUESTED && process.env.PLAYGROUND_CORE_BIN && process.env.PLAYGROUND_CONNECTOR_BIN;
+
+test("requested candidate conformance has both binaries", { skip: !REQUESTED }, () => {
+  assert.ok(process.env.PLAYGROUND_CORE_BIN, "PLAYGROUND_CORE_BIN is required");
+  assert.ok(process.env.PLAYGROUND_CONNECTOR_BIN, "PLAYGROUND_CONNECTOR_BIN is required");
+});
+
+async function checkedCandidate(kind, program, sha) {
+  const dir = dirname(dirname(dirname(program)));
+  const receipt = JSON.parse(await readFile(join(dir, "binary.json"), "utf8"));
+  const digest = createHash("sha256").update(await readFile(program)).digest("hex");
+  assert.deepEqual({ sha: receipt.sha, digest: receipt.digest, kind: receipt.kind }, { sha, digest, kind });
+  return { program };
+}
+
+test("the mocked machines answer as the pinned candidate core does", { skip: !CANDIDATE && "set PLAYGROUND_CONFORMANCE=1 plus both candidate binary paths", timeout: 300_000 }, async () => {
+  const config = JSON.parse(await readFile(new URL("../preview/turn-lab.config.json", import.meta.url), "utf8"));
   const work = await mkdtemp(join(tmpdir(), "mock-conformance-"));
-  const store = archives({ cache: join(work, "archives"), api });
-  const connectorTag = (await listArchives(api, "connector")).find((r) => r.tag !== "nightly").tag;
-  const [core, connector] = await Promise.all([store.get("core", "nightly"), store.get("connector", connectorTag)]);
+  const [core, connector] = await Promise.all([
+    checkedCandidate("core", process.env.PLAYGROUND_CORE_BIN, config.core),
+    checkedCandidate("connector", process.env.PLAYGROUND_CONNECTOR_BIN, config.connector),
+  ]);
   const profile = profileOf(join(work, "profile"));
   for (const dir of [profile.home, profile.xdgConfig, profile.xdgData, profile.core]) await mkdir(dir, { recursive: true, mode: 0o700 });
   const launch = coreLaunch(core.program, profile, ORIGIN);

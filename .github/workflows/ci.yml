@@ -33,7 +33,41 @@ jobs:
       - run: npm test
         env:
           PLAYGROUND_NETWORK: "1"
+
+  turn-conformance:
+    name: Pinned turn conformance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Rust 1.98 toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal
+      - name: Build pinned candidates, one at a time
+        shell: bash
+        run: |
+          set -euo pipefail
+          for kind in core connector; do
+            sha=$(node -p "require('./preview/turn-lab.config.json').$kind")
+            dir="$RUNNER_TEMP/turn-$kind-$sha"
+            mkdir -p "$dir"
+            git -C "$dir" init -q
+            git -C "$dir" remote add origin "https://github.com/sidevoice/sidevoice-$kind.git"
+            git -C "$dir" fetch --depth 1 origin "$sha"
+            git -C "$dir" checkout -q --detach FETCH_HEAD
+            test "$(git -C "$dir" rev-parse HEAD)" = "$sha"
+            if [ "$kind" = core ]; then bin=sidevoice-core-rust; else bin=sidevoice-connector; fi
+            (cd "$dir" && RUSTUP_TOOLCHAIN=1.98.1 cargo build --locked --release --bin "$bin")
+            digest=$(sha256sum "$dir/target/release/$bin" | cut -d ' ' -f1)
+            node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({kind:process.argv[2],sha:process.argv[3],digest:process.argv[4]}))' \
+              "$dir/binary.json" "$kind" "$sha" "$digest"
+            echo "PLAYGROUND_${kind^^}_BIN=$dir/target/release/$bin" >> "$GITHUB_ENV"
+          done
+      - name: Compare mock responses with pinned core and connector
+        env:
           PLAYGROUND_CONFORMANCE: "1"
+        run: node --test test/mock-conformance.test.mjs
 
   # On every run, not only when src-tauri/ changes: the app embeds web/, so a change to the page is a change to the
   # app, and a path filter would spare only the PRs that touch nothing but docs.

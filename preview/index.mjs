@@ -9,6 +9,15 @@ import { archives as archiveStore, listArchives } from "./archives.mjs";
 import { loadScenarios, runs as runStore } from "./runs.mjs";
 import { WEB_REPO, webBuilds } from "./web-build.mjs";
 import { listWorktrees, startDevServer } from "./dev.mjs";
+import { sourceBuilds } from "./source-build.mjs";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { scriptedAgent, SCRIPTS } from "./turn-lab/agent.mjs";
+import { evidence } from "./turn-lab/evidence.mjs";
+
+const LAB_CONFIG = fileURLToPath(new URL("./turn-lab.config.json", import.meta.url));
 
 /** How many log lines a job keeps for the page. */
 export const LOG_LINES = 200;
@@ -32,7 +41,7 @@ export async function listWeb(api) {
  * refs and tags as the pickers give them. `mode` is `mock` unless it says `real`.
  */
 export function validStart(body, scenarios) {
-  const ref = (value) => typeof value === "string" && /^[\w.\/-]+$/.test(value) && !value.includes("..");
+  const ref = (value) => typeof value === "string" && /^(?:sha:)?[\w.\/-]+$/.test(value) && !value.includes("..");
   // A dev run names a worktree, not a version.
   if (body?.mode === "dev") {
     if (typeof body.worktree !== "string" || !body.worktree.startsWith("/")) throw new RefError(400, "pick a worktree");
@@ -65,13 +74,78 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     log.push(line);
     if (log.length > LOG_LINES) log.shift();
   };
+  const sources = sourceBuilds({ cache, api, log: say });
   const builds = web ?? webBuilds({ cache, api, log: say });
   let job = { state: "idle", error: null };
+  let agent = null;
+  let secondAgent = null;
+  const events = [];
+  let caseEvents = [], archivedChecks = {}, archivedFates = new Map(), archivedNotes = [], archivedInputs = [];
+  const epochs = new Map();
+  let traceFile = null, traceWrites = Promise.resolve();
+  const redact = (value) => {
+    if (Array.isArray(value)) return value.map(redact);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) =>
+      [key, /token|secret|authorization|access_cookie/i.test(key) ? "[redacted]" : redact(item)]));
+    if (typeof value === "string") return value.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/SV1\.[A-Za-z0-9_-]+/g, "SV1.[redacted]");
+    return value;
+  };
+  const view = () => {
+    const current = evidence(caseEvents, agent?.state.conversation);
+    const selected = [...caseEvents].reverse().find((event) => event.kind === "script-start")?.data?.id;
+    const checks = { ...current.checks, ...archivedChecks };
+    if (selected) checks[selected] = current.checks[selected];
+    const fates = new Map(archivedFates);
+    for (const fate of current.fates) fates.set(fate.utterance_id, fate);
+    return { ...current, currentEpoch: epochs.get(agent?.state.conversation) ?? current.currentEpoch,
+      checks, fates: [...fates.values()].slice(-100), notes: [...archivedNotes, ...current.notes].slice(-100), inputs: [...archivedInputs, ...current.inputs].slice(-100) };
+  };
+  const emit = (raw) => {
+    const event = redact(raw);
+    if (event.kind === "script-start" && caseEvents.some((item) => item.kind === "script-start")) {
+      const previous = evidence(caseEvents);
+      const id = caseEvents.find((item) => item.kind === "script-start")?.data?.id;
+      if (id) archivedChecks[id] = previous.checks[id];
+      for (const fate of previous.fates) archivedFates.set(fate.utterance_id, fate);
+      if (archivedFates.size > 100) archivedFates.delete(archivedFates.keys().next().value);
+      archivedNotes = [...archivedNotes, ...previous.notes].slice(-100);
+      archivedInputs = [...archivedInputs, ...previous.inputs].slice(-100);
+      caseEvents = [];
+    }
+    events.push(event);
+    if (events.length > 300) events.shift();
+    if (["script-start", "agent-input", "browser-action", "room-frame", "tool-result", "browser-ready"].includes(event.kind) &&
+      !(event.kind === "tool-result" && event.data?.name === "get_messages")) caseEvents.push(event);
+    if (caseEvents.length > 1200) {
+      const index = caseEvents.findIndex((item) => item.kind === "room-frame" && item.data?.type === "history");
+      caseEvents.splice(index < 0 ? 1 : index, 1);
+    }
+    const conversation = event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
+    const epoch = event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch;
+    if (conversation && Number.isInteger(epoch)) epochs.set(conversation, epoch);
+    if (traceFile) traceWrites = traceWrites.then(() => appendFile(traceFile, JSON.stringify(event) + "\n")).catch((error) => {
+      say(`Trace export failed: ${error.message}`);
+      traceFile = null;
+    });
+  };
+  const candidate = (config) => ({ core: config.core, connector: config.connector, web: config.web, voice: config.voice, engine: config.engine });
+  const matchesCandidate = (current, config) => current?.mode === "real" && current.scenario === "turn-lab" &&
+    Object.entries(candidate(config)).every(([key, value]) => current.identity?.[key] === value);
+  const labPick = (config) => validStart({ mode: "real", scenario: "turn-lab", web: config.web, core: `sha:${config.core}`,
+    connector: `sha:${config.connector}`, voice: config.voice, engine: config.engine }, scenarios);
 
   async function start(pick) {
-    log.length = 0;
     job = { state: "starting", error: null };
     try {
+      if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
+      if (agent) { await agent.stop(); agent = null; }
+      events.length = 0;
+      caseEvents = []; archivedChecks = {}; archivedFates = new Map(); archivedNotes = []; archivedInputs = []; epochs.clear();
+      await traceWrites;
+      await mkdir(join(cache, "turn-lab-traces"), { recursive: true });
+      traceFile = join(cache, "turn-lab-traces", `${Date.now()}-${randomUUID()}.ndjson`);
+      await writeFile(traceFile, "");
+      log.length = 0;
       if (pick.mode === "dev") {
         // Only a worktree of the dev checkout, as it lists them now.
         const worktree = (await listWorktrees(devRepo)).find((w) => w.path === pick.worktree);
@@ -93,12 +167,18 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
         return;
       }
       say(`Getting core ${pick.core} and connector ${pick.connector}…`);
-      const [core, connector] = await Promise.all([store.get("core", pick.core), store.get("connector", pick.connector)]);
+      const binary = (kind, ref) => ref.startsWith("sha:") ? sources.get(kind, ref.slice(4)) : store.get(kind, ref);
+      // Rust candidate builds run one at a time to keep memory use predictable.
+      const core = await binary("core", pick.core);
+      const connector = await binary("connector", pick.connector);
       const tarballs = await picked(pick);
+      if (pick.scenario.id === "turn-lab") tarballs.forceVoice = true;
       say(`Building web ${pick.web} (the first time for a commit takes minutes)…`);
       const { sha, site } = await builds.get(pick.web, tarballs);
       say(`Starting ${pick.scenario.title}: core ${core.tag}${core.source ? ` (${core.source.slice(0, 7)})` : ""}…`);
-      await manager.start({ scenario: pick.scenario, web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site }, core, connector });
+      await manager.start({ scenario: pick.scenario, web: { label: `${pick.web} @ ${sha.slice(0, 7)}`, site }, core, connector,
+        identity: { core: core.source ?? null, connector: connector.source ?? null, web: sha, voice: pick.voice ?? null, engine: pick.engine ?? null } });
+      emit({ at: Date.now(), kind: "run-start", data: { core: { sha: core.source, digest: core.digest }, connector: { sha: connector.source, digest: connector.digest }, web: sha, voice: { sha: pick.voice, digest: tarballs.voiceDigest ?? null } } });
       job = { state: "running", error: null };
       say("Running: open the preview.");
     } catch (error) {
@@ -111,7 +191,11 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   async function picked(pick) {
     const tarballs = {};
     if (pick.engine) tarballs.engine = (await engineBuild(pick.engine)).tarball;
-    if (pick.voice) tarballs.voice = (await voiceBuild(pick.voice)).tarball;
+    if (pick.voice) {
+      const voice = await voiceBuild(pick.voice);
+      tarballs.voice = voice.tarball;
+      tarballs.voiceDigest = voice.sha256;
+    }
     return tarballs;
   }
 
@@ -131,6 +215,14 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   /** Handles `url` when it is one of the section's routes: its answer's value, or undefined. */
   async function route(req, url) {
     const path = url.pathname;
+    if (path === "/preview/turn-lab/config" && req.method === "GET") return JSON.parse(await readFile(LAB_CONFIG, "utf8"));
+    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: view(), agent: agent?.state ?? null, secondAgent: secondAgent?.state ?? null, job, current: manager.current };
+    if (path === "/preview/turn-lab/scripts" && req.method === "GET") return SCRIPTS;
+    if (path === "/preview/turn-lab/export" && req.method === "GET") {
+      await traceWrites;
+      const lines = traceFile ? (await readFile(traceFile, "utf8")).trim().split("\n").filter(Boolean) : [];
+      return { at: new Date().toISOString(), events: lines.map((line) => JSON.parse(line)), evidence: view() };
+    }
     if (path === "/preview/options" && req.method === "GET") {
       const [web, core, connector, worktrees] = await Promise.all([
         listWeb(api), listArchives(api, "core"), listArchives(api, "connector"), devRepo ? listWorktrees(devRepo) : [],
@@ -140,6 +232,41 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     if (path === "/preview/status" && req.method === "GET") return { job, log: [...log], current: manager.current, origin, link };
     if (req.method !== "POST") return undefined;
+    if (path === "/preview/turn-lab/start" || path === "/preview/turn-lab/recover") {
+      const config = JSON.parse(await readFile(LAB_CONFIG, "utf8"));
+      if (job.state === "starting") throw new RefError(409, "a preview is starting; retry after it finishes");
+      if (path.endsWith("/start") && matchesCandidate(manager.current, config) && job.state === "running") return { job, config, reused: true };
+      const pick = labPick(config);
+      job = { state: "starting", error: null };
+      void start(pick);
+      return { job, config, reused: false };
+    }
+    if (path === "/preview/turn-lab/connect") {
+      if (job.state !== "running") throw new RefError(409, "real room is not ready");
+      const { mode } = await body(req);
+      if (!["push", "pull"].includes(mode)) throw new RefError(400, "mode must be push or pull");
+      if (agent) await agent.stop();
+      agent = scriptedAgent({ ...manager.labConnection(), emit });
+      try { return { connected: await agent.start(mode) }; }
+      catch (error) { await agent.stop().catch(() => {}); agent = null; throw new RefError(502, error.message); }
+    }
+    if (path === "/preview/turn-lab/choose") {
+      if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
+      const { id } = await body(req);
+      if (id === "T11" && !secondAgent?.state.ready) {
+        secondAgent = scriptedAgent({ ...manager.labConnection(), emit });
+        try { await secondAgent.start("push"); }
+        catch (error) { await secondAgent.stop().catch(() => {}); secondAgent = null; throw new RefError(502, `second conversation: ${error.message}`); }
+        emit({ at: Date.now(), kind: "second-conversation-ready", data: { conversation: secondAgent.state.conversation } });
+      }
+      return agent.choose(id);
+    }
+    if (path === "/preview/turn-lab/event") {
+      const event = await body(req);
+      if (!event || !["room-frame", "browser-action", "browser-ready", "browser-error"].includes(event.kind)) throw new RefError(400, "not a lab event");
+      emit({ at: Date.now(), kind: event.kind, data: event.data });
+      return { recorded: true };
+    }
     if (path === "/preview/start") {
       if (job.state === "starting") throw new RefError(409, "a preview is starting already");
       const pick = validStart(await body(req), scenarios);
@@ -148,6 +275,8 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     if (path === "/preview/pair") return manager.pairingCode();
     if (path === "/preview/stop") {
+      if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
+      if (agent) { await agent.stop(); agent = null; }
       await manager.stop();
       job = { state: "idle", error: null };
       return { stopped: true };

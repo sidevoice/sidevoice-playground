@@ -90,7 +90,7 @@ test("the web listing keeps releases that are not drafts", async () => {
 
 test("the scenarios shipped are valid, fresh install first", async () => {
   const scenarios = await loadScenarios();
-  assert.deepEqual(scenarios.map((s) => [s.id, s.state]), [["fresh-install", "fresh"], ["paired", "kept"]]);
+  assert.deepEqual(scenarios.map((s) => [s.id, s.state]), [["fresh-install", "fresh"], ["paired", "kept"], ["turn-lab", "fresh"]]);
   assert.equal(validScenario({ id: "Bad id", title: "x", state: "fresh", steps: [] }), false);
 });
 

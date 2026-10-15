@@ -170,6 +170,23 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 ## Web preview
 
+### Turn Lab: real spoken conversation
+
+The access-gated link is **`http://localhost:5174/turn-lab?access=<token from the playground access file>`**. Open it once; the gate stores a cookie and redirects to `/turn-lab`. For a remote browser, use the same `/turn-lab?access=…` path on the playground tunnel and set `--preview-origin` to the second, browser-reachable preview tunnel. The Turn Lab starts the pinned real room, pairs its browser through the web build's own pairing protocol, connects a scripted MCP agent in inject mode, and puts the room, script menu, event log, reply fates and case checks together. Allow the microphone prompt; the browser downloads its local models automatically on first use. Once the call joins, speak. Use **Get messages** to reconnect the scripted agent in pull mode.
+
+For an isolated local run, use ports away from the live playground:
+
+```sh
+PORT=5314 node server.mjs --preview-port 5315 --cache-dir /tmp/sidevoice-turn-lab-cache --access-file /tmp/sidevoice-turn-lab-access
+# Open http://localhost:5314/turn-lab?access=<token from /tmp/sidevoice-turn-lab-access>
+```
+
+The four candidate SHA pins are in [`preview/turn-lab.config.json`](preview/turn-lab.config.json) and shown in the Turn Lab itself. Re-pin a producer by changing its one SHA entry and restarting the lab. Core and connector full SHAs are source-built in an isolated cache; the binary SHA-256 is recorded in the run trace. Web is built from its full SHA and its `@sidevoice/voice` dependency is forced to the chosen voice CI tarball even if npm already has the web commit's old version. The trace records the voice package digest as well. The current pins are core `b7eed0351b494f6d46be03a84f84f80c88be18b0`, voice `b898c55cdffbbf5fe603e2e088e530163825ce06`, connector `215b2ee1d8c1209e4704c5eb0caf0ae8b8edb4ae` (T PR #126), and web `8d4f334cb3a9942d0ca93a7a4c865b63e5bbf9fd` (T PR #126). The connector PR is still moving; resolve its current head before the next run. Build hosts need Rust 1.98, Cargo, a C compiler, and Node 22. The room runs no server-side inference; browser Silero, Smart Turn, and local TTS run in the real web/voice build.
+
+Each T01–T16 case variant is selectable from the scripted agent menu and from the mock scenario picker. Turn fixtures live under `preview/mock/scenarios/turns/`; they specify timed actions, expected epoch changes, fates, screen marks, agent notices and tool results. The mock speech gate is simulated; the fixtures do not yet execute the full mock/real conformance matrix. The live judge has automatic evidence rules for 14 cases; the other 11 show Manual, including T10 speaker echo/AEC and behavior that needs a real speaker and microphone. An automatic case stays Pending until its evidence arrives.
+
+The existing mock/core API shape check accepts only the binaries matching this config's SHA and digest receipts: set `PLAYGROUND_CONFORMANCE=1`, `PLAYGROUND_CORE_BIN` and `PLAYGROUND_CONNECTOR_BIN` to those source-built executable paths, then run `node --test test/mock-conformance.test.mjs`. The ordinary CI suite leaves this candidate-only test skipped; it does not compare the T mock against an older nightly release.
+
 The real sidevoice-web, at a release, `main`, a branch or a pull request, built by checkout and opened on an origin
 of its own. **Mocked** (the default) for UX: everything it talks to answers from a scenario, picked with its options
 in a card over the page and switched live. Or on the **real core and connector** of a picked release, in a scenario

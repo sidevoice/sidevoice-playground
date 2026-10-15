@@ -1,0 +1,11 @@
+{
+  "core": "b7eed0351b494f6d46be03a84f84f80c88be18b0",
+  "connector": "215b2ee1d8c1209e4704c5eb0caf0ae8b8edb4ae",
+  "web": "8d4f334cb3a9942d0ca93a7a4c865b63e5bbf9fd",
+  "voice": "b898c55cdffbbf5fe603e2e088e530163825ce06",
+  "engine": "nightly",
+  "notes": {
+    "connector": "Connector T PR #126; recheck its moving head before a test run",
+    "web": "Web T PR #126; green source-build head"
+  }
+}
