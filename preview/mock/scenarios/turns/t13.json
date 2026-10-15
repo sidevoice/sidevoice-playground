@@ -14,7 +14,13 @@
     },
     {
       "atMs": 3600,
-      "type": "turn-finished"
+      "type": "turn-finished",
+      "endpoint": {
+        "cause": "silence",
+        "end_of_turn": "smart-turn",
+        "patience": "normal",
+        "last_speech_ms": 1000
+      }
     }
   ],
   "expect": {

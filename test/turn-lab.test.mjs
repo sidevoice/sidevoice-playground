@@ -58,15 +58,39 @@ test("T06c prepares a distinct real conversation before its first publication fr
   assert.match(SCRIPTS.T06c.instruction, /select Turn Lab \(other\) and speak there/);
 });
 
+// The ordinary endpoint is the configured one measured from the call's last captured speech, never a fixed wait
+// after the switch or mute: Smart Turn may finish early, Silence/Fast waits 2 s, a forced terminal is invalid, and a
+// terminal without source endpoint evidence cannot be judged.
+async function endpointCases(fixture, id) {
+  const run = (turn) => runTurnFixture(turn, { wait: async () => {} });
+  const terminal = (turn) => turn.actions.find((action) => ["out-of-order-finish", "turn-finished"].includes(action.type));
+  const variant = (change) => { const turn = structuredClone(fixture); change(terminal(turn), turn); return turn; };
+  assert.equal((await run(variant((a) => { a.atMs = 1900; }))).status, "model-match", `${id}: a Smart Turn endpoint 900 ms after the last speech is valid`);
+  const tooSoon = await run(variant((a) => { a.atMs = 1899; }));
+  assert.equal(tooSoon.status, "fail", `${id}: before the configured endpoint`);
+  assert.match(tooSoon.mismatches.join(" "), /endpoint waits 900 ms/);
+  const silenceFast = (atMs) => variant((a) => { a.atMs = atMs; Object.assign(a.endpoint, { end_of_turn: "silence", patience: "fast" }); });
+  assert.equal((await run(silenceFast(3000))).status, "model-match", `${id}: Silence/Fast waits 2 s from the last speech`);
+  assert.equal((await run(silenceFast(2999))).status, "fail");
+  for (const cause of ["focus", "mute"]) {
+    const forced = await run(variant((a) => { a.endpoint.cause = cause; }));
+    assert.equal(forced.status, "fail", `${id}: a terminal forced by the ${cause} change`);
+    assert.match(forced.mismatches.join(" "), /forced by/);
+  }
+  const after = await run(variant((a) => { a.endpoint.last_speech_ms = 1500; a.atMs = 4000; }));
+  assert.equal(after.status, "fail", `${id}: speech cannot be captured after the route or mute`);
+  const missing = await run(variant((a) => { delete a.endpoint; }));
+  assert.equal(missing.status, "insufficient", `${id}: no source endpoint evidence is insufficient, not invented from the timestamp`);
+  assert.deepEqual(missing.mismatches, []);
+}
+
 test("T06c mock case rejects a trace without the required focus switch", async () => {
   const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T06c").turn;
   assert.equal((await runTurnFixture(fixture, { wait: async () => {} })).status, "model-match");
   const invalid = structuredClone(fixture);
   invalid.actions = invalid.actions.filter((action) => action.type !== "focus-switch");
   assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
-  const early = structuredClone(fixture);
-  early.actions.at(-1).atMs = 2000;
-  assert.equal((await runTurnFixture(early, { wait: async () => {} })).status, "fail", "A cannot flush at the focus boundary");
+  await endpointCases(fixture, "T06c");
   const wrongCall = structuredClone(fixture);
   wrongCall.actions[3].type = "conversation-a";
   assert.equal((await runTurnFixture(wrongCall, { wait: async () => {} })).status, "fail", "B speech cannot enter A's call");
@@ -130,9 +154,7 @@ test("T11 actually deduplicates turn IDs and rejects wrong out-of-order terminal
 test("T13 mute waits for an ordinary terminal instead of ending the turn at the switch", async () => {
   const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T13").turn;
   assert.equal((await runTurnFixture(fixture, { wait: async () => {} })).status, "model-match");
-  const early = structuredClone(fixture);
-  early.actions.at(-1).atMs = 1100;
-  assert.equal((await runTurnFixture(early, { wait: async () => {} })).status, "fail");
+  await endpointCases(fixture, "T13");
 });
 
 test("T16 compares delivered envelope IDs and requires claim release before redelivery", async () => {

@@ -97,7 +97,7 @@ export function speechLevel(ms, seed = 0) {
 /** How long a silence ends a turn, as the settings say: the voice detector's wait alone (Silence), or shorter where
  *  the end-of-turn model decides (Smart); longer the calmer the patience. */
 const ENDPOINT_MS = { silence: { fast: 2000, normal: 2500, calm: 3500 }, "smart-turn": { fast: 600, normal: 900, calm: 1300 } };
-function endpointMs(settings) {
+export function endpointMs(settings) {
   const mode = ENDPOINT_MS[/** @type {keyof typeof ENDPOINT_MS} */ (settings?.end_of_turn ?? "smart-turn")] ?? ENDPOINT_MS["smart-turn"];
   return mode[/** @type {keyof typeof mode} */ (settings?.patience ?? "normal")] ?? mode.normal;
 }
