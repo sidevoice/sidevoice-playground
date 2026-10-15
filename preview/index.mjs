@@ -114,7 +114,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     events.push(event);
     if (events.length > 300) events.shift();
-    if (["script-start", "agent-input", "browser-action", "room-frame", "tool-result", "browser-ready"].includes(event.kind) &&
+    if (["script-start", "script-phase", "agent-input", "browser-action", "room-frame", "tool-result", "browser-ready"].includes(event.kind) &&
       !(event.kind === "tool-result" && event.data?.name === "get_messages")) caseEvents.push(event);
     if (caseEvents.length > 1200) {
       const index = caseEvents.findIndex((item) => item.kind === "room-frame" && item.data?.type === "history");

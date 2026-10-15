@@ -192,6 +192,33 @@ test("automatic MCP refusal is logged and connector loss clears readiness withou
   } finally { await agent.stop(); }
 });
 
+test("T06a second click continues the same case with a distinct muted publication", async () => {
+  const events = [], stdout = new PassThrough();
+  const child = {
+    stdout, stderr: new PassThrough(), on() {}, kill() {},
+    stdin: { write(line) {
+      const request = JSON.parse(line);
+      if (request.id == null) return;
+      const name = request.params?.name;
+      const result = name === "voice_connect" ? { conversation: "mute-thread", initial_reply_context: { session_id: "s", revision: 1, epoch: 0 } }
+        : name === "voice_say" ? { status: "published", audio: "queued" } : {};
+      queueMicrotask(() => stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: JSON.stringify(result) }], isError: false } }) + "\n"));
+    } },
+  };
+  const agent = scriptedAgent({ program: "unused", profile: {}, emit: (event) => events.push(event), spawnProcess: () => child });
+  try {
+    await agent.start("push");
+    assert.equal((await agent.choose("T06a")).phase, 1);
+    assert.equal((await agent.choose("T06a")).phase, 2);
+    assert.equal(events.filter((event) => event.kind === "script-start").length, 1);
+    assert.equal(events.filter((event) => event.kind === "script-phase").length, 1);
+    const published = events.filter((event) => event.kind === "tool-result" && event.data.name === "voice_say");
+    assert.equal(published.length, 2);
+    assert.notEqual(published[0].data.args.utterance_id, published[1].data.args.utterance_id);
+    assert.equal(published[1].data.args.text, SCRIPTS.T06a.afterMute);
+  } finally { await agent.stop(); }
+});
+
 test("T15 uses a supported Codex working harness and emits real activity transitions", async () => {
   const home = await mkdtemp(join(tmpdir(), "turn-lab-activity-"));
   const events = [], stdout = new PassThrough();
