@@ -171,7 +171,7 @@ export function verdict(id, events, fates) {
     const click = frames.find((frame) => frame.type === "ui-click" && frame.control === "skip-reply");
     const firstStart = started(first), secondStart = started(second);
     if (ids.some((key) => contradictory(key, "heard") || misses.some((row) => row.utterance_id === key)) ||
-      physical(first).filter((frame) => frame.status === "playing").length !== 1 ||
+      physical(first).filter((frame) => frame.status === "playing").length > 1 ||
       physical(first).some((frame) => frame.status === "heard") || orderedPlayback([second]) === "fail")
       return fail("Skip is local; both replies must be semantically heard without replay");
     if (!click || !firstStart || !stopped(first) || !secondStart || !physical(second).some((frame) => frame.status === "heard") ||

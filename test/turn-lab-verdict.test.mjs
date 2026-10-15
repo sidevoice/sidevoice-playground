@@ -112,3 +112,8 @@ test('reply_heard correction advances a known missed extent without a skip-speci
   assert.equal(result.notes[1].corrects_message_id, 'original');
   assert.equal(result.notes[1].heard[0].fate, 'partial');
 });
+
+test('T12 remains insufficient while the first queued reply has not started', () => {
+  assert.equal(judge('T12', [say('a'), say('b')]).state, 'pending');
+  assert.equal(judge('T12', [say('a'), say('b'), sound('a', 'playing')]).state, 'pending');
+});
