@@ -3,7 +3,8 @@ let previewOrigin = null;
 let connected = false;
 let autoConnecting = false;
 let reconnecting = false;
-let attemptedAutoConnect = false;
+let autoConnectAttempts = 0;
+let nextAutoConnectAt = 0;
 let pairingSent = false;
 let joinedThread = null;
 let scripts = {};
@@ -83,7 +84,8 @@ async function poll() {
         secondConversation = null;
         observingSecond = false;
         pairingSent = false;
-        attemptedAutoConnect = false;
+        autoConnectAttempts = 0;
+        nextAutoConnectAt = 0;
         $("room").hidden = false;
         $("room-wait").hidden = true;
         $("connect").disabled = false;
@@ -93,11 +95,14 @@ async function poll() {
       secondConversation = state.secondAgent?.ready ? state.secondAgent.conversation : null;
       $("switch-conversation").hidden = !secondConversation;
       if (connected) $("mode").value = state.agent.inputMode;
-      if (!connected && !autoConnecting && !attemptedAutoConnect) {
-        attemptedAutoConnect = true;
+      if (!connected && !autoConnecting && !reconnecting && autoConnectAttempts < 3 && Date.now() >= nextAutoConnectAt) {
+        autoConnectAttempts++;
         autoConnecting = true;
         void ask("/preview/turn-lab/connect", { mode: $("mode").value }).then(() => { connected = true; void poll(); })
-          .catch((error) => { $("agent-status").textContent = `Connect failed: ${error.message}`; })
+          .catch((error) => {
+            nextAutoConnectAt = Date.now() + 2000;
+            $("agent-status").textContent = autoConnectAttempts < 3 ? `Connection delayed; retrying (${autoConnectAttempts}/3): ${error.message}` : `Connect failed: ${error.message}. Click Reconnect agent.`;
+          })
           .finally(() => { autoConnecting = false; });
       }
     }
@@ -113,13 +118,15 @@ async function poll() {
     const selectedThread = observingSecond && secondConversation ? secondConversation : state.agent?.conversation;
     if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: selectedThread }, previewOrigin);
     $("run").disabled = reconnecting || !connected || joinedThread !== state.agent?.conversation;
-    $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected. Click Reconnect agent.";
+    $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` :
+      autoConnectAttempts < 3 ? `Connecting scripted agent (attempt ${Math.max(autoConnectAttempts, 1)}/3)…` : "Agent not connected. Click Reconnect agent.";
     if (connected && joinedThread === state.agent?.conversation) setStatus("Ready. Speak in the room or choose a script; the real browser voice and scripted agent are connected.");
   } catch (error) { if (String(error.message).includes("409")) startRequested = false; setStatus(`Lab status: ${error.message}`); }
   finally { polling = false; }
 }
 
 $("connect").onclick = async () => {
+  if (autoConnecting) return;
   reconnecting = true;
   $("connect").disabled = true;
   $("run").disabled = true;
@@ -134,7 +141,7 @@ $("recover").onclick = async () => {
   $("recover").disabled = true;
   try {
     await ask("/preview/turn-lab/recover", {});
-    activeRunId = null; joinedThread = null; attemptedAutoConnect = false; connected = false;
+    activeRunId = null; joinedThread = null; autoConnectAttempts = 0; nextAutoConnectAt = 0; connected = false;
     $("run").disabled = true;
     $("connect").disabled = true;
     $("room").hidden = true;
