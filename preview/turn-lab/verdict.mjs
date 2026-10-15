@@ -43,6 +43,22 @@ export function verdict(id, events, fates) {
   const legalExtent = (value, text) => Number.isInteger(value) && value >= 0 && value <= [...text].length;
   const actionAt = (predicate) => events.findIndex((event) => ["room-frame", "browser-action"].includes(event.kind) && predicate(event.data));
   const outputDisabled = (reason) => actionAt((frame) => frame.type === "voice-speech" && frame.reason === reason && (frame.on === false || frame.data?.on === false));
+  // Playback receipts are a sequence, not a summary fate. A later full receipt
+  // must not erase an earlier cut, and a second start is an unauthorized replay.
+  const playback = events.flatMap((event, index) =>
+    ["room-frame", "browser-action"].includes(event.kind) && event.data?.type === "voice-playback" &&
+      ids.includes(event.data.utterance_id) ? [{ index, id: event.data.utterance_id, status: event.data.status }] : []);
+  const orderedPlayback = (keys) => {
+    let position = 0;
+    for (const receipt of playback) {
+      const expected = keys[Math.floor(position / 2)];
+      if (!expected || receipt.id !== expected ||
+        (position % 2 === 0 ? receipt.status !== "playing" : !["heard", "playback_finished"].includes(receipt.status)))
+        return { state: "fail", reason: "Playback has an extra start, terminal, interruption, or wrong order" };
+      position++;
+    }
+    return position === keys.length * 2 ? { state: "complete", receipts: playback } : { state: "pending" };
+  };
   let result = MANUAL.has(id) ? check("manual", "Follow the case instruction and review the room and exported trace") : pending();
 
   if (["T02c", "T02d"].includes(id) && publications.length) {
@@ -57,20 +73,21 @@ export function verdict(id, events, fates) {
     else if (terminal) result = pass(id === "T02c" ? "Open-turn refusal and spoken words reached the agent" : "Open-turn refusal and empty-turn notice reached the agent");
   }
   if (id === "T01" && publications.length && unheard.length) {
-    const item = unheard.find((row) => ids.includes(row.utterance_id));
+    const first = publications[0];
+    const item = unheard.find((row) => row.utterance_id === first.id);
     const cutAt = events.findIndex((event) => event.kind === "agent-input" && event.data?.unheard?.replies?.some((row) => row.utterance_id === item?.utterance_id && row.fate === "interrupted" && row.cut === true));
     const resumed = cutAt >= 0 && events.slice(cutAt + 1).some((event) => ["room-frame", "browser-action"].includes(event.kind) &&
       (event.data?.utterance_id === item?.utterance_id || event.data?.row?.id?.endsWith(`:voice:${item?.utterance_id}`)) &&
       ((event.data?.type === "voice-playback" && ["playing", "heard", "playback_finished"].includes(event.data.status)) ||
        (event.data?.type === "history" && (event.data?.row?.globally_heard || event.data?.row?.status === "playback_finished"))));
-    const text = publications[0]?.args.text;
+    const text = first.args.text;
     const startAt = actionAt((frame) => frame.type === "voice-playback" && frame.status === "playing" && frame.utterance_id === item?.utterance_id);
     const cutReceiptAt = actionAt((frame) => frame.type === "voice-playback" && frame.status === "interrupted" &&
       frame.reason === "user_interrupted" && frame.utterance_id === item?.utterance_id);
     const cutReceipt = events[cutReceiptAt];
     const spokenWithCut = events.slice(cutAt).some((event) => event.kind === "agent-input" && event.data?.channel === "voice" && Boolean(event.data.text) &&
       event.data.unheard?.replies?.some((row) => row.utterance_id === item?.utterance_id && row.cut === true));
-    if (!item || publications.length !== 1 || !good(status(publications[0])) || item.fate !== "interrupted" || item.reason !== "user_interrupted" || item.cut !== true ||
+    if (!item || duplicate || !good(status(first)) || item.fate !== "interrupted" || item.reason !== "user_interrupted" || item.cut !== true ||
       typeof text !== "string" || !legalExtent(item.heard_chars, text) || item.text !== text || fate(item.utterance_id) === "played" || resumed ||
       (cutReceiptAt >= 0 && events.slice(cutReceiptAt + 1, cutAt < 0 ? undefined : cutAt).some((event) =>
         ["room-frame", "browser-action"].includes(event.kind) && event.data?.type === "voice-playback" &&
@@ -108,11 +125,10 @@ export function verdict(id, events, fates) {
   if (id === "T04a") {
     if (duplicate || publications.some((item) => status(item) === "rejected")) result = fail("Three distinct publications must be accepted");
     else if (completed(3)) {
-      const started = frames.filter((frame) => frame.type === "voice-playback" && frame.status === "playing")
-        .map((frame) => frame.utterance_id).filter((key) => ids.includes(key));
-      if (started.length >= 3 && ids.some((key, index) => started.indexOf(key) !== index)) result = fail("Replies started out of publication order");
+      const sequence = orderedPlayback(ids);
+      if (publications.length !== 3 || sequence.state === "fail") result = fail("Three replies must play once each in publication order, without interruption");
       else if (ids.some((key) => terminal(fate(key)) && fate(key) !== "played")) result = fail("All three replies must be heard");
-      else if (started.length >= 3 && ids.every((key) => fate(key) === "played")) result = pass("Three distinct replies began in order and were heard");
+      else if (sequence.state === "complete" && ids.every((key) => fate(key) === "played")) result = pass("Three distinct replies played once each in order and were heard");
     }
   }
   if (id === "T04b" && (publications.length >= 3 || unheard.length >= 3)) {
@@ -170,7 +186,7 @@ export function verdict(id, events, fates) {
     if (publications.length !== 1 || !textOnly(publications[0], "agents_muted") || audible(key) ||
       ["played", "cut", "skipped"].includes(fate(key)) || returned?.channel !== "note" || returned.text !== "" ||
       !matched || matched.text !== publications[0].args.text || matched.reason !== "agents_muted" ||
-      matched.cut !== false || matched.heard_chars != null || !["unplayed", "interrupted"].includes(matched.fate) ||
+      matched.cut !== false || matched.heard_chars != null || matched.fate !== "text_only" ||
       returned.unheard.count === 0)
       result = fail("Return notice must identify the saved missed reply without replay");
     else if (muteAt < 0 || publishedAt < muteAt || backAt < 0 || returnAt < backAt)
@@ -178,14 +194,20 @@ export function verdict(id, events, fates) {
     else result = pass("Observed return notice identified the missed reply without replay");
   }
   if (id === "T08") {
-    const typed = frames.find((frame) => frame.type === "typed-message" && frame.status >= 200 && frame.status < 300);
+    const typedAt = actionAt((frame) => frame.type === "typed-message" && frame.status >= 200 && frame.status < 300);
+    const typed = events[typedAt]?.data;
     const start = events.find((event) => event.kind === "script-start")?.data;
     const baseline = start?.epoch ?? publications[0]?.args?.epoch ?? frames.find((frame) => Number.isInteger(frame.epoch) && frame !== typed)?.epoch;
     if (typed && Number.isInteger(baseline) && typed.epoch !== baseline) result = fail("Typing advanced the conversation epoch");
     else if (typed && publications.length >= 2) {
-      if (!completed(2)) result = fail("Typing case needs two distinct replies");
+      const sequence = orderedPlayback(ids);
+      if (!completed(2) || publications.length !== 2) result = fail("Typing case needs two distinct replies");
+      else if (sequence.state === "fail") result = fail("Typing must not interrupt, resume, or replay either reply");
       else if (ids.some((key) => terminal(fate(key)) && fate(key) !== "played")) result = fail("Typing must not interrupt or invalidate either reply");
-      else if (Number.isInteger(baseline) && ids.every((key) => fate(key) === "played")) result = pass("Typing kept the starting epoch and both replies played");
+      else if (sequence.state === "complete" && (typedAt <= sequence.receipts[0].index || typedAt >= sequence.receipts[1].index))
+        result = fail("The typed message must arrive during uninterrupted playback of the first reply");
+      else if (sequence.state === "complete" && Number.isInteger(baseline) && ids.every((key) => fate(key) === "played"))
+        result = pass("Typing kept the starting epoch while both replies played without a cut");
     }
   }
   if (id === "T12" && (publications.length >= 2 || note("reply_skipped"))) {

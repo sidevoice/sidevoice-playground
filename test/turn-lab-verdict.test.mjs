@@ -71,6 +71,10 @@ test('T01 rejects completion or resumed playback after a matched cut', () => {
     assert.equal(evidence([...prefix, frame('voice-playback', 'a', status)]).checks.T01.state, 'fail');
   }
   assert.equal(evidence([...prefix, { kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', status: 'playback_finished', globally_heard: true } } }]).checks.T01.state, 'fail');
+  const fresh = say('b'); fresh.data.args.epoch = 2;
+  assert.equal(evidence([...prefix, fresh, frame('voice-playback', 'b', 'playing')]).checks.T01.state, 'pass',
+    'a fresh answer to the interrupting words is not a resumption of the cut reply');
+  assert.equal(evidence([...prefix, fresh, frame('voice-playback', 'a', 'playing')]).checks.T01.state, 'fail');
 });
 
 test('T01 rejects impossible Unicode scalar extent and stays pending without observed playback and cut', () => {
@@ -115,7 +119,7 @@ test('T02 refusal outcomes reject every assistant row and need the terminal inpu
 test('T06d return verdict needs the missed identity and an observed mute-to-return sequence', () => {
   const saved = say('a', 'published', 'agents_muted'); saved.data.result.audio = 'text_only';
   const back = { kind: 'room-frame', data: { type: 'voice-speech', on: true } };
-  const missed = reply('a', 'unplayed', 'agents_muted', false, null);
+  const missed = reply('a', 'text_only', 'agents_muted', false, null);
   const returned = input('note', '', [missed], 'user_returned');
   const state = (events) => evidence([start('T06d'), ...events]).checks.T06d.state;
   assert.equal(state([muted('agents_muted'), saved, back, returned]), 'pass');
@@ -124,6 +128,30 @@ test('T06d return verdict needs the missed identity and an observed mute-to-retu
   assert.equal(state([muted('agents_muted'), saved, returned]), 'pending');
   assert.equal(state([saved, back, returned]), 'pending');
   assert.equal(state([muted('agents_muted'), saved, back, frame('voice-playback', 'a', 'heard'), returned]), 'fail');
+  assert.equal(state([muted('agents_muted'), saved, back,
+    input('note', '', [reply('a', 'unplayed', 'agents_muted', false, null)], 'user_returned')]), 'fail',
+    'the core journal reports the saved publication as text_only');
+});
+
+test('T04a rejects duplicate playback and duplicate terminal receipts after the correct FIFO sequence', () => {
+  const prefix = [start('T04a'), say('a'), say('b'), say('c'),
+    frame('voice-playback', 'a', 'playing'), frame('voice-playback', 'a', 'heard'),
+    frame('voice-playback', 'b', 'playing'), frame('voice-playback', 'b', 'heard'),
+    frame('voice-playback', 'c', 'playing'), frame('voice-playback', 'c', 'heard')];
+  assert.equal(evidence(prefix).checks.T04a.state, 'pass');
+  assert.equal(evidence([...prefix, frame('voice-playback', 'a', 'playing'), frame('voice-playback', 'a', 'heard')]).checks.T04a.state, 'fail');
+  assert.equal(evidence([...prefix, frame('voice-playback', 'c', 'heard')]).checks.T04a.state, 'fail');
+});
+
+test('T08 requires typing during a continuous first playback and rejects a cut hidden by final hearing', () => {
+  const typed = frame('typed-message', null, 200, { epoch: 1 });
+  const prefix = [start('T08', { epoch: 1 }), say('a'), say('b'), frame('voice-playback', 'a', 'playing')];
+  const suffix = [frame('voice-playback', 'a', 'heard'), frame('voice-playback', 'b', 'playing'), frame('voice-playback', 'b', 'heard')];
+  assert.equal(evidence([...prefix, typed, ...suffix]).checks.T08.state, 'pass');
+  assert.equal(evidence([...prefix, typed, frame('voice-playback', 'a', 'interrupted', { reason: 'user_interrupted', heard_chars: 2 }),
+    frame('voice-playback', 'a', 'playing'), ...suffix]).checks.T08.state, 'fail');
+  assert.equal(evidence([...prefix, ...suffix, typed]).checks.T08.state, 'fail');
+  assert.equal(evidence([...prefix, typed, ...suffix, frame('voice-playback', 'a', 'playing')]).checks.T08.state, 'fail');
 });
 
 test('T06a second phase stays inside one case but a separate script-start cannot borrow its first publication', () => {
