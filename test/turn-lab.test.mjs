@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { fakeVoice } from "../preview/mock/voice.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
-import { SCRIPTS } from "../preview/turn-lab/agent.mjs";
+import { SCRIPTS, scriptedAgent } from "../preview/turn-lab/agent.mjs";
 import { evidence } from "../preview/turn-lab/evidence.mjs";
 import { plannedPins } from "../preview/web-build.mjs";
 import { archiveChoices } from "../web/preview/choices.mjs";
@@ -67,6 +68,31 @@ test("candidate picker accepts only a full SHA, and source build verifies commit
 test("Turn Lab forces the exact voice candidate even when its old version is published", async () => {
   const result = await plannedPins([["@sidevoice/voice", "0.3.0"]], async () => true, { voice: "/tmp/voice.tgz", forceVoice: true });
   assert.deepEqual(result, { replace: { "@sidevoice/voice": "file:/tmp/voice.tgz" }, missing: [] });
+});
+
+test("the scripted pull agent acknowledges a consumed message with get", async () => {
+  const calls = [], events = [], stdout = new PassThrough();
+  const child = {
+    stdout, stderr: new PassThrough(), on() {}, kill() {},
+    stdin: { write(line) {
+      const request = JSON.parse(line);
+      if (request.id == null) return;
+      const name = request.params?.name;
+      const args = request.params?.arguments ?? {};
+      if (name) calls.push({ name, args });
+      const result = name === "voice_connect" ? { conversation: "test-thread", initial_reply_context: { session_id: "s", revision: 1, epoch: 0 } }
+        : name === "get_messages" && !args.ack_ids ? { messages: [{ message_id: "m1", channel: "voice", text: "Hello", session_id: "s", revision: 1, epoch: 0 }], cursor: 1 }
+          : name === "get_messages" ? { messages: [], cursor: 1, acknowledged: 1 } : {};
+      queueMicrotask(() => stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: JSON.stringify(result) }], isError: false } }) + "\n"));
+    } },
+  };
+  const agent = scriptedAgent({ program: "unused", profile: {}, emit: (event) => events.push(event), spawnProcess: () => child });
+  try {
+    await agent.start("pull");
+    for (let i = 0; i < 100 && !calls.some((call) => call.args.ack_ids); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(calls.find((call) => call.args.ack_ids), { name: "get_messages", args: { conversation: "test-thread", ack_ids: ["m1"], after: 1 } });
+    assert.equal(events.filter((event) => event.kind === "agent-input").length, 1);
+  } finally { await agent.stop(); }
 });
 
 test("case verdicts stay pending without evidence, record refusals and keep physical echo manual", () => {
