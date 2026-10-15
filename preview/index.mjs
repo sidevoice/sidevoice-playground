@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scriptedAgent, SCRIPTS } from "./turn-lab/agent.mjs";
-import { evidence } from "./turn-lab/evidence.mjs";
+import { evidence, reduceHearing } from "./turn-lab/evidence.mjs";
 
 const LAB_CONFIG = fileURLToPath(new URL("./turn-lab.config.json", import.meta.url));
 
@@ -80,7 +80,8 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   let agent = null;
   let secondAgent = null;
   const events = [];
-  let caseEvents = [], archivedChecks = {}, archivedFates = new Map(), archivedNotes = [], archivedInputs = [];
+  let caseEvents = [], archivedChecks = {}, archivedNotes = [], archivedInputs = [];
+  let hearingRegistry = { replies: new Map(), receipts: new Map() };
   const epochs = new Map();
   let traceFile = null, traceWrites = Promise.resolve();
   const redact = (value) => {
@@ -95,10 +96,8 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     const selected = [...caseEvents].reverse().find((event) => event.kind === "script-start")?.data?.id;
     const checks = { ...current.checks, ...archivedChecks };
     if (selected) checks[selected] = current.checks[selected];
-    const fates = new Map(archivedFates);
-    for (const fate of current.fates) fates.set(fate.utterance_id, fate);
     return { ...current, currentEpoch: epochs.get(agent?.state.conversation) ?? current.currentEpoch,
-      checks, fates: [...fates.values()].slice(-100), notes: [...archivedNotes, ...current.notes].slice(-100), inputs: [...archivedInputs, ...current.inputs].slice(-100) };
+      checks, fates: [...hearingRegistry.replies.values()].slice(-100), notes: [...archivedNotes, ...current.notes].slice(-100), inputs: [...archivedInputs, ...current.inputs].slice(-100) };
   };
   const emit = (raw) => {
     const event = redact(raw);
@@ -106,13 +105,17 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       const previous = evidence(caseEvents);
       const id = caseEvents.find((item) => item.kind === "script-start")?.data?.id;
       if (id) archivedChecks[id] = previous.checks[id];
-      for (const fate of previous.fates) archivedFates.set(fate.utterance_id, fate);
-      if (archivedFates.size > 100) archivedFates.delete(archivedFates.keys().next().value);
       archivedNotes = [...archivedNotes, ...previous.notes].slice(-100);
       archivedInputs = [...archivedInputs, ...previous.inputs].slice(-100);
-      caseEvents = [];
+      // T06b and T06d change output before Run. Preserve only the latest
+      // output setting for the new case, never old publications or notices.
+      const setting = [...caseEvents].reverse().find((item) =>
+        ["room-frame", "browser-action"].includes(item.kind) && item.data?.type === "voice-speech" &&
+        (!event.data?.conversation || !item.data?.conversation || item.data.conversation === event.data.conversation));
+      caseEvents = setting ? [setting] : [];
     }
     events.push(event);
+    reduceHearing([event], hearingRegistry);
     if (events.length > 300) events.shift();
     if (["script-start", "script-phase", "agent-input", "browser-action", "room-frame", "tool-result", "browser-ready"].includes(event.kind) &&
       !(event.kind === "tool-result" && event.data?.name === "get_messages")) caseEvents.push(event);
@@ -120,9 +123,12 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       const index = caseEvents.findIndex((item) => item.kind === "room-frame" && item.data?.type === "history");
       caseEvents.splice(index < 0 ? 1 : index, 1);
     }
-    const conversation = event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
-    const epoch = event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch;
-    if (conversation && Number.isInteger(epoch)) epochs.set(conversation, epoch);
+    const conversation = event.data?.type === "history" ? event.data?.row?.thread_id ?? event.data?.row?.thread :
+      event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
+    const epoch = event.data?.epoch ?? event.data?.data?.epoch;
+    if (conversation && event.data?.type !== "history" && Number.isInteger(epoch) &&
+      (["voice-session", "voice-user-turn", "voice-input-receipt"].includes(event.data?.type) || event.kind === "agent-input"))
+      epochs.set(conversation, Math.max(epochs.get(conversation) ?? epoch, epoch));
     if (traceFile) traceWrites = traceWrites.then(() => appendFile(traceFile, JSON.stringify(event) + "\n")).catch((error) => {
       say(`Trace export failed: ${error.message}`);
       traceFile = null;
@@ -140,7 +146,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
       if (agent) { await agent.stop(); agent = null; }
       events.length = 0;
-      caseEvents = []; archivedChecks = {}; archivedFates = new Map(); archivedNotes = []; archivedInputs = []; epochs.clear();
+      caseEvents = []; archivedChecks = {}; hearingRegistry = { replies: new Map(), receipts: new Map() }; archivedNotes = []; archivedInputs = []; epochs.clear();
       await traceWrites;
       await mkdir(join(cache, "turn-lab-traces"), { recursive: true });
       traceFile = join(cache, "turn-lab-traces", `${Date.now()}-${randomUUID()}.ndjson`);

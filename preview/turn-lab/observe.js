@@ -9,7 +9,10 @@
     }));
   } catch {}
   const report = (kind, data) => {
-    try { parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: wantedThread } : data }, "*"); } catch {}
+    try {
+      const thread = data?.type === "history" ? data.row?.thread_id ?? data.row?.thread : data?.thread_id ?? wantedThread;
+      parent.postMessage({ source: "turn-lab-browser", kind, data: (kind === "room-frame" || kind === "browser-action") ? { ...data, conversation: thread, observed_at: Date.now() } : data }, "*");
+    } catch {}
   };
   // Every Turn Lab run has a fresh core identity. Keep downloaded browser models,
   // but discard the previous room's pairing before the web app starts.
@@ -76,9 +79,9 @@
       const wire = value.startsWith("42") ? JSON.parse(value.slice(2)) : JSON.parse(value);
       const parsed = Array.isArray(wire) ? { type: wire[0], data: wire[1] } : wire;
       const data = parsed.data ?? parsed;
-      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, globally_heard: data.globally_heard, working: data.working, on: data.on, text: data.text,
+      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, outcome: data.outcome, client_msg_id: data.client_msg_id, key: data.key, hearing: data.hearing, hearing_unconfirmed: data.hearing_unconfirmed, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, globally_heard: data.globally_heard, working: data.working, on: data.on, text: data.text,
         phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq,
-        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, working: data.working, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
+        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, outcome: data.outcome, client_msg_id: data.client_msg_id, key: data.key, hearing: data.hearing, hearing_unconfirmed: data.hearing_unconfirmed, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, working: data.working, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
     } catch { return null; }
   };
   const NativeWebSocket = window.WebSocket;
@@ -100,7 +103,7 @@
       }
       if (path.startsWith("/api/presentation/") && response.ok) {
         const body = await response.clone().json();
-        const rows = body.rows ?? body.messages ?? body.history ?? [];
+        const rows = [...(body.rows ?? body.messages ?? body.history ?? []), ...(body.resolved ?? [])];
         if (Array.isArray(rows)) for (const row of rows) report("room-frame", { type: "history", row });
       }
     } catch {}

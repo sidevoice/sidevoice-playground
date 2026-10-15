@@ -18,18 +18,36 @@
     },
     {
       "atMs": 3000,
-      "type": "speech-start"
+      "type": "speech-start",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "partial",
+          "heard_chars": 2
+        },
+        {
+          "reply": 1,
+          "outcome": "not_heard"
+        },
+        {
+          "reply": 2,
+          "outcome": "not_heard"
+        }
+      ],
+      "notice": [
+        "reply_not_heard"
+      ]
     }
   ],
   "expect": {
     "epochDelta": 1,
     "fates": [
-      "interrupted",
-      "unplayed",
-      "unplayed"
+      "partial",
+      "not_heard",
+      "not_heard"
     ],
     "notice": [
-      "reply_interrupted"
+      "reply_not_heard"
     ],
     "screen": [
       "unheard"

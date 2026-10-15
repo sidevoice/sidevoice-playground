@@ -59,15 +59,19 @@ jobs:
             test "$(git -C "$dir" rev-parse HEAD)" = "$sha"
             if [ "$kind" = core ]; then bin=sidevoice-core-rust; else bin=sidevoice-connector; fi
             (cd "$dir" && RUSTUP_TOOLCHAIN=1.98.1 cargo build --locked --release --bin "$bin")
+            if [ "$kind" = core ]; then
+              (cd "$dir" && RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked --release --lib h4_saved_unavailable_history_can_be_acknowledged_from_other_or_unfocused_call)
+              (cd "$dir" && RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked --release --lib h6_zero_partial_is_invalid_before_and_after_not_heard_exposure)
+            fi
             digest=$(sha256sum "$dir/target/release/$bin" | cut -d ' ' -f1)
             node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({kind:process.argv[2],sha:process.argv[3],digest:process.argv[4]}))' \
               "$dir/binary.json" "$kind" "$sha" "$digest"
             echo "PLAYGROUND_${kind^^}_BIN=$dir/target/release/$bin" >> "$GITHUB_ENV"
           done
-      - name: Compare mock responses with pinned core and connector
+      - name: Compare mock responses and hearing with pinned core and connector
         env:
           PLAYGROUND_CONFORMANCE: "1"
-        run: node --test test/mock-conformance.test.mjs
+        run: node --test test/mock-conformance.test.mjs test/mock-call.test.mjs
 
   # On every run, not only when src-tauri/ changes: the app embeds web/, so a change to the page is a change to the
   # app, and a path filter would spare only the PRs that touch nothing but docs.

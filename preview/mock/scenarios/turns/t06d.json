@@ -18,13 +18,22 @@
     },
     {
       "atMs": 3000,
-      "type": "return-grace"
+      "type": "return-grace",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "not_heard"
+        }
+      ],
+      "notice": [
+        "user_returned"
+      ]
     }
   ],
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "text_only"
+      "not_heard"
     ],
     "notice": [
       "user_returned"

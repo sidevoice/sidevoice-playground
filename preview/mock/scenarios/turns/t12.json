@@ -14,20 +14,28 @@
     },
     {
       "atMs": 2000,
-      "type": "next-reply"
+      "type": "next-reply",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "heard"
+        },
+        {
+          "reply": 1,
+          "outcome": "heard"
+        }
+      ]
     }
   ],
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "skipped",
+      "heard",
       "heard"
     ],
-    "notice": [
-      "reply_skipped"
-    ],
+    "notice": [],
     "screen": [
-      "heard-by-choice"
+      "heard"
     ]
   },
   "fixture": {

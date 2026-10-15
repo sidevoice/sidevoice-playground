@@ -18,7 +18,21 @@
     },
     {
       "atMs": 3000,
-      "type": "reply"
+      "type": "reply",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "heard"
+        },
+        {
+          "reply": 1,
+          "outcome": "heard"
+        },
+        {
+          "reply": 2,
+          "outcome": "heard"
+        }
+      ]
     }
   ],
   "expect": {

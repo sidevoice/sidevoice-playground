@@ -14,16 +14,25 @@
     },
     {
       "atMs": 2000,
-      "type": "turn-cancelled"
+      "type": "turn-cancelled",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "not_heard"
+        }
+      ],
+      "notice": [
+        "turn_empty"
+      ]
     }
   ],
   "expect": {
     "epochDelta": 1,
     "fates": [
-      "unplayed"
+      "not_heard"
     ],
     "notice": [
-      "reply_not_played"
+      "turn_empty"
     ],
     "screen": [
       "unheard"

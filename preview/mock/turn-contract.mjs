@@ -11,10 +11,10 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 1,
       "fates": [
-        "interrupted"
+        "partial"
       ],
       "notice": [
-        "reply_interrupted"
+        "reply_not_heard"
       ],
       "screen": [
         "cut"
@@ -30,10 +30,10 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 1,
       "fates": [
-        "unplayed"
+        "not_heard"
       ],
       "notice": [
-        "reply_not_played"
+        "reply_not_heard"
       ],
       "screen": [
         "unheard"
@@ -49,10 +49,10 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 1,
       "fates": [
-        "unplayed"
+        "not_heard"
       ],
       "notice": [
-        "reply_not_played"
+        "turn_empty"
       ],
       "screen": [
         "unheard"
@@ -97,10 +97,10 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 2,
       "fates": [
-        "text_only"
+        "not_heard"
       ],
       "notice": [
-        "reply_not_played"
+        "reply_not_heard"
       ],
       "screen": [
         "unheard"
@@ -136,12 +136,12 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 1,
       "fates": [
-        "interrupted",
-        "unplayed",
-        "unplayed"
+        "partial",
+        "not_heard",
+        "not_heard"
       ],
       "notice": [
-        "reply_interrupted"
+        "reply_not_heard"
       ],
       "screen": [
         "unheard"
@@ -159,11 +159,11 @@ export const TURN_CONTRACT = {
       "epochDelta": 1,
       "fates": [
         "heard",
-        "interrupted",
-        "unplayed"
+        "partial",
+        "not_heard"
       ],
       "notice": [
-        "reply_interrupted"
+        "reply_not_heard"
       ],
       "screen": [
         "checkpoint-cut"
@@ -179,8 +179,8 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "interrupted",
-        "text_only"
+        "partial",
+        "not_heard"
       ],
       "screen": [
         "unheard"
@@ -196,7 +196,7 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "text_only"
+        "not_heard"
       ],
       "screen": [
         "unheard"
@@ -212,7 +212,7 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "interrupted"
+        "partial"
       ],
       "screen": [
         "inactive-conversation"
@@ -229,7 +229,7 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "text_only"
+        "not_heard"
       ],
       "notice": [
         "user_returned"
@@ -266,13 +266,11 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "unplayed"
+        "unconfirmed"
       ],
-      "notice": [
-        "user_returned"
-      ],
+      "notice": [],
       "screen": [
-        "unheard"
+        "hearing-unconfirmed"
       ]
     }
   },
@@ -359,14 +357,12 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "skipped",
+        "heard",
         "heard"
       ],
-      "notice": [
-        "reply_skipped"
-      ],
+      "notice": [],
       "screen": [
-        "heard-by-choice"
+        "heard"
       ]
     }
   },

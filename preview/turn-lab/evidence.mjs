@@ -2,94 +2,124 @@ import { SCRIPTS } from "./agent.mjs";
 import { initialChecks, verdict } from "./verdict.mjs";
 
 function epochFor(events, conversation) {
-  const scope = events.filter((event) => event.kind !== "script-start" && (!conversation || !event.data?.conversation || event.data.conversation === conversation));
-  return scope.map((event) => event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch).filter(Number.isInteger).at(-1) ?? null;
+  const scope = events.filter((event) => event.data?.type !== "history" &&
+    (["voice-session", "voice-user-turn", "voice-input-receipt"].includes(event.data?.type) || event.kind === "agent-input") &&
+    (!conversation || event.data?.conversation === conversation || event.data?.thread_id === conversation));
+  const epochs = scope.map((event) => event.data?.epoch ?? event.data?.data?.epoch).filter(Number.isInteger);
+  return epochs.length ? Math.max(...epochs) : null;
+}
+
+const scalars = (text) => [...text];
+const bounded = (map, size) => { while (map.size > size) map.delete(map.keys().next().value); };
+
+// A case boundary does not end the room's hearing journal. Keep identity, text,
+// maximum extent and pending reliable receipt IDs together across cases.
+export function reduceHearing(events, state = { replies: new Map(), receipts: new Map() }) {
+  const { replies, receipts } = state;
+  const get = (id) => {
+    if (!replies.has(id)) replies.set(id, { utterance_id: id, fate: "unconfirmed", hearing_unconfirmed: true });
+    return replies.get(id);
+  };
+  const textOf = (row, text) => {
+    if (typeof text === "string" && row.text === undefined) row.text = text;
+    if (row.text !== undefined && Number.isInteger(row.heard_chars)) {
+      row.heard = scalars(row.text).slice(0, row.heard_chars).join("");
+      row.unheard = scalars(row.text).slice(row.heard_chars).join("");
+    } else if (row.text === undefined) {
+      row.heard = null;
+      row.unheard = null;
+    }
+  };
+  const set = (id, outcome, heardChars, text, historyId, unconfirmed) => {
+    if (!id || !["heard", "partial", "not_heard"].includes(outcome)) return;
+    const row = get(id);
+    if (historyId && row.history_id && historyId !== row.history_id) return;
+    if (historyId) row.history_id = historyId;
+    textOf(row, text);
+    if (outcome === "not_heard" && heardChars != null && heardChars !== 0) return;
+    const extent = outcome === "not_heard" ? 0 : outcome === "heard" ?
+      (Number.isInteger(heardChars) ? heardChars : row.text === undefined ? null : scalars(row.text).length) : heardChars;
+    if (!Number.isInteger(extent) || extent < 0 || outcome === "partial" &&
+      (extent === 0 || row.text !== undefined && extent >= scalars(row.text).length) || outcome === "heard" &&
+      row.text !== undefined && extent !== scalars(row.text).length) return;
+    if (extent < (row.heard_chars ?? -1)) return;
+    if (extent === row.heard_chars && row.fate === "heard" && outcome !== "heard") return;
+    row.fate = outcome;
+    row.heard_chars = extent;
+    if (typeof unconfirmed === "boolean") row.hearing_unconfirmed = unconfirmed;
+    textOf(row);
+  };
+  for (const event of events) {
+    const item = event.data ?? {};
+    if (event.kind === "tool-result" && item.name === "voice_say" && item.args?.utterance_id) {
+      const row = get(item.args.utterance_id);
+      textOf(row, item.args.text);
+      row.audio = item.result?.audio ?? item.result?.status;
+      if (item.result?.status === "rejected") { row.fate = "refused"; row.hearing_unconfirmed = false; }
+    }
+    if (["room-frame", "browser-action"].includes(event.kind)) {
+      const history = item.type === "history" ? item.row ?? item : null;
+      const id = item.utterance_id ?? (history?.role === "assistant" ? history.id?.split(":voice:").at(-1) : null);
+      if (id) {
+        const row = get(id);
+        if (item.type === "voice-reply") { textOf(row, item.text); if (item.history_id) row.history_id = item.history_id; }
+        if (item.type === "voice-playback") row.audio = item.status;
+        if (item.type === "voice-reply-withdrawn") row.audio = "withdrawn";
+        if (item.type === "reply-hearing" && event.kind === "browser-action" && item.client_msg_id)
+          receipts.set(item.client_msg_id, { id, outcome: item.outcome, heard_chars: item.heard_chars, history_id: item.history_id,
+            valid: !!item.history_id && (!row.history_id || row.history_id === item.history_id) });
+        if (history) {
+          textOf(row, history.text);
+          if (history.status) row.audio = history.status;
+          if (history.history_id ?? history.id) row.history_id = history.history_id ?? history.id;
+          if (history.hearing) set(id, history.hearing, history.heard_chars, history.text, row.history_id, history.hearing_unconfirmed);
+          else if (history.hearing_unconfirmed === true && row.fate === "unconfirmed") row.hearing_unconfirmed = true;
+        }
+      }
+      if (event.kind === "room-frame" && item.client_msg_id && receipts.has(item.client_msg_id)) {
+        const receipt = receipts.get(item.client_msg_id);
+        if (item.type === "voice-ack" && receipt.valid)
+          set(receipt.id, receipt.outcome, receipt.heard_chars, undefined, receipt.history_id);
+        if (item.type === "error") get(receipt.id).receipt_error = item.key ?? "rejected";
+        if (["voice-ack", "error"].includes(item.type)) receipts.delete(item.client_msg_id);
+      }
+    }
+    if (event.kind === "agent-input") {
+      for (const miss of item.unheard?.replies ?? []) set(miss.utterance_id, miss.fate, miss.heard_chars, miss.text, miss.history_id);
+      for (const heard of item.notice?.heard ?? []) set(heard.utterance_id, heard.fate, heard.heard_chars, undefined, heard.history_id);
+    }
+    bounded(replies, 256); bounded(receipts, 512);
+  }
+  return state;
 }
 
 export function evidence(events, conversation = null) {
   const starts = events.flatMap((event, index) => event.kind === "script-start" ? [index] : []);
-  if (!starts.length) {
-    const empty = judge(events);
-    empty.currentEpoch = epochFor(events, conversation);
-    return empty;
-  }
-  const checks = judge([]).checks;
-  const fates = new Map();
-  const notes = [];
-  const inputs = [];
-  const before = judge(events.slice(0, starts[0]));
-  for (const fate of before.fates) fates.set(fate.utterance_id, fate);
-  notes.push(...before.notes);
-  inputs.push(...before.inputs);
-  starts.forEach((from, index) => {
-    const segment = events.slice(from, starts[index + 1] ?? events.length);
-    const result = judge(segment);
-    const id = events[from].data?.id;
-    if (id && result.checks[id]) checks[id] = result.checks[id];
-    for (const fate of result.fates) fates.set(fate.utterance_id, fate);
+  if (!starts.length) return judge(events, conversation);
+  const checks = initialChecks(Object.keys(SCRIPTS));
+  const notes = [], inputs = [];
+  for (const [from, to] of [[0, starts[0]], ...starts.map((at, index) => [at, starts[index + 1] ?? events.length])]) {
+    const segment = events.slice(from, to);
+    // T06b/T06d set output before Run; carry that setting, not previous replies.
+    const scope = segment[0]?.data?.conversation;
+    const setting = events.slice(0, from).reverse().find((event) =>
+      ["room-frame", "browser-action"].includes(event.kind) && event.data?.type === "voice-speech" &&
+      (!scope || !event.data?.conversation || event.data.conversation === scope));
+    const result = judge(setting ? [setting, ...segment] : segment, conversation);
     notes.push(...result.notes);
     inputs.push(...result.inputs);
-  });
-  return { currentEpoch: epochFor(events, conversation), fates: [...fates.values()], notes, inputs, checks };
+    const id = segment[0]?.kind === "script-start" ? segment[0].data?.id : null;
+    if (id) checks[id] = result.checks[id];
+  }
+  return { currentEpoch: epochFor(events, conversation), fates: [...reduceHearing(events).replies.values()], notes, inputs, checks };
 }
 
-function judge(events) {
-  const selected = [...events].reverse().find((event) => event.kind === "script-start")?.data?.id;
-  const after = selected ? events.slice(events.findLastIndex((event) => event.kind === "script-start")) : events;
-  const inputs = after.filter((event) => event.kind === "agent-input").map((event) => event.data);
-  const frames = after.filter((event) => event.kind === "room-frame" || event.kind === "browser-action").map((event) => event.data);
-  const notes = inputs.filter((input) => input.notice).map((input) => input.notice);
-  const unheard = inputs.flatMap((input) => input.unheard?.replies ?? []);
-  const status = (result) => result?.status ?? result?.result?.status;
-  const currentEpoch = epochFor(after, selected ? after[0]?.data?.conversation : null);
-  const fates = new Map();
-  const fateRank = (value) => ({ played: 5, skipped: 5, cut: 4, refused: 4, stale: 4, "not played": 4, playing: 2, queued: 1, synthesizing: 1 }[value] ?? 0);
-  const settle = (id, incoming) => {
-    const previous = fates.get(id);
-    if (!previous) { fates.set(id, incoming); return; }
-    const stronger = fateRank(incoming.fate) >= fateRank(previous.fate) ? incoming : previous;
-    const defined = Object.fromEntries(Object.entries(incoming).filter(([, value]) => value !== undefined));
-    const next = { ...previous, ...defined, ...stronger };
-    const extent = Math.max(previous.heard_chars ?? -1, incoming.heard_chars ?? -1);
-    if (extent >= 0) next.heard_chars = extent;
-    if (next.fate === "played" && next.text) { next.heard = next.text; next.unheard = ""; }
-    fates.set(id, next);
-  };
-  for (const event of after) {
-    const item = event.data;
-    if (event.kind === "tool-result" && item?.name === "voice_say" && item.args?.utterance_id) {
-      const result = item.result;
-      const disposition = status(result);
-      const textOnly = disposition === "text_only" || result?.audio === "text_only";
-      settle(item.args.utterance_id, { fate: disposition === "rejected" ? "refused" : textOnly ? result?.reason === "newer_turn" ? "stale" : "not played" : result?.audio ?? disposition ?? "submitted", text: item.args.text, reason: result?.reason });
-    }
-    const row = item?.type === "history" ? item.row ?? item : null;
-    const historyUtterance = row?.role && row.role !== "assistant" ? null : row?.id?.split(":voice:").at(-1);
-    const utterances = item?.utterance_ids ?? (item?.utterance_id ? [item.utterance_id] : historyUtterance && historyUtterance !== row.id ? [historyUtterance] : []);
-    if (event.kind === "room-frame" || event.kind === "browser-action") for (const id of utterances) {
-      const type = item.type ?? item.event;
-      if (type === "voice-reply") settle(id, { fate: "queued", text: item.text, epoch: item.epoch });
-      if (type === "voice-reply-withdrawn") settle(id, { fate: "not played", reason: item.reason });
-      if (type === "voice-playback") settle(id, { fate: playbackFate(item.status, item.reason, item.cut), heard_chars: item.heard_chars, reason: item.reason });
-      if (type === "history") settle(id, { fate: row.globally_heard ? "played" : playbackFate(row.status, row.audio_reason ?? row.reason, row.cut), heard_chars: row.heard_chars, reason: row.audio_reason ?? row.reason, text: row.text, history_id: row.id });
-    }
-  }
-  for (const item of unheard) {
-    if (["played", "skipped", "heard"].includes(fates.get(item.utterance_id)?.fate)) continue;
-    const scalars = [...(item.text ?? "")];
-    const cut = item.heard_chars;
-    settle(item.utterance_id, { fate: playbackFate(item.fate, item.reason, item.cut), heard_chars: cut, text: item.text, reason: item.reason,
-      heard: cut == null ? null : scalars.slice(0, cut).join(""), unheard: cut == null ? item.text : scalars.slice(cut).join("") });
-  }
+function judge(events, conversation) {
+  const selected = events.find((event) => event.kind === "script-start")?.data?.id;
+  const inputs = events.filter((event) => event.kind === "agent-input").map((event) => event.data);
+  const notes = inputs.filter((input) => input.notice).map((input) => ({ ...input.notice, unheard: input.unheard?.replies ?? [] }));
+  const replies = reduceHearing(events).replies;
   const checks = initialChecks(Object.keys(SCRIPTS));
-  if (selected) checks[selected] = verdict(selected, after, fates);
-  return { currentEpoch, fates: [...fates].map(([utterance_id, fate]) => ({ utterance_id, ...fate })), notes, inputs, checks };
-}
-
-function playbackFate(status, reason, cut) {
-  if (status === "playback_finished" || status === "heard") return "played";
-  if (reason === "user_skipped" || status === "skipped") return "skipped";
-  if (status === "interrupted") return cut === false || (reason === "newer_turn" && cut !== true) ? "not played" : "cut";
-  if (status === "unplayed") return "not played";
-  return status ?? "unknown";
+  if (selected) checks[selected] = verdict(selected, events, replies);
+  return { currentEpoch: epochFor(events, conversation), fates: [...replies.values()], notes, inputs, checks };
 }
