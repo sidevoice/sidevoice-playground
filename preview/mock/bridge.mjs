@@ -91,7 +91,7 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       await world.delay(450); // the installed connector's top-level uninstall, not serviceUninstall()
       world.patch({ "local.state": "absent", "local.installed": false });
       const failed = world.state.app?.resetFailure === "models" ? [{ step: "models", key: "remove" }] : [];
-      const result = { state: failed.length ? "partial" : "complete", completed: ["app-data", "webview", "cache"], failed };
+      const result = { state: failed.length ? "partial" : "complete", completed: ["app-data", "webview", "cache"], failed, agents: {} };
       // Native returns while the app is still visible, then the helper runs after the app exits.
       void world.delay(550).then(() => {
         world.patch({ "app.pairings": [], "app.resetReport": result, setup: null });
