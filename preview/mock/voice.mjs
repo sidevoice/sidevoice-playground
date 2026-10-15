@@ -206,6 +206,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     },
     async dispose() {
       await host.stop();
+      stopFailing();
       group.calls.splice(group.calls.findIndex((item) => item.host === host), 1);
       if (group.active?.host === host) group.active = null;
     },
@@ -484,5 +485,10 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     get state() { return group.active?.host !== host && group.active ? group.active.state : { ...state, started }; } };
   group.calls.push(runtime);
   if (!shared) group.active = runtime;
+  // The preview's "Force a voice error" button: the active call's voice reports a failure, as a request that threw does.
+  const failers = world.voiceFailers ??= new Set();
+  const fail = () => { if (group.active?.host === host) emit("error", new TypeError("Failed to fetch")); };
+  failers.add(fail);
+  const stopFailing = () => failers.delete(fail);
   return runtime;
 }
