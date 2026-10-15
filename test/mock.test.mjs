@@ -12,7 +12,7 @@ import {
   CHECK_MS, DOWNLOAD_STEPS, DOWNLOAD_STEP_MS, UPDATER_STATES, UPDATE_VERSION, checkForUpdate, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState,
   updaterMode,
 } from "../preview/mock/bridge.mjs";
-import { DESKTOP, VARIANTS, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
+import { DESKTOP, VARIANTS, chooseMockOption, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
 
@@ -265,6 +265,101 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.equal((await ask(`${LOCAL_URL}/api/host/agents`, as(LOCAL_ID))).body.agents[0].label, "Codex");
   assert.equal((await ask(`${LOCAL_URL}/api/device/devices/phone`, { method: "DELETE", ...as(LOCAL_ID) })).status, 200);
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
+});
+
+test("Cursor Desktop Bridge presets match their registration and prerequisite facts", async () => {
+  const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
+  const world = createWorld(desktop, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const states = ["ready", "needs_attention", "unknown", "unsupported"];
+  const expected = {
+    ready: { registration: "connected", reason: null, version: "3.22.12", steps: ["done", "done", "done", "done", "done", "unknown", "unknown"] },
+    needs_attention: { registration: "not-connected", reason: "bridge_missing", version: "3.22.12", steps: ["done", "unknown", "needs_action", "done", "needs_action", "unknown", "unknown"] },
+    unknown: { registration: "connected", reason: "cursor_version_unknown", version: null, steps: ["unknown", "done", "done", "done", "done", "unknown", "unknown"] },
+    unsupported: { registration: "not-connected", reason: "editor_unavailable", version: null, steps: ["unknown", "unknown", "needs_action", "done", "needs_action", "unknown", "unknown"] },
+  };
+  const stepIds = ["cursor_version", "enable_desktop_bridge", "bridge_running", "sqlite3", "register_sidevoice", "join_editor_chat", "wait_for_chat_registration"];
+  assert.deepEqual(desktop.options.find((option) => option.id === "cursorBridge").values.map((value) => value.value), states);
+  let otherAgents;
+  for (const state of states) {
+    world.choose("cursorBridge", state);
+    const response = await answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents`,
+      headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
+    assert.equal(response.status, 200);
+    const cursor = response.body.agents.find((agent) => agent.id === "cursor");
+    const facts = expected[state];
+    assert.equal(cursor.registration, facts.registration);
+    assert.equal(cursor.actionable, facts.registration === "not-connected");
+    assert.equal(cursor.version, facts.version);
+    assert.deepEqual(cursor.cursor_bridge, {
+      state, reason: facts.reason, cursor_version: facts.version,
+      minimum_cursor_version: "3.22.12", minimum_connector_version: "0.9.0",
+      steps: stepIds.map((id, index) => ({ id, state: facts.steps[index] })),
+    });
+    const others = response.body.agents.filter((agent) => agent.id !== "cursor");
+    assert.ok(others.every((agent) => !agent.cursor_bridge));
+    if (otherAgents) assert.deepEqual(others, otherAgents);
+    else otherAgents = others;
+  }
+});
+
+test("agent action responses keep the Cursor bridge card and reconcile registration", async () => {
+  const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
+  const world = createWorld(desktop, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const auth = { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } };
+  const ask = (path, method = "GET") => answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}${path}`, method, ...auth });
+  const cursor = (response) => response.body.agents.find((agent) => agent.id === "cursor");
+  const initial = await ask("/api/host/agents");
+  assert.equal(cursor(initial).cursor_bridge.state, "ready");
+  const disconnected = await ask("/api/host/agents/cursor/disconnect", "POST");
+  assert.equal(cursor(disconnected).registration, "not-connected");
+  assert.equal(cursor(disconnected).cursor_bridge.reason, "sidevoice_not_registered");
+  assert.equal(cursor(disconnected).cursor_bridge.steps[4].state, "needs_action");
+  assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(disconnected));
+  const connected = await ask("/api/host/agents/cursor/connect", "POST");
+  assert.equal(cursor(connected).registration, "connected");
+  assert.equal(cursor(connected).cursor_bridge.state, "ready");
+  assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(connected));
+  const codex = await ask("/api/host/agents/codex/connect", "POST");
+  assert.equal(cursor(codex).cursor_bridge.state, "ready");
+  assert.equal(codex.body.agents.find((agent) => agent.id === "codex").registration, "connected");
+  assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(codex));
+});
+
+test("live Cursor picker refreshes an already displayed agent card without a reload", async () => {
+  const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
+  const world = createWorld(desktop, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const fp = identities[LOCAL_ID].fingerprint;
+  const ask = () => answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents`,
+    headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
+  const displayed = { status: "ready", value: (await ask()).body };
+  const card = () => displayed.value.agents.find((agent) => agent.id === "cursor").cursor_bridge;
+  let refresh;
+  let calls = 0;
+  const frame = { src: "/voice/", contentWindow: {
+    sidevoiceUI: { store: { getState: () => ({ facts: { hostAgents: { [fp]: displayed } } }) } },
+    sidevoiceActions: { loadHostAgents(askedFp, options) {
+      assert.equal(askedFp, fp);
+      assert.deepEqual(options, { rescan: true });
+      calls++;
+      refresh = ask().then((response) => { displayed.value = response.body; });
+      return refresh;
+    } },
+  } };
+  assert.equal(card().state, "ready", "the card is mounted from its initial listing");
+  for (const state of ["needs_attention", "unknown", "unsupported", "ready"]) {
+    assert.equal(chooseMockOption(world, "cursorBridge", state, frame, identities), false);
+    await refresh;
+    assert.equal(card().state, state);
+    assert.equal(card().reason, { needs_attention: "bridge_missing", unknown: "cursor_version_unknown",
+      unsupported: "editor_unavailable", ready: null }[state]);
+    assert.equal(card().steps.find((step) => step.id === "bridge_running").state,
+      state === "ready" || state === "unknown" ? "done" : "needs_action");
+    assert.equal(frame.src, "/voice/", "the framed page never reloads");
+  }
+  assert.equal(calls, 4, "each live picker change caused the web listing action");
 });
 
 test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {
