@@ -166,17 +166,6 @@ export function webBuilds({ cache, api, run = null, published = onRegistry, log 
       } else {
         await exec("npm", ["ci", "--no-audit", "--no-fund"], { cwd: work });
       }
-      // A candidate voice tarball can extend VoiceHost/VoiceTurnEvent before the
-      // pinned web commit updates its test doubles. Type-check the production
-      // app, then let Vite build the unmodified production sources. The web
-      // producer's own CI remains responsible for its test TypeScript.
-      if (tarballs.forceVoice) {
-        const path = join(work, "apps/web/tsconfig.app.json");
-        const config = JSON.parse(await readFile(path, "utf8"));
-        config.exclude = [...new Set([...(config.exclude ?? []), "src/**/*.test.ts", "src/**/*.test.tsx"])];
-        await writeFile(path, JSON.stringify(config, null, 2) + "\n");
-        log("Type-checking the pinned web app without producer test doubles for the forced voice candidate");
-      }
       await exec("npm", ["run", "build"], { cwd: work });
       const mocks = await checkMocks(work);
       await evict();
