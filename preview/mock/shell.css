@@ -92,3 +92,6 @@ button { cursor: pointer; }
 .segmented button { flex: 1 1 auto; white-space: nowrap; }
 .card-body select, .card-body input:not([type=checkbox]):not([type=radio]) { width: 100%; max-width: 100%; }
 .turn-script-trace { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.4 ui-monospace, monospace; max-height: 160px; overflow: auto; }
+/* The desktop app's window corner: drag to resize (shell.mjs), as a real window; only in the Desktop app view. */
+.device .resize-handle { display: none; }
+.device.app .resize-handle { display: block; position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 0 55%, #9996 55% 62%, transparent 62% 72%, #9996 72% 79%, transparent 79%); }

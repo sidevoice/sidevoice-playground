@@ -955,6 +955,9 @@ test("a desktop view lays the page out at a desktop's size at least, scaled to f
   assert.deepEqual([app.width, app.height], [1280, 830]);
   assert.ok(Math.abs(app.scale - 1000 / 1280) < 1e-9);
   assert.equal(deviceBox({ width: 1600, height: 1000 }, "app").scale, 1);
+  // A window dragged to another size: laid out at that size (and its title bar), still scaled to fit.
+  const dragged = deviceBox({ width: 1600, height: 1000 }, "app", { width: 700, height: 500 });
+  assert.deepEqual([dragged.width, dragged.height, dragged.scale], [700, 530, 1]);
   // The phone: its own width, never scaled.
   const phone = deviceBox({ width: 600, height: 700 }, "phone");
   assert.deepEqual([phone.width, phone.height, phone.scale], [390, 680, 1]);
