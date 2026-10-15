@@ -19,6 +19,15 @@ import { evidence, reduceHearing } from "./turn-lab/evidence.mjs";
 
 const LAB_CONFIG = fileURLToPath(new URL("./turn-lab.config.json", import.meta.url));
 
+export async function ensureCaseConversation(id, existing, create, emit) {
+  if (!["T06c", "T11"].includes(id) || existing?.state.ready) return existing;
+  const other = create();
+  try { await other.start("push", "Turn Lab (other)"); }
+  catch (error) { await other.stop().catch(() => {}); throw new RefError(502, `second conversation: ${error.message}`); }
+  emit({ at: Date.now(), kind: "second-conversation-ready", data: { conversation: other.state.conversation } });
+  return other;
+}
+
 /** How many log lines a job keeps for the page. */
 export const LOG_LINES = 200;
 
@@ -259,12 +268,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     if (path === "/preview/turn-lab/choose") {
       if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
       const { id } = await body(req);
-      if (id === "T11" && !secondAgent?.state.ready) {
-        secondAgent = scriptedAgent({ ...manager.labConnection(), emit });
-        try { await secondAgent.start("push"); }
-        catch (error) { await secondAgent.stop().catch(() => {}); secondAgent = null; throw new RefError(502, `second conversation: ${error.message}`); }
-        emit({ at: Date.now(), kind: "second-conversation-ready", data: { conversation: secondAgent.state.conversation } });
-      }
+      secondAgent = await ensureCaseConversation(id, secondAgent, () => scriptedAgent({ ...manager.labConnection(), emit }), emit);
       return agent.choose(id);
     }
     if (path === "/preview/turn-lab/event") {

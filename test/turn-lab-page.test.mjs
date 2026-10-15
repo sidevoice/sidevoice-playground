@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { SCRIPTS } from '../preview/turn-lab/agent.mjs';
 
 const source = await readFile(new URL('../web/turn-lab.mjs', import.meta.url), 'utf8');
 const observerSource = await readFile(new URL('../preview/turn-lab/observe.js', import.meta.url), 'utf8');
@@ -27,7 +28,7 @@ function page() {
     if (path === '/preview/turn-lab/connect') state.agent.inputMode = body.mode;
     if (path === '/preview/turn-lab/recover') state.job.state = 'starting';
     const value = path === '/preview/turn-lab/config' ? config : path === '/preview/turn-lab/scripts' ?
-      { T01: { title: 'Interrupt', instruction: 'Speak' } } : path === '/preview/status' ?
+      SCRIPTS : path === '/preview/status' ?
       { link: 'http://localhost:5199/voice/' } : path === '/preview/turn-lab/events' ? state : {};
     return { ok: true, json: async () => value };
   };
@@ -67,6 +68,43 @@ test('the Lab bridge applies only allowed output policies from its parent', asyn
   await send('http://other', 'voice_off');
   assert.deepEqual(applied, ['agents_muted', 'voice_off', 'on']);
   assert.deepEqual(messages.filter((message) => message.data?.output).map((message) => message.data.output), applied);
+});
+
+test('fresh T06 procedures wait for delivered setup words in push and pull, then offer the other conversation', async () => {
+  const lab = page();
+  await lab.tick(); lab.join(); await lab.tick();
+  let at = 100;
+  for (const mode of ['push', 'pull']) {
+    lab.state.agent.inputMode = mode;
+    for (const id of ['T06a', 'T06b', 'T06c', 'T06d']) {
+      lab.element('script').value = id;
+      lab.element('script').onchange();
+      await lab.tick();
+      assert.equal(lab.element('run').disabled, true, `${mode} ${id}: no setup delivery`);
+      lab.state.evidence.currentEpoch++;
+      lab.state.events.push({ at: ++at, kind: 'agent-input', data: { conversation: 'thread', channel: 'voice', text: 'old turn', epoch: lab.state.evidence.currentEpoch - 1 } });
+      await lab.tick();
+      assert.equal(lab.element('run').disabled, true, `${mode} ${id}: stale epoch`);
+      lab.state.events.push({ at: ++at, kind: 'agent-input', data: { conversation: 'other-thread', channel: 'voice', text: 'other turn', epoch: lab.state.evidence.currentEpoch } });
+      await lab.tick();
+      assert.equal(lab.element('run').disabled, true, `${mode} ${id}: wrong conversation`);
+      lab.state.events.push({ at: ++at, kind: 'agent-input', data: { conversation: 'thread', channel: 'voice', text: 'setup words', epoch: lab.state.evidence.currentEpoch } });
+      await lab.tick();
+      assert.equal(lab.element('run').disabled, false, `${mode} ${id}: delivered setup`);
+      if (id === 'T06a') {
+        lab.state.events.push({ at: ++at, kind: 'script-start', data: { id, conversation: 'thread' } });
+        lab.state.evidence.currentEpoch++;
+        await lab.tick();
+        assert.equal(lab.element('run').disabled, false, `${mode} ${id}: second click continues after phase one`);
+      }
+      if (id === 'T06c') {
+        lab.state.secondAgent = { ready: true, conversation: 'other-thread' };
+        await lab.tick();
+        assert.equal(lab.element('switch-conversation').hidden, false);
+        assert.match(lab.element('instruction').textContent, /Turn Lab \(other\)/);
+      }
+    }
+  }
 });
 
 test('polling preserves the operator-selected pull mode until reconnect', async () => {
