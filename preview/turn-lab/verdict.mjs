@@ -25,7 +25,16 @@ export function verdict(id, events, fates) {
   const misses = inputs.flatMap((input) => (input.unheard?.replies ?? []).map((row) => ({ ...row, at: input.at, input })));
   const notes = inputs.filter((input) => input.notice);
   const note = (kind) => notes.find((input) => input.notice.kind === kind);
-  const physical = (key) => frames.filter((frame) => frame.type === "voice-playback" && frame.utterance_id === key);
+  const dedupePlayback = (list) => {
+    const seen = new Set();
+    return list.filter((frame) => {
+      if (!frame.client_msg_id) return true;
+      if (seen.has(frame.client_msg_id)) return false;
+      seen.add(frame.client_msg_id);
+      return true;
+    });
+  };
+  const physical = (key) => dedupePlayback(frames.filter((frame) => frame.type === "voice-playback" && frame.utterance_id === key));
   const semantic = (key) => frames.filter((frame) => frame.type === "reply-hearing" && frame.utterance_id === key).map((frame) => ({ outcome: frame.outcome, heard_chars: frame.heard_chars, at: frame.at }))
     .concat(frames.filter((frame) => frame.type === "history" && frame.row?.role === "assistant" && frame.row.id?.endsWith(`:voice:${key}`) && frame.row.hearing)
       .map((frame) => ({ outcome: frame.row.hearing, heard_chars: frame.row.heard_chars, at: frame.at })));
@@ -52,9 +61,16 @@ export function verdict(id, events, fates) {
       !["partial", "not_heard"].includes(row.fate) || Object.hasOwn(row, "reason") || Object.hasOwn(row, "cut")) ||
     (input.notice?.heard ?? []).some((row) => !["partial", "heard"].includes(row.fate) || Object.hasOwn(row, "reason") || Object.hasOwn(row, "cut")));
   if (forbiddenNotice) return fail("Agent received a prohibited hearing fate, cause, cut flag, or notice");
+  const receiptIds = new Map();
+  for (const frame of frames.filter((item) => item.type === "voice-playback" && item.client_msg_id)) {
+    const payload = JSON.stringify([frame.utterance_id, frame.status, frame.heard_chars, frame.reason]);
+    if (receiptIds.has(frame.client_msg_id) && receiptIds.get(frame.client_msg_id) !== payload)
+      return fail("A reliable playback receipt changed under the same client_msg_id");
+    receiptIds.set(frame.client_msg_id, payload);
+  }
   if (ids.some((key) => semantic(key).some((value) => !valid(value, key)))) return fail("Invalid semantic hearing extent");
   const orderedPlayback = (keys) => {
-    const receipts = frames.filter((frame) => frame.type === "voice-playback" && keys.includes(frame.utterance_id));
+    const receipts = dedupePlayback(frames.filter((frame) => frame.type === "voice-playback" && keys.includes(frame.utterance_id)));
     for (const [index, frame] of receipts.entries()) {
       if (frame.utterance_id !== keys[Math.floor(index / 2)] ||
         (index % 2 === 0 ? frame.status !== "playing" : !["heard", "playback_finished"].includes(frame.status))) return "fail";

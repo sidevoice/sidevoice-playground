@@ -117,3 +117,15 @@ test('T12 remains insufficient while the first queued reply has not started', ()
   assert.equal(judge('T12', [say('a'), say('b')]).state, 'pending');
   assert.equal(judge('T12', [say('a'), say('b'), sound('a', 'playing')]).state, 'pending');
 });
+test('reliable playback retransmission is not a second play, but a distinct start is', () => {
+  const events = structuredClone(baseline.T12);
+  const first = events.find((event) => event.data?.type === 'voice-playback' && event.data.status === 'playing');
+  first.data.client_msg_id = 'stable-receipt';
+  const retry = structuredClone(first);
+  events.splice(events.indexOf(first) + 1, 0, retry);
+  assert.equal(judge('T12', events).state, 'pass');
+  const conflict = structuredClone(first); conflict.data.status = 'heard';
+  assert.equal(judge('T12', [...events, conflict]).state, 'fail');
+  const replay = structuredClone(first); replay.data.client_msg_id = 'new-receipt';
+  assert.equal(judge('T12', [...events, replay]).state, 'fail');
+});
