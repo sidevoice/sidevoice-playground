@@ -84,11 +84,11 @@ const invalid = {
   T02d: (events) => events.map((event) => event.data?.name === 'voice_say' ? say('a') : event),
   T03: (events) => [...events, sound('a', 'playing')],
   T04a: (events) => [...events, sound('a', 'playing')],
-  T04b: (events) => [...events, hearing('b', 'heard')],
-  T05: (events) => [...events, hearing('c', 'heard')],
+  T04b: (events) => [...events.slice(0, -1), hearing('b', 'heard'), events.at(-1)],
+  T05: (events) => [...events.slice(0, -1), hearing('c', 'heard'), events.at(-1)],
   T06a: (events) => [...events, sound('b', 'playing')],
   T06b: (events) => [...events, sound('a', 'playing')],
-  T06d: (events) => [...events, hearing('a', 'heard')],
+  T06d: (events) => [...events, sound('a', 'playing')],
   T08: (events) => [...events, sound('a', 'playing')],
   T12: (events) => [...events, input('note', '', [], 'reply_skipped')],
 };
@@ -221,6 +221,9 @@ test('H6: zero partial fails on receipt, history, agent row and correction; miss
   assert.equal(modify((events) => { events.push({ kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a',
     role: 'assistant', text: 'é🐙ab', hearing: 'partial', heard_chars: 0, hearing_unconfirmed: false } } }); }).state, 'fail');
   assert.equal(modify((events) => { events.find((e) => e.kind === 'agent-input').data.unheard.replies[0].heard_chars = 0; }).state, 'fail');
+  assert.equal(modify((events) => { events.find((e) => e.kind === 'agent-input').data.unheard.replies[0].heard_chars = 0;
+    events.splice(events.findIndex((e) => e.data?.type === 'voice-reply'), 1); }).state, 'fail',
+  'an affirmative zero partial stays invalid before the history identity is observed');
   const corrected = prepared('T12');
   corrected.push({ kind: 'agent-input', data: { channel: 'note', text: '', message_id: 'correction', session_id: 's',
     revision: 2, epoch: 0, notice: { kind: 'reply_heard', corrects_message_id: 'message-1', heard: [
@@ -229,6 +232,13 @@ test('H6: zero partial fails on receipt, history, agent row and correction; miss
   assert.equal(modify((events) => { delete events.find((e) => e.data?.name === 'voice_say').data.args.text; }).state, 'pending');
   assert.equal(modify((events) => { events.find((e) => e.data?.type === 'reply-hearing').data.heard_chars = 4;
     events.find((e) => e.data?.type === 'reply-hearing').data.outcome = 'heard'; }).state, 'fail');
+  const invalidDisplay = evidence([start('T14'), say('a', 'queued', 'abcd'),
+    input('note', '', [miss('a', 'partial', 0, 'abcd')], 'reply_not_heard')]).fates[0];
+  assert.equal(invalidDisplay.fate, 'unconfirmed');
+  const invalidFull = evidence([start('T14'), say('a', 'queued', 'abcd'),
+    { kind: 'agent-input', data: { notice: { kind: 'reply_heard', heard: [
+      { utterance_id: 'a', history_id: 's:voice:a', fate: 'heard', heard_chars: 0 }] } } }]).fates[0];
+  assert.equal(invalidFull.fate, 'unconfirmed');
 });
 test('a submitted hearing decision needs matching core acknowledgement and history identity', () => {
   const valid = prepared('T12');
@@ -271,6 +281,14 @@ test('agent extent and notice must match the confirmed reply on the exposed mess
     wrongIdentity.find((e) => e.data?.name === 'voice_say').data.result.utterance_id = 'wrong';
     assert.equal(direct(id, wrongIdentity).state, 'fail');
   }
+  const corrected = prepared('T01');
+  corrected.push({ kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', role: 'assistant', text: 'é🐙ab',
+    hearing: 'heard', heard_chars: 4, hearing_unconfirmed: false } } });
+  assert.equal(direct('T01', corrected).state, 'pending', 'a stronger result waits for its correction notice');
+  corrected.push({ kind: 'agent-input', data: { channel: 'note', text: '', message_id: 'correction', session_id: 's',
+    revision: 2, epoch: 1, notice: { kind: 'reply_heard', corrects_message_id: 'message-1', heard: [
+      { utterance_id: 'a', history_id: 's:voice:a', fate: 'heard', heard_chars: 4 }] } } });
+  assert.equal(direct('T01', corrected).state, 'pass', 'frozen original and linked correction are both valid');
 });
 test('lifecycle counterexamples cannot pass and absent transitions stay insufficient', () => {
   const a = prepared('T04a');

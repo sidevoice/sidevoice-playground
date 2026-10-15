@@ -57,20 +57,29 @@ export function verdict(id, events, fates) {
     .concat(frames.filter((frame) => frame.type === "history" && frame.row?.role === "assistant" && frame.row.id?.endsWith(`:voice:${key}`) && frame.row.hearing)
       .map((frame) => ({ outcome: frame.row.hearing, heard_chars: frame.row.heard_chars, at: frame.at,
         source: "history", history_id: frame.row.id, unconfirmed: frame.row.hearing_unconfirmed })));
-  const hearing = (key) => fates.get(key)?.fate;
   const text = (key) => publications.find((item) => item.args.utterance_id === key)?.args.text;
   const valid = (value, key) => {
+    if (value.outcome === "partial" && (!Number.isInteger(value.heard_chars) || value.heard_chars <= 0)) return false;
+    if (value.outcome === "heard" || value.outcome === "not_heard") {
+      if (value.source === "receipt" && value.heard_chars !== undefined) return false;
+      if (value.source !== "receipt" && (!Number.isInteger(value.heard_chars) ||
+        value.outcome === "not_heard" && value.heard_chars !== 0)) return false;
+    } else if (value.outcome !== "partial") return false;
     if (typeof text(key) !== "string" || !value?.history_id || !historyId(key)) return null;
     if (value.history_id !== historyId(key)) return false;
-    if (value.outcome === "partial") return Number.isInteger(value.heard_chars) && value.heard_chars > 0 && value.heard_chars < length(text(key));
-    if (value.outcome === "heard") return value.source === "receipt" ? value.heard_chars === undefined : value.heard_chars === length(text(key));
-    if (value.outcome === "not_heard") return value.source === "receipt" ? value.heard_chars === undefined : value.heard_chars === 0;
-    return false;
+    return value.outcome === "partial" ? value.heard_chars < length(text(key)) :
+      value.outcome === "heard" ? value.source === "receipt" || value.heard_chars === length(text(key)) : true;
   };
   const candidate = (frame) => ({ outcome: frame.outcome ?? frame.fate, heard_chars: frame.heard_chars,
     history_id: frame.history_id, source: frame.source ?? "agent" });
   const match = (key, expected) => semantic(key).some((value) => value.outcome === expected && valid(value, key) === true);
-  const contradictory = (key, expected) => semantic(key).some((value) => valid(value, key) === false || value.outcome !== expected);
+  const contradictory = (key, expected) => {
+    const exposure = misses.find((row) => row.utterance_id === key && row.fate === expected)?.at ?? Infinity;
+    const expectedExtent = expected === "heard" ? length(text(key)) : expected === "not_heard" ? 0 :
+      misses.find((row) => row.utterance_id === key && row.fate === expected)?.heard_chars;
+    return semantic(key).some((value) => valid(value, key) === false || value.at <= exposure &&
+      Number.isInteger(expectedExtent) && (value.heard_chars ?? (value.outcome === "heard" ? length(text(key)) : 0)) > expectedExtent);
+  };
   const miss = (key, expected) => misses.find((row) => row.utterance_id === key && row.fate === expected && row.text === text(key) &&
     !Object.hasOwn(row, "reason") && !Object.hasOwn(row, "cut") && valid(candidate(row), key) === true &&
     semantic(key).some((value) => value.outcome === row.fate &&
@@ -133,6 +142,18 @@ export function verdict(id, events, fates) {
       return fail("Core rejected the app's hearing decision");
   }
   if (unresolved()) return pending("Publication admission is unresolved");
+  for (const key of ids) {
+    const exposed = misses.find((row) => row.utterance_id === key);
+    if (!exposed) continue;
+    const stronger = semantic(key).filter((value) => value.at > exposed.at &&
+      (value.heard_chars ?? (value.outcome === "heard" ? length(text(key)) : 0)) > exposed.heard_chars);
+    if (stronger.length && !stronger.every((value) => inputs.some((input) => input.at > exposed.at &&
+      input.channel === "note" && input.text === "" && input.notice?.kind === "reply_heard" &&
+      input.notice.corrects_message_id === exposed.input.message_id && (input.notice.heard ?? []).some((row) =>
+        row.utterance_id === key && row.history_id === historyId(key) && row.fate === value.outcome &&
+        row.heard_chars === (value.heard_chars ?? length(text(key)))))))
+      return pending("Confirmed stronger hearing awaits its linked agent correction");
+  }
   if (publications.some((item) => item.result.utterance_id && item.result.utterance_id !== item.args.utterance_id ||
     item.result.event_id && item.result.event_id !== item.args.event_id)) return fail("Publication identity changed");
   const orderedPlayback = (keys) => {
@@ -167,8 +188,8 @@ export function verdict(id, events, fates) {
       begin = started(key), stop = stopped(key);
     if (status(publications[0]) === "rejected" || (item && (wrongMiss(key, item.fate) || contradictory(key, item.fate))) ||
       physical(key).some((frame) => ["heard", "playback_finished"].includes(frame.status)) ||
-      physical(key).filter((frame) => frame.status === "playing").length > 1 ||
-      (item && hearing(key) !== item.fate && hearing(key) !== "unconfirmed")) return fail("Interrupted reply needs a matched partial extent and no resumed playback");
+      physical(key).filter((frame) => frame.status === "playing").length > 1)
+      return fail("Interrupted reply needs a matched partial extent and no resumed playback");
     const opened = qualifiedTurn();
     if (opened && (opened.at <= (begin?.at ?? -1) || opened.epoch <= publications[0].args.epoch ||
       spoken && spoken.epoch !== opened.epoch)) return fail("Interrupting speech must start the next epoch");
@@ -181,7 +202,7 @@ export function verdict(id, events, fates) {
   if (["T02a", "T02b"].includes(id)) {
     if (!publications.length) return pending();
     const key = ids[0], expected = id === "T02a" ? inputs.find((input) => input.channel === "voice" && input.text && input.notice?.kind === "reply_not_heard") : note("turn_empty");
-    if (status(publications[0]) === "rejected" || !noAudio(key) || contradictory(key, "not_heard") || wrongMiss(key, "not_heard") || hearing(key) === "heard" || hearing(key) === "partial")
+    if (status(publications[0]) === "rejected" || !noAudio(key) || contradictory(key, "not_heard") || wrongMiss(key, "not_heard"))
       return fail("Accepted unstarted reply cannot be heard or carry contradictory evidence");
     const opened = qualifiedTurn();
     if (opened && opened.epoch <= publications[0].args.epoch) return fail("New turn did not advance the epoch");

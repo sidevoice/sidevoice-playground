@@ -36,10 +36,12 @@ export function reduceHearing(events, state = { replies: new Map(), receipts: ne
     if (historyId && row.history_id && historyId !== row.history_id) return;
     if (historyId) row.history_id = historyId;
     textOf(row, text);
+    if (outcome === "not_heard" && heardChars != null && heardChars !== 0) return;
     const extent = outcome === "not_heard" ? 0 : outcome === "heard" ?
       (Number.isInteger(heardChars) ? heardChars : row.text === undefined ? null : scalars(row.text).length) : heardChars;
     if (!Number.isInteger(extent) || extent < 0 || outcome === "partial" &&
-      (extent === 0 || row.text !== undefined && extent >= scalars(row.text).length)) return;
+      (extent === 0 || row.text !== undefined && extent >= scalars(row.text).length) || outcome === "heard" &&
+      row.text !== undefined && extent !== scalars(row.text).length) return;
     if (extent < (row.heard_chars ?? -1)) return;
     if (extent === row.heard_chars && row.fate === "heard" && outcome !== "heard") return;
     row.fate = outcome;
