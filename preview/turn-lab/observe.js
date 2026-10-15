@@ -76,9 +76,9 @@
       const wire = value.startsWith("42") ? JSON.parse(value.slice(2)) : JSON.parse(value);
       const parsed = Array.isArray(wire) ? { type: wire[0], data: wire[1] } : wire;
       const data = parsed.data ?? parsed;
-      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, globally_heard: data.globally_heard, on: data.on, text: data.text,
+      return { type: parsed.type ?? parsed.event ?? data.type, event: parsed.event, epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, globally_heard: data.globally_heard, working: data.working, on: data.on, text: data.text,
         phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq,
-        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
+        data: { epoch: data.epoch, utterance_id: data.utterance_id, utterance_ids: data.utterance_ids, history_id: data.history_id, heard_chars: data.heard_chars, status: data.status, fate: data.fate, reason: data.reason, cut: data.cut, working: data.working, on: data.on, phase: data.phase, turn_id: data.turn_id, thread_id: data.thread_id, session_id: data.session_id, revision: data.revision, message_id: data.message_id, seq: data.seq } };
     } catch { return null; }
   };
   const NativeWebSocket = window.WebSocket;
