@@ -1,6 +1,12 @@
 // Physical playback proves ordering. Only reply-hearing, semantic history and
 // the agent envelope prove hearing; operational stop reasons never do.
 const MANUAL = new Set(["T06c", "T06e", "T07", "T09a", "T09b", "T10", "T11", "T13", "T14", "T15", "T16"]);
+const MANUAL_REASON = {
+  T06c: "Check both call-local turns: focus does not flush A; B gets its own words; A finishes at its ordinary endpoint",
+  T11: "Check source thread/binding and one epoch per admitted A/B start; the mock probe tests duplicate starts and reordered terminals",
+  T13: "Check mute routes silence and the turn ends after ordinary patience, never at the mute click",
+};
+const manual = (id) => check("manual", MANUAL_REASON[id] ?? "Follow the case instruction and review the room and exported trace");
 const good = (status) => ["accepted", "queued", "spoken", "published", "text_only"].includes(status);
 const check = (state, reason) => ({ state, reason });
 const pending = (reason = "Insufficient case evidence") => check("pending", reason);
@@ -10,11 +16,11 @@ const length = (text) => [...(text ?? "")].length;
 const status = (item) => item?.result?.status ?? item?.result?.result?.status;
 
 export function initialChecks(ids) {
-  return Object.fromEntries(ids.map((id) => [id, MANUAL.has(id) ? check("manual", "Follow the case instruction and review the room and exported trace") : pending()]));
+  return Object.fromEntries(ids.map((id) => [id, MANUAL.has(id) ? manual(id) : pending()]));
 }
 
 export function verdict(id, events, fates) {
-  if (MANUAL.has(id)) return check("manual", "Follow the case instruction and review the room and exported trace");
+  if (MANUAL.has(id)) return manual(id);
   const conversation = events.find((event) => event.kind === "script-start")?.data?.conversation;
   if (conversation) events = events.filter((event) => !event.data?.conversation || event.data.conversation === conversation);
   const publications = [];
