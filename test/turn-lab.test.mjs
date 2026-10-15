@@ -551,3 +551,91 @@ test("mock voice keeps A and B turns in separate running calls across an input r
   await a.dispose();
   await b.dispose();
 });
+
+// The microphone is shared: once the route (or the mute) moves away from a call speaking, that call hears silence
+// for the rest of the utterance, keeps what it captured, and ends its turn at the ordinary endpoint (Silence/Normal
+// waits 2.5 s), never at the switch.
+async function sharedMicrophone() {
+  let clock = 0;
+  const world = createWorld({ id: "mic", title: "Mic", summary: "", world: {}, options: [] }, {}, {
+    now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
+  });
+  const voice = fakeVoice(world);
+  const a = voice.host.createCall(), b = voice.host.createCall();
+  const log = [];
+  for (const [key, call] of [["a", a], ["b", b]]) {
+    call.onTurn((event) => log.push({ call: key, at: clock, event }));
+    call.onLevel((level) => log.push({ call: key, at: clock, level }));
+    await call.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, end_of_turn: "silence", patience: "normal" });
+    await call.start();
+  }
+  await voice.host.routeInput(a);
+  return { voice, a, b, log, now: () => clock };
+}
+const finished = (log, key) => log.filter((item) => item.call === key && item.event?.phase === "finished");
+const levelsAfter = (log, key, at) => log.filter((item) => item.call === key && item.level > 0 && item.at > at);
+const FULL = "one two three four five six seven eight";
+
+for (const [name, leave] of [
+  ["routed to the other call", (m) => m.voice.host.routeInput(m.b)],
+  ["routed to nobody", (m) => m.voice.host.routeInput(null)],
+  ["muted", async (m) => m.a.mute(true)],
+]) {
+  test(`mock voice: a call speaking when the microphone is ${name} hears silence from then on and ends at its ordinary endpoint`, async () => {
+    const m = await sharedMicrophone();
+    let left = null;
+    m.a.onLevel((level) => { if (level > 0 && left === null && m.log.filter((item) => item.call === "a" && item.level > 0).length > 5) left = leave(m).then(() => m.now()); });
+    const speaking = m.voice.speak(FULL);
+    await speaking;
+    const leftAt = await left;
+    assert.ok(leftAt != null, "the route changed mid-speech");
+    assert.deepEqual(levelsAfter(m.log, "a", leftAt), [], "no microphone speech reaches A after the change");
+    const [end] = finished(m.log, "a");
+    assert.ok(end, "A still ends its turn, with what it captured");
+    assert.ok(end.event.text.length > 0 && end.event.text.length < FULL.length && FULL.startsWith(end.event.text), `A keeps only its captured words, got ${end.event.text}`);
+    assert.ok(end.at - leftAt >= 2500, `the terminal came ${end.at - leftAt} ms after the change; the endpoint is 2500 ms`);
+    await m.a.dispose();
+    await m.b.dispose();
+  });
+}
+
+test("mock voice: A→B mid-speech leaves B its own words and A its own, with no cross-call text", async () => {
+  const m = await sharedMicrophone();
+  let routed = false;
+  m.a.onLevel((level) => { if (level > 0 && !routed && m.log.filter((item) => item.call === "a" && item.level > 0).length > 5) { routed = true; m.voice.host.routeInput(m.b).then(() => m.voice.speak("Words for B")); } });
+  await m.voice.speak(FULL);
+  while (!finished(m.log, "b").length) await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(finished(m.log, "b")[0].event.text, "Words for B");
+  assert.ok(FULL.startsWith(finished(m.log, "a")[0].event.text));
+  assert.ok(!finished(m.log, "a")[0].event.text.includes("B"));
+  await m.a.dispose();
+  await m.b.dispose();
+});
+
+test("mock voice: speech routed back to A before its endpoint continues the same open turn", async () => {
+  const m = await sharedMicrophone();
+  let step = 0;
+  m.a.onLevel(async (level) => {
+    if (level === 0 && step === 0) { step = 1; await m.voice.host.routeInput(m.b); await m.voice.host.routeInput(m.a); step = 2; m.voice.speak("and then more"); }
+  });
+  await m.voice.speak("first part");
+  while (step < 2 || !finished(m.log, "a").length) await new Promise((resolve) => setImmediate(resolve));
+  const starts = m.log.filter((item) => item.call === "a" && item.event?.phase === "started");
+  assert.equal(starts.length, 1, "one open turn");
+  assert.equal(finished(m.log, "a").length, 1);
+  assert.match(finished(m.log, "a")[0].event.text, /^first part and then more$/);
+  await m.a.dispose();
+  await m.b.dispose();
+});
+
+test("mock voice: speech after the endpoint is a new turn, and an unrouted call cannot start one", async () => {
+  const m = await sharedMicrophone();
+  await m.voice.speak("early words");
+  await m.voice.host.routeInput(m.b);
+  assert.equal(await m.a.mute(false), undefined);
+  await m.voice.speak("for b");
+  assert.equal(m.log.filter((item) => item.call === "a" && item.event?.phase === "started").length, 1);
+  assert.equal(finished(m.log, "b")[0].event.text, "for b");
+  await m.a.dispose();
+  await m.b.dispose();
+});

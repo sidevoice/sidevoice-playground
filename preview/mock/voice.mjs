@@ -122,6 +122,8 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
   let started = false;
   let muted = false;
   let turns = 0;
+  /** @type {{ ended: boolean, lastSpeechAt: number, heard: string[], talk: ((part: string, ms?: number) => Promise<void>) | null } | null} The turn in progress, until its end of turn is decided. */
+  let open = null;
   let says = 0;
   let playbackRun = 0;
   let playbackTail = null;
@@ -335,6 +337,9 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
    */
   async function speak(text, { pause = false, cutOff = false, durationMs = SPEAKING_MS, level = 0.95 } = {}) {
     if (!started || muted) return false;
+    // A turn of this call still open (its end of turn not yet decided) goes on: speech routed back before the endpoint
+    // continues the same turn, as one call's turns only ever merge within that call.
+    if (open && !open.ended) { await open.talk(text, durationMs); return true; }
     const overlapping = [...sayHandles].filter(([id]) => activeSays.has(id));
     if (overlapping.length) {
       const threshold = Math.ceil(((/** @type {any} */ (settings))?.barge_in_min_speech ?? 1) * 1000);
@@ -361,21 +366,33 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     };
     let mark = opened();
     const seed = turns * 1.7;
+    // The microphone is shared: a step of speech reaches this call only while it is the routed one and unmuted; any
+    // other step is silence to it, and what it captured before stays in its turn.
+    const hears = () => started && !muted && group.active?.host === host;
+    const current = open = { ended: false, lastSpeechAt: world.now(), heard: /** @type {string[]} */ ([]), talk: null };
     // The same time whatever is said: SPEAKING_MS in all, in two halves around a pause or a cut.
     const talk = async (part, ms = SPEAKING_MS) => {
       setState({ listening: "speaking" });
       const spoken = { from: at(), to: at(), levels: /** @type {{ at: number, level: number }[]} */ ([]) };
       take?.speech.push(spoken);
+      const words = part.split(/\s+/).filter(Boolean);
+      const steps = Math.max(1, Math.ceil(ms / LEVEL_STEP_MS));
+      let captured = 0;
       for (let elapsed = 0; elapsed < ms; elapsed += LEVEL_STEP_MS) {
-        const level = speechLevel(elapsed, seed);
+        const routed = hears();
+        const level = routed ? speechLevel(elapsed, seed) : 0;
+        if (routed) captured++;
         spoken.levels.push({ at: at(), level });
         emit("level", level);
         await world.delay(LEVEL_STEP_MS);
+        if (routed) current.lastSpeechAt = world.now();
       }
+      current.heard.push(words.slice(0, Math.ceil(words.length * captured / steps)).join(" "));
       spoken.to = at();
       emit("level", 0);
       setState({ listening: "listening" });
     };
+    current.talk = talk;
     const half = (part) => { const words = part.split(/\s+/); const at = Math.max(1, Math.ceil(words.length / 2)); return [words.slice(0, at).join(" "), words.slice(at).join(" ") || part]; };
     setState({ listening: "speaking" });
     emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
@@ -401,12 +418,16 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       }
       await talk(rest, durationMs / 2);
     } else await talk(text, durationMs);
-    await world.delay(silence);
+    // The endpoint is the end of turn's wait after the last speech this call captured; speech routed back sooner
+    // moves it.
+    for (let left = current.lastSpeechAt + silence - world.now(); left > 0; left = current.lastSpeechAt + silence - world.now()) await world.delay(left);
+    current.ended = true;
+    const heardText = current.heard.filter(Boolean).join(" ");
     mark.end_ms = at();
     setState({ recognising: 1 });
     await world.delay(500);
     setState({ recognising: 0 });
-    if (voice.stt === "silence" || !text.trim()) {
+    if (voice.stt === "silence" || !heardText.trim()) {
       emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));
       return true;
     }
@@ -417,7 +438,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     }
     const endedAt = world.now();
     emit("turn", /** @type {VoiceTurnEvent} */ ({
-      phase: "finished", turn_id: turn, text, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
+      phase: "finished", turn_id: turn, text: heardText, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
       started_at: startedAt, ended_at: endedAt, merged: cutOff,
       timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: silence, recognition_ms: 500 },
     }));
