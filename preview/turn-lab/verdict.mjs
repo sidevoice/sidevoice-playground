@@ -42,7 +42,7 @@ export function verdict(id, events, fates) {
   const text = (key) => publications.find((item) => item.args.utterance_id === key)?.args.text;
   const valid = (value, key) => value?.outcome === "heard" ? (value.heard_chars == null || value.heard_chars === length(text(key))) :
     value?.outcome === "not_heard" ? (value.heard_chars == null || value.heard_chars === 0) :
-    value?.outcome === "partial" && Number.isInteger(value.heard_chars) && value.heard_chars >= 0 && value.heard_chars < length(text(key));
+    value?.outcome === "partial" && Number.isInteger(value.heard_chars) && value.heard_chars > 0 && value.heard_chars < length(text(key));
   const match = (key, expected) => semantic(key).some((value) => value.outcome === expected && valid(value, key));
   const contradictory = (key, expected) => semantic(key).some((value) => !valid(value, key) || value.outcome !== expected);
   const miss = (key, expected) => misses.find((row) => row.utterance_id === key && row.fate === expected && row.text === text(key) &&

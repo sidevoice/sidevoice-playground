@@ -23,9 +23,9 @@ const baseline = {
   T02d: [refused(), input('note', '', [], 'turn_empty')],
   T03: [say('a', 'text_only'), history('a', 'not_heard', 'newer_turn'), input('note', '', [miss('a', 'not_heard')], 'reply_not_heard')],
   T04a: [say('a'), say('b'), say('c'), ...pair('a'), ...pair('b'), ...pair('c')],
-  T04b: [say('a'), say('b'), say('c'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 0 }), hearing('a', 'partial', 0), sound('b', 'unplayed'), hearing('b', 'not_heard'), sound('c', 'unplayed'), hearing('c', 'not_heard'), input('voice', 'Stop', [miss('a', 'partial', 0), miss('b', 'not_heard'), miss('c', 'not_heard')], 'reply_not_heard')],
-  T05: [say('a'), say('b'), say('c'), ...pair('a'), sound('b', 'playing'), sound('b', 'interrupted', { heard_chars: 0 }), hearing('b', 'partial', 0), sound('c', 'unplayed'), hearing('c', 'not_heard'), input('voice', 'Stop', [miss('b', 'partial', 0), miss('c', 'not_heard')], 'reply_not_heard')],
-  T06a: [say('a'), sound('a', 'playing'), mute('agents_muted'), sound('a', 'interrupted', { heard_chars: 0 }), hearing('a', 'partial', 0), phase(), say('b', 'text_only'), hearing('b', 'not_heard')],
+  T04b: [say('a', 'queued', 'A reply'), say('b'), say('c'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 1 }), hearing('a', 'partial', 1), sound('b', 'unplayed'), hearing('b', 'not_heard'), sound('c', 'unplayed'), hearing('c', 'not_heard'), input('voice', 'Stop', [miss('a', 'partial', 1, 'A reply'), miss('b', 'not_heard'), miss('c', 'not_heard')], 'reply_not_heard')],
+  T05: [say('a'), say('b', 'queued', 'B reply'), say('c'), ...pair('a'), sound('b', 'playing'), sound('b', 'interrupted', { heard_chars: 1 }), hearing('b', 'partial', 1), sound('c', 'unplayed'), hearing('c', 'not_heard'), input('voice', 'Stop', [miss('b', 'partial', 1, 'B reply'), miss('c', 'not_heard')], 'reply_not_heard')],
+  T06a: [say('a'), sound('a', 'playing'), mute('agents_muted'), sound('a', 'interrupted', { heard_chars: 0 }), hearing('a', 'not_heard'), phase(), say('b', 'text_only'), hearing('b', 'not_heard')],
   T06b: [mute('voice_off'), say('a', 'text_only'), hearing('a', 'not_heard')],
   T06d: [mute('agents_muted'), say('a', 'text_only'), hearing('a', 'not_heard'), mute(null, true), input('note', '', [miss('a', 'not_heard')], 'user_returned')],
   T08: [say('a'), say('b'), sound('a', 'playing'), frame('typed-message', null, { status: 200, epoch: 0 }), sound('a', 'heard'), hearing('a', 'heard'), ...pair('b')],
@@ -89,6 +89,8 @@ test('a played cut with zero confirmed characters is not_heard, while its physic
   const zero = [say('a', 'queued', 'é🐙ab'), sound('a', 'playing'), sound('a', 'interrupted', { heard_chars: 0 }),
     hearing('a', 'not_heard'), input('voice', 'Stop', [miss('a', 'not_heard', 0, 'é🐙ab')], 'reply_not_heard')];
   assert.equal(judge('T01', zero).state, 'pass');
+  const invalidZeroPartial = zero.map((event) => event.data?.type === 'reply-hearing' ? hearing('a', 'partial', 0) : event);
+  assert.equal(judge('T01', invalidZeroPartial).state, 'fail');
   assert.equal(judge('T01', [...zero, sound('a', 'playing')]).state, 'fail');
 });
 test('T06b and T06d include an output setting chosen before Run without borrowing earlier replies', () => {
