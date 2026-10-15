@@ -283,9 +283,6 @@ const KNOWN_AGENTS = {
   amp: { id: "amp", label: "Amp", present: true, version: "0.0.1760", ...byCli("amp") },
   copilot: { id: "copilot", label: "GitHub Copilot CLI", present: true, version: "0.0.339",
     ...byFile("~/.copilot/mcp-config.json", '{ "mcpServers": { "sidevoice": { "type": "local", "command": "npx", "args": ["sidevoice@latest", "mcp"], "tools": ["*"] } } }', "mcpServers") },
-  kiro: { id: "kiro", label: "Kiro", present: true, version: "0.4.0", ...byFile("~/.kiro/settings/mcp.json", MCP_SERVERS, "mcpServers") },
-  continue: { id: "continue", label: "Continue", present: true, version: "1.2.0",
-    ...byFile("~/.continue/config.yaml", "mcpServers:\n  - name: sidevoice\n    command: npx\n    args: [sidevoice@latest, mcp]", "mcpServers") },
 };
 /** A machine's agents when its scenario names none: one connected, one just found and not yet connected (new), and
  *  one to connect by hand. */
@@ -300,7 +297,7 @@ const DEFAULT_AGENTS = [
  *  web shows one in — connected; not connected; just found (new); set up by an older Sidevoice (outdated: Claude Code
  *  and Codex, whose Update the connector does and whose steps by hand remove the old entry, then add it); another
  *  "sidevoice" entry (foreign); MCP settings it cannot read (invalid); unknown; by hand only; one whose Connect takes
- *  8 s; one whose Connect fails; connected but no longer installed; and one not installed, which the web hides. */
+ *  8 s; one whose Connect fails. Never one not installed: the connector lists only the agents installed on a machine. */
 const AGENT_LISTS = {
   "every-state": [
     { id: "claude", registration: "outdated", actionable: false },
@@ -313,8 +310,6 @@ const AGENT_LISTS = {
     { id: "cursor", registration: "not-connected", actionable: true },
     { id: "amp", registration: "not-connected", actionable: false, connectMs: 8000 },
     { id: "copilot", registration: "not-connected", actionable: false, connectMs: 1500, connectFails: "connect-failed" },
-    { id: "kiro", registration: "connected", actionable: false, present: false, version: null },
-    { id: "continue", registration: "not-connected", actionable: false, present: false, version: null },
   ],
 };
 
