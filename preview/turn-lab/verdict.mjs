@@ -195,7 +195,7 @@ export function verdict(id, events, fates) {
       physical(key).filter((frame) => frame.status === "playing").length > 1)
       return fail("Interrupted reply needs a matched partial extent and no resumed playback");
     const opened = qualifiedTurn();
-    if (opened && (opened.at <= (begin?.at ?? -1) || opened.epoch <= publications[0].args.epoch ||
+    if (opened && (opened.at <= (begin?.at ?? -1) || stop && opened.at >= stop.at || opened.epoch <= publications[0].args.epoch ||
       spoken && spoken.epoch !== opened.epoch)) return fail("Interrupting speech must start the next epoch");
     if (!item || !begin || !stop || stop.status !== "interrupted" || !match(key, item?.fate) || !spoken ||
       !(begin.at < stop.at && stop.at < item.at) || !Number.isInteger(stop.heard_chars) || stop.heard_chars > item.heard_chars ||
@@ -209,7 +209,8 @@ export function verdict(id, events, fates) {
     if (status(publications[0]) === "rejected" || !noAudio(key) || contradictory(key, "not_heard") || wrongMiss(key, "not_heard"))
       return fail("Accepted unstarted reply cannot be heard or carry contradictory evidence");
     const opened = qualifiedTurn();
-    if (opened && opened.epoch <= publications[0].args.epoch) return fail("New turn did not advance the epoch");
+    if (opened && (opened.epoch <= publications[0].args.epoch || opened.at <= publications[0].at))
+      return fail("Accepted reply must precede the next spoken turn");
     const direct = envelope(key, "not_heard", id === "T02a" ? "reply_not_heard" : "turn_empty", id === "T02a" ? "voice" : "note");
     const followup = id === "T02a" && inputs.find((input) => input.channel === "note" && input.notice?.kind === "reply_not_heard" &&
       input.notice.related_message_id && inputs.some((prior) => prior.message_id === input.notice.related_message_id &&
@@ -254,8 +255,15 @@ export function verdict(id, events, fates) {
       return fail("Interrupting turn did not advance a single reply epoch");
     const found = ids.every((key, index) => match(key, expected[index]) && (expected[index] === "heard" ||
       envelope(key, expected[index], "reply_not_heard", "voice")));
-    const playbackOk = id === "T04b" ? Boolean(started(ids[0]) && stopped(ids[0])) :
-      Boolean(started(ids[0]) && physical(ids[0]).some((frame) => frame.status === "heard") && started(ids[1]) && stopped(ids[1]));
+    const firstStart = started(ids[0]), firstEnd = physical(ids[0]).find((frame) => frame.status === "heard");
+    const cutStart = started(cutKey), cutStop = stopped(cutKey);
+    if (opened && cutStart && cutStop && (opened.at <= publications.at(-1).at ||
+      id === "T04b" && !(cutStart.at < opened.at && opened.at < cutStop.at) ||
+      id === "T05" && firstStart && firstEnd && !(firstStart.at < firstEnd.at && firstEnd.at < cutStart.at &&
+        cutStart.at < opened.at && opened.at < cutStop.at)))
+      return fail("Qualified turn did not interrupt the intended playing reply");
+    const playbackOk = id === "T04b" ? Boolean(cutStart && cutStop) :
+      Boolean(firstStart && firstEnd && cutStart && cutStop);
     return found && playbackOk && opened && caseIdentity() && note("reply_not_heard") ? pass("Matched heard, partial, and not-heard outcomes") : pending();
   }
   if (id === "T06a") {
