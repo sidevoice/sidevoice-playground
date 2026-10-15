@@ -220,10 +220,14 @@ test("history resolve_id returns authoritative hearing for the requested retaine
   const before = (await c.ask(path)).body;
   assert.deepEqual(before.resolved.map((row) => [row.id, row.globally_heard]), [[history_id, false]]);
   assert.deepEqual(before.missing_ids, ["gone"]);
-  call.send("voice-playback", { session_id: call.session, client_msg_id: "heard", utterance_id, status: "heard" });
-  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "heard"), "hearing recorded");
+  call.send("voice-playback", { session_id: call.session, client_msg_id: "physical", utterance_id, status: "heard" });
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "physical"), "playback recorded");
+  const physicalOnly = (await c.ask(path)).body;
+  assert.deepEqual([physicalOnly.resolved[0].hearing, physicalOnly.resolved[0].hearing_unconfirmed], [null, true]);
+  call.send("reply-hearing", { session_id: call.session, client_msg_id: "semantic", history_id, utterance_id, outcome: "heard" });
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "semantic"), "hearing recorded");
   const after = (await c.ask(path)).body;
-  assert.deepEqual([after.resolved[0].globally_heard, after.resolved[0].heard_chars], [true, 4]);
+  assert.deepEqual([after.resolved[0].hearing, after.resolved[0].globally_heard, after.resolved[0].heard_chars, after.resolved[0].hearing_unconfirmed], ["heard", true, 4, false]);
   assert.equal((await c.ask(`/api/presentation/history?thread_id=nuc-thread-1&resolve_id=${'x'.repeat(257)}`)).status, 422);
 });
 
