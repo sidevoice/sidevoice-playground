@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source = await readFile(new URL('../web/turn-lab.mjs', import.meta.url), 'utf8');
+const observerSource = await readFile(new URL('../preview/turn-lab/observe.js', import.meta.url), 'utf8');
 
 function page() {
   const elements = new Map();
@@ -61,4 +62,23 @@ test('open page refreshes changed pins through restart and displays the new run'
   assert.equal(lab.element('room').hidden, false);
   assert.ok(lab.element('pins').children.some((entry) => entry.textContent === 'core-B'));
   assert.equal(lab.state.current.runId, 'run-B');
+});
+
+test('history observation preserves each row thread and browser-side time', async () => {
+  const messages = [], handlers = new Map();
+  const parent = { postMessage(message) { messages.push(message); } };
+  const body = { messages: [{ id: 'old:voice:a', role: 'assistant', thread_id: 'other', epoch: 1 }] };
+  const response = { ok: true, status: 200, clone() { return this; }, async json() { return body; } };
+  const win = { WebSocket: class {}, fetch: async () => response,
+    addEventListener(name, handler) { handlers.set(name, handler); } };
+  const storage = new Map();
+  vm.runInNewContext(observerSource, { window: win, parent, URL, Date, setInterval() {}, setTimeout,
+    location: { href: 'http://child/voice/', pathname: '/voice/' },
+    document: { referrer: 'http://parent/', addEventListener() {} }, navigator: {},
+    localStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) } });
+  handlers.get('message')({ source: parent, origin: 'http://parent', data: { type: 'turn-lab-thread', thread: 'selected' } });
+  await win.fetch('/api/presentation/history');
+  const history = messages.find((message) => message.data?.type === 'history');
+  assert.equal(history.data.conversation, 'other');
+  assert.ok(Number.isInteger(history.data.observed_at));
 });
