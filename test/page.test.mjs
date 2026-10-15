@@ -45,3 +45,21 @@ test("the sections' scripts look up only elements index.html has, and each secti
   assert.deepEqual(sections, ["engine", "voice", "connector", "preview"]);
   for (const section of sections) assert.ok(ids.has(`section-${section}`), `#section-${section}`);
 });
+
+test("the Turn Lab is a page of its own, linked from the header, not one of the sections", () => {
+  const header = html.slice(html.indexOf('<header class="topbar">'), html.indexOf("</header>"));
+  const nav = html.slice(html.indexOf('<nav id="sections"'), html.indexOf("</nav>", html.indexOf('<nav id="sections"')));
+  assert.match(header, /<a href="\/turn-lab" class="page-link">[\s\S]*Turn Lab/);
+  assert.doesNotMatch(nav, /<a\b|turn-lab/i);
+});
+
+test("every dropdown is made searchable, and each sits in a label whose caption names its box", () => {
+  assert.match(app, /for \(const select of document\.querySelectorAll\("select"\)\) searchable\(select\);/);
+  const selects = [...html.matchAll(/<select\b/g)].map((m) => m.index);
+  assert.ok(selects.length > 20);
+  for (const at of selects) {
+    const label = html.lastIndexOf("<label", at);
+    assert.ok(label > html.lastIndexOf("</label>", at), `a <select> outside a label, near: ${html.slice(at, at + 60)}`);
+    assert.match(html.slice(label, at), /<span class="label">[^<]+/, `no caption before: ${html.slice(at, at + 60)}`);
+  }
+});

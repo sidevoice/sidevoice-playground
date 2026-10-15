@@ -49,8 +49,74 @@ body {
 }
 
 .topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
   padding: 14px max(16px, env(safe-area-inset-left)) 12px;
   border-bottom: 1px solid #272e37;
+}
+.topbar-title {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+/* Other pages (the Turn Lab): links out of this one, each a card beside the title saying where it goes, apart from
+   the sections below, which switch within the page. Below the title on a phone. */
+.pages {
+  flex: 0 1 360px;
+  min-width: 0;
+}
+.page-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 10px 14px;
+  color: var(--sv-text);
+  text-decoration: none;
+  background: var(--sv-surface);
+  border: 1px solid var(--sv-border);
+  border-radius: 12px;
+}
+.page-link:hover {
+  background: var(--sv-selected);
+  border-color: var(--sv-selected-border);
+}
+.page-link:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: 3px;
+}
+.page-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.page-link strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sv-primary-soft);
+}
+.page-link small {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--sv-muted);
+}
+.page-link-go {
+  margin-left: auto;
+  font-size: 20px;
+  color: var(--sv-primary);
+  transition: transform 0.15s;
+}
+.page-link:hover .page-link-go {
+  transform: translateX(3px);
+}
+@media (max-width: 699px) {
+  .pages {
+    flex-grow: 1;
+  }
 }
 
 h1 {
@@ -133,6 +199,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin-top: 12px;
 }
 .engine-pick .muted {
   margin-top: 6px;
@@ -165,6 +232,7 @@ main {
   min-height: 44px;
   display: flex;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
   color: var(--sv-primary-soft);
   font-size: 14px;
@@ -241,9 +309,11 @@ main {
   font-weight: 600;
 }
 
-/* Sections: the playground's parts (Engine, Voice, Connector), above the screens; it scrolls away with the page. */
+/* Sections: the playground's parts (Engine, Voice, Connector, Web preview), above the screens, one row of four; it
+   scrolls away with the page. */
 .sections {
   position: static;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: calc(100% - 24px);
   max-width: 736px;
   margin: 12px auto 0;
@@ -254,10 +324,21 @@ main {
   gap: 12px;
 }
 
-.screen {
+/* A screen, and a section's card: one column, evenly spaced. */
+.screen,
+.section > section.card {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+.screen > h2,
+.section > section.card > h2,
+.section > section.card > p:not([class]) {
+  margin: 0;
+}
+/* A paragraph that only holds a hidden link (the bench's, the preview's) takes no gap either. */
+.section > section.card > p:not([class]):has(> [hidden]:only-child) {
+  display: none;
 }
 
 .model-block {
@@ -327,6 +408,135 @@ textarea:focus-visible {
   outline: 2px solid var(--sv-primary);
   outline-offset: 1px;
 }
+
+/* Searchable selects (combobox.mjs): the box looks like the fields around it; open, a filter and the options under it
+   (over it, near the window's bottom), on top of what follows, the matched words marked and the picked option ticked.
+   The select it stands for stays in the page, hidden. */
+.combo-source {
+  display: none;
+}
+.combo {
+  position: relative;
+  min-width: 0;
+}
+.combo-box {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px;
+  text-align: left;
+  background: var(--sv-field);
+  border: 1px solid var(--sv-field-border);
+  border-radius: 8px;
+}
+.combo-box:hover {
+  background: var(--sv-field);
+}
+.combo-box:hover:not(:disabled),
+.combo.open .combo-box {
+  border-color: var(--sv-selected-border);
+}
+.model-block .combo-box {
+  background: var(--sv-bg);
+}
+.combo-box:disabled {
+  opacity: 0.55;
+}
+.combo-box:focus-visible {
+  outline-offset: 1px;
+}
+.combo-box::after {
+  content: "▾";
+  flex: none;
+  color: var(--sv-muted);
+  transition: transform 0.15s;
+}
+.combo.open .combo-box::after {
+  transform: rotate(180deg);
+}
+.combo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combo-popup {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  background: var(--sv-surface-raised);
+  border: 1px solid var(--sv-field-border);
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+}
+.combo.up .combo-popup {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+.combo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(300px, 45vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.combo-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.combo-option.active {
+  background: var(--sv-primary-muted);
+}
+.combo-option.current {
+  color: var(--sv-primary-soft);
+  font-weight: 600;
+}
+.combo-option.current::after {
+  content: "✓";
+  margin-left: auto;
+  color: var(--sv-primary);
+}
+.combo-option[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.combo-label {
+  min-width: 0;
+}
+.combo-option mark {
+  color: var(--sv-primary);
+  background: none;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.combo-count {
+  margin: 0;
+  padding: 2px 6px 4px;
+  font-size: 13px;
+  color: var(--sv-muted);
+}
+.combo-count:empty {
+  display: none;
+}
+
 input[type="range"] {
   width: 100%;
   min-height: 32px;
@@ -353,6 +563,7 @@ button,
   border: 1px solid #3b424b;
   border-radius: 12px;
   cursor: pointer;
+  text-decoration: none;
   touch-action: manipulation;
 }
 button:hover,
@@ -427,6 +638,25 @@ button.wide {
   cursor: pointer;
   color: var(--sv-primary-soft);
   font-size: 14px;
+}
+/* What folds (Advanced, the native build log) says so with the same chevron, turned when open. */
+.advanced summary,
+.engine-build summary {
+  list-style: none;
+}
+.advanced summary::-webkit-details-marker,
+.engine-build summary::-webkit-details-marker {
+  display: none;
+}
+.advanced summary::before,
+.engine-build summary::before {
+  content: "▸";
+  color: var(--sv-muted);
+  transition: transform 0.15s;
+}
+.advanced[open] > summary::before,
+.engine-build[open] > summary::before {
+  transform: rotate(90deg);
 }
 .builds {
   display: flex;
@@ -527,6 +757,10 @@ audio {
 code {
   font-size: 13px;
   color: var(--sv-primary-soft);
+}
+
+a {
+  color: var(--sv-primary);
 }
 
 @media (min-width: 700px) {
