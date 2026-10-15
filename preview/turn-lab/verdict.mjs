@@ -27,10 +27,11 @@ export function verdict(id, events, fates) {
     else publications.push(item);
   }
   const ids = publications.map((item) => item.args.utterance_id);
+  const timestamp = (value) => Number.isFinite(value) ? value : typeof value === "string" ? Date.parse(value) : NaN;
   const frames = events.flatMap((event, at) => ["room-frame", "browser-action"].includes(event.kind) ? [{ ...event.data, at,
-    source_at: event.data?.observed_at ?? event.at, direction: event.kind }] : []);
+    source_at: timestamp(event.data?.observed_at ?? event.at), direction: event.kind }] : []);
   const inputs = events.flatMap((event, at) => event.kind === "agent-input" ? [{ ...event.data, at,
-    source_at: event.data?.received_at ?? event.at }] : []);
+    source_at: timestamp(event.data?.arrival_time ?? event.data?.received_at ?? event.at) }] : []);
   const misses = inputs.flatMap((input) => (input.unheard?.replies ?? []).map((row) => ({ ...row, at: input.at, input })));
   const notes = inputs.filter((input) => input.notice);
   const note = (kind) => notes.find((input) => input.notice.kind === kind);

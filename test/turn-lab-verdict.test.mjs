@@ -323,6 +323,9 @@ test('lifecycle counterexamples cannot pass and absent transitions stay insuffic
   const returned = prepared('T06d');
   returned.find((e) => e.kind === 'agent-input').data.received_at = 1001;
   assert.equal(direct('T06d', returned).state, 'fail');
+  const delayedPull = prepared('T06d');
+  delayedPull.find((e) => e.kind === 'agent-input').data.arrival_time = 1001;
+  assert.equal(direct('T06d', delayedPull).state, 'fail', 'pull delivery lag cannot satisfy the grace');
   const offLate = prepared('T06b');
   const offAt = offLate.findIndex((e) => e.data?.type === 'voice-speech');
   const [off] = offLate.splice(offAt, 1); offLate.push(off);
