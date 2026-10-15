@@ -64,7 +64,7 @@
       if (join && !join.classList.contains("joined") && !clicked.has("join") && !join.disabled) {
         clicked.add("join"); join.click(); report("browser-ready", { voice: "starting" });
       }
-      if (join?.classList.contains("joined") && !clicked.has(`joined:${wantedThread}`)) {
+      if (participant.selected && join?.classList.contains("joined") && !clicked.has(`joined:${wantedThread}`)) {
         clicked.add(`joined:${wantedThread}`);
         setTimeout(() => report("browser-ready", { voice: "joined", thread: wantedThread }), 1500);
       }

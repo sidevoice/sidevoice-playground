@@ -4,6 +4,7 @@ let connected = false;
 let autoConnecting = false;
 let attemptedAutoConnect = false;
 let pairingSent = false;
+let joinedThread = null;
 let scripts = {};
 const ask = async (path, body) => {
   const response = await fetch(path, body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -43,6 +44,7 @@ async function poll() {
         const status = await ask("/preview/status");
         const url = new URL(status.link); url.pathname = "/voice/";
         $("room").src = url.href;
+        joinedThread = null;
         $("room").hidden = false;
         $("room-wait").hidden = true;
         $("connect").disabled = false;
@@ -67,14 +69,14 @@ async function poll() {
     $("events").replaceChildren(...state.events.slice(-100).reverse().map((event) => item(`${new Date(event.at).toLocaleTimeString()} ${event.kind} ${JSON.stringify(event.data).slice(0, 600)}`)));
     connected = Boolean(state.agent?.ready);
     if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: state.agent.conversation }, previewOrigin);
-    const browserJoined = state.events.some((event) => event.kind === "browser-ready" && event.data?.voice === "joined" && event.data?.thread === state.agent?.conversation);
-    $("run").disabled = !connected || !browserJoined;
+    $("run").disabled = !connected || joinedThread !== state.agent?.conversation;
     $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected";
   } catch (error) { setStatus(`Lab status: ${error.message}`); }
 }
 
 $("connect").onclick = async () => {
   $("connect").disabled = true;
+  joinedThread = null;
   try { await ask("/preview/turn-lab/connect", { mode: $("mode").value }); connected = true; await poll(); }
   catch (error) { $("agent-status").textContent = error.message; }
   finally { $("connect").disabled = false; }
@@ -92,7 +94,8 @@ $("export").onclick = async () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 window.addEventListener("message", (event) => {
-  if (event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
+  if (event.source !== $("room").contentWindow || event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
+  if (event.data.kind === "browser-ready" && event.data.data?.voice === "joined") joinedThread = event.data.data.thread;
   if (event.data.kind === "browser-ready" && event.data.data?.paired === false && !pairingSent) {
     pairingSent = true;
     void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));
