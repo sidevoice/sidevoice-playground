@@ -308,12 +308,14 @@ test("Cursor readiness presets emit only state and reason codes", async () => {
   const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
   const world = createWorld(desktop, {}, instant);
   const identities = await makeIdentities(world.state);
-  const states = ["ready", "needs_attention", "unsupported", "unknown_code"];
+  const states = ["ready", "needs_attention", "unsupported", "unknown_code", "unknown_no_message"];
   const expected = {
     ready: { state: "ready", reasons: [] },
-    needs_attention: { state: "needs_attention", reasons: ["cursor.bridge_not_running"] },
-    unsupported: { state: "unsupported", reasons: ["cursor.unsupported"] },
-    unknown_code: { state: "needs_attention", reasons: ["cursor.future_code"] },
+    needs_attention: { state: "needs_attention", reasons: [{ code: "cursor.bridge_not_running",
+      message: "Voice in the Cursor editor needs Cursor's Desktop Bridge: in Cursor, open Settings › Beta, enable “Allow CLI to access desktop agents”, then restart Cursor." }] },
+    unsupported: { state: "unsupported", reasons: [{ code: "cursor.unsupported", message: "Cursor editor voice is not supported on this computer." }] },
+    unknown_code: { state: "needs_attention", reasons: [{ code: "cursor.future_code", message: "Check the new Cursor setup." }] },
+    unknown_no_message: { state: "needs_attention", reasons: [{ code: "cursor.future_code" }] },
   };
   assert.deepEqual(desktop.options.find((option) => option.id === "cursorBridge").values.map((value) => value.value), states);
   let otherAgents;
@@ -349,7 +351,7 @@ test("agent actions change registration without inventing readiness", async () =
   assert.deepEqual(cursor(connected).readiness, { state: "ready", reasons: [] });
 });
 
-test("live Cursor readiness picker refreshes four states without a page reload", async () => {
+test("live Cursor readiness picker refreshes all reason-message choices without reconnecting or reloading", async () => {
   const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
   const world = createWorld(desktop, {}, instant);
   const identities = await makeIdentities(world.state);
@@ -379,9 +381,11 @@ test("live Cursor readiness picker refreshes four states without a page reload",
   } };
   assert.deepEqual(card(), { state: "ready", reasons: [] });
   for (const [choice, expected] of [
-    ["needs_attention", { state: "needs_attention", reasons: ["cursor.bridge_not_running"] }],
-    ["unsupported", { state: "unsupported", reasons: ["cursor.unsupported"] }],
-    ["unknown_code", { state: "needs_attention", reasons: ["cursor.future_code"] }],
+    ["needs_attention", { state: "needs_attention", reasons: [{ code: "cursor.bridge_not_running",
+      message: "Voice in the Cursor editor needs Cursor's Desktop Bridge: in Cursor, open Settings › Beta, enable “Allow CLI to access desktop agents”, then restart Cursor." }] }],
+    ["unsupported", { state: "unsupported", reasons: [{ code: "cursor.unsupported", message: "Cursor editor voice is not supported on this computer." }] }],
+    ["unknown_code", { state: "needs_attention", reasons: [{ code: "cursor.future_code", message: "Check the new Cursor setup." }] }],
+    ["unknown_no_message", { state: "needs_attention", reasons: [{ code: "cursor.future_code" }] }],
     ["ready", { state: "ready", reasons: [] }],
   ]) {
     assert.equal(chooseMockOption(world, "cursorBridge", choice, frame, identities), false);
@@ -391,7 +395,7 @@ test("live Cursor readiness picker refreshes four states without a page reload",
     assert.equal(cursor().actionable, true, `${choice} must leave Connect available`);
     assert.equal(frame.src, "/voice/", "the framed page never reloads");
   }
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
   const connected = await answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents/cursor/connect`,
     method: "POST", headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
   assert.equal(connected.status, 200);
