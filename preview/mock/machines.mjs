@@ -515,7 +515,7 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
       const params = new URLSearchParams(query);
       const thread = params.get("thread_id");
       const ids = params.getAll("resolve_id");
-      if (ids.length > 64 || ids.some((value) => !value || Buffer.byteLength(value) > 256) || (ids.length && !thread))
+      if (ids.length > 64 || ids.some((value) => !value || new TextEncoder().encode(value).length > 256) || (ids.length && !thread))
         return refuse(422, REFUSALS["room.request_invalid"]);
       const rows = told(world, room).filter((row) => !thread || row.thread === thread);
       const recent = rows.slice(-1000);
