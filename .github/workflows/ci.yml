@@ -68,10 +68,10 @@ jobs:
               "$dir/binary.json" "$kind" "$sha" "$digest"
             echo "PLAYGROUND_${kind^^}_BIN=$dir/target/release/$bin" >> "$GITHUB_ENV"
           done
-      - name: Compare mock responses with pinned core and connector
+      - name: Compare mock responses and hearing with pinned core and connector
         env:
           PLAYGROUND_CONFORMANCE: "1"
-        run: node --test test/mock-conformance.test.mjs
+        run: node --test test/mock-conformance.test.mjs test/mock-call.test.mjs
 
   # On every run, not only when src-tauri/ changes: the app embeds web/, so a change to the page is a change to the
   # app, and a path filter would spare only the PRs that touch nothing but docs.
