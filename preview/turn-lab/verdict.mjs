@@ -13,6 +13,8 @@ export function initialChecks(ids) {
 }
 
 export function verdict(id, events, fates) {
+  const conversation = events.find((event) => event.kind === "script-start")?.data?.conversation;
+  if (conversation) events = events.filter((event) => !event.data?.conversation || event.data.conversation === conversation);
   const publications = events.filter((event) => event.kind === "tool-result" && event.data?.name === "voice_say")
     .map((event) => ({ id: event.data.args?.utterance_id, result: event.data.result ?? {}, args: event.data.args ?? {} }));
   const ids = publications.map((item) => item.id).filter(Boolean);

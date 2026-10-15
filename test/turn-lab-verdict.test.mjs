@@ -29,6 +29,17 @@ for (const [id, events] of Object.entries(bad)) test(`${id} rejects an invalid t
   assert.equal(actual.state, 'fail', actual.reason);
 });
 
+test('every automatic case has an invalid-trace FAIL regression', () => {
+  const automatic = Object.entries(evidence([]).checks).filter(([, check]) => check.state === 'pending').map(([id]) => id).sort();
+  assert.deepEqual(Object.keys(bad).sort(), automatic);
+});
+
+test('an outcome from another conversation cannot complete a case', () => {
+  const actual = evidence([start('T02c', { conversation: 'a' }), say('a', 'rejected', 'user_speaking'),
+    { ...input('voice', 'Other words'), data: { ...input('voice', 'Other words').data, conversation: 'b' } }]).checks.T02c;
+  assert.equal(actual.state, 'pending');
+});
+
 test('missing evidence stays pending, including refusal without its empty notice and skip without its next reply', () => {
   assert.equal(evidence([start('T02d'), say('a', 'rejected', 'user_speaking')]).checks.T02d.state, 'pending');
   assert.equal(evidence([start('T12'), input('note', '', [], 'reply_skipped')]).checks.T12.state, 'pending');
