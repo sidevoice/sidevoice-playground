@@ -54,6 +54,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     const decoded = decode(packet);
     const result = packet?.result?.isError ? { status: "error", message: String(decoded) } : decoded;
     record("tool-result", { name, args, result });
+    if (packet?.result?.isError) throw new Error(`MCP ${name}: ${result.message}`);
     return result;
   };
   const say = async (text, replyContext = context) => {
@@ -120,7 +121,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
               const answer = await tool("get_messages", { conversation });
               for (const message of answer.messages ?? answer.items ?? []) receive(message);
               const ids = (answer.messages ?? answer.items ?? []).map((message) => message.message_id).filter(Boolean);
-              if (ids.length) await tool("get_messages", { conversation, ack_ids: ids, operation: "check" });
+              if (ids.length) await tool("get_messages", { conversation, ack_ids: ids, after: answer.cursor });
             }
           } catch (error) { record("pull-error", String(error)); }
           setTimeout(pull, 850);
