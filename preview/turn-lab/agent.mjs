@@ -33,7 +33,7 @@ export const SCRIPTS = {
 };
 
 export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn }) {
-  let child, receiver, inputMode, conversation, context, script = SCRIPTS.T01, nextPullAt = 0, counter = 0, generation = 0;
+  let child, receiver, inputMode, conversation, context, script = null, nextPullAt = 0, counter = 0, generation = 0;
   const pending = new Map();
   const received = new Set();
   const record = (kind, data) => emit({ at: now(), kind, data });

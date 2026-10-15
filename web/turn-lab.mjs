@@ -8,6 +8,8 @@ let joinedThread = null;
 let scripts = {};
 let config = null;
 let activeRunId = null;
+let secondConversation = null;
+let observingSecond = false;
 let startRequested = false;
 let polling = false;
 const matchesCandidate = (current) => current?.mode === "real" && current.scenario === "turn-lab" &&
@@ -77,6 +79,8 @@ async function poll() {
         $("room").src = url.href;
         activeRunId = state.current.runId;
         joinedThread = null;
+        secondConversation = null;
+        observingSecond = false;
         pairingSent = false;
         attemptedAutoConnect = false;
         $("room").hidden = false;
@@ -85,6 +89,8 @@ async function poll() {
       }
       setStatus("Real room ready. Allow microphone access and wait for local models to download; then speak or choose a script.");
       connected = Boolean(state.agent?.ready);
+      secondConversation = state.secondAgent?.ready ? state.secondAgent.conversation : null;
+      $("switch-conversation").hidden = !secondConversation;
       if (connected) $("mode").value = state.agent.inputMode;
       if (!connected && !autoConnecting && !attemptedAutoConnect) {
         attemptedAutoConnect = true;
@@ -103,7 +109,8 @@ async function poll() {
       const div = document.createElement("div"); div.className = `check ${check.state}`; div.textContent = `${id} ${check.state.replaceAll("-", " ").toUpperCase()}`; div.title = check.reason; return div;
     }));
     $("events").replaceChildren(...state.events.slice(-100).reverse().map((event) => item(`${new Date(event.at).toLocaleTimeString()} ${event.kind} ${JSON.stringify(event.data).slice(0, 600)}`)));
-    if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: state.agent.conversation }, previewOrigin);
+    const selectedThread = observingSecond && secondConversation ? secondConversation : state.agent?.conversation;
+    if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: selectedThread }, previewOrigin);
     $("run").disabled = !connected || joinedThread !== state.agent?.conversation;
     $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` : "Agent not connected. Click Reconnect agent.";
     if (connected && joinedThread === state.agent?.conversation) setStatus("Ready. Speak in the room or choose a script; the real browser voice and scripted agent are connected.");
@@ -126,6 +133,12 @@ $("recover").onclick = async () => {
     setStatus("Restarting the pinned room. Run the case again after it joins.");
   } catch (error) { setStatus(`Restart failed: ${error.message}`); }
   finally { $("recover").disabled = false; }
+};
+$("switch-conversation").onclick = () => {
+  observingSecond = !observingSecond;
+  joinedThread = null;
+  $("switch-conversation").textContent = observingSecond ? "Return to first conversation" : "Switch T11 conversation";
+  void poll();
 };
 $("run").onclick = async () => {
   $("run").disabled = true;

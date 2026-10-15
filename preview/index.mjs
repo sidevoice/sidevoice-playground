@@ -76,6 +76,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   const builds = web ?? webBuilds({ cache, api, log: say });
   let job = { state: "idle", error: null };
   let agent = null;
+  let secondAgent = null;
   const events = [];
   const redact = (value) => {
     if (Array.isArray(value)) return value.map(redact);
@@ -92,6 +93,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     connector: `sha:${config.connector}`, voice: config.voice, engine: config.engine }, scenarios);
 
   async function start(pick) {
+    if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
     if (agent) { await agent.stop(); agent = null; }
     events.length = 0;
     log.length = 0;
@@ -167,7 +169,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   async function route(req, url) {
     const path = url.pathname;
     if (path === "/preview/turn-lab/config" && req.method === "GET") return JSON.parse(await readFile(LAB_CONFIG, "utf8"));
-    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: evidence(events, agent?.state.conversation), agent: agent?.state ?? null, job, current: manager.current };
+    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: evidence(events, agent?.state.conversation), agent: agent?.state ?? null, secondAgent: secondAgent?.state ?? null, job, current: manager.current };
     if (path === "/preview/turn-lab/scripts" && req.method === "GET") return SCRIPTS;
     if (path === "/preview/turn-lab/export" && req.method === "GET") return { at: new Date().toISOString(), events, evidence: evidence(events, agent?.state.conversation) };
     if (path === "/preview/options" && req.method === "GET") {
@@ -200,6 +202,12 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     if (path === "/preview/turn-lab/choose") {
       if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
       const { id } = await body(req);
+      if (id === "T11" && !secondAgent?.state.ready) {
+        secondAgent = scriptedAgent({ ...manager.labConnection(), emit });
+        try { await secondAgent.start("push"); }
+        catch (error) { await secondAgent.stop().catch(() => {}); secondAgent = null; throw new RefError(502, `second conversation: ${error.message}`); }
+        emit({ at: Date.now(), kind: "second-conversation-ready", data: { conversation: secondAgent.state.conversation } });
+      }
       return agent.choose(id);
     }
     if (path === "/preview/turn-lab/event") {
@@ -216,6 +224,7 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     }
     if (path === "/preview/pair") return manager.pairingCode();
     if (path === "/preview/stop") {
+      if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
       if (agent) { await agent.stop(); agent = null; }
       await manager.stop();
       job = { state: "idle", error: null };

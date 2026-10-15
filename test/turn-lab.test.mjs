@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { EventEmitter } from "node:events";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { fakeVoice } from "../preview/mock/voice.mjs";
@@ -92,6 +93,34 @@ test("the scripted pull agent acknowledges a consumed message with get", async (
     for (let i = 0; i < 100 && !calls.some((call) => call.args.ack_ids); i++) await new Promise((resolve) => setTimeout(resolve, 5));
     assert.deepEqual(calls.find((call) => call.args.ack_ids), { name: "get_messages", args: { conversation: "test-thread", ack_ids: ["m1"], after: 1 } });
     assert.equal(events.filter((event) => event.kind === "agent-input").length, 1);
+  } finally { await agent.stop(); }
+});
+
+test("automatic MCP refusal is logged and connector loss clears readiness without crashing the lab", async () => {
+  const events = [], stdout = new PassThrough();
+  const child = new EventEmitter();
+  child.stdout = stdout; child.stderr = new PassThrough(); child.kill = () => child.emit("exit", 0);
+  let deliveryUrl;
+  child.stdin = { write(line) {
+    const packet = JSON.parse(line);
+    if (packet.id == null) return;
+    const name = packet.params?.name;
+    const result = name === "voice_connect" ? { conversation: "test-thread", initial_reply_context: { session_id: "s", revision: 1, epoch: 0 } } : {};
+    queueMicrotask(() => stdout.write(JSON.stringify({ jsonrpc: "2.0", id: packet.id, result: {
+      content: [{ type: "text", text: name === "voice_say" ? "connector disconnected" : JSON.stringify(result) }], isError: name === "voice_say",
+    } }) + "\n"));
+  } };
+  const agent = scriptedAgent({ program: "unused", profile: {}, emit: (event) => events.push(event),
+    spawnProcess: (_program, _args, options) => { deliveryUrl = options.env.SIDEVOICE_DELIVERY_URL; return child; } });
+  try {
+    await agent.start("push");
+    await agent.choose("T01");
+    assert.equal(agent.state.ready, true);
+    await fetch(deliveryUrl, { method: "POST", body: JSON.stringify({ message_id: "m", channel: "voice", text: "Hello", session_id: "s", revision: 1, epoch: 0 }) });
+    for (let i = 0; i < 100 && !events.some((event) => event.kind === "auto-reply-error"); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(events.some((event) => event.kind === "auto-reply-error"), true);
+    child.emit("exit", 1);
+    assert.equal(agent.state.ready, false);
   } finally { await agent.stop(); }
 });
 
@@ -217,5 +246,24 @@ test("mock voice discards short overlap but qualifies a sustained barge-in", asy
   assert.equal((await saying.outcome).status, "heard-up-to");
   await voice.speak("vale", { durationMs: 300 });
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 2);
+  await voice.host.stop();
+});
+
+test("mock voice completes three queued replies in FIFO order", async () => {
+  let clock = 0;
+  const world = createWorld({ id: "fifo", title: "FIFO", summary: "", world: {}, options: [] }, {}, {
+    now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
+  });
+  const voice = fakeVoice(world);
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.start();
+  const seen = [];
+  const says = ["One.", "Two.", "Three."].map((text, index) => {
+    const saying = voice.host.say(text);
+    saying.onEvent((event) => { if (["playing", "done"].includes(event.type)) seen.push(`${event.type}:${index + 1}`); });
+    return saying;
+  });
+  await Promise.all(says.map((say) => say.outcome));
+  assert.deepEqual(seen, ["playing:1", "done:1", "playing:2", "done:2", "playing:3", "done:3"]);
   await voice.host.stop();
 });
