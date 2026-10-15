@@ -1,11 +1,11 @@
 {
   "core": "a4b8dc95f54f4d1a73b83dc3dc35f7727bdb64b9",
   "connector": "68ecf8265b5fe06988c4bcf1055fec78587451b5",
-  "web": "85878bf5c46b633b8cef0da2ef0fc8b1334c94d7",
+  "web": "f52082809e4d58b07a17fd078d0a56fc17cc171c",
   "voice": "1aa57b0c05f15207def0fda0572b47b1dfd36712",
   "engine": "nightly",
   "notes": {
     "connector": "Connector T PR #126; recheck its moving head before a test run",
-    "web": "Web T PR #126; recheck its moving head before a test run"
+    "web": "Web PR #126 merged into main at squash commit f520828; recheck main before a test run"
   }
 }
