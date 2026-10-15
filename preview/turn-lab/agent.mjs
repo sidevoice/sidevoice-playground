@@ -17,7 +17,7 @@ export const SCRIPTS = {
   T04a: { title: "Three replies, one epoch", lines: ["Acknowledged.", "Checkpoint: I found the first fact.", "Result: all three messages should play in order."] },
   T04b: { title: "Withdraw several replies", lines: [longReply, "Second queued reply.", "Third queued reply."], instruction: "Open a new spoken turn during the first reply." },
   T05: { title: "Acknowledgement, checkpoint, result", lines: ["I understand. I will check.", longReply, "Here is the result."], instruction: "Interrupt the checkpoint." },
-  T06a: { title: "Mute agents", lines: [muteReply], afterMute: "This second reply should be saved while agents are muted.", instruction: "Run once and wait for playback. Mute agents while it plays, then click Run script again while muted; the second click continues this same case." },
+  T06a: { title: "Mute agents", lines: [muteReply], afterMute: "This second reply should be saved while agents are muted.", instruction: "Speak a short setup message and wait for it to reach the agent. Run once and wait for playback. Mute agents while it plays, then click Run script again while muted; the second click continues this same case." },
   T06b: { title: "Turn voice off", lines: [longReply], instruction: "Turn voice off, then run the script." },
   T06c: { title: "Switch conversation", lines: [longReply], instruction: "Switch conversation while this plays." },
   T06d: { title: "Return with misses", lines: [longReply], instruction: "Mute agents, run, unmute, and wait five seconds." },
@@ -173,6 +173,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     async choose(id) {
       const nextScript = SCRIPTS[id];
       if (!nextScript) throw new Error(`Unknown script ${id}`);
+      if (nextScript.lines.length && !context) throw new Error("Speak a short setup message in the room first, then run this script again.");
       const continuingMute = id === "T06a" && script === nextScript && mutePhase === 1;
       script = nextScript;
       if (!continuingMute) { mutePhase = 0; muteRunId = id === "T06a" ? randomUUID() : null; }

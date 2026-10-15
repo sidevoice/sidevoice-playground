@@ -9,7 +9,7 @@
 </head>
 <body>
   <header><div><a href="/">Sidevoice playground</a><h1>Turn Lab</h1><p>Speak in the real room. The scripted agent and evidence stay beside it.</p></div><button id="export">Export trace</button></header>
-  <section id="guide"><h2>How to run a session</h2><ol><li>Open this link and allow microphone access.</li><li>Wait for local models and “Connected” beside the room.</li><li>Choose a case and click Run script.</li><li>Follow that case’s instruction; speak and use the room controls.</li><li>Read its check and event log. If the connection breaks, click Reconnect agent or Restart room, then run the case again.</li></ol><button id="recover">Restart room</button></section>
+  <section id="guide"><h2>How to run a session</h2><ol><li>Open this link and allow microphone access.</li><li>Wait for local models and “Connected” beside the room.</li><li>Choose a case and read its instruction; most scripts need a short spoken setup message before Run.</li><li>Follow the case: speak and use the room controls, then click Run when instructed.</li><li>Read its check and event log. If the connection breaks, click Reconnect agent or Restart room, then run the case again.</li></ol><button id="recover">Restart room</button></section>
   <div id="status" role="status">Preparing the pinned real room…</div>
   <main>
     <section class="room"><iframe id="room" title="Real Sidevoice room" allow="microphone; autoplay" hidden></iframe><div id="room-wait">The room is building. Its first source build can take several minutes.</div></section>
