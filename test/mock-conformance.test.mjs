@@ -35,7 +35,13 @@ test("shapes: what the mocks have, the core has, typed alike", () => {
   assert.deepEqual(shapeDifferences({ z: 1 }, {}), ["$.z: the core has no such field"]);
 });
 
-const CANDIDATE = process.env.PLAYGROUND_CONFORMANCE === "1" && process.env.PLAYGROUND_CORE_BIN && process.env.PLAYGROUND_CONNECTOR_BIN;
+const REQUESTED = process.env.PLAYGROUND_CONFORMANCE === "1";
+const CANDIDATE = REQUESTED && process.env.PLAYGROUND_CORE_BIN && process.env.PLAYGROUND_CONNECTOR_BIN;
+
+test("requested candidate conformance has both binaries", { skip: !REQUESTED }, () => {
+  assert.ok(process.env.PLAYGROUND_CORE_BIN, "PLAYGROUND_CORE_BIN is required");
+  assert.ok(process.env.PLAYGROUND_CONNECTOR_BIN, "PLAYGROUND_CONNECTOR_BIN is required");
+});
 
 async function checkedCandidate(kind, program, sha) {
   const dir = dirname(dirname(dirname(program)));
