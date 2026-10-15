@@ -20,8 +20,8 @@ const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
-test("the bubbles are decided (soft cards): no open question, its stored choice goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS, []);
+test("only the stage's balloon and title are open; a decided choice stored goes; scenario seeding leaves choices alone", () => {
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["balloon", "balloonLines", "balloonPaging", "stageTitle"]);
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
   const current = { "sidevoice.variants": JSON.stringify({ "bubbles-style": "illustrated" }) };
