@@ -52,7 +52,7 @@ export const TURN_CONTRACT = {
         "not_heard"
       ],
       "notice": [
-        "reply_not_heard"
+        "turn_empty"
       ],
       "screen": [
         "unheard"
@@ -266,13 +266,11 @@ export const TURN_CONTRACT = {
     "outcome": {
       "epochDelta": 0,
       "fates": [
-        "not_heard"
+        "unconfirmed"
       ],
-      "notice": [
-        "user_returned"
-      ],
+      "notice": [],
       "screen": [
-        "unheard"
+        "hearing-unconfirmed"
       ]
     }
   },

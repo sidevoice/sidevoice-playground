@@ -14,7 +14,16 @@
     },
     {
       "atMs": 2000,
-      "type": "late-reply"
+      "type": "late-reply",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "not_heard"
+        }
+      ],
+      "notice": [
+        "reply_not_heard"
+      ]
     }
   ],
   "expect": {

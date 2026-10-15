@@ -14,7 +14,16 @@
     },
     {
       "atMs": 2000,
-      "type": "turn-cancelled"
+      "type": "turn-cancelled",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "not_heard"
+        }
+      ],
+      "notice": [
+        "turn_empty"
+      ]
     }
   ],
   "expect": {
@@ -23,7 +32,7 @@
       "not_heard"
     ],
     "notice": [
-      "reply_not_heard"
+      "turn_empty"
     ],
     "screen": [
       "unheard"

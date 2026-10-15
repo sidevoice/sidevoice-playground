@@ -14,7 +14,10 @@
     },
     {
       "atMs": 2000,
-      "type": "turn-cancelled"
+      "type": "turn-cancelled",
+      "notice": [
+        "turn_empty"
+      ]
     }
   ],
   "expect": {

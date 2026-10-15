@@ -18,7 +18,25 @@
     },
     {
       "atMs": 3000,
-      "type": "result"
+      "type": "result",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "heard"
+        },
+        {
+          "reply": 1,
+          "outcome": "partial",
+          "heard_chars": 2
+        },
+        {
+          "reply": 2,
+          "outcome": "not_heard"
+        }
+      ],
+      "notice": [
+        "reply_not_heard"
+      ]
     }
   ],
   "expect": {

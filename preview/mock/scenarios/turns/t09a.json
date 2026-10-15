@@ -14,7 +14,13 @@
     },
     {
       "atMs": 2000,
-      "type": "speech-low-volume"
+      "type": "speech-low-volume",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "heard"
+        }
+      ]
     }
   ],
   "expect": {

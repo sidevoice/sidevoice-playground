@@ -24,13 +24,11 @@
   "expect": {
     "epochDelta": 0,
     "fates": [
-      "not_heard"
+      "unconfirmed"
     ],
-    "notice": [
-      "user_returned"
-    ],
+    "notice": [],
     "screen": [
-      "unheard"
+      "hearing-unconfirmed"
     ]
   },
   "fixture": {

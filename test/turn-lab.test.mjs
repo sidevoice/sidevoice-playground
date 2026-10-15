@@ -85,6 +85,27 @@ test("T16 compares delivered envelope IDs and requires claim release before rede
   }
 });
 
+test("reference oracle separates app hearing from physical loss and validates agent envelopes", async () => {
+  const fixtures = (await loadMockScenarios()).filter((item) => ["T02b", "T07", "T16"].includes(item.turn?.id));
+  const byId = Object.fromEntries(fixtures.map((item) => [item.turn.id, item.turn]));
+  const run = (turn) => runTurnFixture(turn, { wait: async () => {} });
+  assert.equal((await run(byId.T02b)).status, "model-match");
+  const wrongEmpty = structuredClone(byId.T02b);
+  wrongEmpty.actions.at(-1).notice = ["reply_not_heard"];
+  assert.equal((await run(wrongEmpty)).status, "fail");
+  const lost = await run(byId.T07);
+  assert.equal(lost.status, "model-match");
+  assert.deepEqual([lost.actual.fates, lost.actual.notice], [["unconfirmed"], []]);
+  const invented = structuredClone(byId.T07);
+  invented.actions.at(-1).semantic = [{ reply: 0, outcome: "not_heard" }];
+  invented.actions.at(-1).notice = ["user_returned"];
+  assert.equal((await run(invented)).status, "fail");
+  assert.equal((await run(byId.T16)).status, "model-match");
+  const wrongEnvelope = structuredClone(byId.T16);
+  wrongEnvelope.actions[0].envelope = { id: "message-1", channel: "note", text: "The person is back", notice: { kind: "reply_not_heard" } };
+  assert.equal((await run(wrongEnvelope)).status, "fail");
+});
+
 test("T08 typing leaves playback active until the later playback outcome", async () => {
   const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T08").turn;
   const result = await runTurnFixture(fixture, { wait: async () => {} });

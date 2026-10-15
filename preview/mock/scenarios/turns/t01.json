@@ -18,7 +18,17 @@
     },
     {
       "atMs": 3000,
-      "type": "turn-finished"
+      "type": "turn-finished",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "partial",
+          "heard_chars": 2
+        }
+      ],
+      "notice": [
+        "reply_not_heard"
+      ]
     }
   ],
   "expect": {

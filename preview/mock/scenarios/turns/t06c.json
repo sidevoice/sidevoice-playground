@@ -14,7 +14,14 @@
     },
     {
       "atMs": 2000,
-      "type": "turn-finished"
+      "type": "turn-finished",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "partial",
+          "heard_chars": 2
+        }
+      ]
     }
   ],
   "expect": {

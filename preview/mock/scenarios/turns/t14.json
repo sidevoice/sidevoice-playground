@@ -14,7 +14,13 @@
     },
     {
       "atMs": 2000,
-      "type": "switch-device"
+      "type": "switch-device",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "heard"
+        }
+      ]
     }
   ],
   "expect": {

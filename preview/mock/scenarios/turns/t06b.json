@@ -14,7 +14,13 @@
     },
     {
       "atMs": 2000,
-      "type": "voice-on"
+      "type": "voice-on",
+      "semantic": [
+        {
+          "reply": 0,
+          "outcome": "not_heard"
+        }
+      ]
     }
   ],
   "expect": {
