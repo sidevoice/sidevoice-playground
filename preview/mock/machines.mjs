@@ -358,7 +358,9 @@ export async function agentsListing(world, machine) {
     await world.delay(1500);
     return agentFailure(machine.agentsFail);
   }
-  return json(200, { agents: agentRows(agentsOf(machine), machine?.cursorBridge), scanned_at: new Date(world.now()).toISOString() });
+  // `custom`: how any other MCP agent takes Sidevoice by hand, as the connector lists it (its "Don't see yours?").
+  return json(200, { agents: agentRows(agentsOf(machine), machine?.cursorBridge), custom: { command: OURS, snippet: MCP_SERVERS },
+    scanned_at: new Date(world.now()).toISOString() });
 }
 
 /** Where machine `id` is in the world's state: what a mock's action on it patches. */
