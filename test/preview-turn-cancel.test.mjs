@@ -38,3 +38,34 @@ test("removing a preview agent reply stops its karaoke and completion patches", 
   assert.equal(shown.state.facts.botLive, false);
   assert.equal(shown.state.facts.karaokeState, null);
 });
+
+test("a simulated turn feeds the page's level() and restores it after", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"] });
+  const shown = frame();
+  const audio = { readWaveform: () => null, level: () => 0 };
+  shown.contentWindow.sidevoiceAudio = audio;
+  simulateUser(shown, "Loud");
+  let peak = 0;
+  for (let i = 0; i < 40; i++) { t.mock.timers.tick(50); peak = Math.max(peak, audio.level()); }
+  assert.ok(peak > 0.04, "level() rises above the web's silence threshold");
+  t.mock.timers.tick(10_000);
+  await flush();
+  assert.equal(audio.level(), 0);
+});
+
+test("overlapping simulations keep the newer turn until it completes", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"] });
+  const shown = frame();
+  simulateUser(shown, "First");
+  t.mock.timers.tick(1000);
+  simulateUser(shown, "Second");
+  const second = shown.state.facts.userTurn.segment;
+  t.mock.timers.tick(2500);
+  await flush();
+  t.mock.timers.tick(100);
+  await flush();
+  assert.equal(shown.state.facts.userTurn?.segment, second, "the first completing leaves the second's turn");
+  for (let i = 0; i < 10; i++) { t.mock.timers.tick(1000); await flush(); }
+  assert.equal(shown.state.facts.userTurn, null);
+  assert.deepEqual(shown.state.facts.history.map((row) => row.text), ["Seeded", "First", "Second"]);
+});

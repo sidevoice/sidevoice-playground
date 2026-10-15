@@ -509,6 +509,10 @@ function speakIntoPage(frame, seed) {
   if (audio && !audio.previewWrapped) {
     const own = audio.readWaveform.bind(audio);
     audio.readWaveform = () => own() ?? (audio.previewLevel ? samplesAt(audio.previewLevel) : null);
+    if (typeof audio.level === "function") {
+      const ownLevel = audio.level.bind(audio);
+      audio.level = () => audio.previewLevel || ownLevel();
+    }
     audio.previewWrapped = true;
   }
   const started = Date.now();
@@ -548,11 +552,12 @@ export function simulateUser(frame, text) {
     if (run.generation !== generation) return;
     quiet();
     run.cleanups.delete(quiet);
-    store.patch({ userLive: false, pendingPhase: "transcribing" });
+    if (store.getState().facts.userTurn?.segment === segment) store.patch({ userLive: false, pendingPhase: "transcribing" });
     await later(SPOKEN_TURN_MS - LISTENING_MS);
     if (run.generation !== generation) return;
     const history = store.getState().facts.history;
-    store.patch({ userTurn: null, pendingPhase: "", history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
+    const mine = store.getState().facts.userTurn?.segment === segment;
+    store.patch({ ...(mine ? { userTurn: null, pendingPhase: "" } : {}), history: [...history, { segment, thread, session, role: "user", text, name: "", time: Date.now(), seq: history.length + 1 }] });
   })();
   return true;
 }
