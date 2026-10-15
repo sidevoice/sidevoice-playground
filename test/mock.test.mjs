@@ -59,6 +59,25 @@ async function setup(chosen = {}) {
   return { world, identities, ask };
 }
 
+test("desktop data mock keeps pairings and reports deletion only after relaunch", async () => {
+  const { world, identities } = await setup();
+  const relaunched = [];
+  const data = desktopHost(world, identities, { relaunch: (what) => relaunched.push(what) }).data;
+  assert.equal((await data.pairings.read()).pairings.length, 1);
+  await data.pairings.write({ pairings: [] });
+  assert.deepEqual(await data.pairings.read(), { pairings: [] });
+  const started = await data.deleteAll();
+  assert.equal(started.state, "needs-restart");
+  assert.equal(world.state.app?.resetReport, undefined, "helper has not finished when native call returns");
+  await new Promise((resolve) => { const stop = world.subscribe(() => { if (world.state.app?.resetReport) { stop(); resolve(); } }); });
+  assert.deepEqual(relaunched, [{ reset: true }]);
+  assert.equal((await data.resetReport()).state, "complete");
+  assert.equal(await data.resetReport(), null);
+  world.patch({ "app.resetFailure": "service", "local.state": "running" });
+  await assert.rejects(data.deleteAll(), (failure) => failure.key === "reset.service-failed");
+  assert.equal(world.state.local.state, "running");
+});
+
 test("a world is its scenario with the chosen values set over it", () => {
   const target = {};
   deepSet(target, "a.b.c", [1]);

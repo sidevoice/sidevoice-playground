@@ -3,7 +3,7 @@
 // run time reads this file.
 export type { Participant, RoomBinding, VoiceReply, VoiceSession } from "@sidevoice/protocol";
 export type {
-  LocalHostBridge, LocalHostInstallProgress, LocalHostPairing, LocalHostStatus, LocalHostVersion, LocalPairingCode,
+  LocalHostBridge, LocalHostInstallProgress, LocalHostPairing, LocalHostStatus, LocalHostVersion, LocalPairingCode, DesktopDataBridge,
 } from "../apps/web/src/services/desktop-host";
 export type { Pairing, PairingCodePayload } from "../apps/web/src/services/device-pairing";
 export type { ModelCatalogs } from "../apps/web/src/services/model-catalogs.js";

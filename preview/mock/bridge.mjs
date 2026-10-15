@@ -10,8 +10,9 @@
 
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
+/** @typedef {import("./web-types").DesktopDataBridge} DesktopDataBridge */
 
-import { LOCAL_ID, LOCAL_URL, SERVICE_VERSION, mintCode, nextMinor } from "./machines.mjs";
+import { LOCAL_ID, LOCAL_URL, SERVICE_VERSION, mintCode, nextMinor, storedPairing } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
 import { fakeVoice } from "./voice.mjs";
 
@@ -68,6 +69,42 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
   const set = (fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`local.${k}`, v])));
   const jobs = new Map();
   let jobCount = 0;
+  /** @type {DesktopDataBridge} */
+  const data = {
+    pairings: {
+      async read() {
+        const saved = world.state.app?.pairings;
+        const pairings = Array.isArray(saved) ? saved : Object.keys(world.state.machines ?? {})
+          .filter((id) => world.state.machines[id].paired)
+          .map((id) => storedPairing(world.state, identities, id, world.now()));
+        return { pairings: structuredClone(pairings) };
+      },
+      async write(value) {
+        if (!Array.isArray(value?.pairings)) throw { key: "data.pairings-invalid" };
+        world.patch({ "app.pairings": structuredClone(value.pairings) });
+      },
+    },
+    async deleteAll() {
+      if (world.state.app?.resetFailure === "service") throw { key: "reset.service-failed" };
+      if (world.state.local?.state === "installing") throw { key: "reset.busy" };
+      const service = world.state.local?.state === "absent" ? "absent" : "removed";
+      await world.delay(450); // the installed connector's top-level uninstall, not serviceUninstall()
+      world.patch({ "local.state": "absent", "local.installed": false });
+      const failed = world.state.app?.resetFailure === "models" ? [{ step: "models", key: "remove" }] : [];
+      const result = { state: failed.length ? "partial" : "complete", completed: ["app-data", "webview", "cache"], failed };
+      // Native returns while the app is still visible, then the helper runs after the app exits.
+      void world.delay(550).then(() => {
+        world.patch({ "app.pairings": [], "app.resetReport": result, setup: null });
+        relaunch?.({ reset: true });
+      });
+      return { state: failed.length ? "partial" : "needs-restart", service, agents: {}, failed, pending: ["app-data", "models", "webview"] };
+    },
+    async resetReport() {
+      const report = world.state.app?.resetReport ?? null;
+      if (report) world.patch({ "app.resetReport": null });
+      return report;
+    },
+  };
 
   /** The state after a start: running, or what the world says a start ends in. */
   async function starting() {
@@ -216,6 +253,7 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
     computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     engine: desktopEngine(world),
+    data,
     localHost,
   };
   // The app's number is the one it runs: APP_VERSION, or the update it restarted into (`app.version`).
