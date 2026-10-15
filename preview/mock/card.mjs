@@ -495,7 +495,7 @@ const later = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /** How long a simulated turn listens (the same whatever is said, as the voice speaks), and how long until it is sent
  *  (listening, then transcribing). */
 const LISTENING_MS = SPEAKING_MS;
-const SPOKEN_TURN_MS = LISTENING_MS + 900;
+const SPOKEN_TURN_MS = LISTENING_MS + 1500;
 
 /**
  * While a simulated turn listens, the microphone the page reads speaks: its waveform (`sidevoiceAudio.readWaveform`,
