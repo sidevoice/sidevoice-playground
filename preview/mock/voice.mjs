@@ -1,7 +1,7 @@
 // The mocked preview's voice: a `VoiceHost` (@sidevoice/voice's seam, js/voice-host.d.ts) that hears no microphone
 // and plays no sound. What the person says comes from the card (`speak`): the call tells it as a turn, with the
 // levels and states a real one goes through; what the page asks it to say is "heard" at a reading pace, chunk by
-// chunk. The world's `voice` says what fails: the microphone (denied, missing), transcription, speech.
+// chunk. The world's `voice` says what fails: the microphone (its permission, or none connected: microphone.mjs), transcription, speech.
 //
 // In the browser the page's own model source (`source`, its voice-source.ts over the mocked engine) is asked for the
 // settings' models before the call starts, so its refusals (a model it does not know, a key missing) are the page's
@@ -16,6 +16,7 @@
 // @ts-check
 
 import { LOCAL, voiceState } from "./models.mjs";
+import { askMicrophone } from "./microphone.mjs";
 
 /** @typedef {import("./web-types").VoiceHost} VoiceHost */
 /** @typedef {import("./web-types").VoiceSettings} VoiceSettings */
@@ -185,8 +186,10 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       const voice = voiceState(world);
       // The models load, as a call's first start loads them.
       await world.delay(600);
-      if (voice.mic === "denied") throw refusal("microphone-denied");
-      if (voice.mic === "missing") throw refusal("microphone-unavailable");
+      // Opening the microphone asks for it, as the platform does: a prompt where it was never answered (microphone.mjs).
+      const asked = await askMicrophone(world);
+      if (asked === "missing") throw refusal("microphone-unavailable");
+      if (asked !== "granted") throw refusal("microphone-denied");
       started = true;
       // The models a call or a try loads were just used: this device's transcriber and voice, and the voice detector.
       const used = [settings.stt?.catalog === LOCAL ? settings.stt.model : null, settings.tts?.catalog === LOCAL ? settings.tts.model : null, "silero-vad"].filter(Boolean);

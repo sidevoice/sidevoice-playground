@@ -1,0 +1,32 @@
+{
+  "id": "microphone-step",
+  "title": "First-run setup: the microphone",
+  "summary": "The first-run setup at its microphone step (sidevoice-web#129): this device is paired with the NUC, the basics and the machine done, the microphone not asked yet. Every state of the step from Voice › Microphone: allowed (the step is skipped: Back from Transcription shows it allowed), not asked yet and allowed, blocked or closed unanswered when asked (the prompt stays open 1.2 s), blocked (how to allow it, Check again), blocked then allowed (Check again finds it allowed, as after fixing it in the settings), none connected. Live too: switch a blocked microphone to allowed and the step moves on, as when the browser's setting changes. In the browser view the page asks through the browser's permission; in the desktop app view through the app (host.microphone, sidevoice-desktop#93), with Open System Settings when blocked. First-run setup › reload starts the step over.",
+  "view": "browser",
+  "defaults": { "mic": "prompt" },
+  "world": {
+    "page": "room",
+    "setup": "microphone",
+    "machines": {
+      "nuc": { "host": "NUC del salón", "reach": "direct", "paired": true, "inUse": true, "pairedDaysAgo": 1,
+        "devices": [
+          { "id": "nuc-self", "name": "nuc-salon", "kind": "local", "daysAgo": 180, "seenDaysAgo": 0 },
+          { "name": "Chrome on Mac", "kind": "code", "daysAgo": 1, "mine": true }
+        ],
+        "participants": [
+          { "title": "sidevoice-web", "harness": "claude-code", "reach": "listening" }
+        ] }
+    }
+  },
+  "options": [
+    { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
+      { "value": "microphone", "label": "at the microphone (the basics and the machine done)", "set": { "setup": "microphone" } },
+      { "value": "pending", "label": "not started: opens on the basics", "set": { "setup": null } },
+      { "value": "done", "label": "done: opens on the room", "set": { "setup": "done" } }
+    ] },
+    { "id": "productVersion", "group": "Version", "label": "Sidevoice installed on the NUC", "values": [
+      { "value": "0.8.1", "label": "0.8.1", "set": { "machines.nuc.productVersion": "0.8.1" } },
+      { "value": "unknown", "label": "unknown (none said)", "set": { "machines.nuc.productVersion": null } }
+    ] }
+  ]
+}

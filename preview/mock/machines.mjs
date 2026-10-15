@@ -125,10 +125,14 @@ export function seededStorage(state, identities, now, { desktop = false } = {}) 
   if (mine) local["sidevoice.deviceName"] = mine;
   // The first-run setup (sidevoice-web's onboarding-state.ts): "done" finished it on this device on this release, so the
   // page opens on the room; "earlier" finished it on the release before, so the room shows what is new since
-  // (whats-new); anything else leaves the page to run it.
+  // (whats-new); "microphone" has it up to its machine done, so it opens at the microphone's step unless the microphone
+  // is already allowed (sidevoice-web#129); anything else leaves the page to run it.
   if (state.setup === "done" || state.setup === "earlier") local["sidevoice.onboarding"] = JSON.stringify({
     version: 1, basics_done: true, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true, turn_done: true,
     deferred_at: null, completed_at: now - DAY * 1000, trials: {}, baseline_release: state.setup === "earlier" ? WEB_RELEASE - 1 : WEB_RELEASE,
+  });
+  if (state.setup === "microphone") local["sidevoice.onboarding"] = JSON.stringify({
+    version: 1, basics_done: true, choice: desktop && state.local?.inUse ? "agents" : "remote", agents_done: true,
   });
   if (state.language) local["sidevoice.settings"] = JSON.stringify({ ui_language: state.language });
   for (const [provider, key] of Object.entries(state.voice?.keys ?? {})) {
