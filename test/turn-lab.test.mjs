@@ -48,6 +48,49 @@ test("each mock turn fixture executes timed actions and checks its observed outc
   assert.equal((await runTurnFixture(changed, { wait: async () => {} })).status, "fail");
 });
 
+test("every #19 model case rejects an omitted required step", async () => {
+  for (const scenario of (await loadMockScenarios()).filter((item) => item.turn)) {
+    const fixture = structuredClone(scenario.turn);
+    for (let index = 0; index < fixture.actions.length; index++) {
+      const missing = { ...fixture, actions: fixture.actions.filter((_, at) => at !== index) };
+      const result = await runTurnFixture(missing, { wait: async () => {} });
+      assert.equal(result.status, "fail", `${fixture.id}: omitting ${fixture.actions[index].type} must fail`);
+    }
+  }
+});
+
+test("T11 actually deduplicates turn IDs and rejects wrong out-of-order terminals", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T11").turn;
+  const result = await runTurnFixture(fixture, { wait: async () => {} });
+  assert.deepEqual(result.trace.at(-1).conversations, {
+    a: { turnId: "a-turn-1", epoch: 1, finished: true }, b: { turnId: "b-turn-1", epoch: 1, finished: true },
+  });
+  for (const [index, value] of [[2, { turnId: "a-turn-2" }], [3, { aTurnId: "wrong-turn" }]]) {
+    const invalid = structuredClone(fixture);
+    Object.assign(invalid.actions[index], value);
+    assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
+  }
+});
+
+test("T16 compares delivered envelope IDs and requires claim release before redelivery", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T16").turn;
+  const result = await runTurnFixture(fixture, { wait: async () => {} });
+  assert.deepEqual(result.trace.at(-1).deliveries.map(({ mode, id }) => [mode, id]),
+    [["push", "message-1"], ["pull", "message-1"], ["pull-redelivery", "message-1"]]);
+  for (const index of [1, 3]) {
+    const invalid = structuredClone(fixture);
+    invalid.actions[index].messageId = "different-message";
+    assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
+  }
+});
+
+test("T08 typing leaves playback active until the later playback outcome", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T08").turn;
+  const result = await runTurnFixture(fixture, { wait: async () => {} });
+  assert.deepEqual(result.trace.find((item) => item.action === "typed-message").fates, ["playing"]);
+  assert.equal(result.status, "pass");
+});
+
 test("candidate picker accepts only a full SHA, and source build verifies commit and records binary digest", async () => {
   const root = await mkdtemp(join(tmpdir(), "turn-lab-source-test-"));
   const commands = [];

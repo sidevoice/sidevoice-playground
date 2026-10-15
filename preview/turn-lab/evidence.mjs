@@ -43,7 +43,7 @@ function judge(events) {
   const status = (result) => result?.status ?? result?.result?.status;
   const currentEpoch = epochFor(after, selected ? after[0]?.data?.conversation : null);
   const fates = new Map();
-  const fateRank = (value) => ({ played: 5, skipped: 5, cut: 4, refused: 4, stale: 4, "not played": 4, "known limitation": 3, playing: 2, queued: 1, synthesizing: 1 }[value] ?? 0);
+  const fateRank = (value) => ({ played: 5, skipped: 5, cut: 4, refused: 4, stale: 4, "not played": 4, playing: 2, queued: 1, synthesizing: 1 }[value] ?? 0);
   const settle = (id, incoming) => {
     const previous = fates.get(id);
     if (!previous) { fates.set(id, incoming); return; }
