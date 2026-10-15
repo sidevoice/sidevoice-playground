@@ -9,6 +9,7 @@ let pairingSent = false;
 let joinedThread = null;
 let scripts = {};
 let config = null;
+let modeInitialized = false;
 let activeRunId = null;
 let secondConversation = null;
 let observingSecond = false;
@@ -40,11 +41,7 @@ const preflightText = (event) => {
 };
 
 async function boot() {
-  config = await ask("/preview/turn-lab/config");
-  $("pins").replaceChildren(...Object.entries(config).filter(([key]) => ["core", "connector", "web", "voice", "engine"].includes(key)).flatMap(([key, value]) => {
-    const name = document.createElement("dt"), sha = document.createElement("dd"); name.textContent = key; sha.textContent = value ?? "pending"; return [name, sha];
-  }));
-  $("pin-note").textContent = Object.values(config.notes ?? {}).join(" · ");
+  showConfig(await ask("/preview/turn-lab/config"));
   scripts = await ask("/preview/turn-lab/scripts");
   $("script").replaceChildren(...Object.entries(scripts).map(([id, script]) => new Option(`${id} · ${script.title}`, id)));
   $("script").onchange = () => $("instruction").textContent = scripts[$("script").value].instruction ?? "Speak naturally.";
@@ -55,11 +52,23 @@ async function boot() {
   await poll();
 }
 
+function showConfig(next) {
+  config = next;
+  $("pins").replaceChildren(...Object.entries(config).filter(([key]) => ["core", "connector", "web", "voice", "engine"].includes(key)).flatMap(([key, value]) => {
+    const name = document.createElement("dt"), sha = document.createElement("dd"); name.textContent = key; sha.textContent = value ?? "pending"; return [name, sha];
+  }));
+  $("pin-note").textContent = Object.values(config.notes ?? {}).join(" · ");
+}
+
 async function poll() {
   if (polling || !config || !previewOrigin) return;
   polling = true;
   try {
     const state = await ask("/preview/turn-lab/events");
+    if (state.job.state === "running" && !matchesCandidate(state.current)) {
+      const latest = await ask("/preview/turn-lab/config");
+      if (JSON.stringify(latest) !== JSON.stringify(config)) showConfig(latest);
+    }
     if (!matchesCandidate(state.current) || state.job.state !== "running") {
       $("room").hidden = true;
       $("room-wait").hidden = false;
@@ -94,7 +103,7 @@ async function poll() {
       connected = Boolean(state.agent?.ready);
       secondConversation = state.secondAgent?.ready ? state.secondAgent.conversation : null;
       $("switch-conversation").hidden = !secondConversation;
-      if (connected) $("mode").value = state.agent.inputMode;
+      if (connected && !modeInitialized) { $("mode").value = state.agent.inputMode; modeInitialized = true; }
       if (!connected && !autoConnecting && !reconnecting && autoConnectAttempts < 3 && Date.now() >= nextAutoConnectAt) {
         autoConnectAttempts++;
         autoConnecting = true;
@@ -133,13 +142,14 @@ $("connect").onclick = async () => {
   connected = false;
   joinedThread = null;
   setStatus("Reconnecting the scripted agent. Wait for the room to join its new conversation.");
-  try { await ask("/preview/turn-lab/connect", { mode: $("mode").value }); connected = true; await poll(); }
+  try { const requestedMode = $("mode").value; await ask("/preview/turn-lab/connect", { mode: requestedMode }); connected = true; $("mode").value = requestedMode; modeInitialized = true; await poll(); }
   catch (error) { $("agent-status").textContent = error.message; }
   finally { reconnecting = false; $("connect").disabled = false; void poll(); }
 };
 $("recover").onclick = async () => {
   $("recover").disabled = true;
   try {
+    showConfig(await ask("/preview/turn-lab/config"));
     await ask("/preview/turn-lab/recover", {});
     activeRunId = null; joinedThread = null; autoConnectAttempts = 0; nextAutoConnectAt = 0; connected = false;
     $("run").disabled = true;
