@@ -49,10 +49,10 @@
     },
     {
       "voice": {
-        "type": "agent-interrupted",
-        "utterance_id": "local-handle",
-        "heard_until": 0,
-        "played": true
+        "status": "heard-up-to",
+        "heard_chars": 0,
+        "reason": { "reason": "barge-in" },
+        "source": "Saying.outcome"
       },
       "core": {
         "status": "interrupted",
@@ -66,10 +66,9 @@
     },
     {
       "voice": {
-        "type": "agent-interrupted",
-        "utterance_id": "local-handle",
-        "heard_until": 0,
-        "played": false
+        "status": "not-played",
+        "reason": { "reason": "barge-in" },
+        "source": "Saying.outcome"
       },
       "core": {
         "status": "unplayed",

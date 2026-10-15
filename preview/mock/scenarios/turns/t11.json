@@ -1,7 +1,7 @@
 {
   "id": "T11",
   "title": "Two conversations and duplicates",
-  "summary": "Switch between two conversations and speak in each.",
+  "summary": "Route input from A to B; keep A open, deduplicate its start and finish B before A.",
   "extends": "04-room-ready",
   "actions": [
     {
@@ -10,6 +10,10 @@
     },
     {
       "atMs": 1000,
+      "type": "focus-switch"
+    },
+    {
+      "atMs": 1100,
       "type": "conversation-b"
     },
     {
@@ -17,7 +21,7 @@
       "type": "duplicate-start"
     },
     {
-      "atMs": 3000,
+      "atMs": 4000,
       "type": "out-of-order-finish"
     }
   ],

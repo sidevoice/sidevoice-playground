@@ -164,4 +164,7 @@ test('history observation preserves each row thread and browser-side time', asyn
   const history = messages.find((message) => message.data?.type === 'history');
   assert.equal(history.data.conversation, 'other');
   assert.ok(Number.isInteger(history.data.observed_at));
+  await win.fetch('/api/presentation/select', { method: 'POST', body: JSON.stringify({ thread_id: 'other' }) });
+  const focus = messages.find((message) => message.data?.type === 'focus-selection');
+  assert.deepEqual([focus.data.conversation, focus.data.status], ['other', 200]);
 });

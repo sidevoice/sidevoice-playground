@@ -1,11 +1,13 @@
 {
-  "core": "a4b8dc95f54f4d1a73b83dc3dc35f7727bdb64b9",
-  "connector": "68ecf8265b5fe06988c4bcf1055fec78587451b5",
-  "web": "f52082809e4d58b07a17fd078d0a56fc17cc171c",
-  "voice": "1aa57b0c05f15207def0fda0572b47b1dfd36712",
+  "core": "e81cc67602fe6f99bc26f05bfb859ba9b1b6c82c",
+  "connector": "85111f09f99627153f1b198027a0cdc6b4752b48",
+  "web": "9ef27de15a56fa7b0a6fa0f5760d0d02c63e9071",
+  "voice": "1e5c69e10ee345a23eef5f03b4db52c1bcd0ef35",
   "engine": "nightly",
   "notes": {
-    "connector": "Connector T PR #126; recheck its moving head before a test run",
-    "web": "Web PR #126 merged into main at squash commit f520828; recheck main before a test run"
+    "core": "core main after the turns/epochs and semantic hearing merge",
+    "voice": "voice PR #31 final head",
+    "connector": "connector PR #126 head; recheck before a test run",
+    "web": "web PR #140 head; recheck before a test run"
   }
 }

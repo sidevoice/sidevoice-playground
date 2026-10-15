@@ -4,7 +4,7 @@ import { createWorld } from "./world.mjs";
 import { answer, agentSpeaks, callSocket, directUrl, makeIdentities, roomOf } from "./machines.mjs";
 
 export async function probeMockRoom(fixture) {
-  if (!["T08", "T11"].includes(fixture.id)) return [];
+  if (!["T08", "T11", "T06c"].includes(fixture.id)) return [];
   const world = createWorld({ id: "turn-probe", title: "Turn probe", summary: "", options: [], world: {
     page: "room", machines: { nuc: { host: "NUC", reach: "direct", paired: true, devices: [],
       participants: [{ thread_id: "a", title: "A", reach: "listening" }, { thread_id: "b", title: "B", reach: "listening" }] } }, local: null,
@@ -31,13 +31,25 @@ export async function probeMockRoom(fixture) {
     utterance_id: id, status });
   const failures = [];
   try {
-    if (fixture.id === "T11") {
+    if (["T11", "T06c"].includes(fixture.id)) {
+      let switched = false;
       for (const action of fixture.actions) {
+        if (action.type === "reply-playing") {
+          agentSpeaks(world, "A's reply");
+          const utterance = frames.filter((frame) => frame.type === "voice-reply").at(-1)?.data?.utterance_id;
+          if (utterance) playback(utterance, "playing");
+        }
         if (action.type === "conversation-a") turn("started", action.turnId ?? "a-turn-1", null, captured.get("a"));
-        if (action.type === "conversation-b") {
+        if (action.type === "focus-switch") {
           const selected = await request("/api/presentation/select", { session_id: session, thread_id: "b" });
           if (selected.status !== 200) failures.push("Mock room refused conversation B");
           captured.set("b", call.binding);
+          switched = true;
+          if (room.rows.some((row) => row.role === "user" && row.thread === "a"))
+            failures.push("Focus switch flushed A before its normal turn end");
+        }
+        if (action.type === "conversation-b") {
+          if (!switched) failures.push("B received speech before input was routed to B");
           turn("started", action.turnId ?? "b-turn-1", null, captured.get("b"));
         }
         if (action.type === "duplicate-start") turn("started", action.turnId ?? "a-turn-1", null, captured.get("a"));
@@ -49,7 +61,9 @@ export async function probeMockRoom(fixture) {
       const started = frames.filter((frame) => frame.type === "voice-user-turn" && frame.data?.phase === "started")
         .map((frame) => [frame.data.turn_id, frame.data.thread_id, frame.data.epoch]);
       const words = room.rows.filter((row) => row.role === "user").map((row) => [row.text, row.thread, row.epoch]);
-      if (JSON.stringify(started) !== JSON.stringify([["a-turn-1", "a", 1], ["b-turn-1", "b", 1], ["a-turn-1", "a", 1]]))
+      const expectedStarts = fixture.id === "T11" ? [["a-turn-1", "a", 1], ["b-turn-1", "b", 1], ["a-turn-1", "a", 1]] :
+        [["a-turn-1", "a", 1], ["b-turn-1", "b", 1]];
+      if (JSON.stringify(started) !== JSON.stringify(expectedStarts))
         failures.push(`Mock room duplicate/epoch receipts differ: ${JSON.stringify(started)}`);
       if (JSON.stringify(words) !== JSON.stringify([["Words for B", "b", 1], ["Words for A", "a", 1]]))
         failures.push(`Mock room routed reordered terminals incorrectly: ${JSON.stringify(words)}`);

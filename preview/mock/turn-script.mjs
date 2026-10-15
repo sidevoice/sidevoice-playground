@@ -2,10 +2,27 @@
 // oracle is separate from fixture data; this model is not live-stack acceptance.
 import { TURN_CONTRACT } from "./turn-contract.mjs";
 import { probeMockRoom } from "./turn-machine-probes.mjs";
+import { endpointMs } from "./voice.mjs";
+
+// A terminal after a focus switch or mute is ordinary only with source endpoint evidence: the configured end of turn,
+// the last speech the call captured, and the silence endpoint as its cause (never the focus switch or the mute).
+// Without that evidence nothing can be judged; elapsed time since the switch is not an endpoint.
+export function judgeEndpoint(action, routeAtMs) {
+  const evidence = action?.endpoint;
+  if (!evidence) return { state: 'insufficient', reason: 'No source endpoint evidence for the terminal' };
+  if (evidence.cause !== 'silence') return { state: 'bad', reason: `The terminal was forced by ${evidence.cause ?? 'an unknown cause'}, not by the ordinary endpoint` };
+  if (!Number.isInteger(evidence.last_speech_ms) || evidence.last_speech_ms < 0 || !evidence.end_of_turn || !evidence.patience)
+    return { state: 'insufficient', reason: 'Endpoint evidence lacks the last captured speech or the configured end of turn' };
+  if (routeAtMs == null || evidence.last_speech_ms > routeAtMs) return { state: 'bad', reason: 'Speech was captured after the call lost the microphone' };
+  const wait = endpointMs({ end_of_turn: evidence.end_of_turn, patience: evidence.patience });
+  if (action.atMs - evidence.last_speech_ms < wait) return { state: 'bad', reason: `The terminal came ${action.atMs - evidence.last_speech_ms} ms after the last captured speech; the ${evidence.end_of_turn} ${evidence.patience} endpoint waits ${wait} ms` };
+  return { state: 'ok', reason: '' };
+}
 export async function runTurnFixture(fixture, { wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), onStep = () => {} } = {}) {
   const state = { epochDelta: 0, fates: [], notice: [], screen: [], tool: null, trace: [], turnOpen: false,
     output: 'on', playing: null, queued: [], misses: false, activity: false,
-    conversations: new Map(), finishes: [], duplicateStarts: 0, envelopes: new Map(), deliveries: [], claims: new Map() };
+    conversations: new Map(), finishes: [], duplicateStarts: 0, envelopes: new Map(), deliveries: [], claims: new Map(),
+    inputRoute: 'a', switchAt: null, muteAt: null, routeErrors: [], endpointVerdicts: [] };
   const semantic = [];
   const notices = [];
   const invalidSemantic = [];
@@ -20,7 +37,13 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'speech-finished': state.epochDelta++; state.turnOpen = false; break;
       case 'speech-short-silent': state.epochDelta++; mark(state.screen, 'user-message'); break;
       case 'speech-qualified': settle('interrupted'); mark(state.notice, 'reply_interrupted'); mark(state.screen, 'cut'); break;
-      case 'turn-finished': state.turnOpen = false; break;
+      case 'turn-finished': state.turnOpen = false;
+        if (fixture.id === 'T13') {
+          const judged = judgeEndpoint(action, state.muteAt);
+          state.endpointVerdicts.push(judged);
+          if (judged.state === 'ok') mark(state.screen, 'normal-turn-end');
+        }
+        break;
       case 'turn-cancelled': state.turnOpen = false; if (state.tool === 'user_speaking') mark(state.notice, 'turn_empty'); break;
       case 'reply-accepted': state.queued.push(add('queued')); break;
       case 'reply-playing': state.playing = add('playing'); break;
@@ -35,8 +58,9 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'agents-unmute': state.output = 'on'; break;
       case 'voice-off': state.output = 'off'; break;
       case 'voice-on': state.output = 'on'; break;
-      case 'focus-switch': if (state.playing != null) { settle('interrupted'); mark(state.screen, 'inactive-conversation'); } break;
-      case 'focus-return': break;
+      case 'focus-switch': state.inputRoute = 'b'; state.switchAt = action.atMs;
+        if (state.playing != null) { settle('interrupted'); mark(state.screen, 'inactive-conversation'); } break;
+      case 'focus-return': state.inputRoute = 'a'; break;
       case 'return-grace': if (state.fates.includes('text_only')) mark(state.notice, 'user_returned'); break;
       case 'disconnect': settle('unplayed'); mark(state.screen, 'hearing-unconfirmed'); break;
       case 'reconnect': break;
@@ -46,6 +70,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       case 'speaker-only-echo': mark(state.screen, 'no-user-message'); break;
       case 'conversation-a': case 'conversation-b': {
         const conversation = type.slice(-1);
+        if (state.inputRoute !== conversation) state.routeErrors.push(`Speech entered ${conversation} while input was routed to ${state.inputRoute}`);
         const turnId = action.turnId ?? `${conversation}-turn-1`;
         const current = state.conversations.get(conversation);
         if (current?.turnId !== turnId) {
@@ -64,6 +89,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
         break;
       }
       case 'out-of-order-finish': {
+        if (fixture.id === 'T06c') state.endpointVerdicts.push(judgeEndpoint(action, state.switchAt));
         for (const [conversation, defaultId] of [['b', 'b-turn-1'], ['a', 'a-turn-1']]) {
           const turnId = action[`${conversation}TurnId`] ?? defaultId;
           const current = state.conversations.get(conversation);
@@ -74,7 +100,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
       }
       case 'skip': settle('heard'); mark(state.screen, 'heard'); break;
       case 'next-reply': add('heard'); break;
-      case 'mic-mute': mark(state.screen, 'normal-turn-end'); break;
+      case 'mic-mute': state.muteAt = action.atMs; break;
       case 'reply-partial-device-a': state.playing = add('playing'); break;
       case 'reply-heard': add('heard'); mark(state.screen, 'heard'); break;
       case 'reply-heard-device-b': settle('heard'); mark(state.screen, 'global-heard'); break;
@@ -146,21 +172,34 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
   }
   const contract = TURN_CONTRACT[fixture.id];
   const mismatches = [];
-  mismatches.push(...invalidSemantic, ...envelopeProblems);
+  mismatches.push(...invalidSemantic, ...envelopeProblems, ...state.routeErrors);
   if (!contract) mismatches.push(`Unknown #19 case: ${fixture.id}`);
   else {
     if (JSON.stringify(fixture.actions.map((action) => action.type)) !== JSON.stringify(contract.actions)) mismatches.push('Required #19 case steps are missing or reordered');
     for (const [key, expected] of Object.entries(contract.outcome)) {
-      if (JSON.stringify(actual[key] ?? []) !== JSON.stringify(expected)) mismatches.push(`${key}: #19 requires ${JSON.stringify(expected)}, got ${JSON.stringify(actual[key])}`);
+      // The ordinary-end mark is not a mismatch while the endpoint evidence is missing; the result is insufficient.
+      const unjudged = key === 'screen' && state.endpointVerdicts.some((judged) => judged.state === 'insufficient');
+      const without = (list) => unjudged ? list.filter((item) => item !== 'normal-turn-end') : list;
+      if (JSON.stringify(without(actual[key] ?? [])) !== JSON.stringify(without(expected))) mismatches.push(`${key}: #19 requires ${JSON.stringify(expected)}, got ${JSON.stringify(actual[key])}`);
     }
     if (JSON.stringify(fixture.expect) !== JSON.stringify(contract.outcome)) mismatches.push('Fixture expectation disagrees with the independent #19 case oracle');
   }
   if (fixture.id === 'T08' && state.trace.find((item) => item.action === 'typed-message')?.fates[0] !== 'playing') mismatches.push('Typing must leave the first reply playing');
   if (fixture.id === 'T11' && (state.conversations.get('a')?.epoch !== 1 || state.conversations.get('b')?.epoch !== 1 ||
       state.duplicateStarts !== 1 || state.finishes.join(',') !== 'b:b-turn-1,a:a-turn-1')) mismatches.push('Separate epochs, deduplicated turn IDs, and out-of-order terminals are required');
+  if (fixture.id === 'T06c' && (state.conversations.get('a')?.epoch !== 1 || state.conversations.get('b')?.epoch !== 1 ||
+      state.finishes.join(',') !== 'b:b-turn-1,a:a-turn-1' || state.switchAt == null))
+    mismatches.push('A must keep its own pending turn across focus and finish normally after B starts');
+  if (fixture.id === 'T13' && state.muteAt == null) mismatches.push('Muting routes silence; the mute is required');
+  const insufficient = [];
+  for (const judged of state.endpointVerdicts) {
+    if (judged.state === 'bad') mismatches.push(`${fixture.id}: ${judged.reason}`);
+    else if (judged.state === 'insufficient') insufficient.push(judged.reason);
+  }
+  if (['T06c', 'T13'].includes(fixture.id) && !state.endpointVerdicts.length) insufficient.push('No terminal to judge');
   if (fixture.id === 'T16' && (state.deliveries.length !== 3 || state.claims.get('pull') !== state.deliveries[0]?.id)) mismatches.push('Push/pull envelope identity, claim release, and redelivery are required');
   mismatches.push(...await probeMockRoom(fixture));
   // A synthetic reference model cannot certify the real producers. Reserve
   // PASS for live case evidence; this result means the model matched #19.
-  return { id: fixture.id, actual, mismatches, trace: state.trace, status: mismatches.length ? 'fail' : 'model-match', scope: 'reference-model' };
+  return { id: fixture.id, actual, mismatches, trace: state.trace, insufficient, status: mismatches.length ? 'fail' : insufficient.length ? 'insufficient' : 'model-match', scope: 'reference-model' };
 }

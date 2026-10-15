@@ -1,7 +1,7 @@
 {
   "id": "T13",
   "title": "Mute microphone mid-turn",
-  "summary": "Speak, then mute the microphone before the turn ends.",
+  "summary": "Speak, mute the microphone, then wait for the ordinary silence endpoint; mute does not force a terminal.",
   "extends": "04-room-ready",
   "actions": [
     {
@@ -13,8 +13,14 @@
       "type": "mic-mute"
     },
     {
-      "atMs": 2000,
-      "type": "turn-finished"
+      "atMs": 3600,
+      "type": "turn-finished",
+      "endpoint": {
+        "cause": "silence",
+        "end_of_turn": "smart-turn",
+        "patience": "normal",
+        "last_speech_ms": 1000
+      }
     }
   ],
   "expect": {

@@ -8,7 +8,7 @@ export type {
 export type { Pairing, PairingCodePayload } from "../apps/web/src/services/device-pairing";
 export type { ModelCatalogs } from "../apps/web/src/services/model-catalogs.js";
 export type {
-  VoiceCallState, VoiceHost, VoiceSayEvent, VoiceSaying, VoiceSayOutcome, VoiceSettings, VoiceTurnEvent,
+  VoiceCallHost, VoiceCallState, VoiceHost, VoiceSayEvent, VoiceSaying, VoiceSayOutcome, VoiceSettings, VoiceTurnEvent,
 } from "@sidevoice/voice";
 export type { CatalogStatus, LocalModelInfo, Progress, RemoteModelInfo, Voice } from "@sidevoice/engine";
 
@@ -16,7 +16,7 @@ export type { CatalogStatus, LocalModelInfo, Progress, RemoteModelInfo, Voice } 
 // apps/web/src/services/voice-take.ts). Declared here rather than imported, so that the mocks still check against a web
 // without it (a failed check refuses the mocked preview); once the voice module ships it, it comes from
 // "@sidevoice/voice" with the rest.
-import type { VoiceHost as Host } from "@sidevoice/voice";
+import type { VoiceCallHost as Call } from "@sidevoice/voice";
 export interface VoiceTakeTurn {
   turn_id: string;
   speech_ms: number;
@@ -30,7 +30,7 @@ export interface VoiceTake {
   ended_at: number;
   turns: VoiceTakeTurn[];
 }
-export type TakingVoiceHost = Host & {
+export type TakingVoiceHost = Call & {
   start(options?: { take?: boolean }): Promise<void>;
   onTake?(listener: (take: VoiceTake) => void): () => void;
   /** Optional output telemetry, normalized 0–1; independent of onLevel's microphone samples. */
