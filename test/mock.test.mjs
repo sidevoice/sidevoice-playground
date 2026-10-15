@@ -64,18 +64,36 @@ test("desktop data mock keeps pairings and reports deletion only after relaunch"
   const relaunched = [];
   const data = desktopHost(world, identities, { relaunch: (what) => relaunched.push(what) }).data;
   assert.equal((await data.pairings.read()).pairings.length, 1);
-  await data.pairings.write({ pairings: [] });
-  assert.deepEqual(await data.pairings.read(), { pairings: [] });
+  await data.pairings.write({ pairings: [], pendingRevokes: [] });
+  assert.deepEqual(await data.pairings.read(), { pairings: [], pendingRevokes: [] });
   const started = await data.deleteAll();
   assert.equal(started.state, "needs-restart");
   assert.equal(world.state.app?.resetReport, undefined, "helper has not finished when native call returns");
   await new Promise((resolve) => { const stop = world.subscribe(() => { if (world.state.app?.resetReport) { stop(); resolve(); } }); });
   assert.deepEqual(relaunched, [{ reset: true }]);
   assert.equal((await data.resetReport()).state, "complete");
+  assert.deepEqual(world.state.voice?.installed, {});
+  assert.deepEqual(world.state.voice?.keys, {});
+  assert.equal(world.state.app?.shortcut, null);
   assert.equal(await data.resetReport(), null);
   world.patch({ "app.resetFailure": "service", "local.state": "running" });
   await assert.rejects(data.deleteAll(), (failure) => failure.key === "reset.service-failed");
   assert.equal(world.state.local.state, "running");
+});
+
+test("desktop reset mock reports model cleanup failure only after relaunch", async () => {
+  const { world, identities } = await setup();
+  world.patch({ "app.resetFailure": "models", "voice.installed": { "whisper-base": true }, "voice.keys": { openai: "mock-secret" } });
+  const data = desktopHost(world, identities).data;
+  const started = await data.deleteAll();
+  assert.equal(started.state, "needs-restart");
+  assert.deepEqual(started.failed, []);
+  await new Promise((resolve) => { const stop = world.subscribe(() => { if (world.state.app?.resetReport) { stop(); resolve(); } }); });
+  const final = await data.resetReport();
+  assert.equal(final.state, "partial");
+  assert.deepEqual(final.failed, [{ step: "models", key: "remove" }]);
+  assert.equal(world.state.voice.installed["whisper-base"], true);
+  assert.deepEqual(world.state.voice.keys, {});
 });
 
 test("a world is its scenario with the chosen values set over it", () => {

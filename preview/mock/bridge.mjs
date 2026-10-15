@@ -77,11 +77,11 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
         const pairings = Array.isArray(saved) ? saved : Object.keys(world.state.machines ?? {})
           .filter((id) => world.state.machines[id].paired)
           .map((id) => storedPairing(world.state, identities, id, world.now()));
-        return { pairings: structuredClone(pairings) };
+        return { pairings: structuredClone(pairings), pendingRevokes: structuredClone(world.state.app?.pendingRevokes ?? []) };
       },
       async write(value) {
-        if (!Array.isArray(value?.pairings)) throw { key: "data.pairings-invalid" };
-        world.patch({ "app.pairings": structuredClone(value.pairings) });
+        if (!Array.isArray(value?.pairings) || !Array.isArray(value?.pendingRevokes)) throw { key: "data.pairings-invalid" };
+        world.patch({ "app.pairings": structuredClone(value.pairings), "app.pendingRevokes": structuredClone(value.pendingRevokes) });
       },
     },
     async deleteAll() {
@@ -90,14 +90,21 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       const service = world.state.local?.state === "absent" ? "absent" : "removed";
       await world.delay(450); // the installed connector's top-level uninstall, not serviceUninstall()
       world.patch({ "local.state": "absent", "local.installed": false });
-      const failed = world.state.app?.resetFailure === "models" ? [{ step: "models", key: "remove" }] : [];
+      const modelsFailed = world.state.app?.resetFailure === "models";
+      const failed = modelsFailed ? [{ step: "models", key: "remove" }] : [];
       const result = { state: failed.length ? "partial" : "complete", completed: ["app-data", "webview", "cache"], failed, agents: {} };
       // Native returns while the app is still visible, then the helper runs after the app exits.
       void world.delay(550).then(() => {
-        world.patch({ "app.pairings": [], "app.resetReport": result, setup: null });
+        world.patch({
+          "app.pairings": [], "app.pendingRevokes": [], "app.shortcut": null,
+          "app.shortcutRefused": false, "app.alwaysShown": false,
+          "app.resetReport": result, setup: null,
+          "voice.keys": {}, ...(modelsFailed ? {} : { "voice.installed": {} }),
+          "local.devices": [],
+        });
         relaunch?.({ reset: true });
       });
-      return { state: failed.length ? "partial" : "needs-restart", service, agents: {}, failed, pending: ["app-data", "models", "webview"] };
+      return { state: "needs-restart", service, agents: {}, failed: [], pending: ["app-data", "models", "webview"] };
     },
     async resetReport() {
       const report = world.state.app?.resetReport ?? null;
