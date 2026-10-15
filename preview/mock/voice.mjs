@@ -76,6 +76,8 @@ export function synthesisedTake(taking, endedAt) {
 /** How long the person speaks when the card says something, whatever its length: the take, the bars and the turn's
  *  timings are the same for a word and a paragraph. */
 export const SPEAKING_MS = 3000;
+/** How long a turn takes to transcribe once it has ended: long enough to see the transcribing state (operator, 2026-10-15). */
+export const TRANSCRIBING_MS = 1500;
 /** How often a speaking voice tells its level. */
 const LEVEL_STEP_MS = 60;
 
@@ -434,7 +436,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     const heardText = current.parts.map((part) => part.words.slice(0, Math.ceil(part.words.length * part.captured / part.steps)).join(" ")).filter(Boolean).join(" ");
     mark.end_ms = at();
     setState({ recognising: 1 });
-    await world.delay(500);
+    await world.delay(TRANSCRIBING_MS);
     setState({ recognising: 0 });
     if (voice.stt === "silence" || !heardText.trim()) {
       emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "cancelled", turn_id: turn, merged: false }));

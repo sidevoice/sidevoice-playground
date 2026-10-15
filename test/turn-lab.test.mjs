@@ -8,7 +8,7 @@ import { EventEmitter } from "node:events";
 import { runInNewContext } from "node:vm";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
-import { fakeVoice } from "../preview/mock/voice.mjs";
+import { fakeVoice, TRANSCRIBING_MS } from "../preview/mock/voice.mjs";
 import { runTurnFixture } from "../preview/mock/turn-script.mjs";
 import { probeMockRoom } from "../preview/mock/turn-machine-probes.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
@@ -594,7 +594,7 @@ for (const [name, leave] of [
     assert.ok(end, "A still ends its turn, with what it captured");
     assert.ok(end.event.text.length > 0 && end.event.text.length < FULL.length && FULL.startsWith(end.event.text), `A keeps only its captured words, got ${end.event.text}`);
     assert.ok(end.at - leftAt >= 2500, `the terminal came ${end.at - leftAt} ms after the change; the endpoint is 2500 ms`);
-    assert.ok(end.at - leftAt <= 2500 + 500 + 160, `the terminal came ${end.at - leftAt} ms after the change; the endpoint plus 500 ms recognition (and one 80 ms step) is the most`);
+    assert.ok(end.at - leftAt <= 2500 + TRANSCRIBING_MS + 160, `the terminal came ${end.at - leftAt} ms after the change; the endpoint plus ${TRANSCRIBING_MS} ms recognition (and one 80 ms step) is the most`);
     await m.a.dispose();
     await m.b.dispose();
   });
@@ -657,8 +657,8 @@ test("mock voice: A closes at its configured endpoint while a longer utterance g
   await m.voice.speak(FULL, { durationMs: 6000 });
   await returned;
   assert.ok(closing, "A finished");
-  assert.ok(closing.waited >= 2500 + 500, `A closed ${closing.waited} ms after the route moved; endpoint plus recognition is the least`);
-  assert.ok(closing.waited <= 2500 + 500 + 160, `A closed ${closing.waited} ms after the route moved; endpoint plus recognition is the most`);
+  assert.ok(closing.waited >= 2500 + TRANSCRIBING_MS, `A closed ${closing.waited} ms after the route moved; endpoint plus recognition is the least`);
+  assert.ok(closing.waited <= 2500 + TRANSCRIBING_MS + 160, `A closed ${closing.waited} ms after the route moved; endpoint plus recognition is the most`);
   assert.ok(closing.silentStepsLeft > 10, "the rest of the utterance was still being spoken when A closed");
   const [first, second] = finished(m.log, "a").map((item) => item.event.text);
   assert.ok(first.length > 0 && first !== FULL && FULL.startsWith(first), `A keeps the words it captured: ${first}`);
