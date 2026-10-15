@@ -15,6 +15,8 @@ let secondConversation = null;
 let observingSecond = false;
 let startRequested = false;
 let polling = false;
+let scriptSelectedAt = 0;
+let latestState = null;
 const matchesCandidate = (current) => current?.mode === "real" && current.scenario === "turn-lab" &&
   ["core", "connector", "web", "voice", "engine"].every((key) => current.identity?.[key] === config?.[key]);
 const ask = async (path, body) => {
@@ -44,7 +46,11 @@ async function boot() {
   showConfig(await ask("/preview/turn-lab/config"));
   scripts = await ask("/preview/turn-lab/scripts");
   $("script").replaceChildren(...Object.entries(scripts).map(([id, script]) => new Option(`${id} · ${script.title}`, id)));
-  $("script").onchange = () => $("instruction").textContent = scripts[$("script").value].instruction ?? "Speak naturally.";
+  $("script").onchange = () => {
+    scriptSelectedAt = latestState?.events.at(-1)?.at ?? 0;
+    $("instruction").textContent = scripts[$("script").value].instruction ?? "Speak naturally.";
+    void poll();
+  };
   $("script").onchange();
   const status = await ask("/preview/status");
   previewOrigin = new URL(status.link).origin;
@@ -60,11 +66,23 @@ function showConfig(next) {
   $("pin-note").textContent = Object.values(config.notes ?? {}).join(" · ");
 }
 
+function setupDelivered(state) {
+  const id = $("script").value;
+  if (!["T06a", "T06b", "T06c", "T06d"].includes(id)) return true;
+  const conversation = state.agent?.conversation;
+  if (id === "T06a" && state.events.some((event) => event.kind === "script-start" && event.data?.id === id &&
+    event.data.conversation === conversation && event.at > scriptSelectedAt)) return true;
+  return state.events.some((event) => event.kind === "agent-input" && event.at > scriptSelectedAt &&
+    event.data?.conversation === conversation && event.data.channel === "voice" && Boolean(event.data.text) &&
+    Number.isInteger(event.data.epoch) && event.data.epoch === state.evidence.currentEpoch);
+}
+
 async function poll() {
   if (polling || !config || !previewOrigin) return;
   polling = true;
   try {
     const state = await ask("/preview/turn-lab/events");
+    latestState = state;
     if (!matchesCandidate(state.current) && state.job.state !== "starting") {
       const latest = await ask("/preview/turn-lab/config");
       if (JSON.stringify(latest) !== JSON.stringify(config)) { showConfig(latest); startRequested = false; }
@@ -78,6 +96,7 @@ async function poll() {
       $("room-wait").hidden = false;
       $("run").disabled = true;
       $("connect").disabled = true;
+      for (const id of ["output-unavailable", "output-voice-off", "output-restore"]) $(id).disabled = true;
       if (state.job.state === "failed") setStatus(`Build failed: ${state.job.error}. Click Restart room to retry.`);
       else if (state.job.state === "starting") setStatus("Waiting for the current build; the pinned room starts when it finishes.");
       else if (!startRequested) {
@@ -130,7 +149,8 @@ async function poll() {
     $("events").replaceChildren(...state.events.slice(-100).reverse().map((event) => item(`${new Date(event.at).toLocaleTimeString()} ${event.kind} ${JSON.stringify(event.data).slice(0, 600)}`)));
     const selectedThread = observingSecond && secondConversation ? secondConversation : state.agent?.conversation;
     if (connected && !$("room").hidden) $("room").contentWindow.postMessage({ type: "turn-lab-thread", thread: selectedThread }, previewOrigin);
-    $("run").disabled = reconnecting || !connected || joinedThread !== state.agent?.conversation;
+    $("run").disabled = reconnecting || !connected || joinedThread !== state.agent?.conversation || !setupDelivered(state);
+    for (const id of ["output-unavailable", "output-voice-off", "output-restore"]) $(id).disabled = $("run").disabled;
     $("agent-status").textContent = connected ? `Connected · ${state.agent.inputMode}` :
       autoConnectAttempts < 3 ? `Connecting scripted agent (attempt ${Math.max(autoConnectAttempts, 1)}/3)…` : "Agent not connected. Click Reconnect agent.";
     if (connected && joinedThread === state.agent?.conversation) setStatus("Ready. Speak in the room or choose a script; the real browser voice and scripted agent are connected.");
@@ -167,7 +187,7 @@ $("recover").onclick = async () => {
 $("switch-conversation").onclick = () => {
   observingSecond = !observingSecond;
   joinedThread = null;
-  $("switch-conversation").textContent = observingSecond ? "Return to first conversation" : "Switch T11 conversation";
+  $("switch-conversation").textContent = observingSecond ? "Lab view: main conversation" : "Lab view: other conversation";
   void poll();
 };
 $("run").onclick = async () => {
@@ -176,6 +196,13 @@ $("run").onclick = async () => {
   catch (error) { $("agent-status").textContent = error.message; }
   finally { await poll(); }
 };
+for (const [id, output] of [["output-unavailable", "agents_muted"], ["output-voice-off", "voice_off"], ["output-restore", "on"]]) {
+  $(id).onclick = () => {
+    if ($("room").hidden) return;
+    $("room").contentWindow.postMessage({ type: "turn-lab-output", output }, previewOrigin);
+    $("output-status").textContent = `Applying ${output} in the test room…`;
+  };
+}
 $("export").onclick = async () => {
   const trace = await ask("/preview/turn-lab/export");
   const url = URL.createObjectURL(new Blob([JSON.stringify(trace, null, 2)], { type: "application/json" }));
@@ -185,6 +212,7 @@ $("export").onclick = async () => {
 window.addEventListener("message", (event) => {
   if (event.source !== $("room").contentWindow || event.origin !== previewOrigin || event.data?.source !== "turn-lab-browser") return;
   if (event.data.kind === "browser-ready" && event.data.data?.voice === "joined") joinedThread = event.data.data.thread;
+  if (event.data.kind === "browser-ready" && event.data.data?.output) $("output-status").textContent = `Test room output: ${event.data.data.output}`;
   if (event.data.kind === "browser-ready" && event.data.data?.paired === false && !pairingSent) {
     pairingSent = true;
     void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));

@@ -1,4 +1,4 @@
-// Loaded after the real web's target.js. Observe only; the room and voice module own all behavior.
+// Loaded after the real web's target.js. Observe the room and relay Lab-only output test controls.
 (() => {
   // Start the first browser visit at the remote machine and model steps. The web still
   // performs its own pairing, model installation and voice call; no transcripts are injected.
@@ -30,6 +30,16 @@
     if (event.data?.type === "turn-lab-thread" && typeof event.data.thread === "string") {
       if (wantedThread !== event.data.thread) report("browser-ready", { thread: event.data.thread, state: "requested" });
       wantedThread = event.data.thread;
+      return;
+    }
+    if (event.data?.type === "turn-lab-output") {
+      if (!["on", "agents_muted", "voice_off"].includes(event.data.output)) return;
+      try {
+        const actions = await readyAction();
+        if (typeof actions.setSpeechOutput !== "function") throw new Error("Web output action did not load");
+        actions.setSpeechOutput(event.data.output);
+        report("browser-ready", { output: event.data.output });
+      } catch (error) { report("browser-error", { output: String(error?.message ?? error) }); }
       return;
     }
     if (event.data?.type !== "turn-lab-pair") return;

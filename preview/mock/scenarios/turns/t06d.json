@@ -1,7 +1,7 @@
 {
   "id": "T06d",
   "title": "Return with misses",
-  "summary": "Mute agents, run, unmute, and wait five seconds.",
+  "summary": "Make output unavailable, run, restore output, and wait five seconds.",
   "extends": "04-room-ready",
   "actions": [
     {

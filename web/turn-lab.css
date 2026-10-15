@@ -7,3 +7,5 @@
 @media(prefers-color-scheme:dark){#guide{background:#213a52;border-color:#34485f}}
 #guide{align-items:flex-start}#guide ol{display:block;font-size:.86rem;line-height:1.35}#guide li{margin:0 0 2px}main{height:calc(100vh - 300px)}
 @media(max-width:1100px){main{height:auto}}
+#output-controls{display:flex;gap:6px;flex-wrap:wrap}#output-status{font-size:.8rem;color:#4a6078;margin-top:6px}
+@media(prefers-color-scheme:dark){#output-status{color:#b6c9dd}}

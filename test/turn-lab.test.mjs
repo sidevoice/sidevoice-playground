@@ -12,11 +12,38 @@ import { runTurnFixture } from "../preview/mock/turn-script.mjs";
 import { probeMockRoom } from "../preview/mock/turn-machine-probes.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
 import { SCRIPTS, scriptedAgent } from "../preview/turn-lab/agent.mjs";
+import { ensureCaseConversation } from "../preview/index.mjs";
 import { evidence } from "../preview/turn-lab/evidence.mjs";
 import { plannedPins } from "../preview/web-build.mjs";
 import { archiveChoices } from "../web/preview/choices.mjs";
 
 const SHA = "a".repeat(40);
+
+test("T06c prepares a distinct real conversation before its first publication from a fresh Lab", async () => {
+  const events = [], calls = [], other = { state: { ready: false, conversation: null },
+    async start(mode, title) { calls.push(["connect", mode, title]); this.state = { ready: true, conversation: "other-thread" }; },
+    async stop() {} };
+  let created = 0;
+  const create = () => { created++; return other; };
+  const first = await ensureCaseConversation("T06c", null, create, (event) => events.push(event));
+  calls.push(["publish", "T06c"]);
+  assert.equal(first.state.conversation, "other-thread");
+  assert.equal(created, 1);
+  assert.deepEqual(calls, [["connect", "push", "Turn Lab (other)"], ["publish", "T06c"]]);
+  assert.equal(events[0].kind, "second-conversation-ready");
+  assert.equal(events[0].data.conversation, "other-thread");
+  assert.equal(await ensureCaseConversation("T11", first, create, () => {}), first, "T11 reuses the prepared conversation");
+  assert.equal(created, 1);
+  assert.match(SCRIPTS.T06c.instruction, /select Turn Lab \(other\) in the room/);
+});
+
+test("T06c mock case rejects a trace without the required focus switch", async () => {
+  const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T06c").turn;
+  assert.equal((await runTurnFixture(fixture, { wait: async () => {} })).status, "model-match");
+  const invalid = structuredClone(fixture);
+  invalid.actions = invalid.actions.filter((action) => action.type !== "focus-switch");
+  assert.equal((await runTurnFixture(invalid, { wait: async () => {} })).status, "fail");
+});
 
 test("all 25 numbered cases are selectable mock fixtures with timed actions and expected outcomes", async () => {
   const cases = (await loadMockScenarios()).filter((scenario) => scenario.turn);

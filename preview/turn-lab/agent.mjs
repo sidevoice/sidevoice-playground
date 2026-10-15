@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { connectorEnv } from "../runs.mjs";
 
 const longReply = "I am walking through the result carefully. ".repeat(22) + "The final point is é🐙ab.";
-const muteReply = "I am walking through the result carefully. ".repeat(8) + "Please mute agents during this reply.";
+const muteReply = "I am walking through the result carefully. ".repeat(8) + "Use the Lab's Output unavailable control during this reply.";
 export const SCRIPTS = {
   T01: { title: "Interrupt a long reply", lines: [], autoReply: longReply, instruction: "Select this script, then speak. The agent answers with a long reply; speak again for at least one second while it plays." },
   T02a: { title: "Accepted before speech, with words", lines: [longReply], instruction: "Begin speaking just as playback would start." },
@@ -17,10 +17,10 @@ export const SCRIPTS = {
   T04a: { title: "Three replies, one epoch", lines: ["Acknowledged.", "Checkpoint: I found the first fact.", "Result: all three messages should play in order."] },
   T04b: { title: "Withdraw several replies", lines: [longReply, "Second queued reply.", "Third queued reply."], instruction: "Open a new spoken turn during the first reply." },
   T05: { title: "Acknowledgement, checkpoint, result", lines: ["I understand. I will check.", longReply, "Here is the result."], instruction: "Interrupt the checkpoint." },
-  T06a: { title: "Mute agents", lines: [muteReply], afterMute: "This second reply should be saved while agents are muted.", instruction: "Speak a short setup message and wait for it to reach the agent. Run once and wait for playback. Mute agents while it plays, then click Run script again while muted; the second click continues this same case." },
-  T06b: { title: "Turn voice off", lines: [longReply], instruction: "Turn voice off, then run the script." },
-  T06c: { title: "Switch conversation", lines: [longReply], instruction: "Switch conversation while this plays." },
-  T06d: { title: "Return with misses", lines: [longReply], instruction: "Mute agents, run, unmute, and wait five seconds." },
+  T06a: { title: "Output becomes unavailable", lines: [muteReply], afterMute: "This second reply should be saved while output is unavailable.", instruction: "Speak a short setup message and wait for its agent-input in the current epoch before Run. While the reply plays, click Lab Output unavailable (or disconnect the selected audio output). Wait for agents_muted in the event log, then click Run script again. Click Restore output when finished." },
+  T06b: { title: "Turn voice off", lines: [longReply], instruction: "Speak a short setup message and wait for its agent-input in the current epoch. Click Lab Voice off, wait for voice_off in the event log, then Run script. Check the text-only result and click Restore output afterward." },
+  T06c: { title: "Switch conversation", lines: [longReply], instruction: "Speak a short setup message and wait for its agent-input. Run script; the Lab prepares Turn Lab (other) before publishing. While the reply plays, select Turn Lab (other) in the room's conversation list, then return to Turn Lab (main)." },
+  T06d: { title: "Return with misses", lines: [longReply], instruction: "Speak a short setup message and wait for its agent-input in the current epoch. Click Lab Output unavailable (or disconnect the selected audio output), wait for agents_muted in the event log, then Run script. Click Restore output and wait at least five seconds." },
   T06e: { title: "Return without misses", lines: ["This should play fully."], instruction: "Return to this conversation after hearing the reply." },
   T07: { title: "Disconnect and reconnect", lines: [longReply], instruction: "Disconnect the browser during playback, then reconnect." },
   T08: { title: "Type during playback", lines: [longReply, "This second reply should also play."], instruction: "Type a message during the first reply." },
@@ -113,7 +113,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
   };
   return {
     get state() { return { inputMode, conversation, ready: Boolean(conversation) }; },
-    async start(mode) {
+    async start(mode, title = "Turn Lab (main)") {
       if (child) await this.stop();
       inputMode = mode;
       script = null; mutePhase = 0; muteRunId = null;
@@ -165,7 +165,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       child.on("error", (error) => lost(`failed: ${error.message}`));
       await send("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "turn-lab", version: "1.0.0" } });
       child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
-      const joined = await tool("voice_connect", { title: "Turn Lab", input_mode: mode });
+      const joined = await tool("voice_connect", { title, input_mode: mode });
       conversation = joined.conversation;
       context = joined.initial_reply_context;
       record("agent-connected", joined);
