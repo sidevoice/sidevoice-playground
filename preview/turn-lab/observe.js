@@ -25,6 +25,7 @@
   window.addEventListener("message", async (event) => {
     if (event.source !== parent || event.origin !== new URL(document.referrer).origin) return;
     if (event.data?.type === "turn-lab-thread" && typeof event.data.thread === "string") {
+      if (wantedThread !== event.data.thread) report("browser-ready", { thread: event.data.thread, state: "requested" });
       wantedThread = event.data.thread;
       return;
     }
@@ -50,8 +51,15 @@
     } else if (paired && wantedThread) {
       const participant = window.sidevoiceUI?.store?.getState?.().participants?.find((row) => row.threadId?.endsWith(`|${wantedThread}`));
       if (!participant) return;
-      if (!participant.selected) { window.sidevoiceActions?.selectParticipant?.(participant.threadId); return; }
-      if (!clicked.has(`selected:${wantedThread}`)) { clicked.add(`selected:${wantedThread}`); report("browser-ready", { thread: wantedThread, selected: true }); }
+      if (!clicked.has(`selecting:${wantedThread}`)) {
+        clicked.add(`selecting:${wantedThread}`);
+        window.sidevoiceActions?.selectParticipant?.(participant.threadId);
+        report("browser-ready", { thread: wantedThread, state: "selecting" });
+        return;
+      }
+      // The room marks a participant selected only after the call binds to it.
+      // The selection action sets the next join target while still out of a call.
+      if (participant.selected && !clicked.has(`selected:${wantedThread}`)) { clicked.add(`selected:${wantedThread}`); report("browser-ready", { thread: wantedThread, selected: true }); }
       const join = document.getElementById("connect");
       if (join && !join.classList.contains("joined") && !clicked.has("join") && !join.disabled) {
         clicked.add("join"); join.click(); report("browser-ready", { voice: "starting" });
