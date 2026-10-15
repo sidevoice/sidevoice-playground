@@ -142,6 +142,8 @@ test('T06a completes with a real withdrawal and fails a cut recorded for the wro
   const complete = (cut, reason) => evidence([...first, cut, withdrawal, history(reason), phase(), second]).checks.T06a.state;
   assert.equal(complete(frame('voice-playback', 'a', 'interrupted', { reason: 'agents_muted', heard_chars: 0 }), 'agents_muted'), 'pass');
   assert.equal(complete(frame('voice-playback', 'a', 'interrupted', { heard_chars: 0 }), 'user_interrupted'), 'fail');
+  assert.match(evidence([...first, frame('voice-playback', 'a', 'interrupted', { heard_chars: 0 }), withdrawal,
+    history('user_interrupted'), phase(), second]).checks.T06a.reason, /recorded as user_interrupted/);
   assert.equal(evidence([...first, withdrawal, phase(), second]).checks.T06a.state, 'pending');
 });
 

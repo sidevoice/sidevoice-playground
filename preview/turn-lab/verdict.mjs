@@ -141,9 +141,10 @@ export function verdict(id, events, fates) {
     const withdrawalAt = actionAt((frame) => frame.type === "voice-reply-withdrawn" &&
       frame.utterance_ids?.includes(ids[0]) && frame.reason === "agents_muted");
     const cutReason = events[cutAt]?.data?.reason ?? fates.get(ids[0])?.reason;
-    if (!completed(2) || publications.length !== 2 || audible(ids[1]) || ["played", "cut", "skipped"].includes(fate(ids[1])) ||
-      fate(ids[0]) === "played" || !textOnly(publications[1], "agents_muted") ||
-      (cutAt >= 0 && cutReason && cutReason !== "agents_muted"))
+    if (cutAt >= 0 && cutReason && cutReason !== "agents_muted")
+      result = fail(`Mute cut was recorded as ${cutReason}; expected agents_muted`);
+    else if (!completed(2) || publications.length !== 2 || audible(ids[1]) || ["played", "cut", "skipped"].includes(fate(ids[1])) ||
+      fate(ids[0]) === "played" || !textOnly(publications[1], "agents_muted"))
       result = fail("Mute must cut the playing reply and save the second without audio");
     else if (muteAt < 0 || firstAt < 0 || secondAt < 0 || phaseAt < 0 || cutAt < 0 ||
       (cutReason !== "agents_muted" && withdrawalAt < 0) ||
