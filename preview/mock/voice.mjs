@@ -104,7 +104,7 @@ function endpointMs(settings) {
 
 export function fakeVoice(world, { source = null } = {}) {
   /** @type {Record<string, Set<Function>>} */
-  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), error: new Set(), devices: new Set(), take: new Set() };
+  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), interrupted: new Set(), error: new Set(), devices: new Set(), take: new Set() };
   // The devices: the headset plugged in, nothing chosen (the system's defaults), the speaker choosable.
   const devices = { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
   const emit = (kind, value) => {
@@ -123,6 +123,7 @@ export function fakeVoice(world, { source = null } = {}) {
   let playbackRun = 0;
   const playbackLevels = new Map();
   const activeSays = new Map();
+  const sayHandles = new Map();
   const publishPlayback = () => emit("playbackLevel", Math.max(0, ...playbackLevels.values()));
   const silence = () => { playbackLevels.clear(); publishPlayback(); };
   /** The take being kept, while one was asked for: when it started, what the person said in it, their turns' marks, and
@@ -193,6 +194,9 @@ export function fakeVoice(world, { source = null } = {}) {
       /** @type {Set<(event: VoiceSayEvent) => void>} */
       const events = new Set();
       let cancelled = false;
+      let cancelReason = "cancelled";
+      const tracked = { heard: 0, played: false, cancelForBarge: () => { cancelReason = "barge-in"; cancelled = true; quiet(); } };
+      sayHandles.set(id, tracked);
       const tell = (event) => {
         for (const listener of [...events]) listener(event);
       };
@@ -202,6 +206,10 @@ export function fakeVoice(world, { source = null } = {}) {
         activeSays.set(id, "synthesizing");
         refreshPlayback();
         await world.delay(400);
+        if (cancelled || !started) {
+          quiet(); activeSays.delete(id); refreshPlayback();
+          return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: cancelled ? cancelReason : "stopped" });
+        }
         if (voiceState(world).tts === "error") {
           quiet();
           activeSays.delete(id);
@@ -211,6 +219,7 @@ export function fakeVoice(world, { source = null } = {}) {
         }
         if (run === playbackRun && started) {
           activeSays.set(id, "playing");
+          tracked.played = true;
           refreshPlayback();
         }
         tell({ type: "playing" });
@@ -222,9 +231,9 @@ export function fakeVoice(world, { source = null } = {}) {
             quiet();
             activeSays.delete(id);
             refreshPlayback();
-            return /** @type {VoiceSayOutcome} */ ({ status: "heard-up-to", heard_chars: from, reason: cancelled ? "cancelled" : "stopped" });
+            return /** @type {VoiceSayOutcome} */ ({ status: "heard-up-to", heard_chars: from, reason: cancelled ? cancelReason : "stopped" });
           }
-          tell({ type: "progress", sounding: [from, from + chunk.length], heard_chars: from });
+          tell({ type: "progress", sounding: [from, from + [...chunk].length], heard_chars: from });
           const duration = Math.max(400, chunk.length * 55);
           for (let elapsed = 0; elapsed < duration; elapsed += 80) {
             // One silent slice per short envelope: a pause while playback is still "playing".
@@ -235,7 +244,8 @@ export function fakeVoice(world, { source = null } = {}) {
             await world.delay(Math.min(80, duration - elapsed));
           }
           quiet();
-          from += chunk.length;
+          from += [...chunk].length;
+          tracked.heard = from;
         }
         tell({ type: "progress", sounding: null, heard_chars: from });
         quiet();
@@ -243,7 +253,7 @@ export function fakeVoice(world, { source = null } = {}) {
         refreshPlayback();
         return /** @type {VoiceSayOutcome} */ ({ status: "heard" });
       })();
-      outcome.then((ended) => tell({ type: "done", outcome: ended }));
+      outcome.then((ended) => { sayHandles.delete(id); tell({ type: "done", outcome: ended }); });
       /** @type {VoiceSaying} */
       const saying = {
         id,
@@ -290,6 +300,7 @@ export function fakeVoice(world, { source = null } = {}) {
     onState: on("state"),
     onLevel: on("level"),
     onPlaybackLevel: on("playbackLevel"),
+    onAgentInterrupted: on("interrupted"),
     onError: on("error"),
     onTake: on("take"),
   };
@@ -300,10 +311,23 @@ export function fakeVoice(world, { source = null } = {}) {
    * transcription that fails. `pause`: a pause in the middle, shorter than the end of turn waits — still the turn.
    * `cutOff`: the turn is ended after its first half, and the person goes on — a new turn, the cut one merged into
    * it. Whether the call heard it: it hears only while it listens.
-   * @param {string} text @param {{ pause?: boolean, cutOff?: boolean }} [how]
+   * @param {string} text @param {{ pause?: boolean, cutOff?: boolean, durationMs?: number, level?: number }} [how]
    */
-  async function speak(text, { pause = false, cutOff = false } = {}) {
+  async function speak(text, { pause = false, cutOff = false, durationMs = SPEAKING_MS, level = 0.95 } = {}) {
     if (!started || muted) return false;
+    const overlapping = [...sayHandles].filter(([id]) => activeSays.has(id));
+    if (overlapping.length) {
+      const threshold = Math.ceil((settings?.barge_in_min_speech ?? 1) * 1000);
+      // Simulated detector gate: short or quiet overlap is discarded before any
+      // turn event. In silence, the same short word remains an ordinary turn.
+      if (durationMs < threshold || level < 0.8) { await world.delay(durationMs); return true; }
+      await world.delay(threshold);
+      for (const [id, handle] of overlapping) {
+        if (!activeSays.has(id)) continue;
+        handle.cancelForBarge();
+        emit("interrupted", { utterance_id: id, heard_until: handle.heard, played: handle.played });
+      }
+    }
     const voice = voiceState(world);
     let turn = `turn-${++turns}`;
     const startedAt = world.now();
@@ -338,7 +362,7 @@ export function fakeVoice(world, { source = null } = {}) {
     emit("turn", /** @type {VoiceTurnEvent} */ ({ phase: "started", turn_id: turn, started_at: startedAt }));
     if (pause || cutOff) {
       const [first, rest] = half(text);
-      await talk(first, SPEAKING_MS / 2);
+      await talk(first, durationMs / 2);
       if (cutOff) {
         // The end of turn decided too soon: the turn goes to be recognised, and the person goes on.
         await world.delay(silence);
@@ -356,8 +380,8 @@ export function fakeVoice(world, { source = null } = {}) {
         await world.delay(Math.round(silence * 0.6));
         mark.pauses.push({ from_ms: paused, to_ms: at() });
       }
-      await talk(rest, SPEAKING_MS / 2);
-    } else await talk(text);
+      await talk(rest, durationMs / 2);
+    } else await talk(text, durationMs);
     await world.delay(silence);
     mark.end_ms = at();
     setState({ recognising: 1 });

@@ -4,6 +4,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadMockScenarios } from "../preview/proxy.mjs";
+import { createWorld } from "../preview/mock/world.mjs";
+import { fakeVoice } from "../preview/mock/voice.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
 import { SCRIPTS } from "../preview/turn-lab/agent.mjs";
 import { evidence } from "../preview/turn-lab/evidence.mjs";
@@ -126,4 +128,30 @@ test("FIFO check requires observed playback starts in publication order", () => 
   assert.equal(evidence(events).checks.T04a.state, "pending");
   for (const id of ["a", "b", "c"]) events.push({ kind: "browser-action", data: { type: "voice-playback", utterance_id: id, status: "heard" } });
   assert.equal(evidence(events).checks.T04a.state, "pass");
+});
+
+test("mock voice discards short overlap but qualifies a sustained barge-in", async () => {
+  let clock = 0;
+  const world = createWorld({ id: "gate", title: "Gate", summary: "", world: {}, options: [] }, {}, {
+    now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
+  });
+  const voice = fakeVoice(world);
+  const turns = [], cuts = [];
+  voice.host.onTurn((turn) => turns.push(turn));
+  voice.host.onAgentInterrupted((cut) => cuts.push(cut));
+  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, barge_in_min_speech: 1 });
+  await voice.host.start();
+  const saying = voice.host.say("Long reply for the duration gate. ".repeat(50));
+  await Promise.resolve();
+  await voice.speak("ajá", { durationMs: 990 });
+  assert.equal(turns.length, 0);
+  assert.equal(cuts.length, 0);
+  await voice.speak("Please stop there", { durationMs: 1300 });
+  assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
+  assert.equal(cuts.length, 1);
+  assert.equal(cuts[0].played, true);
+  assert.equal((await saying.outcome).status, "heard-up-to");
+  await voice.speak("vale", { durationMs: 300 });
+  assert.equal(turns.filter((turn) => turn.phase === "started").length, 2);
+  await voice.host.stop();
 });

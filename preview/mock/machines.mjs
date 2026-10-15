@@ -604,7 +604,7 @@ export function roomOf(world, id) {
   if (!rooms.has(world)) rooms.set(world, new Map());
   const all = rooms.get(world);
   if (!all.has(id)) {
-    const room = { id, calls: new Set(), rows: seededRows(world, id), seq: 0, working: {}, spells: {}, seen: new Set() };
+    const room = { id, calls: new Set(), rows: seededRows(world, id), seq: 0, epochs: new Map(), working: {}, spells: {}, seen: new Set() };
     room.seq = room.rows.length;
     all.set(id, room);
     // A call ends as the world changes under it: its device revoked (4401), or its machine no longer answering
@@ -628,7 +628,7 @@ function seededRows(world, id) {
     (machine.participants[i].history ?? []).map((entry) => ({ conversation, entry })));
   return said.sort((a, b) => b.entry.minutesAgo - a.entry.minutesAgo).map(({ conversation, entry }, n) => ({
     seq: n + 1, id: `${id}-said-${n + 1}`, thread: conversation.thread_id, role: entry.role, text: entry.text,
-    name: entry.role === "user" ? "You" : conversation.title, session: null, revision: 0,
+    name: entry.role === "user" ? "You" : conversation.title, session: null, revision: 0, epoch: 0,
     time: world.now() - Math.round(entry.minutesAgo * 60_000),
     status: entry.status ?? (entry.role === "user" ? "read" : "playback_finished"), audio_reason: null, heard_chars: null, offline: null,
   }));
@@ -698,7 +698,7 @@ export function callSocket(world, identities, { url, protocols = [], pageOrigin 
   const room = roomOf(world, id);
   const call = {
     url, via, onPage: !!place.onPage, peer, session: null, since: 0, binding: /** @type {RoomBinding | null} */ (null),
-    revision: 0, frames: 0, turns: [], speaking: false, replies: new Map(), ended: false,
+    revision: 0, frames: 0, turns: [], speaking: false, speechOn: true, replies: new Map(), ended: false,
   };
   room.calls.add(call);
   peer.open(protocol);
@@ -726,11 +726,13 @@ function take(world, room, call, text) {
   if (data.session_id !== call.session) return;
   if (frame.type === "voice-user-turn") once(world, room, call, data, userTurn);
   else if (frame.type === "voice-playback") once(world, room, call, data, playback);
+  else if (frame.type === "voice-speech") once(world, room, call, data, speechOutput);
 }
 
 /** The hello: the call gets its session, and lands on the conversation the hello names while it is in the room. */
 function seat(world, room, call, hello) {
   const data = hello.data && typeof hello.data === "object" ? hello.data : {};
+  call.speechOn = data.speech?.on !== false;
   call.session = randomId();
   call.since = ++seats;
   const named = participantsOf(machineOf(world.state, room.id), room.id).find((p) => p.thread_id === data.conversation);
@@ -763,23 +765,31 @@ function once(world, room, call, data, apply) {
  *  its words (or none); words said while the call had no room come finished, as a row of their own. */
 function userTurn(world, room, call, data, id) {
   const turnId = typeof data.turn_id === "string" ? data.turn_id : "";
-  const started = (revision, thread) => ({
-    type: "voice-user-turn", data: { session_id: call.session, phase: "started", turn_id: turnId, revision, thread_id: thread },
+  const started = (revision, thread, epoch) => ({
+    type: "voice-user-turn", data: { session_id: call.session, phase: "started", turn_id: turnId, revision, thread_id: thread, epoch },
   });
   const words = typeof data.text === "string" && data.text.trim() ? data.text : null;
   if (data.phase === "started") {
-    if (!turnId || call.turns.some((turn) => turn.turn_id === turnId)) return [refusal("room.request_invalid", id)];
+    if (!turnId) return [refusal("room.request_invalid", id)];
+    const existing = call.turns.find((turn) => turn.turn_id === turnId);
+    if (existing) return [started(existing.revision, existing.binding?.thread_id ?? null, existing.epoch)];
     if (call.turns.length >= MAX_OPEN_TURNS) return [refusal("room.turns_full", id)];
-    const turn = { turn_id: turnId, revision: ++call.revision, binding: call.binding?.thread_id ? call.binding : null };
+    const binding = call.binding?.thread_id ? call.binding : null;
+    const epoch = binding ? (room.epochs.get(binding.thread_id) ?? 0) + 1 : null;
+    if (binding) room.epochs.set(binding.thread_id, epoch);
+    const turn = { turn_id: turnId, revision: ++call.revision, binding, epoch };
     call.turns.push(turn);
     call.speaking = true;
-    return [started(turn.revision, turn.binding?.thread_id ?? null)];
+    return [started(turn.revision, turn.binding?.thread_id ?? null, epoch)];
   }
   if (data.phase === "finished" && data.offline === true) {
     if (!turnId || !words) return [refusal("room.request_invalid", id)];
     const revision = ++call.revision;
-    const row = input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision, binding: call.binding, turnId, offline: true });
-    return row ? [started(revision, row.thread)] : [];
+    const binding = call.binding;
+    const epoch = binding?.thread_id ? (room.epochs.get(binding.thread_id) ?? 0) + 1 : null;
+    if (binding?.thread_id) room.epochs.set(binding.thread_id, epoch);
+    const row = input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision, epoch, binding, turnId, offline: true });
+    return row ? [started(revision, row.thread, epoch)] : [];
   }
   if (data.phase === "finished" || data.phase === "cancelled") {
     const turn = call.turns.find((open) => open.turn_id === turnId);
@@ -787,7 +797,7 @@ function userTurn(world, room, call, data, id) {
     call.turns = call.turns.filter((open) => open !== turn);
     call.speaking = false;
     if (data.phase === "finished" && words) {
-      input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision: turn.revision, binding: turn.binding, turnId });
+      input(world, room, call, { id: `${call.session}:user-turn:${turnId}`, text: words, revision: turn.revision, epoch: turn.epoch, binding: turn.binding, turnId });
     }
     return [];
   }
@@ -798,7 +808,7 @@ function userTurn(world, room, call, data, id) {
  * The person's words, as a row of the room's history for the conversation `binding` names: `pending`, told to the call
  * at once, and on their way to the agent. With no conversation they are never sent (`not_sent`, and no row).
  */
-function input(world, room, call, { id, text, revision, binding, turnId = null, offline = false }) {
+function input(world, room, call, { id, text, revision, binding, epoch = binding?.thread_id ? room.epochs.get(binding.thread_id) ?? 0 : null, turnId = null, offline = false }) {
   const kept = room.rows.find((row) => row.id === id);
   if (kept) return kept;
   if (!binding?.thread_id) {
@@ -806,7 +816,7 @@ function input(world, room, call, { id, text, revision, binding, turnId = null, 
     return null;
   }
   const row = {
-    seq: ++room.seq, id, thread: binding.thread_id, role: "user", text, name: "You", session: call.session, revision,
+    seq: ++room.seq, id, thread: binding.thread_id, role: "user", text, name: "You", session: call.session, revision, epoch,
     time: world.now(), status: "pending", audio_reason: null, heard_chars: null, offline: offline || null, turn_id: turnId,
   };
   room.rows.push(row);
@@ -819,7 +829,7 @@ function input(world, room, call, { id, text, revision, binding, turnId = null, 
 function receipt(call, row, status) {
   send(call, {
     type: "voice-input-receipt",
-    data: { revision: row.revision, history_id: row.id, thread_id: row.thread, session_id: row.session, status, ...(row.turn_id ? { turn_id: row.turn_id } : {}) },
+    data: { revision: row.revision, epoch: row.epoch, history_id: row.id, thread_id: row.thread, session_id: row.session, status, ...(row.turn_id ? { turn_id: row.turn_id } : {}) },
   });
 }
 
@@ -849,6 +859,23 @@ function playback(world, room, call, data, id) {
   reply.row.status = status;
   reply.row.audio_reason = status === "interrupted" && typeof data.reason === "string" ? data.reason : reason;
   reply.row.heard_chars = data.status === "interrupted" ? data.heard_chars ?? null : null;
+  if (data.reason === "user_skipped") {
+    reply.row.status = "skipped";
+    reply.row.heard_chars = [...reply.row.text].length;
+    reply.row.audio_reason = "user_skipped";
+  }
+  return [];
+}
+
+/** Output eligibility changes the room's audience without changing its epoch. */
+function speechOutput(_world, _room, call, data, id) {
+  if (typeof data.on !== "boolean" || (!data.on && !["voice_off", "agents_muted"].includes(data.reason))) return [refusal("room.request_invalid", id)];
+  call.speechOn = data.on;
+  call.speechReason = data.on ? null : data.reason;
+  if (!data.on) {
+    const withdrawn = stopReplies(call, data.reason);
+    if (withdrawn.length) send(call, { type: "voice-reply-withdrawn", data: { session_id: call.session, utterance_ids: withdrawn, reason: data.reason } });
+  }
   return [];
 }
 
@@ -899,7 +926,7 @@ function typed(world, room, body) {
   const kept = room.rows.find((row) => row.id === id);
   if (kept) {
     return kept.text === body.text && kept.thread === body.thread_id
-      ? json(200, { accepted: true, id, revision: kept.revision, thread_id: kept.thread }) : refuse(409, REFUSALS["room.message_conflict"]);
+      ? json(200, { accepted: true, id, revision: kept.revision, epoch: kept.epoch, thread_id: kept.thread }) : refuse(409, REFUSALS["room.message_conflict"]);
   }
   const call = callOf(room, body.session_id);
   if (!call || call.binding?.thread_id !== body.thread_id || call.binding?.binding_id !== body.binding_id) {
@@ -907,7 +934,7 @@ function typed(world, room, body) {
   }
   if (typeof body.text !== "string" || !body.text.trim()) return refuse(422, REFUSALS["room.text_empty"]);
   const row = input(world, room, call, { id, text: body.text, revision: call.revision, binding: call.binding });
-  return json(200, { accepted: true, id, revision: row.revision, thread_id: row.thread });
+  return json(200, { accepted: true, id, revision: row.revision, epoch: row.epoch, thread_id: row.thread });
 }
 
 /** `GET /api/presentation`: the room, and the asking call as the room sees it. */
@@ -915,7 +942,7 @@ function snapshot(room, call, identity) {
   const calls = seated(room);
   return {
     binding: call?.binding?.thread_id ? call.binding : null,
-    room: { revision: call?.revision ?? 0, speaking: !!call?.speaking, switching: false, clients: calls.length, utterances: [], client_errors: [] },
+    room: { revision: call?.revision ?? 0, epoch: call?.binding?.thread_id ? room.epochs.get(call.binding.thread_id) ?? 0 : null, speaking: !!call?.speaking, switching: false, clients: calls.length, utterances: [], client_errors: [] },
     clients: calls.map((c) => ({ id: c.session, device_id: identity.deviceId, connected: true, user_speaking: c.speaking, turn_revision: c.revision })),
     call: call ? {
       id: call.session, target: call.binding ?? {}, connected: true, user_speaking: call.speaking, error: null, sent: 0,
@@ -974,20 +1001,25 @@ export function agentSpeaks(world, text) {
   const thread = on?.call.binding?.thread_id;
   if (!thread) return false;
   const { room, call } = on;
+  if (seated(room).some((listener) => listener.binding?.thread_id === thread && listener.turns.length)) return false;
   const uid = randomId();
   const revision = answering(room, call, thread);
+  const epoch = room.epochs.get(thread) ?? 0;
   const row = {
     seq: ++room.seq, id: `${call.session}:voice:${uid}`, thread, role: "assistant", text, name: call.binding.title ?? null,
-    session: call.session, revision, time: world.now(), status: "queued", audio_reason: null, heard_chars: null, offline: null,
+    session: call.session, revision, epoch, time: world.now(), status: "queued", audio_reason: null, heard_chars: null, offline: null,
   };
   room.rows.push(row);
+  let delivered = false;
   for (const listener of seated(room)) {
-    if (listener.binding?.thread_id !== thread) continue;
+    if (listener.binding?.thread_id !== thread || !listener.speechOn) continue;
+    delivered = true;
     listener.replies.set(uid, { row, status: "queued" });
     /** @type {VoiceReply} */
-    const reply = { session_id: listener.session, utterance_id: uid, revision, reply_revision: revision, thread_id: thread, history_id: row.id, text, language: null };
+    const reply = { session_id: listener.session, utterance_id: uid, revision, reply_revision: revision, epoch, thread_id: thread, history_id: row.id, text, language: null };
     send(listener, { type: "voice-reply", data: reply });
   }
+  if (!delivered) { row.status = "interrupted"; row.audio_reason = call.speechOn ? "inactive_conversation" : call.speechReason ?? "voice_off"; }
   if (room.working[thread]) working(room, thread, false, { turn_phase: "end", session_id: call.session, revision });
   return true;
 }

@@ -132,13 +132,13 @@ test("a turn is acknowledged and answered with its revision; its words reach the
   assert.deepEqual(call.frames.map((f) => f.type), ["voice-session", "voice-ack", "voice-user-turn"]);
   assert.deepEqual(call.frames.slice(1).map((f) => f.seq), [1, 2]);
   assert.deepEqual(call.sent("voice-ack")[0].data, { session_id: call.session, client_msg_id: "m1" });
-  assert.deepEqual(call.sent("voice-user-turn")[0].data, { session_id: call.session, phase: "started", turn_id: "t1", revision: 1, thread_id: "nuc-thread-1" });
+  assert.deepEqual(call.sent("voice-user-turn")[0].data, { session_id: call.session, phase: "started", turn_id: "t1", revision: 1, epoch: 1, thread_id: "nuc-thread-1" });
   const finished = { session_id: call.session, client_msg_id: "m2", turn_id: "t1", phase: "finished", text: "Run the tests", merged: false };
   call.send("voice-user-turn", finished);
   await until(() => call.sent("voice-conversation").length === 1, "the agent working on it");
   const receipts = call.sent("voice-input-receipt").map((f) => f.data);
   assert.deepEqual(receipts.map((r) => r.status), ["pending", "delivered", "read"]);
-  assert.deepEqual(receipts[0], { revision: 1, history_id: `${call.session}:user-turn:t1`, thread_id: "nuc-thread-1", session_id: call.session, status: "pending", turn_id: "t1" });
+  assert.deepEqual(receipts[0], { revision: 1, epoch: 1, history_id: `${call.session}:user-turn:t1`, thread_id: "nuc-thread-1", session_id: call.session, status: "pending", turn_id: "t1" });
   assert.deepEqual(call.sent("voice-conversation")[0].data, { thread_id: "nuc-thread-1", working: true, turn_phase: "start", session_id: call.session, revision: 1 });
   const [row] = (await c.ask("/api/presentation/history")).body.messages;
   assert.deepEqual([row.id, row.role, row.text, row.status, row.revision, row.thread], [`${call.session}:user-turn:t1`, "user", "Run the tests", "read", 1, "nuc-thread-1"]);
@@ -160,7 +160,33 @@ test("a turn is acknowledged and answered with its revision; its words reach the
   }) });
   assert.equal(typed.status, 200);
   assert.equal(typed.body.accepted, true);
+  assert.equal(typed.body.epoch, 1, "typing does not advance the spoken epoch");
   assert.equal((await c.ask("/api/presentation/history")).body.messages.at(-1).text, "And push it");
+});
+
+test("mock room keeps conversation epochs separate from typing, duplicates and output eligibility", async () => {
+  const c = await setup();
+  const call = await joined(c);
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e1", turn_id: "t1", phase: "started" });
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e2", turn_id: "t1", phase: "started" });
+  await until(() => call.sent("voice-user-turn").length === 2, "duplicate turn acknowledged");
+  assert.deepEqual(call.sent("voice-user-turn").map((frame) => frame.data.epoch), [1, 1]);
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e3", turn_id: "t1", phase: "finished", text: "first" });
+  const binding = (await c.ask(`/api/presentation?session_id=${call.session}`)).body.binding;
+  const typed = await c.ask("/api/presentation/text", { method: "POST", body: JSON.stringify({
+    text: "typed", thread_id: "nuc-thread-1", session_id: call.session, binding_id: binding.binding_id, message_id: crypto.randomUUID(),
+  }) });
+  assert.equal(typed.body.epoch, 1);
+  call.send("voice-speech", { session_id: call.session, client_msg_id: "e4", on: false, reason: "voice_off" });
+  await until(() => call.sent("voice-ack").some((frame) => frame.data.client_msg_id === "e4"), "output off acknowledged");
+  const replies = call.sent("voice-reply").length;
+  assert.equal(agentSpeaks(c.world, "Written only"), true);
+  assert.equal(call.sent("voice-reply").length, replies);
+  assert.equal((await c.ask("/api/presentation/history")).body.messages.at(-1).audio_reason, "voice_off");
+  call.send("voice-user-turn", { session_id: call.session, client_msg_id: "e5", turn_id: "t2", phase: "started" });
+  await until(() => call.sent("voice-user-turn").length === 3, "new speech epoch");
+  assert.equal(call.sent("voice-user-turn").at(-1).data.epoch, 2);
+  assert.equal(agentSpeaks(c.world, "Must be refused"), false, "an open spoken turn refuses publication");
 });
 
 test("the agent speaks through the room: a reply to the call, its row in the history, and how it played", async () => {
