@@ -49,7 +49,8 @@
       { "value": "ready", "label": "Ready", "set": { "local.cursorBridge.state": "ready" } },
       { "value": "needs_attention", "label": "Needs attention: bridge off", "set": { "local.cursorBridge.state": "needs_attention" } },
       { "value": "unsupported", "label": "Not supported", "set": { "local.cursorBridge.state": "unsupported" } },
-      { "value": "unknown_code", "label": "Needs attention: unknown reason", "set": { "local.cursorBridge.state": "unknown_code" } }
+      { "value": "unknown_code", "label": "Needs attention: unknown reason with message", "set": { "local.cursorBridge.state": "unknown_code" } },
+      { "value": "unknown_no_message", "label": "Needs attention: unknown reason without message", "set": { "local.cursorBridge.state": "unknown_no_message" } }
     ] },
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
       { "value": "done", "label": "done: opens on the room, nothing new", "set": { "setup": "done" } },
