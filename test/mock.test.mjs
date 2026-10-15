@@ -267,25 +267,64 @@ test("a machine's agents are a scenario's rows over the connector's own, and wha
   assert.deepEqual(world.state.local.devices.map((d) => d.name), ["App"]);
 });
 
-test("Cursor Desktop Bridge card can show every readiness state from the local host's agent listing", async () => {
+test("Cursor Desktop Bridge presets match their registration and prerequisite facts", async () => {
   const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
   const world = createWorld(desktop, {}, instant);
   const identities = await makeIdentities(world.state);
   const states = ["ready", "needs_attention", "unknown", "unsupported"];
+  const expected = {
+    ready: { registration: "connected", reason: null, version: "3.22.12", steps: ["done", "done", "done", "done", "done", "unknown", "unknown"] },
+    needs_attention: { registration: "not-connected", reason: "bridge_missing", version: "3.22.12", steps: ["done", "unknown", "needs_action", "done", "needs_action", "unknown", "unknown"] },
+    unknown: { registration: "connected", reason: "cursor_version_unknown", version: null, steps: ["unknown", "done", "done", "done", "done", "unknown", "unknown"] },
+    unsupported: { registration: "not-connected", reason: "editor_unavailable", version: null, steps: ["unknown", "unknown", "needs_action", "done", "needs_action", "unknown", "unknown"] },
+  };
+  const stepIds = ["cursor_version", "enable_desktop_bridge", "bridge_running", "sqlite3", "register_sidevoice", "join_editor_chat", "wait_for_chat_registration"];
   assert.deepEqual(desktop.options.find((option) => option.id === "cursorBridge").values.map((value) => value.value), states);
+  let otherAgents;
   for (const state of states) {
     world.choose("cursorBridge", state);
     const response = await answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}/api/host/agents`,
       headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } });
     assert.equal(response.status, 200);
     const cursor = response.body.agents.find((agent) => agent.id === "cursor");
-    assert.equal(cursor.cursor_bridge.state, state);
-    assert.equal(cursor.cursor_bridge.steps.length, 7);
-    assert.equal(cursor.cursor_bridge.steps.find((step) => step.id === "enable_desktop_bridge").state,
-      state === "ready" ? "done" : "unknown");
-    assert.equal(cursor.cursor_bridge.reason, { ready: null, needs_attention: "bridge_missing", unknown: "cursor_version_unknown", unsupported: "editor_unavailable" }[state]);
-    assert.ok(response.body.agents.filter((agent) => agent.id !== "cursor").every((agent) => !agent.cursor_bridge));
+    const facts = expected[state];
+    assert.equal(cursor.registration, facts.registration);
+    assert.equal(cursor.actionable, facts.registration === "not-connected");
+    assert.equal(cursor.version, facts.version);
+    assert.deepEqual(cursor.cursor_bridge, {
+      state, reason: facts.reason, cursor_version: facts.version,
+      minimum_cursor_version: "3.22.12", minimum_connector_version: "0.9.0",
+      steps: stepIds.map((id, index) => ({ id, state: facts.steps[index] })),
+    });
+    const others = response.body.agents.filter((agent) => agent.id !== "cursor");
+    assert.ok(others.every((agent) => !agent.cursor_bridge));
+    if (otherAgents) assert.deepEqual(others, otherAgents);
+    else otherAgents = others;
   }
+});
+
+test("agent action responses keep the Cursor bridge card and reconcile registration", async () => {
+  const desktop = (await loadMockScenarios()).find((entry) => entry.id === "desktop-local-host");
+  const world = createWorld(desktop, {}, instant);
+  const identities = await makeIdentities(world.state);
+  const auth = { headers: { authorization: `Bearer ${identities[LOCAL_ID].token}` } };
+  const ask = (path, method = "GET") => answer(world, identities, { pageOrigin: PAGE, url: `${LOCAL_URL}${path}`, method, ...auth });
+  const cursor = (response) => response.body.agents.find((agent) => agent.id === "cursor");
+  const initial = await ask("/api/host/agents");
+  assert.equal(cursor(initial).cursor_bridge.state, "ready");
+  const disconnected = await ask("/api/host/agents/cursor/disconnect", "POST");
+  assert.equal(cursor(disconnected).registration, "not-connected");
+  assert.equal(cursor(disconnected).cursor_bridge.reason, "sidevoice_not_registered");
+  assert.equal(cursor(disconnected).cursor_bridge.steps[4].state, "needs_action");
+  assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(disconnected));
+  const connected = await ask("/api/host/agents/cursor/connect", "POST");
+  assert.equal(cursor(connected).registration, "connected");
+  assert.equal(cursor(connected).cursor_bridge.state, "ready");
+  assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(connected));
+  const codex = await ask("/api/host/agents/codex/connect", "POST");
+  assert.equal(cursor(codex).cursor_bridge.state, "ready");
+  assert.equal(codex.body.agents.find((agent) => agent.id === "codex").registration, "connected");
+  assert.deepEqual(cursor(await ask("/api/host/agents")), cursor(codex));
 });
 
 test("a device paired with a machine, this one too, is renamed there: 1 to 60 characters, trimmed", async () => {

@@ -322,33 +322,39 @@ export function agentsOf(machine) {
 
 /** Agents as the connector lists them: each row a scenario (or an action) gives over what the connector knows of
  *  that agent, without what is the mock's alone. */
-const cursorBridge = (state) => {
-  const reason = { ready: null, needs_attention: "bridge_missing", unknown: "cursor_version_unknown", unsupported: "editor_unavailable" }[state];
-  if (reason === undefined) return null;
-  const usable = state === "ready";
+const cursorBridge = (facts) => {
+  if (!facts) return null;
+  const live = facts.bridge === "live";
+  const reason = !facts.editorAvailable ? "editor_unavailable"
+    : !live ? "bridge_missing"
+    : facts.registration !== "connected" ? "sidevoice_not_registered"
+    : !facts.cursorVersion ? "cursor_version_unknown" : null;
+  const state = reason === "editor_unavailable" ? "unsupported"
+    : reason === "cursor_version_unknown" ? "unknown" : reason ? "needs_attention" : "ready";
   return {
-    state, reason, cursor_version: state === "unknown" || state === "unsupported" ? null : "3.22.12",
+    state, reason, cursor_version: facts.cursorVersion,
     minimum_cursor_version: "3.22.12", minimum_connector_version: "0.9.0",
     steps: [
-      { id: "cursor_version", state: state === "unknown" || state === "unsupported" ? "unknown" : "done" },
-      { id: "enable_desktop_bridge", state: usable ? "done" : "unknown" },
-      { id: "bridge_running", state: usable ? "done" : state === "unsupported" ? "unknown" : "needs_action" },
+      { id: "cursor_version", state: facts.cursorVersion ? "done" : "unknown" },
+      { id: "enable_desktop_bridge", state: live ? "done" : "unknown" },
+      { id: "bridge_running", state: live ? "done" : "needs_action" },
       { id: "sqlite3", state: "done" },
-      { id: "register_sidevoice", state: "done" },
+      { id: "register_sidevoice", state: facts.registration === "connected" ? "done" : "needs_action" },
       { id: "join_editor_chat", state: "unknown" },
       { id: "wait_for_chat_registration", state: "unknown" },
     ],
   };
 };
 
-export function agentRows(agents, bridgeState = null) {
+export function agentRows(agents, bridgeFacts = null) {
   return agents.map(({ connectMs, connectFails, cliFound = true, ...agent }) => {
     const { cli, ...known } = KNOWN_AGENTS[agent.id] ?? {};
     // The connector acts where it can reach the agent: its CLI found, or its file.
     const able = !cli || cliFound;
-    const bridge = agent.id === "cursor" ? cursorBridge(bridgeState) : null;
+    const bridge = agent.id === "cursor" ? cursorBridge(bridgeFacts) : null;
     return { ...known, connect: able ? "auto" : "manual", can: { connect: able, update: able, disconnect: able }, ...agent,
-      ...(bridge ? { version: bridge.cursor_version, cursor_bridge: bridge } : {}) };
+      ...(bridge ? { registration: bridgeFacts.registration, actionable: !agent.dismissed && bridgeFacts.registration === "not-connected",
+        version: bridge.cursor_version, cursor_bridge: bridge } : {}) };
   });
 }
 
@@ -486,8 +492,10 @@ async function machineAnswer(world, identities, id, { method, path, query, heade
     const agents = agentsOf(machineOf(world.state, id)).map((agent) => agent.id !== agentId ? agent
       : action === "dismiss" ? { ...agent, dismissed: true, actionable: false }
       : { ...agent, registration: action === "connect" ? "connected" : "not-connected", actionable: action !== "connect" });
-    world.patch({ [`${statePath(id)}.agents`]: agents });
-    return json(200, { agents: agentRows(agents), scanned_at: new Date(world.now()).toISOString() });
+    world.patch({ [`${statePath(id)}.agents`]: agents,
+      ...(agentId === "cursor" && action !== "dismiss" && machine.cursorBridge
+        ? { [`${statePath(id)}.cursorBridge.registration`]: action === "connect" ? "connected" : "not-connected" } : {}) });
+    return agentsListing(world, machineOf(world.state, id));
   }
   // A device's id: this device's is its pairing's, any other the scenario's, or one by its place in the list.
   const deviceIdOf = (device, i) => (device.mine ? identity.deviceId : device.id ?? `${id}-device-${i}`);
