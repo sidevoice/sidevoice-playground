@@ -175,6 +175,8 @@ export function writeParams({ scenario, view, language, speed, stage = "app", op
 
 /** The least a desktop view is laid out at, in CSS px: the page then lays out as on a desktop, whatever room is left. */
 export const DESKTOP = { width: 1280, height: 800 };
+/** The least the desktop app's window can be dragged to, in CSS px (its page; the title bar comes on top). */
+export const APP_MIN = { width: 480, height: 420 };
 /** The phone's frame, and the desktop app's title bar. */
 const PHONE = { width: 390, height: 844 };
 const PHONE_FRAME = 20; // the shell's 10px border on each side sits outside the page's viewport
@@ -183,17 +185,18 @@ const APP_CHROME = 30;
 /**
  * Where the page's frame goes in a slot of `width` × `height`, for `view`: its size (what the page lays out at), the
  * scale it is drawn at, and its offset. The browser fills the slot, at a desktop's size at least; the desktop app is a
- * window of a desktop's size and its title bar; both are scaled down to fit, never up. The phone is its own size.
+ * window of a desktop's size (or `app`, the size the person dragged it to) and its title bar; both are scaled down to
+ * fit, never up. The phone is its own size.
  */
-export function deviceBox({ width, height }, view) {
+export function deviceBox({ width, height }, view, app = DESKTOP) {
   let w, h, scale;
   if (view === "phone") {
     w = PHONE.width;
     h = Math.min(PHONE.height, Math.max(1, height - PHONE_FRAME));
     scale = 1;
   } else if (view === "app") {
-    w = DESKTOP.width;
-    h = DESKTOP.height + APP_CHROME;
+    w = app.width;
+    h = app.height + APP_CHROME;
     scale = Math.min(1, width / w, height / h);
   } else {
     scale = Math.min(1, width / DESKTOP.width, height / DESKTOP.height);
@@ -295,6 +298,9 @@ async function run(card) {
 
   const scenario = () => scenarios.find((s) => s.id === params.scenario) ?? scenarios[0];
   const float = floatingCard(frame, device);
+  // The desktop app's window, resizable from its corner as a real window is; its size kept on this browser.
+  const APP_SIZE = "sidevoice-preview.appSize";
+  let appSize = (() => { try { const kept = JSON.parse(localStorage.getItem(APP_SIZE) ?? "null"); return kept?.width && kept?.height ? kept : DESKTOP; } catch { return DESKTOP; } })();
   const firstValues = () => Object.fromEntries(scenario().options.map((o) => [o.id, o.values[0].value]));
   const view = () => params.view ?? scenario().view ?? "browser";
   // The address is what a snapshot is for: it is taken again whenever the address changes.
@@ -358,7 +364,7 @@ async function run(card) {
   function place() {
     const box = slot?.getBoundingClientRect();
     if (!box?.width || !box.height) return;
-    const at = deviceBox(box, view());
+    const at = deviceBox(box, view(), appSize);
     Object.assign(device.style, {
       width: at.width + "px", height: at.height + "px", left: at.left + "px", top: at.top + "px",
       transform: at.scale < 1 ? `scale(${at.scale})` : "",
@@ -376,6 +382,27 @@ async function run(card) {
     place();
   }
   if (slot) new ResizeObserver(place).observe(slot);
+  // Dragging the window's corner resizes it (at the scale it is drawn at); a double click puts it back to a desktop's size.
+  const handle = document.getElementById("resize");
+  if (handle) {
+    let from = null;
+    handle.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      handle.setPointerCapture(event.pointerId);
+      const scale = device.getBoundingClientRect().width / (appSize.width || 1);
+      from = { x: event.clientX, y: event.clientY, size: appSize, scale: scale || 1 };
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!from) return;
+      appSize = { width: Math.max(APP_MIN.width, Math.round(from.size.width + (event.clientX - from.x) / from.scale)),
+        height: Math.max(APP_MIN.height, Math.round(from.size.height + (event.clientY - from.y) / from.scale)) };
+      place();
+    });
+    const end = () => { if (!from) return; from = null; try { localStorage.setItem(APP_SIZE, JSON.stringify(appSize)); } catch {} };
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+    handle.addEventListener("dblclick", () => { appSize = DESKTOP; try { localStorage.removeItem(APP_SIZE); } catch {} place(); });
+  }
   for (const button of switcher?.querySelectorAll("[data-stage]") ?? []) {
     button.addEventListener("click", () => {
       params.stage = button.getAttribute("data-stage") === "card" ? "card" : "app";
