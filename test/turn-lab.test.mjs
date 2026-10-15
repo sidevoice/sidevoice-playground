@@ -40,7 +40,7 @@ test("each mock turn fixture executes timed actions and checks its observed outc
   for (const scenario of cases) {
     const seen = [];
     const result = await runTurnFixture(scenario.turn, { wait: async () => {}, onStep: (step) => seen.push(step.action) });
-    assert.equal(result.status, "pass", `${scenario.turn.id}: ${result.mismatches.join("; ")}`);
+    assert.equal(result.status, "model-match", `${scenario.turn.id}: ${result.mismatches.join("; ")}`);
     assert.deepEqual(seen, scenario.turn.actions.map((action) => action.type));
   }
   const changed = structuredClone(cases.find((scenario) => scenario.turn.id === "T04a").turn);
@@ -88,7 +88,7 @@ test("T08 typing leaves playback active until the later playback outcome", async
   const fixture = (await loadMockScenarios()).find((item) => item.turn?.id === "T08").turn;
   const result = await runTurnFixture(fixture, { wait: async () => {} });
   assert.deepEqual(result.trace.find((item) => item.action === "typed-message").fates, ["playing"]);
-  assert.equal(result.status, "pass");
+  assert.equal(result.status, "model-match");
 });
 
 test("candidate picker accepts only a full SHA, and source build verifies commit and records binary digest", async () => {

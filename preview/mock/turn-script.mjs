@@ -133,5 +133,7 @@ export async function runTurnFixture(fixture, { wait = (ms) => new Promise((reso
   if (fixture.id === 'T11' && (state.conversations.get('a')?.epoch !== 1 || state.conversations.get('b')?.epoch !== 1 ||
       state.duplicateStarts !== 1 || state.finishes.join(',') !== 'b:b-turn-1,a:a-turn-1')) mismatches.push('Separate epochs, deduplicated turn IDs, and out-of-order terminals are required');
   if (fixture.id === 'T16' && (state.deliveries.length !== 3 || state.claims.get('pull') !== state.deliveries[0]?.id)) mismatches.push('Push/pull envelope identity, claim release, and redelivery are required');
-  return { id: fixture.id, actual, mismatches, trace: state.trace, status: mismatches.length ? 'fail' : 'pass', scope: 'reference-model' };
+  // A synthetic reference model cannot certify the real producers. Reserve
+  // PASS for live case evidence; this result means the model matched #19.
+  return { id: fixture.id, actual, mismatches, trace: state.trace, status: mismatches.length ? 'fail' : 'model-match', scope: 'reference-model' };
 }
