@@ -104,7 +104,7 @@ async function poll() {
     $("epoch").textContent = state.evidence.currentEpoch ?? "—";
     const browser = state.events.filter((event) => event.kind === "browser-ready" || event.kind === "browser-error");
     $("preflight").replaceChildren(...(browser.length ? browser.slice(-7).map((event) => item(preflightText(event))) : [item("Waiting for the real browser room") ]));
-    $("fates").replaceChildren(...state.evidence.fates.map((fate) => item(`${short(fate.utterance_id)}: ${fate.fate}${fate.heard_chars == null ? "" : ` at ${fate.heard_chars}`} ${fate.reason ?? ""}${fate.heard != null ? ` · heard: “${fate.heard}” · unheard: “${fate.unheard}”` : ""}`)));
+    $("fates").replaceChildren(...state.evidence.fates.map((fate) => item(`${short(fate.utterance_id)}: ${fate.fate}${fate.hearing_unconfirmed ? " (unconfirmed)" : ""}${fate.heard_chars == null ? "" : ` at ${fate.heard_chars}`} · audio: ${fate.audio ?? "pending"}${fate.heard != null ? ` · heard: “${fate.heard}” · unheard: “${fate.unheard}”` : ""}`)));
     $("notices").replaceChildren(...state.evidence.notes.map((notice) => item(`${notice.kind}: ${notice.instruction ?? ""}`)));
     $("checks").replaceChildren(...Object.entries(state.evidence.checks).map(([id, check]) => {
       const div = document.createElement("div"); div.className = `check ${check.state}`; div.textContent = `${id} ${check.state.replaceAll("-", " ").toUpperCase()}`; div.title = check.reason; return div;
