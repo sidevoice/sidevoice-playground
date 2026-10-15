@@ -14,6 +14,10 @@ export function evidence(events) {
   const fates = new Map();
   const notes = [];
   const inputs = [];
+  const before = judge(events.slice(0, starts[0]));
+  for (const fate of before.fates) fates.set(fate.utterance_id, fate);
+  notes.push(...before.notes);
+  inputs.push(...before.inputs);
   const knownEpochs = events.map((event) => event.data?.epoch ?? event.data?.data?.epoch).filter(Number.isInteger);
   let currentEpoch = knownEpochs.length ? Math.max(...knownEpochs) : null;
   starts.forEach((from, index) => {
@@ -31,7 +35,7 @@ export function evidence(events) {
 
 function judge(events) {
   const selected = [...events].reverse().find((event) => event.kind === "script-start")?.data?.id;
-  const after = selected ? events.slice(events.findLastIndex((event) => event.kind === "script-start")) : [];
+  const after = selected ? events.slice(events.findLastIndex((event) => event.kind === "script-start")) : events;
   const inputs = after.filter((event) => event.kind === "agent-input").map((event) => event.data);
   const results = after.filter((event) => event.kind === "tool-result" && event.data.name === "voice_say").map((event) => event.data.result);
   const frames = after.filter((event) => event.kind === "room-frame" || event.kind === "browser-action").map((event) => event.data);

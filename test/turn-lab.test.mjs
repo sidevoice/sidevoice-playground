@@ -161,6 +161,15 @@ test("earlier case verdicts and notices remain visible after another script star
   assert.equal(view.currentEpoch, 1);
 });
 
+test("notices received before a script are still shown beside the room", () => {
+  const events = [
+    { kind: "agent-input", data: { channel: "note", message_id: "early", notice: { kind: "user_returned", instruction: "Person is back" } } },
+    { kind: "script-start", data: { id: "T04a" } },
+  ];
+  assert.deepEqual(evidence(events).notes.map((note) => note.kind), ["user_returned"]);
+  assert.deepEqual(evidence(events).inputs.map((input) => input.message_id), ["early"]);
+});
+
 test("FIFO check requires observed playback starts in publication order", () => {
   const events = [{ kind: "script-start", data: { id: "T04a" } }];
   for (const id of ["a", "b", "c"]) events.push({ kind: "tool-result", data: { name: "voice_say", args: { utterance_id: id, text: id }, result: { status: "published", audio: "queued" } } });
