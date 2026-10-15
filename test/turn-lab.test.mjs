@@ -138,6 +138,37 @@ test("automatic MCP refusal is logged and connector loss clears readiness withou
   } finally { await agent.stop(); }
 });
 
+test("T15 uses a supported Codex working harness and emits real activity transitions", async () => {
+  const home = await mkdtemp(join(tmpdir(), "turn-lab-activity-"));
+  const events = [], stdout = new PassThrough();
+  let spawned;
+  const child = {
+    stdout, stderr: new PassThrough(), on() {}, kill() {},
+    stdin: { write(line) {
+      const request = JSON.parse(line);
+      if (request.id == null) return;
+      const result = request.params?.name === "voice_connect" ? { conversation: "working-thread", initial_reply_context: { session_id: "s", revision: 1, epoch: 0 } } : { status: "published" };
+      queueMicrotask(() => stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: JSON.stringify(result) }], isError: false } }) + "\n"));
+    } },
+  };
+  const agent = scriptedAgent({ program: "unused", profile: { home }, emit: (event) => events.push(event), wait: async () => {},
+    spawnProcess: (_program, _args, options) => { spawned = options; return child; } });
+  try {
+    await agent.start("push");
+    assert.equal(spawned.env.SIDEVOICE_HARNESS, "codex");
+    assert.equal(spawned.env.CODEX_THREAD_ID, spawned.env.SIDEVOICE_THREAD);
+    await agent.choose("T15");
+    await fetch(spawned.env.SIDEVOICE_DELIVERY_URL, { method: "POST", body: JSON.stringify({ message_id: "working-input", channel: "voice", text: "Check this", session_id: "s", revision: 1, epoch: 0 }) });
+    for (let i = 0; i < 100 && events.filter((event) => event.kind === "script-activity").length < 2; i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(events.filter((event) => event.kind === "script-activity").map((event) => event.data.phase), ["task_started", "task_complete"]);
+    const date = new Date().toISOString().slice(0, 10).split("-");
+    const file = join(home, ".codex", "sessions", ...date, `rollout-${spawned.env.CODEX_THREAD_ID}.jsonl`);
+    const lines = (await readFile(file, "utf8")).trim().split("\n").map(JSON.parse);
+    assert.deepEqual(lines.map((line) => line.payload.type), ["task_started", "task_complete"]);
+    assert.equal(lines[0].payload.turn_id, lines[1].payload.turn_id);
+  } finally { await agent.stop(); await rm(home, { recursive: true, force: true }); }
+});
+
 test("case verdicts stay pending without evidence, record refusals and keep physical echo manual", () => {
   assert.equal(evidence([]).checks.T01.state, "pending");
   assert.equal(evidence([]).checks.T10.state, "manual");

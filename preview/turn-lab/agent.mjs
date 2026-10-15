@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { appendFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { connectorEnv } from "../runs.mjs";
 
 const longReply = "I am walking through the result carefully. ".repeat(22) + "The final point is é🐙ab.";
@@ -28,12 +30,12 @@ export const SCRIPTS = {
   T12: { title: "Skip first reply", lines: [longReply, "This next reply must still play."], instruction: "Press Skip during the first reply." },
   T13: { title: "Mute microphone mid-turn", lines: [], instruction: "Speak, then mute the microphone before the turn ends." },
   T14: { title: "Two device hearing", lines: [longReply], instruction: "Hear this on another device, then switch to this one." },
-  T15: { title: "Working after three seconds", lines: [], autoReply: "I finished checking.", autoReplyDelayMs: 3500, instruction: "Select this script, then speak. The agent waits 3.5 seconds before answering; watch Working appear at three seconds and clear when the reply arrives." },
+  T15: { title: "Working after three seconds", lines: [], autoReply: "I finished checking.", autoReplyDelayMs: 4500, instruction: "Select this script, then speak. The agent stays active for 4.5 seconds; watch Working appear after three seconds and clear when the reply arrives." },
   T16: { title: "Push and pull parity", lines: [longReply], pullDelayMs: 5000, instruction: "Repeat notice cases once per delivery mode. In Get messages mode, this script delays the next pull by five seconds." },
 };
 
-export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn }) {
-  let child, receiver, inputMode, conversation, context, script = null, nextPullAt = 0, counter = 0, generation = 0;
+export function scriptedAgent({ program, profile, emit, now = Date.now, spawnProcess = spawn, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
+  let child, receiver, inputMode, conversation, context, script = null, nextPullAt = 0, counter = 0, generation = 0, rolloutFile = null;
   const pending = new Map();
   const received = new Set();
   const record = (kind, data) => emit({ at: now(), kind, data });
@@ -65,6 +67,11 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     if (replyContext?.session_id && replyContext.epoch != null) Object.assign(args, replyContext);
     return tool("voice_say", args);
   };
+  const activity = async (phase, turnId) => {
+    if (!rolloutFile) return;
+    await appendFile(rolloutFile, JSON.stringify({ type: "event_msg", payload: { type: phase, turn_id: turnId } }) + "\n");
+    record("script-activity", { phase, turn_id: turnId, conversation });
+  };
   const receive = (message) => {
     record("agent-input", { ...message, conversation });
     const id = message.message_id;
@@ -75,8 +82,12 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       const selected = script;
       const replyContext = { session_id: message.session_id, revision: message.revision, epoch: message.epoch };
       const reply = async () => {
-        if (selected.autoReplyDelayMs) await new Promise((resolve) => setTimeout(resolve, selected.autoReplyDelayMs));
-        if (child) await say(selected.autoReply, replyContext);
+        const turnId = selected === SCRIPTS.T15 ? randomUUID() : null;
+        if (turnId) await activity("task_started", turnId);
+        try {
+          if (selected.autoReplyDelayMs) await wait(selected.autoReplyDelayMs);
+          if (child) await say(selected.autoReply, replyContext);
+        } finally { if (turnId) await activity("task_complete", turnId); }
       };
       void reply().catch((error) => record("auto-reply-error", { message: String(error?.message ?? error) }));
     }
@@ -95,7 +106,18 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       });
       await new Promise((resolve) => receiver.listen(0, "127.0.0.1", resolve));
       const address = receiver.address();
-      child = spawnProcess(program, ["mcp"], { env: { ...connectorEnv(profile), SIDEVOICE_THREAD: `turn-lab-${randomUUID()}`, SIDEVOICE_DELIVERY_URL: `http://127.0.0.1:${address.port}/`, SIDEVOICE_HARNESS: "http" }, stdio: ["pipe", "pipe", "pipe"] });
+      const thread = `turn-lab-${randomUUID()}`;
+      const codexHome = profile.home && join(profile.home, ".codex");
+      if (codexHome) {
+        const date = new Date(now()).toISOString().slice(0, 10).split("-");
+        const directory = join(codexHome, "sessions", ...date);
+        await mkdir(directory, { recursive: true, mode: 0o700 });
+        rolloutFile = join(directory, `rollout-${thread}.jsonl`);
+        await appendFile(rolloutFile, "");
+      }
+      child = spawnProcess(program, ["mcp"], { env: { ...connectorEnv(profile), SIDEVOICE_THREAD: thread,
+        SIDEVOICE_DELIVERY_URL: `http://127.0.0.1:${address.port}/`, SIDEVOICE_HARNESS: codexHome ? "codex" : "http",
+        ...(codexHome ? { CODEX_HOME: codexHome, CODEX_THREAD_ID: thread } : {}) }, stdio: ["pipe", "pipe", "pipe"] });
       const running = child, runGeneration = ++generation;
       const lost = (reason) => {
         if (child !== running) return;
@@ -170,6 +192,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
       old?.kill("SIGTERM");
       if (receiver) await new Promise((resolve) => receiver.close(resolve));
       receiver = null;
+      rolloutFile = null;
     },
   };
 }
