@@ -8,6 +8,7 @@ import { EventEmitter } from "node:events";
 import { loadMockScenarios } from "../preview/proxy.mjs";
 import { createWorld } from "../preview/mock/world.mjs";
 import { fakeVoice } from "../preview/mock/voice.mjs";
+import { runTurnFixture } from "../preview/mock/turn-script.mjs";
 import { sourceBuilds } from "../preview/source-build.mjs";
 import { SCRIPTS, scriptedAgent } from "../preview/turn-lab/agent.mjs";
 import { evidence } from "../preview/turn-lab/evidence.mjs";
@@ -32,6 +33,19 @@ test("all 25 numbered cases are selectable mock fixtures with timed actions and 
     assert.equal([...turn.fixture.unicode].length, 4);
     assert.ok(turn.fixture.longText.length > 500);
   }
+});
+
+test("each mock turn fixture executes timed actions and checks its observed outcome", async () => {
+  const cases = (await loadMockScenarios()).filter((scenario) => scenario.turn);
+  for (const scenario of cases) {
+    const seen = [];
+    const result = await runTurnFixture(scenario.turn, { wait: async () => {}, onStep: (step) => seen.push(step.action) });
+    assert.equal(result.status, "pass", `${scenario.turn.id}: ${result.mismatches.join("; ")}`);
+    assert.deepEqual(seen, scenario.turn.actions.map((action) => action.type));
+  }
+  const changed = structuredClone(cases.find((scenario) => scenario.turn.id === "T04a").turn);
+  changed.expect.fates[1] = "unplayed";
+  assert.equal((await runTurnFixture(changed, { wait: async () => {} })).status, "fail");
 });
 
 test("candidate picker accepts only a full SHA, and source build verifies commit and records binary digest", async () => {
@@ -251,7 +265,7 @@ test("mock voice discards short overlap but qualifies a sustained barge-in", asy
 
 test("mock voice completes three queued replies in FIFO order", async () => {
   let clock = 0;
-  const world = createWorld({ id: "fifo", title: "FIFO", summary: "", world: {}, options: [] }, {}, {
+  const world = createWorld({ id: "fifo", title: "FIFO", summary: "", world: {}, options: [], turn: {} }, {}, {
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);

@@ -66,7 +66,7 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
     return tool("voice_say", args);
   };
   const receive = (message) => {
-    record("agent-input", message);
+    record("agent-input", { ...message, conversation });
     const id = message.message_id;
     if (id && received.has(id)) return;
     if (id) received.add(id);

@@ -8,6 +8,7 @@ import { appVersion } from "./bridge.mjs";
 import { SAMPLE_KEYS, voiceState } from "./models.mjs";
 import { SPEAKING_MS, speechLevel } from "./voice.mjs";
 import { LOCAL_VERSION, UPDATER_STATES, checkForUpdate, hasAppUpdater, localBehind, setLocalBehind, setUpdaterMode, setUpdaterState, updaterMode, updaterStatus } from "./bridge.mjs";
+import { runTurnFixture } from "./turn-script.mjs";
 
 const VIEW_LABELS = { browser: "Browser", app: "Desktop app", phone: "Phone" };
 const BEHIND_LABELS = { current: "Current", behind: "Behind" };
@@ -254,11 +255,28 @@ export function renderCard(root, { scenarios, scenario, world, identities, param
       }),
     el("p", { className: "note elsewhere-remote-state", textContent: remoteUpdateLine(world) }),
     elsewhereNote);
+  const turnOutput = scenario.turn ? el("pre", { className: "turn-script-trace", textContent: world.state.turnScript?.id === scenario.turn.id ?
+    `${world.state.turnScript.status.toUpperCase()} · ${world.state.turnScript.trace.length} actions\n${world.state.turnScript.mismatches.join("\n")}` : "The fixture has not run." }) : null;
+  const turnSection = scenario.turn ? el("fieldset", {},
+    el("legend", { textContent: `${scenario.turn.id} mock fixture` }),
+    el("button", { type: "button", textContent: "Run timed actions", onclick: async (event) => {
+      event.currentTarget.disabled = true;
+      turnOutput.textContent = "Running timed actions…";
+      try {
+        const result = await runTurnFixture(scenario.turn, { wait: (ms) => world.delay(ms), onStep: (entry) => {
+          turnOutput.textContent = `${entry.atMs} ms · ${entry.action}\n${JSON.stringify(entry.fates)}\n${entry.notice.join(", ")}`;
+        } });
+        world.state.turnScript = result;
+        turnOutput.textContent = `${result.status.toUpperCase()} · ${result.trace.length} actions\n${result.mismatches.join("\n") || JSON.stringify(result.actual)}`;
+      } catch (error) { turnOutput.textContent = `Fixture error: ${error.message}`; }
+      finally { event.currentTarget.disabled = false; }
+    } }), turnOutput) : null;
   root.replaceChildren(
     header,
     el("div", { className: "card-body" },
       el("label", {}, "Scenario", select(scenarios.map((s) => ({ value: s.id, label: s.title })), scenario.id, (id) => pick({ scenario: id }))),
       el("p", { className: "summary", textContent: scenario.summary }),
+      turnSection,
       el("div", { className: "row" }, "View", segmented(Object.keys(VIEW_LABELS), VIEW_LABELS, params.view, (view) => pick({ view }))),
       el("div", { className: "row" }, "Language", segmented(Object.keys(LANGUAGE_LABELS), LANGUAGE_LABELS, params.language, (language) => pick({ language }))),
       [...groups].map(([group, options]) => el("fieldset", {},

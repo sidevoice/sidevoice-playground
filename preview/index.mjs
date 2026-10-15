@@ -10,7 +10,9 @@ import { loadScenarios, runs as runStore } from "./runs.mjs";
 import { WEB_REPO, webBuilds } from "./web-build.mjs";
 import { listWorktrees, startDevServer } from "./dev.mjs";
 import { sourceBuilds } from "./source-build.mjs";
-import { readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scriptedAgent, SCRIPTS } from "./turn-lab/agent.mjs";
 import { evidence } from "./turn-lab/evidence.mjs";
@@ -78,6 +80,9 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   let agent = null;
   let secondAgent = null;
   const events = [];
+  let caseEvents = [], archivedChecks = {}, archivedFates = new Map(), archivedNotes = [], archivedInputs = [];
+  const epochs = new Map();
+  let traceFile = null, traceWrites = Promise.resolve();
   const redact = (value) => {
     if (Array.isArray(value)) return value.map(redact);
     if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) =>
@@ -85,7 +90,41 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     if (typeof value === "string") return value.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/SV1\.[A-Za-z0-9_-]+/g, "SV1.[redacted]");
     return value;
   };
-  const emit = (event) => { events.push(redact(event)); };
+  const view = () => {
+    const current = evidence(caseEvents, agent?.state.conversation);
+    const selected = [...caseEvents].reverse().find((event) => event.kind === "script-start")?.data?.id;
+    const checks = { ...current.checks, ...archivedChecks };
+    if (selected) checks[selected] = current.checks[selected];
+    const fates = new Map(archivedFates);
+    for (const fate of current.fates) fates.set(fate.utterance_id, fate);
+    return { ...current, currentEpoch: epochs.get(agent?.state.conversation) ?? current.currentEpoch,
+      checks, fates: [...fates.values()].slice(-100), notes: [...archivedNotes, ...current.notes].slice(-100), inputs: [...archivedInputs, ...current.inputs].slice(-100) };
+  };
+  const emit = (raw) => {
+    const event = redact(raw);
+    if (event.kind === "script-start" && caseEvents.some((item) => item.kind === "script-start")) {
+      const previous = evidence(caseEvents);
+      const id = caseEvents.find((item) => item.kind === "script-start")?.data?.id;
+      if (id) archivedChecks[id] = previous.checks[id];
+      for (const fate of previous.fates) archivedFates.set(fate.utterance_id, fate);
+      if (archivedFates.size > 100) archivedFates.delete(archivedFates.keys().next().value);
+      archivedNotes = [...archivedNotes, ...previous.notes].slice(-100);
+      archivedInputs = [...archivedInputs, ...previous.inputs].slice(-100);
+      caseEvents = [];
+    }
+    events.push(event);
+    if (events.length > 300) events.shift();
+    if (["script-start", "agent-input", "browser-action", "room-frame", "tool-result", "browser-ready"].includes(event.kind) &&
+      !(event.kind === "tool-result" && event.data?.name === "get_messages")) caseEvents.push(event);
+    if (caseEvents.length > 1200) {
+      const index = caseEvents.findIndex((item) => item.kind === "room-frame" && item.data?.type === "history");
+      caseEvents.splice(index < 0 ? 1 : index, 1);
+    }
+    const conversation = event.data?.conversation ?? event.data?.thread_id ?? event.data?.thread;
+    const epoch = event.data?.epoch ?? event.data?.data?.epoch ?? event.data?.row?.epoch;
+    if (conversation && Number.isInteger(epoch)) epochs.set(conversation, epoch);
+    if (traceFile) traceWrites = traceWrites.then(() => appendFile(traceFile, JSON.stringify(event) + "\n"));
+  };
   const candidate = (config) => ({ core: config.core, connector: config.connector, web: config.web, voice: config.voice, engine: config.engine });
   const matchesCandidate = (current, config) => current?.mode === "real" && current.scenario === "turn-lab" &&
     Object.entries(candidate(config)).every(([key, value]) => current.identity?.[key] === value);
@@ -96,6 +135,11 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
     if (secondAgent) { await secondAgent.stop(); secondAgent = null; }
     if (agent) { await agent.stop(); agent = null; }
     events.length = 0;
+    caseEvents = []; archivedChecks = {}; archivedFates = new Map(); archivedNotes = []; archivedInputs = []; epochs.clear();
+    await traceWrites;
+    await mkdir(join(cache, "turn-lab-traces"), { recursive: true });
+    traceFile = join(cache, "turn-lab-traces", `${Date.now()}-${randomUUID()}.ndjson`);
+    await writeFile(traceFile, "");
     log.length = 0;
     job = { state: "starting", error: null };
     try {
@@ -169,9 +213,13 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
   async function route(req, url) {
     const path = url.pathname;
     if (path === "/preview/turn-lab/config" && req.method === "GET") return JSON.parse(await readFile(LAB_CONFIG, "utf8"));
-    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: evidence(events, agent?.state.conversation), agent: agent?.state ?? null, secondAgent: secondAgent?.state ?? null, job, current: manager.current };
+    if (path === "/preview/turn-lab/events" && req.method === "GET") return { events, evidence: view(), agent: agent?.state ?? null, secondAgent: secondAgent?.state ?? null, job, current: manager.current };
     if (path === "/preview/turn-lab/scripts" && req.method === "GET") return SCRIPTS;
-    if (path === "/preview/turn-lab/export" && req.method === "GET") return { at: new Date().toISOString(), events, evidence: evidence(events, agent?.state.conversation) };
+    if (path === "/preview/turn-lab/export" && req.method === "GET") {
+      await traceWrites;
+      const lines = traceFile ? (await readFile(traceFile, "utf8")).trim().split("\n").filter(Boolean) : [];
+      return { at: new Date().toISOString(), events: lines.map((line) => JSON.parse(line)), evidence: view() };
+    }
     if (path === "/preview/options" && req.method === "GET") {
       const [web, core, connector, worktrees] = await Promise.all([
         listWeb(api), listArchives(api, "core"), listArchives(api, "connector"), devRepo ? listWorktrees(devRepo) : [],

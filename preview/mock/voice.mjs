@@ -191,7 +191,7 @@ export function fakeVoice(world, { source = null } = {}) {
     say(text, options) {
       const id = `say-${++says}`;
       const run = playbackRun;
-      const previousPlayback = playbackTail;
+      const previousPlayback = world.scenario.turn ? playbackTail : null;
       const quiet = () => { if (run === playbackRun) { playbackLevels.delete(id); publishPlayback(); } };
       /** @type {Set<(event: VoiceSayEvent) => void>} */
       const events = new Set();
@@ -256,7 +256,7 @@ export function fakeVoice(world, { source = null } = {}) {
         refreshPlayback();
         return /** @type {VoiceSayOutcome} */ ({ status: "heard" });
       })();
-      playbackTail = outcome.catch(() => {});
+      if (world.scenario.turn) playbackTail = outcome.catch(() => {});
       outcome.then((ended) => { sayHandles.delete(id); tell({ type: "done", outcome: ended }); });
       /** @type {VoiceSaying} */
       const saying = {

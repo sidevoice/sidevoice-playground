@@ -62,7 +62,6 @@ export async function loadMockScenarios(dir = join(MOCK_DIR, "scenarios")) {
     if (!parent) throw new Error(`${file}: no base scenario ${fixture.extends}`);
     const scenario = { ...structuredClone(parent), id: fixture.id.toLowerCase(), title: `${fixture.id} · ${fixture.title}`, summary: fixture.summary,
       turn: fixture, options: structuredClone(parent.options ?? []), world: structuredClone(parent.world) };
-    scenario.options.push({ id: "turn-script", group: "Conversation flow", label: "Script", values: [{ value: "ready", label: fixture.summary, set: {} }] });
     scenario.options.push(...shared.filter((option) => !scenario.options.some((own) => own.id === option.id)));
     for (const [id, start] of Object.entries(parent.defaults ?? {})) {
       const option = scenario.options.find((item) => item.id === id);

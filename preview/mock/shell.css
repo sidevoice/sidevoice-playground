@@ -91,3 +91,4 @@ button { cursor: pointer; }
 .segmented { flex-wrap: wrap; max-width: 100%; }
 .segmented button { flex: 1 1 auto; white-space: nowrap; }
 .card-body select, .card-body input:not([type=checkbox]):not([type=radio]) { width: 100%; max-width: 100%; }
+.turn-script-trace { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.4 ui-monospace, monospace; max-height: 160px; overflow: auto; }
