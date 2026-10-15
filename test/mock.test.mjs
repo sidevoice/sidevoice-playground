@@ -302,7 +302,7 @@ test("a named list of agents has one in every state; a Connect may take its time
   assert.deepEqual(new Set(listed.map((a) => a.registration)), new Set(["connected", "not-connected", "outdated", "foreign", "invalid", "unknown"]));
   assert.ok(listed.some((a) => a.connect === "manual"));
   assert.ok(listed.some((a) => a.registration === "not-connected" && a.actionable && a.present));
-  assert.ok(listed.some((a) => a.registration === "connected" && a.present === false));
+  assert.ok(listed.every((a) => a.present), "only agents installed on the machine, as the connector lists them");
   assert.ok(listed.every((a) => a.label && a.instructions && !("connectMs" in a) && !("connectFails" in a)));
   assert.equal(listed.find((a) => a.registration === "invalid").instructions.file, "~/.config/zed/settings.json");
 
@@ -579,7 +579,7 @@ test("Room ready and Desktop local host each show every agent state on one machi
     }
     assert.ok(rows.some((a) => a.actionable && a.present), `${id}: new`);
     assert.ok(rows.some((a) => a.connect === "manual"), `${id}: by hand`);
-    assert.ok(rows.some((a) => a.present === false && a.registration === "connected"), `${id}: connected, not installed`);
+    assert.ok(rows.every((a) => a.present), `${id}: only agents installed`);
     assert.ok(agentsOf(machine).some((a) => a.connectMs >= 8000) && agentsOf(machine).some((a) => a.connectFails), `${id}: slow, failing`);
     if (id === "room-ready") assert.ok(Object.values(state.machines).some((m) => m.agentsFail && m.reach !== "offline"), `${id}: a search that fails`);
   }
