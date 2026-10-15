@@ -289,6 +289,11 @@ test('agent extent and notice must match the confirmed reply on the exposed mess
     revision: 2, epoch: 1, notice: { kind: 'reply_heard', corrects_message_id: 'message-1', heard: [
       { utterance_id: 'a', history_id: 's:voice:a', fate: 'heard', heard_chars: 4 }] } } });
   assert.equal(direct('T01', corrected).state, 'pass', 'frozen original and linked correction are both valid');
+  const advanced = prepared('T04b');
+  const beforeCut = advanced.findIndex((e) => e.data?.type === 'reply-hearing' && e.data.utterance_id === 'a');
+  advanced.splice(beforeCut, 0, { kind: 'room-frame', data: { type: 'history', row: { id: 's:voice:a', role: 'assistant',
+    text: 'A reply', hearing: 'not_heard', heard_chars: 0, hearing_unconfirmed: true } } });
+  assert.equal(direct('T04b', advanced).state, 'pass', 'confirmed extent can advance before the first envelope');
 });
 test('lifecycle counterexamples cannot pass and absent transitions stay insufficient', () => {
   const a = prepared('T04a');

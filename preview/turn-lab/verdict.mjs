@@ -242,7 +242,9 @@ export function verdict(id, events, fates) {
     if (publications.length > 3 || !distinct || publications.some((item) => status(item) === "rejected")) return fail("Three distinct replies must be accepted");
     if (!complete(3)) return pending();
     const cutKey = id === "T04b" ? ids[0] : ids[1];
-    const cutOutcome = semantic(cutKey).find((value) => ["partial", "not_heard"].includes(value.outcome))?.outcome ?? "partial";
+    const cutOutcome = misses.find((row) => row.utterance_id === cutKey && ["partial", "not_heard"].includes(row.fate))?.fate ??
+      semantic(cutKey).filter((value) => ["partial", "not_heard"].includes(value.outcome))
+        .sort((a, b) => (b.heard_chars ?? 0) - (a.heard_chars ?? 0))[0]?.outcome ?? "partial";
     const expected = id === "T04b" ? [cutOutcome, "not_heard", "not_heard"] : ["heard", cutOutcome, "not_heard"];
     if (ids.some((key, index) => contradictory(key, expected[index]) || (index && expected[index] === "not_heard" && !noAudio(key)) || wrongMiss(key, expected[index])) ||
       misses.filter((row) => ids.includes(row.utterance_id)).length > 3) return fail("Reply hearing or playback contradicts the ordered outcome");
