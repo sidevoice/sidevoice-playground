@@ -563,6 +563,9 @@ function parsed(body) {
 }
 
 /** What a harness says it can do, as the room passes it on (sidevoice-core control/room/declaration.rs). */
+/** The model and effort a harness reports when a scenario names none, so the stage's agent badge shows them whole
+ *  (`engine: null` in a scenario: a harness that reports nothing). */
+const DEFAULT_ENGINE = { "claude-code": { model: "claude-opus-5-5", effort: "high", thinking: null }, cursor: { model: "claude-sonnet-5-5", effort: null, thinking: null }, codex: { model: "gpt-6-astra", effort: "medium", thinking: null } };
 const CAPABILITIES = ["deliver", "inspectInbound", "working", "endOfTurn", "sessionIdentity"];
 
 /** Machine `id`'s conversations, as the room lists them (protocol `Participant`, and the room's own fields:
@@ -575,7 +578,7 @@ export function participantsOf(machine, id, selected = null) {
     available: p.reach !== "offline", selected: !!selected && (p.thread_id ?? `${id}-thread-${i + 1}`) === selected,
     machine: { id: `${id}-connector`, host: machine.host ?? null },
     capabilities: p.capabilities ?? Object.fromEntries(CAPABILITIES.map((key) => [key, "supported"])),
-    engine: p.engine ?? null, route: p.route ?? null,
+    engine: p.engine === undefined ? DEFAULT_ENGINE[p.harness] ?? null : p.engine, route: p.route ?? null,
     reach: { state: p.reach ?? "listening", detail: p.detail ?? null, remedy: p.remedy ?? null },
   }));
 }
