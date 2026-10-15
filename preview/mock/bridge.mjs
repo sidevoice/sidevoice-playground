@@ -69,7 +69,8 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
   const set = (fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`local.${k}`, v])));
   const jobs = new Map();
   let jobCount = 0;
-  /** @type {DesktopDataBridge} */
+  // The reset seam (deleteAll, resetReport) is macOS only and newer than some webs (web #127).
+  /** @type {DesktopDataBridge & { deleteAll?: () => Promise<any>, resetReport?: () => Promise<any> }} */
   const data = {
     pairings: {
       async read() {
