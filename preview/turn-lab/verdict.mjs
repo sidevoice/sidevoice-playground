@@ -86,9 +86,14 @@ export function verdict(id, events, fates) {
     !Object.hasOwn(row, "reason") && !Object.hasOwn(row, "cut") && valid(candidate(row), key) === true &&
     semantic(key).some((value) => value.outcome === row.fate &&
       (value.heard_chars ?? (value.outcome === "heard" ? length(text(key)) : 0)) === row.heard_chars && value.at <= row.at));
-  const wrongMiss = (key, expected) => misses.some((row) => row.utterance_id === key &&
-    (row.fate !== expected || row.text !== text(key) || Object.hasOwn(row, "reason") || Object.hasOwn(row, "cut") || valid(candidate(row), key) === false ||
-      semantic(key).some((value) => value.at <= row.at && value.outcome === row.fate && value.heard_chars != null && value.heard_chars !== row.heard_chars)));
+  const wrongMiss = (key, expected) => misses.some((row) => {
+    if (row.utterance_id !== key) return false;
+    const confirmed = semantic(key).filter((value) => value.at <= row.at && valid(value, key) === true)
+      .map((value) => value.heard_chars ?? (value.outcome === "heard" ? length(text(key)) : 0));
+    return row.fate !== expected || row.text !== text(key) || Object.hasOwn(row, "reason") ||
+      Object.hasOwn(row, "cut") || valid(candidate(row), key) === false ||
+      confirmed.length > 0 && Math.max(...confirmed) !== row.heard_chars;
+  });
   const noAudio = (key) => !physical(key).some((frame) => ["playing", "heard", "playback_finished"].includes(frame.status));
   const authoritative = (item) => frames.some((frame) => frame.type === "history" && frame.row?.role === "assistant" &&
     frame.row.id === `${item.args.session_id}:voice:${item.args.utterance_id}` && frame.row.text === item.args.text);

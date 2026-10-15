@@ -295,6 +295,19 @@ test('agent extent and notice must match the confirmed reply on the exposed mess
     text: 'A reply', hearing: 'not_heard', heard_chars: 0, hearing_unconfirmed: true } } });
   assert.equal(direct('T04b', advanced).state, 'pass', 'confirmed extent can advance before the first envelope');
 });
+test('F3: the first envelope uses the greatest confirmed prefix at exposure', () => {
+  const advanced = prepared('T01');
+  const receipt = advanced.findIndex((event) => event.data?.type === 'reply-hearing');
+  advanced.splice(receipt, 0, { kind: 'room-frame', data: { type: 'history', row: {
+    id: 's:voice:a', role: 'assistant', text: 'é🐙ab', hearing: 'partial', heard_chars: 1,
+    hearing_unconfirmed: true,
+  } } });
+  assert.equal(direct('T01', advanced).state, 'pass', 'partial 1 then confirmed partial 2 permits first exposure at 2');
+
+  const overstated = structuredClone(advanced);
+  overstated.find((event) => event.kind === 'agent-input').data.unheard.replies[0].heard_chars = 3;
+  assert.equal(direct('T01', overstated).state, 'fail', 'first exposure at 3 exceeds the confirmed prefix 2');
+});
 test('lifecycle counterexamples cannot pass and absent transitions stay insufficient', () => {
   const a = prepared('T04a');
   a.filter((e) => e.data?.name === 'voice_say').forEach((e, i) => { e.data.args.epoch = i; });
