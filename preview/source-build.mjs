@@ -5,6 +5,7 @@ import { createReadStream } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { RefError } from "../refs.mjs";
+import { rustToolchain } from "./rust-toolchain.mjs";
 import { runner } from "./web-build.mjs";
 
 export const SOURCE = {
@@ -43,7 +44,8 @@ export function sourceBuilds({ cache, api, log = () => {}, run = runner(log) }) 
       const actual = (await readFile(join(dir, ".git/FETCH_HEAD"), "utf8")).slice(0, 40);
       if (actual !== sha) throw new RefError(409, `fetched ${actual}, expected ${sha}`);
       log(`Source-building ${spec.repo}@${sha}; the first Rust build can take several minutes…`);
-      await run("cargo", ["build", "--locked", "--release", "--bin", spec.bin], { cwd: dir });
+      const rust = rustToolchain();
+      await run(rust.cargo, ["build", "--locked", "--release", "--bin", spec.bin], { cwd: dir, env: rust.env });
     }
     const checkedOut = (await readFile(join(dir, ".git/HEAD"), "utf8")).trim();
     if (checkedOut !== sha) throw new RefError(409, `source checkout is ${checkedOut}, expected ${sha}`);

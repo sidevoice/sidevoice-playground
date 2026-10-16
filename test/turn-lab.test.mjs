@@ -217,7 +217,7 @@ test("candidate picker accepts only a full SHA, and source build verifies commit
     }
     if (command === "git" && args.includes("fetch")) await writeFile(join(root, "source-builds", `core-${SHA}`, ".git/FETCH_HEAD"), `${SHA}\tnot-for-merge\n`);
     if (command === "git" && args.includes("checkout")) await writeFile(join(root, "source-builds", `core-${SHA}`, ".git/HEAD"), `${SHA}\n`);
-    if (command === "cargo") {
+    if (command.endsWith("/cargo")) {
       await mkdir(join(opts.cwd, "target/release"), { recursive: true });
       await writeFile(join(opts.cwd, "target/release/sidevoice-core-rust"), "verified binary");
     }
@@ -230,9 +230,9 @@ test("candidate picker accepts only a full SHA, and source build verifies commit
     assert.equal(built.source, SHA);
     assert.match(built.digest, /^[a-f0-9]{64}$/);
     assert.equal((await readFile(join(built.dir, "binary.json"), "utf8")).includes(built.digest), true);
-    assert.equal(commands.filter(([command]) => command === "cargo").length, 1);
+    assert.equal(commands.filter(([command]) => command.endsWith("/cargo")).length, 1);
     await builds.get("core", SHA);
-    assert.equal(commands.filter(([command]) => command === "cargo").length, 1);
+    assert.equal(commands.filter(([command]) => command.endsWith("/cargo")).length, 1);
     await writeFile(built.program, "tampered binary");
     await assert.rejects(sourceBuilds({ cache: root, api, run }).get("core", SHA), /binary digest changed/);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -739,4 +739,13 @@ test("mock voice: endInput ends the open turn now, and does nothing without one"
   await voice.host.endInput();
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
   await voice.host.stop();
+});
+
+test("source builds resolve cargo from the configured toolchain, not the inherited PATH, and fail clearly without it", async () => {
+  const { rustToolchain } = await import("../preview/rust-toolchain.mjs");
+  assert.throws(() => rustToolchain({ SIDEVOICE_RUST_HOME: "/nonexistent-rust", PATH: "/usr/bin" }), /cargo not found at \/nonexistent-rust\/cargo\/bin\/cargo/);
+  const real = rustToolchain({ PATH: "/usr/bin" });
+  assert.match(real.cargo, /tools\/rust\/cargo\/bin\/cargo$/);
+  assert.equal(real.env.PATH.split(":")[0], real.env.CARGO_HOME + "/bin");
+  assert.match(real.env.RUSTUP_HOME, /rustup$/);
 });
