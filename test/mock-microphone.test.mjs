@@ -91,3 +91,44 @@ test("every scenario offers each of the microphone's states, and one opens at th
   assert.equal(step.world.setup, "microphone");
   assert.equal(step.options.find((o) => o.id === "mic").values[0].value, "prompt");
 });
+
+test("the card's control fires what a browser or the app would: permission change, devicechange, the app's onChange", async () => {
+  const w = world("granted");
+  const win = page();
+  pagePermission(win, w);
+  const media = win.navigator.mediaDevices;
+  assert.deepEqual((await media.enumerateDevices()).map((d) => d.kind), ["audioinput"]);
+  const status = await win.navigator.permissions.query({ name: "microphone" });
+  const once = (target, type) => new Promise((resolve) => target.addEventListener(type, resolve, { once: true }));
+  // Blocked and allowed again: a change each time.
+  let heard = once(status, "change");
+  w.patch({ "voice.mic": "denied" });
+  await heard;
+  assert.equal(status.state, "denied");
+  heard = once(status, "change");
+  w.patch({ "voice.mic": "granted" });
+  await heard;
+  assert.equal(status.state, "granted");
+  // Unplugged and plugged in: devicechange, and the list follows.
+  heard = once(media, "devicechange");
+  w.patch({ "voice.mic": "missing" });
+  await heard;
+  assert.deepEqual(await media.enumerateDevices(), []);
+  heard = once(media, "devicechange");
+  w.patch({ "voice.mic": "prompt" });
+  await heard;
+  assert.equal((await media.enumerateDevices()).length, 1);
+  win.leave();
+  // The app's bridge.
+  const aw = world("granted");
+  const app = appMicrophone(aw);
+  let calls = 0;
+  const stop = app.onChange(() => { calls++; });
+  aw.patch({ "voice.mic": "denied" });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(calls, 1);
+  stop();
+  aw.patch({ "voice.mic": "granted" });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(calls, 1);
+});

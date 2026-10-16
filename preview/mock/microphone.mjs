@@ -40,12 +40,25 @@ export async function askMicrophone(world) {
   return micPermission(world) === "granted" ? "granted" : "denied";
 }
 
+/** Whether a microphone is plugged in: only "missing" has none (the device list, which a browser gives without asking). */
+export const micPlugged = (world) => mic(world) !== "missing";
+
 /** The desktop app's `host.microphone` (macOS, where the app runs the call): the system's permission for the app. */
 export function appMicrophone(world) {
   return Object.freeze({
     state: async () => micPermission(world),
     // The system has no "dismissed" (its prompt is answered) and the app none of "missing": allowed or not.
     request: async () => (await askMicrophone(world)) === "granted" ? "granted" : "denied",
+    // The system's answer changing (the person changes it in System Settings, or here in the card): the page reads it again.
+    onChange: (listener) => {
+      let last = micPermission(world);
+      return world.subscribe(() => {
+        const now = micPermission(world);
+        if (now === last) return;
+        last = now;
+        setTimeout(listener, 0);
+      });
+    },
     openSettings: async () => { world.log({ method: "MIC", url: "open System Settings › Privacy & Security › Microphone", status: "ok", mocked: true }); },
   });
 }
@@ -90,6 +103,18 @@ export function pagePermission(win, world) {
     if (answer !== "granted") throw new win.DOMException("Permission denied", "NotAllowedError");
     return typeof win.MediaStream === "function" ? new win.MediaStream() : { getTracks: () => [] };
   };
-  if (nav.mediaDevices) Object.defineProperty(media, "getUserMedia", { configurable: true, value: getUserMedia });
-  else Object.defineProperty(nav, "mediaDevices", { configurable: true, value: { getUserMedia } });
+  // The device list, as a browser gives it without permission, and `devicechange` as a microphone is plugged in or out.
+  const enumerateDevices = async () => micPlugged(world) ? [{ kind: "audioinput", deviceId: "default", label: "", groupId: "mock" }] : [];
+  if (nav.mediaDevices) {
+    Object.defineProperty(media, "getUserMedia", { configurable: true, value: getUserMedia });
+    Object.defineProperty(media, "enumerateDevices", { configurable: true, value: enumerateDevices });
+  } else Object.defineProperty(nav, "mediaDevices", { configurable: true, value: Object.assign(new win.EventTarget(), { getUserMedia, enumerateDevices }) });
+  let plugged = micPlugged(world);
+  const stopDevices = world.subscribe(() => {
+    const now = micPlugged(world);
+    if (now === plugged) return;
+    plugged = now;
+    setTimeout(() => nav.mediaDevices.dispatchEvent(new win.Event("devicechange")), 0);
+  });
+  win.addEventListener("pagehide", () => stopDevices());
 }
