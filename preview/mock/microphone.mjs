@@ -43,17 +43,23 @@ export async function askMicrophone(world) {
 /** Whether a microphone is plugged in: only "missing" has none (the device list, which a browser gives without asking). */
 export const micPlugged = (world) => mic(world) !== "missing";
 
-/** The desktop app's `host.microphone` (macOS, where the app runs the call): the system's permission for the app. */
+/** What the desktop app's `host.microphone.state()` says: the permission, or "missing" where none is connected (the
+ *  system knows the devices, so the bridge owns it; sidevoice-desktop#93). */
+const appState = (world) => micPlugged(world) ? micPermission(world) : "missing";
+
+/** The desktop app's `host.microphone` (macOS, where the app runs the call): the system's permission for the app, and
+ *  whether a microphone is connected. */
 export function appMicrophone(world) {
   return Object.freeze({
-    state: async () => micPermission(world),
+    state: async () => appState(world),
     // The system has no "dismissed" (its prompt is answered) and the app none of "missing": allowed or not.
     request: async () => (await askMicrophone(world)) === "granted" ? "granted" : "denied",
-    // The system's answer changing (the person changes it in System Settings, or here in the card): the page reads it again.
+    // `state()` changing (the permission, in System Settings or here in the card, or a microphone plugged in or out):
+    // the page reads it again.
     onChange: (listener) => {
-      let last = micPermission(world);
+      let last = appState(world);
       return world.subscribe(() => {
-        const now = micPermission(world);
+        const now = appState(world);
         if (now === last) return;
         last = now;
         setTimeout(listener, 0);

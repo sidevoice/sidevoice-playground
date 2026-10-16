@@ -127,8 +127,20 @@ test("the card's control fires what a browser or the app would: permission chang
   aw.patch({ "voice.mic": "denied" });
   await new Promise((r) => setTimeout(r, 5));
   assert.equal(calls, 1);
+  // Allowed to none connected and back to not asked: each is a change of what `state()` says.
+  aw.patch({ "voice.mic": "granted" });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(calls, 2);
+  aw.patch({ "voice.mic": "missing" });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(calls, 3);
+  assert.equal(await app.state(), "missing");
+  aw.patch({ "voice.mic": "prompt" });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(calls, 4);
+  assert.equal(await app.state(), "prompt");
   stop();
   aw.patch({ "voice.mic": "granted" });
   await new Promise((r) => setTimeout(r, 5));
-  assert.equal(calls, 1);
+  assert.equal(calls, 4);
 });
