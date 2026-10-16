@@ -1,7 +1,7 @@
 {
   "id": "first-visit",
   "title": "First visit: no machine yet",
-  "summary": "Nothing paired, first-run setup not done. Pair the NUC with a code from the card, or, in the desktop app view, prepare this computer (the setup's Prepare this computer; Settings › Machines › This computer too): as the desktop app, Prepare installs it (download, verification, staging, service start; its failures below), with the install command to run by hand under it. Pick “the install command run” in This computer's State to have it run by hand: it starts, answers, and the setup moves on. Every other state this computer's Sidevoice can be in is there (Start, Retry, Reconnect…); “The app installs Sidevoice: no” leaves only the command. The first-run setup starts from scratch, or put off as after Later (This device › First-run setup), to set things up from Settings instead; Restart scenario starts over. How the setup behaves is the VARIANTS panel's Onboarding flow.",
+  "summary": "Nothing paired, first-run setup not done. Pair the NUC with a code from the card, or, in the desktop app view, prepare this computer (the setup's Prepare this computer; Settings › Machines › This computer too): as the desktop app, Prepare installs it (download, verification, staging, service start; its failures below), with the install command to run by hand under it. Pick “the install command run” in This computer's State to have it run by hand: it starts, answers, and the setup moves on. Every other state this computer's Sidevoice can be in is there (Start, Retry, Reconnect…); “The app installs Sidevoice: no” leaves only the command. The first-run setup starts from scratch; Restart scenario starts over.",
   "view": "browser",
   "world": {
     "page": "room",
@@ -14,8 +14,7 @@
   },
   "options": [
     { "id": "setup", "group": "This device", "label": "First-run setup", "reload": true, "values": [
-      { "value": "pending", "label": "first run: not started", "set": { "setup": null } },
-      { "value": "later", "label": "put off with Later on this release: set things up from Settings instead", "set": { "setup": "later" } }
+      { "value": "pending", "label": "first run: not started", "set": { "setup": null } }
     ] },
     { "id": "nucReach", "group": "The NUC", "label": "Reachable", "values": [
       { "value": "direct", "label": "directly", "set": { "machines.nuc.reach": "direct" } },
