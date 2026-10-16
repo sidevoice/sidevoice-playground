@@ -70,8 +70,9 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
   const set = (fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`local.${k}`, v])));
   const jobs = new Map();
   let jobCount = 0;
-  // The reset seam (deleteAll, resetReport) is macOS only and newer than some webs (web #127).
-  /** @type {DesktopDataBridge & { deleteAll?: () => Promise<any>, resetReport?: () => Promise<any> }} */
+  // The reset seam (deleteAll, resetReport) is macOS only and newer than some webs (web #127); uninstall (desktop #95) is
+  // deleteAll ending with the app moved to the Trash instead of a relaunch.
+  /** @type {DesktopDataBridge & { deleteAll?: () => Promise<any>, resetReport?: () => Promise<any>, uninstall?: () => Promise<any> }} */
   const data = {
     pairings: {
       async read() {
@@ -107,6 +108,23 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
         relaunch?.({ reset: true });
       });
       return { state: "needs-restart", service, agents: {}, failed: [], pending: ["app-data", "models", "webview"] };
+    },
+    async uninstall() {
+      if (world.state.app?.resetFailure === "unremovable") throw { key: "reset.app-unremovable" };
+      if (world.state.app?.resetFailure === "service") throw { key: "reset.service-failed" };
+      if (world.state.local?.state === "installing") throw { key: "reset.busy" };
+      const service = world.state.local?.state === "absent" ? "absent" : "removed";
+      await world.delay(450);
+      world.patch({ "local.state": "absent", "local.installed": false });
+      // The helper runs once the app has quit: everything gone, the app in the Trash, nothing relaunched.
+      void world.delay(550).then(() => {
+        world.patch({
+          "app.pairings": [], "app.pendingRevokes": [], "app.shortcut": null, "app.shortcutRefused": false, "app.alwaysShown": false,
+          "app.resetReport": null, setup: null, "voice.keys": {}, "voice.installed": {}, "local.devices": [],
+        });
+        relaunch?.({ reset: true, uninstalled: true });
+      });
+      return { state: "needs-quit", service, agents: {}, failed: [], pending: ["app-data", "models", "webview", "app"] };
     },
     async resetReport() {
       const report = world.state.app?.resetReport ?? null;
