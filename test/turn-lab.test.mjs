@@ -217,24 +217,24 @@ test("candidate picker accepts only a full SHA, and source build verifies commit
     }
     if (command === "git" && args.includes("fetch")) await writeFile(join(root, "source-builds", `core-${SHA}`, ".git/FETCH_HEAD"), `${SHA}\tnot-for-merge\n`);
     if (command === "git" && args.includes("checkout")) await writeFile(join(root, "source-builds", `core-${SHA}`, ".git/HEAD"), `${SHA}\n`);
-    if (command === "cargo") {
+    if (command.endsWith("/cargo")) {
       await mkdir(join(opts.cwd, "target/release"), { recursive: true });
       await writeFile(join(opts.cwd, "target/release/sidevoice-core-rust"), "verified binary");
     }
   };
   try {
     const api = async () => ({ sha: SHA });
-    const builds = sourceBuilds({ cache: root, api, run });
+    const builds = sourceBuilds({ cache: root, api, run, toolchain: () => ({ cargo: "/fake/bin/cargo", env: {} }) });
     await assert.rejects(builds.get("core", "main"), /full 40-character SHA/);
     const built = await builds.get("core", SHA);
     assert.equal(built.source, SHA);
     assert.match(built.digest, /^[a-f0-9]{64}$/);
     assert.equal((await readFile(join(built.dir, "binary.json"), "utf8")).includes(built.digest), true);
-    assert.equal(commands.filter(([command]) => command === "cargo").length, 1);
+    assert.equal(commands.filter(([command]) => command.endsWith("/cargo")).length, 1);
     await builds.get("core", SHA);
-    assert.equal(commands.filter(([command]) => command === "cargo").length, 1);
+    assert.equal(commands.filter(([command]) => command.endsWith("/cargo")).length, 1);
     await writeFile(built.program, "tampered binary");
-    await assert.rejects(sourceBuilds({ cache: root, api, run }).get("core", SHA), /binary digest changed/);
+    await assert.rejects(sourceBuilds({ cache: root, api, run, toolchain: () => ({ cargo: "/fake/bin/cargo", env: {} }) }).get("core", SHA), /binary digest changed/);
   } finally { await rm(root, { recursive: true, force: true }); }
   assert.equal(archiveChoices([], "nightly", SHA)[0].value, `sha:${SHA}`);
 });
@@ -739,4 +739,19 @@ test("mock voice: endInput ends the open turn now, and does nothing without one"
   await voice.host.endInput();
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
   await voice.host.stop();
+});
+
+test("source builds resolve cargo from the configured toolchain, not the inherited PATH, and fail clearly without it", async () => {
+  const { rustToolchain } = await import("../preview/rust-toolchain.mjs");
+  assert.throws(() => rustToolchain({ SIDEVOICE_RUST_HOME: "/nonexistent-rust", PATH: "/usr/bin" }), /cargo not found at \/nonexistent-rust\/cargo\/bin\/cargo/);
+  const home = await mkdtemp(join(tmpdir(), "rust-home-"));
+  try {
+    await mkdir(join(home, "cargo/bin"), { recursive: true });
+    await writeFile(join(home, "cargo/bin/cargo"), "#!/bin/sh\n", { mode: 0o755 });
+    const found = rustToolchain({ SIDEVOICE_RUST_HOME: home, PATH: "/usr/bin" });
+    assert.equal(found.cargo, join(home, "cargo/bin/cargo"));
+    assert.equal(found.env.CARGO_HOME, join(home, "cargo"));
+    assert.equal(found.env.RUSTUP_HOME, join(home, "rustup"));
+    assert.equal(found.env.PATH.split(":")[0], join(home, "cargo/bin"));
+  } finally { await rm(home, { recursive: true, force: true }); }
 });
