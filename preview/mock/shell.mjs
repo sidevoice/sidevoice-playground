@@ -18,6 +18,12 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
+  { name: "permissionsStep", label: "Setup: permissions screen", note: "The first-run setup's permissions step, right after the basics (briefs/plans/permissions-screen.md). Every look covers every state.", values: [
+    { value: "a", label: "A · Settings-style list (as Settings › Permissions)" },
+    { value: "b", label: "B · Your bicho listening, the microphone on its badge" },
+    { value: "c", label: "C · Checklist card: before your first call" },
+    { value: "d", label: "D · One compact row" },
+  ] },
   { name: "titleDetail", label: "Call details (from the stage title)", note: "Click the conversation's title over the stage: the machine, the agent and the voice models. A dot on the title when a model needs something.", values: [
     { value: "popover", label: "Popover under the title" },
     { value: "sheet", label: "Sheet from the right edge (bottom sheet on a phone)" },
