@@ -83,6 +83,23 @@ test("desktop data mock keeps pairings and reports deletion only after relaunch"
   assert.equal(world.state.local.state, "running");
 });
 
+test("desktop uninstall mock deletes everything, then quits to the Trash without a report", async () => {
+  const { world, identities } = await setup();
+  world.patch({ "voice.installed": { "whisper-base": true }, "voice.keys": { openai: "mock-secret" } });
+  let quit;
+  const relaunched = new Promise((resolve) => { quit = resolve; });
+  const data = desktopHost(world, identities, { relaunch: (what) => quit(what) }).data;
+  const started = await data.uninstall();
+  assert.equal(started.state, "needs-quit");
+  assert.ok(started.pending.includes("app"));
+  assert.deepEqual(await relaunched, { reset: true, uninstalled: true });
+  assert.deepEqual(world.state.voice.installed, {});
+  assert.deepEqual(world.state.voice.keys, {});
+  assert.equal(await data.resetReport(), null);
+  world.patch({ "app.resetFailure": "unremovable" });
+  await assert.rejects(data.uninstall(), (failure) => failure.key === "reset.app-unremovable");
+});
+
 test("desktop reset mock reports model cleanup failure only after relaunch", async () => {
   const { world, identities } = await setup();
   world.patch({ "app.resetFailure": "models", "voice.installed": { "whisper-base": true }, "voice.keys": { openai: "mock-secret" } });

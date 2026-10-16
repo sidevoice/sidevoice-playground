@@ -195,13 +195,15 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
   // Restarting into an app update opens a new window: the page loads again, its session (sessionStorage: what it hid
   // for this run, an update notice's ×) started over, as a new window's is. The preview's own keys on this origin
   // (sidevoice-preview.*: the world kept over a reload) stay.
-  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: (/** @type {{ reset?: boolean }} */ options = {}) => { const { reset } = options;
+  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: (/** @type {{ reset?: boolean, uninstalled?: boolean }} */ options = {}) => { const { reset, uninstalled } = options;
     if (reset) try {
       for (const key of Object.keys(win.localStorage)) if (key.startsWith("sidevoice.") && !key.startsWith("sidevoice-preview.")) win.localStorage.removeItem(key);
     } catch { /* The reset report still names what failed. */ }
     try {
       for (const key of Object.keys(win.sessionStorage)) if (!key.startsWith("sidevoice-preview.")) win.sessionStorage.removeItem(key);
     } catch { /* Nothing kept. */ }
+    // Uninstalled, the app is gone: the preview says so, and reloading is installing it again.
+    if (uninstalled) { win.document.body.innerHTML = "<main style=\"display:grid;place-items:center;height:100vh;font:16px system-ui;text-align:center;color:#666\"><p>Sidevoice was uninstalled and moved to the Trash.<br>(Preview: reload to install it again.)</p></main>"; return; }
     win.location.reload();
   } }) };
   // The card's shortcut works with the page focused too.
