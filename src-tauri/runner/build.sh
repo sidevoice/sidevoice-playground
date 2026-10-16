@@ -46,6 +46,18 @@ cp "$TEMPLATE/build.rs" "$OUT/build.rs"
 cp "$TEMPLATE/src/main.rs" "$TEMPLATE/src/values.rs" "$OUT/src/"
 cp "$TEMPLATE/src/values/tests.rs" "$OUT/src/values/"
 
+# The engine's own Cargo.lock decides the versions, as it does for the engine's builds: without it cargo resolves
+# afresh, and a crate whose every release satisfying the engine's requirement has been yanked (zip ^2, via
+# sherpa-onnx-sys) cannot be selected at all, while a lockfile keeps using the version it records. Cargo drops the
+# engine's own entry and fills the runner's in.
+echo "== the engine's Cargo.lock"
+LOCKSRC="$OUT/engine-lock"
+rm -rf "$LOCKSRC"
+git init --quiet "$LOCKSRC"
+git -C "$LOCKSRC" fetch --quiet --depth 1 https://github.com/sidevoice/sidevoice-engine "$REV"
+git -C "$LOCKSRC" show FETCH_HEAD:Cargo.lock > "$OUT/Cargo.lock"
+rm -rf "$LOCKSRC"
+
 echo "== fetching the engine's source"
 METADATA=$(cargo metadata --format-version 1 --manifest-path "$OUT/Cargo.toml")
 ENGINE=$(printf '%s' "$METADATA" | grep -o '"manifest_path":"[^"]*/sidevoice-engine-[^"/]*/[^"/]*/Cargo.toml"' | head -n 1 \
