@@ -1,13 +1,13 @@
 {
-  "core": "e81cc67602fe6f99bc26f05bfb859ba9b1b6c82c",
-  "connector": "85111f09f99627153f1b198027a0cdc6b4752b48",
-  "web": "9ef27de15a56fa7b0a6fa0f5760d0d02c63e9071",
-  "voice": "1e5c69e10ee345a23eef5f03b4db52c1bcd0ef35",
+  "core": "9e513f25f26a9aa286c5ff863691c3f308fc3749",
+  "connector": "a4854a338792698cebe0e050cb76a36b73873a56",
+  "web": "366fcd946ee3984692b20866f1f1686f7dd788a1",
+  "voice": "73fb627e6f7310baf4783635719054d12700ec55",
   "engine": "nightly",
   "notes": {
-    "core": "core main after the turns/epochs and semantic hearing merge",
-    "voice": "voice PR #31 final head",
-    "connector": "connector PR #126 head; recheck before a test run",
-    "web": "web PR #140 head; recheck before a test run"
+    "core": "core main for the 2026-10-16 release",
+    "voice": "voice main = v0.5.0",
+    "connector": "connector main for the 2026-10-16 release",
+    "web": "web main for the 2026-10-16 release"
   }
 }
