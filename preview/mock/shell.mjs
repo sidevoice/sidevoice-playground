@@ -17,18 +17,7 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [
-  { name: "titleDetail", label: "Call details (from the stage title)", note: "Click the conversation's title over the stage: the machine, the agent and the voice models. A dot on the title when a model needs something.", values: [
-    { value: "popover", label: "Popover under the title" },
-    { value: "sheet", label: "Sheet from the right edge (bottom sheet on a phone)" },
-  ] },
-  { name: "onboardingFlow", label: "Onboarding flow", note: "How the first-run setup behaves. Try each from First visit: a first run, Later (where there is one), and setting things up from Settings (First-run setup › put off). The microphone is required in all four.", values: [
-    { value: "b", label: "b · Readiness: Later allowed; done once a machine answers and the voice is ready, by any route; the call area says what is missing" },
-    { value: "a", label: "a · Mandatory: no Later, resumes where it stood; the room only once it is finished" },
-    { value: "c", label: "c · Today's: Later leaves a “Setup is not finished” card until the setup is finished" },
-    { value: "d", label: "d · Skippable: no Later, but “Continue without …” on each step that needs something; Ready always enters" },
-  ] },
-];
+export const VARIANTS = [];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
