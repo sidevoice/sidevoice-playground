@@ -13,7 +13,7 @@ export const SOURCE = {
   connector: { repo: "sidevoice/sidevoice-connector", bin: "sidevoice-connector" },
 };
 
-export function sourceBuilds({ cache, api, log = () => {}, run = runner(log) }) {
+export function sourceBuilds({ cache, api, log = () => {}, run = runner(log), toolchain = rustToolchain }) {
   const pending = new Map();
   async function get(kind, ref) {
     const spec = SOURCE[kind];
@@ -44,7 +44,7 @@ export function sourceBuilds({ cache, api, log = () => {}, run = runner(log) }) 
       const actual = (await readFile(join(dir, ".git/FETCH_HEAD"), "utf8")).slice(0, 40);
       if (actual !== sha) throw new RefError(409, `fetched ${actual}, expected ${sha}`);
       log(`Source-building ${spec.repo}@${sha}; the first Rust build can take several minutes…`);
-      const rust = rustToolchain();
+      const rust = toolchain();
       await run(rust.cargo, ["build", "--locked", "--release", "--bin", spec.bin], { cwd: dir, env: rust.env });
     }
     const checkedOut = (await readFile(join(dir, ".git/HEAD"), "utf8")).trim();

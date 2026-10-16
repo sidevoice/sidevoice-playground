@@ -224,7 +224,7 @@ test("candidate picker accepts only a full SHA, and source build verifies commit
   };
   try {
     const api = async () => ({ sha: SHA });
-    const builds = sourceBuilds({ cache: root, api, run });
+    const builds = sourceBuilds({ cache: root, api, run, toolchain: () => ({ cargo: "/fake/bin/cargo", env: {} }) });
     await assert.rejects(builds.get("core", "main"), /full 40-character SHA/);
     const built = await builds.get("core", SHA);
     assert.equal(built.source, SHA);
@@ -234,7 +234,7 @@ test("candidate picker accepts only a full SHA, and source build verifies commit
     await builds.get("core", SHA);
     assert.equal(commands.filter(([command]) => command.endsWith("/cargo")).length, 1);
     await writeFile(built.program, "tampered binary");
-    await assert.rejects(sourceBuilds({ cache: root, api, run }).get("core", SHA), /binary digest changed/);
+    await assert.rejects(sourceBuilds({ cache: root, api, run, toolchain: () => ({ cargo: "/fake/bin/cargo", env: {} }) }).get("core", SHA), /binary digest changed/);
   } finally { await rm(root, { recursive: true, force: true }); }
   assert.equal(archiveChoices([], "nightly", SHA)[0].value, `sha:${SHA}`);
 });
@@ -744,8 +744,14 @@ test("mock voice: endInput ends the open turn now, and does nothing without one"
 test("source builds resolve cargo from the configured toolchain, not the inherited PATH, and fail clearly without it", async () => {
   const { rustToolchain } = await import("../preview/rust-toolchain.mjs");
   assert.throws(() => rustToolchain({ SIDEVOICE_RUST_HOME: "/nonexistent-rust", PATH: "/usr/bin" }), /cargo not found at \/nonexistent-rust\/cargo\/bin\/cargo/);
-  const real = rustToolchain({ PATH: "/usr/bin" });
-  assert.match(real.cargo, /tools\/rust\/cargo\/bin\/cargo$/);
-  assert.equal(real.env.PATH.split(":")[0], real.env.CARGO_HOME + "/bin");
-  assert.match(real.env.RUSTUP_HOME, /rustup$/);
+  const home = await mkdtemp(join(tmpdir(), "rust-home-"));
+  try {
+    await mkdir(join(home, "cargo/bin"), { recursive: true });
+    await writeFile(join(home, "cargo/bin/cargo"), "#!/bin/sh\n", { mode: 0o755 });
+    const found = rustToolchain({ SIDEVOICE_RUST_HOME: home, PATH: "/usr/bin" });
+    assert.equal(found.cargo, join(home, "cargo/bin/cargo"));
+    assert.equal(found.env.CARGO_HOME, join(home, "cargo"));
+    assert.equal(found.env.RUSTUP_HOME, join(home, "rustup"));
+    assert.equal(found.env.PATH.split(":")[0], join(home, "cargo/bin"));
+  } finally { await rm(home, { recursive: true, force: true }); }
 });
