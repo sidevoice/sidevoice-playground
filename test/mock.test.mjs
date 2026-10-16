@@ -21,10 +21,10 @@ const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toSt
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
 test("only the stage's balloon and title are open; a decided choice stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["permissionButton", "titleDetail"]);
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["titleDetail"]);
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
-  assert.deepEqual(prunedVariantChoices({ permissionsStep: "b", permissionButton: "c" }), { permissionButton: "c" }, "the decided permissions look is pruned from a stored choice");
+  assert.deepEqual(prunedVariantChoices({ permissionsStep: "b", permissionButton: "c", titleDetail: "sheet" }), { titleDetail: "sheet" }, "the decided permissions look is pruned from a stored choice");
   const current = { "sidevoice.variants": JSON.stringify({ "bubbles-style": "illustrated" }) };
   const merged = mergeSeed(current, { "sidevoice.onboarding": "done" });
   assert.ok(!merged.remove.includes("sidevoice.variants"));

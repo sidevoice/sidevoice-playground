@@ -18,11 +18,6 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "permissionButton", label: "Setup: the microphone's button in its block", note: "The permissions step's one control, in the microphone's own block: Allow microphone, Check again, Allowed. The footer's forward action is Continue without microphone until allowed, then Continue.", values: [
-    { value: "a", label: "A · Full-width primary under the bicho" },
-    { value: "b", label: "B · Pill beside the state" },
-    { value: "c", label: "C · Toggle that flips to Allowed" },
-  ] },
   { name: "titleDetail", label: "Call details (from the stage title)", note: "Click the conversation's title over the stage: the machine, the agent and the voice models. A dot on the title when a model needs something.", values: [
     { value: "popover", label: "Popover under the title" },
     { value: "sheet", label: "Sheet from the right edge (bottom sheet on a phone)" },
