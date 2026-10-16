@@ -185,7 +185,7 @@ test("the card page gets the app's card seam and nothing else; the shell serves 
   assert.equal(win.fetch, "untouched", "the card fetches nothing");
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
   assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["titleDetail"], "the open choice: the title's call details");
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["titleDetail", "onboardingFlow"], "the open choices: the title's call details, the onboarding flow");
 });
 
 test("removing visual sample turns leaves the scenario's seeded messages alone", () => {

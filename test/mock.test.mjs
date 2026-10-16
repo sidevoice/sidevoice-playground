@@ -21,7 +21,10 @@ const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toSt
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
 test("only the stage's balloon and title are open; a decided choice stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["titleDetail"]);
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["titleDetail", "onboardingFlow"]);
+  assert.deepEqual(VARIANTS.find((variant) => variant.name === "onboardingFlow").values.map((each) => each.value), ["b", "a", "c", "d"], "the web's default, b, first");
+  assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d" }), { onboardingFlow: "d" });
+  assert.deepEqual(prunedVariantChoices({ onboardingFlow: "e" }), {}, "a value the panel does not offer is pruned");
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
   assert.deepEqual(prunedVariantChoices({ permissionsStep: "b", permissionButton: "c", titleDetail: "sheet" }), { titleDetail: "sheet" }, "the decided permissions look is pruned from a stored choice");
