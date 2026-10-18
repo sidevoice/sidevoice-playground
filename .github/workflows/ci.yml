@@ -77,7 +77,7 @@ jobs:
   # app, and a path filter would spare only the PRs that touch nothing but docs.
   macos:
     name: macOS app (Apple silicon) .dmg
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
