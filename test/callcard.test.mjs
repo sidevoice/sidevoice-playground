@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { COPY, FORMATS, PLACEMENT, SETTING_DEFAULTS, cardSettings, dropAt, firstPlace, fit, opensDown } from "../web/callcard/formats.mjs";
 
-test("the three formats kept, each at medium and large, a picture with its height", () => {
+test("the three formats kept, each at small, medium and large, a picture with its height", () => {
   assert.deepEqual(FORMATS.map((format) => format.id), ["card", "pip", "mascot"]);
   for (const format of FORMATS) {
-    for (const size of ["m", "l"]) {
+    for (const size of ["s", "m", "l"]) {
       assert.ok(format.sizes[size].w > 0, `${format.id} ${size}`);
       if (format.id === "pip") assert.ok(format.sizes[size].h > 0, `${format.id} ${size} height`);
     }
@@ -15,7 +15,7 @@ test("the three formats kept, each at medium and large, a picture with its heigh
 
 test("settings are filled from the defaults, and unknown values fall back", () => {
   assert.deepEqual(cardSettings(), SETTING_DEFAULTS);
-  assert.deepEqual(cardSettings({ format: "pip-tall", size: "s", captionPlace: "above", place: { x: "a", y: 1 } }), SETTING_DEFAULTS);
+  assert.deepEqual(cardSettings({ format: "pip-tall", size: "xl", captionPlace: "above", place: { x: "a", y: 1 } }), SETTING_DEFAULTS);
   assert.deepEqual(cardSettings({ format: "mascot", size: "m", captions: false, place: { x: 10, y: 20 } }).place, { x: 10, y: 20 });
 });
 

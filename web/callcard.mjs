@@ -11,9 +11,8 @@ import { ENTER_MS, createPlaybackLevelChannel, enterFrom, nextIdle, nextWork, sm
 import { speechLevel } from "./callcard/mock/voice.mjs";
 
 const { source, creatures: ALL_CREATURES, marks: MARKS } = await (await fetch("/callcard/creatures.json")).json();
-/** The conversations' avatars; the person holding the microphone (onboarding's) is the settings previews' alone. */
+/** The conversations' avatars (the generated set also has the person holding the microphone, unused here). */
 const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"));
-const SAMPLE = ALL_CREATURES.find((each) => each.id === "person:microphone");
 
 // Today's card answers the system's light or dark (call-card.css, prefers-color-scheme): here, the simulated
 // desktop's. The copy is loaded with that query turned into the card window's [data-scheme=light] (CSS nesting).
@@ -27,13 +26,16 @@ const SAMPLE = ALL_CREATURES.find((each) => each.id === "person:microphone");
 // ---------- what is picked: the address's hash ----------
 
 const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", previews: "card", a1Head: "corner", settingsPlace: "call", pipTitle: "bottom", pipLayout: "stacked" };
+  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", c1Title: "top", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
   history.replaceState(null, "", "#" + new URLSearchParams(changed).toString());
 };
 const env = () => DESKTOPS[pick.env] ?? DESKTOPS.windows;
+/** Whose avatar a card shows, in the previews and the card shown after a change too: the conversation on the call; with
+ *  none, one fixed default (Orquestador Sidevoice's). */
+const DEFAULT_CREATURE = CREATURES[0];
 /** The avatar drawn: the picked conversation's, or another for a while (withCreature: the settings' real previews). */
 let drawing = null;
 const creature = () => drawing ?? CREATURES.find((each) => each.id === pick.creature) ?? CREATURES[0];
@@ -56,7 +58,7 @@ const CONVERSATIONS = {
 const facts = (c = creature()) => CONVERSATIONS[c.id] ?? CONVERSATIONS["Orquestador Sidevoice"];
 const call = {
   state: pick.state in STATES ? pick.state : "speaking",
-  title: () => creature() === SAMPLE ? words("settings.callCard.sampleName") : creature().seed,
+  title: () => creature().seed === "Sidevoice" ? "Sidevoice" : creature().seed,
   get machine() { return facts().machine; },
   get model() { return facts().model; },
   since: Date.now() - 12 * 60_000 - 4_000,
@@ -81,6 +83,8 @@ const ICONS = {
   captionsOff: '<path d="M10.5 5H19a2 2 0 0 1 2 2v8.5"/><path d="M17 11h-.5"/><path d="M19 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="m2 2 20 20"/><path d="M7 11h4"/><path d="M7 15h2.5"/>',
   machine: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   more: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
   settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
 };
@@ -164,29 +168,56 @@ function picker() {
   }).join("");
   return `<div class="call-card cc-picker" role="dialog" aria-label="Conversations"><div class="card-panel conversations"><div class="card-conversations">${rows}</div></div></div>`;
 }
-/** What opens it, the same on every format: the conversation's name with a ▾. */
-const switchAttrs = () => `data-run="switch" aria-haspopup="dialog" aria-expanded="${pickerOpen}" title="Switch conversation"`;
+/** The title's ▾ opens what the call runs on, as in the room (CallDetails), never the list. */
+let detailsOpen = false;
+const titleAttrs = () => `data-run="details" aria-haspopup="dialog" aria-expanded="${detailsOpen}" title="Call details"`;
+const switchAttrs = () => `data-run="switch" aria-haspopup="dialog" aria-expanded="${pickerOpen}"`;
+function details() {
+  const f = facts();
+  const row = (label, value) => `<div class="cc-detail"><dt>${label}</dt><dd>${value}</dd></div>`;
+  return `<div class="call-card cc-details" role="dialog" aria-label="Call details"><dl>${row("Machine", f.machine)}${row("Agent", "Claude Code · " + f.model)}${row("Transcription", "whisper-small")}${row("Voice", "Kokoro · Alba")}${row("End of turn", "Smart")}</dl></div>`;
+}
+/** The phone's way to the conversations (RoomHeader, header-row.ts), compact: a few avatars (the one on the call marked,
+ *  kept in the row), "+" for a new one, and the chevron with how many are not in the row, which drops the whole list. */
+function switchRow(slots = 3) {
+  const current = creature();
+  const first = CREATURES.slice(0, slots);
+  const row = first.includes(current) ? first : [...CREATURES.filter((c) => c !== current).slice(0, slots - 1), current];
+  const rest = CREATURES.length - row.length;
+  const face = (c) => withCreature(c, () => avatar("small")).replace('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"');
+  return `<div class="cc-switch-row header-conversations">${row.map((c) => { const f = facts(c), title = c.seed === "Sidevoice" ? "Sidevoice" : c.seed;
+    return `<button type="button" class="header-avatar" data-conversation="${c.id}" aria-pressed="${c === current}" title="${title}" aria-label="${title}"${f.reach === "offline" ? ' aria-disabled="true"' : ""}><span class="conversation-avatar" style="--tone:${c.tone}">${face(c)}<span class="person-state" data-state="${f.reach}"${f.working ? " data-working" : ""}><span class="dot"></span></span></span></button>`; }).join("")}
+<button type="button" class="header-new" title="New conversation" aria-label="New conversation">${svg("plus", 15)}</button>
+<button type="button" class="conversations-toggle" ${switchAttrs()} aria-label="All conversations (${CREATURES.length})" title="All conversations">${rest ? `<span class="conversations-rest">+${rest}</span>` : ""}${svg("chevron", 15)}</button></div>`;
+}
 
 // ---------- the formats ----------
 
 const DRAW = {
-  card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
-<div class="card-who"><button type="button" class="card-title" ${switchAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>
+  // A1: the row and the two actions on a top line, near the pointer; the title's ▾ opens the call's details.
+  card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="cc-a1-top">${switchRow(3)}${actions()}</div><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
+<div class="card-who"><button type="button" class="card-title" ${titleAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span><span aria-hidden="true">·</span><span class="card-clock"></span></span></div>
-${actions()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
-  // The room's stage; its name at the top right, clear of the agent's balloon, with the picture's two buttons under it.
-  pip: (box) => pick.pipLayout === "overlay" ? DRAW.pipOverlay(box) : DRAW.pipStacked(box),
-  // B1 as the room's screen, small: its header (the name and machine, as the room's .stage-title, with the two actions),
-  // the 16:9 stage under it with nothing laid on it, and the room's call bar under that (CallToolbar).
+${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
+  pip: (box) => pick.pipLayout === "stacked" ? DRAW.pipStacked(box) : DRAW.pipMeet(box),
+  // B1, stacked: the room's header (the name ▾, the row, the two actions), the stage, the room's call bar.
   pipStacked: (box) => {
     const canvas = Math.round((box.w - 16) * 9 / 16);
-    return `<div class="cc cc-pip-stacked" data-theme="dark"><header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><button type="button" class="stage-heading" ${switchAttrs()}><span class="stage-heading-name"><span>${call.title()}</span>${svg("chevron", 14).replace("<svg ", '<svg class="stage-heading-chevron" ')}</span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></button></h2>${actions()}</header>
-<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}</div>${roomBar()}</div>`;
+    return `<div class="cc cc-pip-stacked" data-theme="dark">${pipHead(true)}<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}</div>${roomBar()}</div>`;
   },
-  pipOverlay: (box) => `<div class="cc cc-pip" data-title="${pick.pipTitle === "top" ? "top" : "bottom"}">${stage(box.h)}${actions()}<div class="pip-strip">${strip()}</div></div>`,
-  mascot: () => `<div class="cc cc-mascot"><span class="m-figure">${avatar("stage")}</span><span class="call-card cc-name-pill"><button type="button" class="card-title" ${switchAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button></span>${actions()}${strip()}${settings().captions ? balloonCaptions() : ""}</div>`,
+  // B1, as Meet's picture-in-picture: a slim header, the stage with back to the call, settings and × in its top right
+  // corner (its top left is the agent's balloon's), and the
+  // room's call bar over the picture's foot, see-through, near the pointer.
+  pipMeet: (box) => {
+    const canvas = Math.round((box.w - 12) * 9 / 16);
+    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="dark">${pipHead(false)}<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}<span class="pip-frame-actions"><button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button></span><div class="pip-hover-bar">${roomBar()}</div></div></div>`;
+  },
+  // C1: on nothing; near the pointer, its name (a pill of the controls' width, or none), its controls and its row.
+  mascot: () => `<div class="cc cc-mascot" data-title="${pick.c1Title === "none" ? "none" : "top"}"><span class="m-figure">${avatar("stage")}</span>${pick.c1Title === "none" ? "" : `<span class="call-card cc-name-pill"><button type="button" class="card-title" ${titleAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>${actions()}</span>`}${pick.c1Title === "none" ? actions() : ""}<div class="call-card cc-strip">${controls()}${switchRow(3)}</div>${settings().captions ? balloonCaptions() : ""}</div>`,
 };
+/** The picture's header: the name with its ▾ (and its machine), the row, and, stacked, the two actions. */
+const pipHead = (withActions) => `<header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><button type="button" class="stage-heading" ${titleAttrs()}><span class="stage-heading-name"><span>${call.title()}</span>${svg("chevron", 14).replace("<svg ", '<svg class="stage-heading-chevron" ')}</span>${withActions ? `<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>` : ""}</button></h2>${switchRow(3)}${withActions ? actions() : ""}</header>`;
 
 // ---------- the screen ----------
 
@@ -201,25 +232,95 @@ function drawDesktop() {
 }
 
 function drawCard() {
-  const s = settings(), f = format(), box = f.sizes[s.size];
-  const win = $("card-window");
+  const s = settings(), f = format(), win = $("card-window");
+  const custom = customWidth(f.id);
+  const box = custom ? { w: custom, ...(f.id === "pip" ? { h: Math.round(custom * 9 / 16) } : {}) } : f.sizes[s.size];
   Object.assign(win.dataset, { theme: "dark", format: f.id, size: s.size, captions: s.captions ? "on" : "off",
     scheme: pick.theme || env().theme });
   win.style.setProperty("--w", box.w + "px");
   if (box.h) win.style.setProperty("--h", box.h + "px"); else win.style.removeProperty("--h");
   win.style.setProperty("--margin", PLACEMENT.margin + "px");
   // In front of the room the card hides (unless always shown); while Settings changes it, it shows a moment (preview()).
-  win.hidden = call.appOpen && !s.alwaysShown && Date.now() >= previewUntil;
+  win.hidden = (call.dismissed || (call.appOpen && !s.alwaysShown)) && Date.now() >= previewUntil;
+  $("dismissed-note").hidden = !call.dismissed || Date.now() < previewUntil;
   win.innerHTML = call.ended
     ? `<div class="call-card cc-ended"><span>Call ended</span><button type="button" data-run="again">Call again</button></div>`
-    : DRAW[f.id](box) + (pickerOpen ? picker() : "");
-  win.toggleAttribute("data-picker", pickerOpen);
+    : DRAW[f.id](box) + (pickerOpen ? picker() : "") + (detailsOpen ? details() : "")
+      + ["nw", "ne", "sw", "se", "w", "e"].map((edge) => `<span class="cc-resize" data-edge="${edge}" aria-hidden="true"></span>`).join("");
+  win.toggleAttribute("data-picker", pickerOpen || detailsOpen);
+  win.dataset.listFrom = pick.listFrom === "card" ? "card" : "element";
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   if (pickerOpen) win.toggleAttribute("data-expanded", true);
   for (const el of win.querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", win.hasAttribute("data-expanded"));
   $("blurb").textContent = f.blurb;
   place();
   animator.restart();
+}
+
+/** Each format's size as the person left it (resized by an edge or a corner), kept across calls: here in localStorage,
+ *  in the app beside its place. Not a zoom: the card is laid out again at its new width (the picture's stage keeps 16:9,
+ *  its header and bar take what they need). Settings' size is where it starts; resized, Settings says "Custom"; a size
+ *  picked there, or "Reset size and position", forgets it. */
+const RANGE = { card: [320, 560], pip: [260, 760], mascot: [100, 320] };
+const widthKey = (format) => "sidevoice.callcard.width." + format;
+const customWidth = (format) => { const w = Number(localStorage.getItem(widthKey(format))), [lo, hi] = RANGE[format] ?? [0, 0]; return w >= lo && w <= hi ? w : 0; };
+const forgetWidths = () => Object.keys(RANGE).forEach((format) => localStorage.removeItem(widthKey(format)));
+let resizing = null;
+document.addEventListener("pointerdown", (event) => {
+  const handle = event.target.closest(".cc-resize");
+  if (!handle) return;
+  event.stopPropagation(); event.preventDefault();
+  const win = $("card-window"), w = parseFloat(getComputedStyle(win).getPropertyValue("--w"));
+  resizing = { edge: handle.dataset.edge, x: event.clientX, y: event.clientY, w, left: win.offsetLeft, top: win.offsetTop, h: win.offsetHeight, format: format().id };
+  handle.setPointerCapture(event.pointerId);
+  win.classList.add("resizing");
+}, true);
+document.addEventListener("pointermove", (event) => {
+  if (!resizing) return;
+  const r = resizing, win = $("card-window"), dx = event.clientX - r.x, dy = event.clientY - r.y, [lo, hi] = RANGE[r.format];
+  const grow = r.edge.includes("e") ? dx : r.edge.includes("w") ? -dx : 0;
+  const growY = r.edge.includes("s") ? dy : r.edge.includes("n") ? -dy : 0;
+  // The picture follows its 16:9 either way; the avatar its square; the card its width.
+  const byY = r.format === "pip" ? growY * 16 / 9 : r.format === "mascot" ? growY : 0;
+  const w = Math.round(Math.min(hi, Math.max(lo, r.w + (Math.abs(byY) > Math.abs(grow) ? byY : grow))));
+  setWidth(w);
+  // The opposite corner stays where it was.
+  if (r.edge.includes("w")) win.style.left = r.left + r.w - w + "px";
+  if (r.edge.includes("n")) win.style.top = r.top + r.h - win.offsetHeight + "px";
+});
+document.addEventListener("pointerup", () => {
+  if (!resizing) return;
+  const win = $("card-window"), w = Math.round(parseFloat(win.style.getPropertyValue("--w")) || resizing.w);
+  localStorage.setItem(widthKey(resizing.format), String(w));
+  resizing = null;
+  win.classList.remove("resizing");
+  const at = dropAt({ x: win.offsetLeft, y: win.offsetTop }, cardSize(), workSize());
+  pick.x = String(Math.round(at.x)); pick.y = String(Math.round(at.y));
+  drawCard(); drawPanel(); if (pick.view === "settings") drawApp(); save();
+}, true);
+/** The card at width `w`, live while it is resized: laid out again, the picture's stage at its new scale. */
+function setWidth(w) {
+  const win = $("card-window");
+  win.style.setProperty("--w", w + "px");
+  const box = win.querySelector(".pip-canvas"), tile = win.querySelector(".pip-canvas .stage-tile");
+  if (box) {
+    const canvas = Math.round((w - 12) * 9 / 16);
+    box.style.height = canvas + "px";
+    tile?.style.setProperty("--k", String(canvas / 440));
+  }
+}
+
+/** Where the list (or the details) drops from: the button that opened it (its edge, on the screen's side), or the card's
+ *  own edge (panel: "Where the list drops from"). */
+function dropFrom() {
+  const win = $("card-window"), panel = win.querySelector(".cc-picker, .cc-details");
+  if (!panel) return;
+  const opener = win.querySelector(pickerOpen ? "[data-run=switch]" : "[data-run=details]");
+  panel.style.top = panel.style.bottom = panel.style.left = panel.style.right = "";
+  if (win.dataset.listFrom !== "element" || !opener) return;
+  const w = win.getBoundingClientRect(), o = opener.getBoundingClientRect();
+  if (win.dataset.open === "down") panel.style.top = o.bottom - w.top + 6 + "px"; else panel.style.bottom = w.bottom - o.top + 6 + "px";
+  if (win.dataset.side === "right") panel.style.right = Math.max(0, w.right - o.right) + "px"; else panel.style.left = Math.max(0, o.left - w.left) + "px";
 }
 
 /** The card's box as last placed: what a change of format keeps its edge from. */
@@ -274,6 +375,12 @@ function place() {
   win.dataset.open = opensDown(at, size, work) ? "down" : "up";
   tailsToward();
   win.dataset.side = at.x + size.width / 2 > work.width / 2 ? "right" : "left";
+  // The avatar's name pill and controls centre under it, or keep to the screen's edge when it is against one.
+  win.toggleAttribute("data-flush", at.x <= 0 || at.x + size.width >= work.width - 1);
+  dropFrom();
+  // The avatar's name pill is as wide as its controls, whatever the name.
+  const pill = win.querySelector(".cc-name-pill"), strip = win.querySelector(".cc-mascot > .cc-strip");
+  if (pill && strip) pill.style.width = strip.offsetWidth + "px";
   // The avatar's name pill goes over it, or under its controls where the screen ends above it.
   win.toggleAttribute("data-pill-down", at.y < 40);
 }
@@ -286,7 +393,7 @@ $("card-window").addEventListener("pointerenter", () => { clearTimeout(hoverTime
 $("card-window").addEventListener("pointerleave", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 function expand(on) {
   const win = $("card-window");
-  if (!on && pickerOpen) return; // open, the picker holds the controls out, as today's panels do
+  if (!on && (pickerOpen || detailsOpen)) return; // open, the picker holds the controls out, as today's panels do
   if (on === win.hasAttribute("data-expanded")) return;
   win.toggleAttribute("data-expanded", on);
   if (on) guardUntil = Date.now() + CLICK_GUARD_MS;
@@ -334,15 +441,15 @@ function settingsScreen() {
   const toggle = (name, on) => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}"><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
   const segmented = (name, options, value) => `<div class="ui-segmented ui-segmented--sm" role="radiogroup">${Object.entries(options).map(([id, label]) => `<button type="button" role="radio" class="ui-segment" aria-checked="${id === value}" data-setting="${name}" data-value="${id}">${label}</button>`).join("")}</div>`;
   const choice = (id) => `<button type="button" role="radio" aria-checked="${s.format === id}" class="ui-card ui-card--padded ui-card--interactive cc-choice" data-selected="${s.format === id || ""}" data-setting="format" data-value="${id}">
-${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="${pick.previews === "desktop" ? "desktop" : "card"}" data-format="${id}">${pick.previews === "desktop" ? desktopPreview(id) : realPreview(id)}</span>
+${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="desktop" data-format="${id}">${desktopPreview(id)}</span>
 <strong>${words(`settings.callCard.format.${id}`)}</strong><small>${words(`settings.callCard.format.${id}Hint`)}</small></button>`;
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
 <section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${own ? words("settings.callCard.title") : words("settings.section.call")}</h2><p class="ui-section-description">${own ? words("settings.callCard.hint") : words("settings.call.description")}</p></div></header>
 <div class="ui-section-body"><div class="ui-group cc-card-group">${own ? "" : `<h3 class="ui-group-title">${words("settings.callCard.title")}</h3>`}<div class="ui-group-card">
 ${row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown))}
 ${row(words("settings.callCard.format"), words("settings.callCard.previewNote"), `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
-${row(words("settings.callCard.size"), "", segmented("size", { m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l") }, s.size))}
-${row(words("settings.callCard.position"), words("settings.callCard.positionHint"), `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${s.place ? "" : " disabled"}><span class="ui-button-content">${words("settings.callCard.positionReset")}</span></button>`)}
+${row(words("settings.callCard.sizeTitle"), s.format === "pip" ? words("settings.callCard.sizeHint") : "", segmented("size", { s: words("settings.callCard.size.s"), m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l"), ...(customWidth(s.format) ? { custom: words("settings.callCard.size.custom") } : {}) }, customWidth(s.format) ? "custom" : s.size))}
+${row(words("settings.callCard.position"), words("settings.callCard.positionHint"), `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${s.place || customWidth(s.format) ? "" : " disabled"}><span class="ui-button-content">${words("settings.callCard.positionReset")}</span></button>`)}
 </div></div><p class="settings-note muted">${pick.lang === "es" ? "El atajo para silenciar sigue en Atajos." : "The mute shortcut stays in Shortcuts."}</p></div></section></div></div></div>`;
 }
 
@@ -352,7 +459,7 @@ function cardPicture(id) {
   const box = FORMATS.find((f) => f.id === id).sizes[settings().size];
   const was = { captions: pick.captions, state: call.state }, wasOpen = pickerOpen;
   pickerOpen = false;
-  const html = withCreature(SAMPLE, () => id === "pip" ? DRAW.pipStacked(box) : DRAW[id](box));
+  const html = withCreature(creature() ?? DEFAULT_CREATURE, () => DRAW[id](box));
   pickerOpen = wasOpen;
   const flat = html
     .replaceAll('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"')
@@ -361,10 +468,6 @@ function cardPicture(id) {
     .replaceAll("cc-agent-slot", "cc-slot-off").replaceAll('"person-turns"', '"cc-slot-off"').replaceAll("cc-lines", "cc-slot-off");
   void was;
   return `<span class="cc-card-picture" data-format="${id}" data-size="${settings().size}" style="--w:${box.w}px${box.h ? `;--h:${box.h}px` : ""}">${flat}</span>`;
-}
-/** Variant A: the real card alone, fitted into the choice (fitPreviews), centred, never cut. */
-function realPreview(id) {
-  return `<span class="cc-real" data-format="${id}"><span class="cc-real-box">${cardPicture(id)}</span></span>`;
 }
 /** Variant B: the real card in context, on a small copy of this computer's desktop (the page's desktop, as the app
  *  would detect it), where it first sits (the work area's top right), at the screen's own scale; the screen's top right
@@ -376,8 +479,8 @@ function desktopPreview(id) {
 }
 /** Scales each real card into its choice: as large as fits with a margin, centred. */
 function fitPreviews() {
-  // B: the screen's top right, about 620 of its pixels across the frame.
-  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / 620));
+  // The screen's top right, 1000 of its pixels across the frame: the card at its true size against the screen.
+  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / 1000));
   for (const box of document.querySelectorAll(".cc-real-box")) {
     const frame = box.parentElement, card = box.firstElementChild;
     // The avatar alone is as tall as the others' cards are wide in their frames: about half the frame.
@@ -405,12 +508,15 @@ function togglePicker(open) {
 }
 document.addEventListener("click", (event) => {
   const chosen = event.target.closest("[data-conversation]");
+  if (chosen && chosen.getAttribute("aria-disabled") === "true") return;
   if (chosen) { pick.creature = chosen.dataset.conversation; pickerOpen = false; drawCard(); drawPanel(); save(); $("card-window").querySelector("[data-run=switch]")?.focus(); return; }
   // A click anywhere else closes it (as today's card's panels close on a click outside).
   if (pickerOpen && !event.target.closest(".cc-picker, [data-run=switch]")) { pickerOpen = false; drawCard(); }
+  if (detailsOpen && !event.target.closest(".cc-details, [data-run=details]")) { detailsOpen = false; drawCard(); }
 });
 // Keyboard: Escape closes it; the arrows move between its rows.
 addEventListener("keydown", (event) => {
+  if (detailsOpen && event.key === "Escape") { detailsOpen = false; drawCard(); $("card-window").querySelector("[data-run=details]")?.focus(); return; }
   if (!pickerOpen) return;
   if (event.key === "Escape") { event.preventDefault(); togglePicker(false); return; }
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
@@ -426,17 +532,21 @@ document.addEventListener("click", (event) => {
   const run = target.dataset.run, setting = target.dataset.setting;
   if (run === "mute") setState(muted() ? "listening" : "muted");
   if (run === "skip") setState("idle");
-  if (run === "switch") { togglePicker(!pickerOpen); return; }
+  if (run === "switch") { detailsOpen = false; togglePicker(!pickerOpen); return; }
+  if (run === "details") { pickerOpen = false; detailsOpen = !detailsOpen; drawCard(); if (detailsOpen) $("card-window").toggleAttribute("data-expanded", true); return; }
   if (run === "captions") { pick.captions = settings().captions ? "0" : "1"; refresh(); }
   if (run === "hangup") { call.ended = true; drawCard(); }
-  if (run === "again") { call.ended = false; call.since = Date.now(); drawCard(); }
+  if (run === "again") { call.ended = false; call.dismissed = false; call.since = Date.now(); drawCard(); }
   if (run === "open") { call.appOpen = true; pick.view = ""; drawCard(); drawApp(); }
+  if (run === "dismiss") { call.dismissed = true; drawCard(); return; }
+  if (run === "show-card") { call.dismissed = false; drawCard(); return; }
   if (run === "minimise") { call.appOpen = false; drawCard(); drawApp(); }
   // The picture's gear: straight to Settings → Call → Floating call card.
   if (run === "card-settings") { call.appOpen = true; pick.view = "settings"; draw(); $("app-window").querySelector(".cc-card-group")?.scrollIntoView({ block: "start" }); }
   if (setting === "always") pick.always = settings().alwaysShown ? "0" : "1";
-  if (setting === "format" || setting === "size") { preview(); keepAnchor(() => { pick[setting] = target.dataset.value; }); }
-  if (setting === "reset") pick.x = pick.y = "";
+  if (setting === "size" && target.dataset.value === "custom") return;
+  if (setting === "format" || setting === "size") { preview(); keepAnchor(() => { if (setting === "size") localStorage.removeItem(widthKey(settings().format)); pick[setting] = target.dataset.value; }); }
+  if (setting === "reset") { pick.x = pick.y = ""; forgetWidths(); }
   if (setting === "format" || setting === "size" || setting === "reset") preview();
   if (setting) refresh();
 });
@@ -514,7 +624,7 @@ const animator = (() => {
     const working = st.mood === "working" && c.works.length ? work : undefined;
     const idle = st.mood === "idle" ? (bored && idleStep ? idleStep.idle : "quiet") : undefined;
     for (const el of all(".sv-avatar")) {
-      if (el.closest(".cc-real, .cc-picker")) continue;
+      if (el.closest(".cc-real, .cc-picker, .cc-switch-row, .cc-card-picture")) continue;
       el.dataset.mood = st.mood;
       el.dataset.avatarState = st.mood;
       if (working) el.dataset.work = working; else delete el.dataset.work;
@@ -725,6 +835,8 @@ function drawPanel() {
     select("format", "Format", FORMATS.map((f) => [f.id, f.label]), s.format),
     select("size", "Size", Object.entries(SIZES), s.size),
     `<label class="check"><input type="checkbox" data-pick="captions"${s.captions ? " checked" : ""}> Captions (as the card's own button)</label>`,
+    select("listFrom", "The list drops from", [["element", "What opened it (B)"], ["card", "The card's edge (A)"]], pick.listFrom),
+    s.format === "mascot" ? select("c1Title", "Avatar's name", [["top", "A pill over it, the controls' width"], ["none", "None: the avatar at the top"]], pick.c1Title) : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
@@ -732,7 +844,7 @@ function drawPanel() {
     select("theme", "System theme", [["", `The desktop's (${env().theme})`], ["dark", "Dark"], ["light", "Light"]], pick.theme),
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
-    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipLayout", "Picture's layout", [["stacked", "Header, stage, controls (new)"], ["overlay", "Over the stage (previous)"]], pick.pipLayout)}${pick.pipLayout === "overlay" ? select("pipTitle", "Picture's title", [["bottom", "Bottom left"], ["top", "One line at the top"]], pick.pipTitle) : ""}${select("settingsPlace", "Where the card's settings live", [["call", "A · In Call, as a group"], ["own", "B · A section of their own"]], pick.settingsPlace)}${select("previews", "Its style previews", [["card", "A · The real card"], ["desktop", "B · The card on a small desktop"]], pick.previews === "desktop" ? "desktop" : "card")}</div>`,
+    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipLayout", "Picture's layout", [["meet", "Actions and controls over the picture (new)"], ["stacked", "Header, stage, controls (before)"]], pick.pipLayout === "stacked" ? "stacked" : "meet")}${select("settingsPlace", "Where the card's settings live", [["call", "A · In Call, as a group"], ["own", "B · A section of their own"]], pick.settingsPlace)}</div>`,
     `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
 <p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");
@@ -753,7 +865,7 @@ $("controls").addEventListener("change", (event) => {
 });
 $("controls").addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
-  if (action === "place-reset") { pick.x = pick.y = ""; refresh(); }
+  if (action === "place-reset") { pick.x = pick.y = ""; forgetWidths(); refresh(); }
   if (action === "settings") { call.appOpen = true; pick.view = "settings"; draw(); }
 });
 

@@ -415,3 +415,117 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* The avatar's picker opens past its controls (and its name pill under them). */
 #card-window[data-format=mascot][data-open=down] .cc-picker { top: calc(var(--margin, 12px) + var(--w) * .9 + 54px); }
 #card-window[data-format=mascot][data-open=down][data-pill-down] .cc-picker { top: calc(var(--margin, 12px) + var(--w) * .9 + 92px); }
+
+/* ---------- round 11 ---------- */
+/* The phone's row of conversations (room.css, a phone's header: .header-conversations, .header-avatar, .header-new,
+   .conversations-toggle), the same rules, at the card's compact size: 26px avatars. */
+.cc-switch-row { --row-avatar: 26px; display: flex; align-items: center; gap: 2px; min-width: 0; }
+.cc-switch-row .header-avatar { position: relative; display: grid; place-items: center; flex: none; margin: 0; padding: 2px; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.cc-switch-row .header-avatar:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 0; }
+.cc-switch-row .header-avatar[aria-disabled="true"] { cursor: default; opacity: .6; }
+.cc-switch-row .header-avatar:not([aria-disabled="true"], [aria-pressed="true"]):hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); }
+.cc-switch-row .header-avatar[aria-pressed="true"] { background: var(--sv-accent-soft); }
+.cc-switch-row .header-avatar[aria-pressed="true"]::after { content: ""; position: absolute; top: calc(100% + 1px); left: 50%; width: 12px; height: 2px; margin-left: -6px; border-radius: 2px; background: var(--sv-accent); }
+.cc-switch-row .conversation-avatar { position: relative; display: block; width: var(--row-avatar); height: var(--row-avatar); }
+.cc-switch-row .conversation-avatar .sv-avatar { width: 100%; height: 100%; border-radius: 50%; background: color-mix(in srgb, var(--tone, #c9b6ec) 26%, #2f2741); }
+.cc-switch-row .conversation-avatar .person-state { position: absolute; right: -1px; bottom: -1px; display: block; }
+.cc-switch-row .conversation-avatar .dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: #5bbf8a; box-shadow: 0 0 0 2px var(--sv-surface, #1c2128); }
+.cc-switch-row .person-state[data-state=holding] .dot { background: #e0b657; }
+.cc-switch-row .person-state[data-state=offline] .dot { background: #6b7885; }
+.cc-switch-row .person-state[data-working] .dot { animation: card-think 1.1s ease-in-out infinite; }
+.cc-switch-row .header-new { display: grid; place-items: center; flex: none; width: 28px; height: 28px; margin: 0 2px; padding: 0; border: 1.5px dashed var(--sv-border-strong, #4a5160); border-radius: 50%;
+  background: none; color: var(--sv-text-muted); cursor: pointer; }
+.cc-switch-row .header-new:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text); }
+.cc-switch-row .conversations-toggle { display: inline-flex; align-items: center; gap: 2px; height: 28px; padding: 0 6px; border: 0; border-radius: 8px; background: none; color: var(--sv-text-muted); cursor: pointer; }
+.cc-switch-row .conversations-toggle:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text); }
+.cc-switch-row .conversations-rest { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cc-switch-row .conversations-toggle svg { transition: transform .15s; }
+.cc-switch-row .conversations-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* A1: the row and the two actions on one top line, near the pointer (as the controls). */
+.cc-a1 .cc-a1-top { display: none; align-items: center; justify-content: space-between; gap: 8px; margin: -2px 0 8px; }
+.cc-a1[data-expanded] .cc-a1-top { display: flex; }
+.cc-a1 .cc-a1-top .cc-actions { position: static; visibility: visible; opacity: 1; }
+.cc-a1[data-head] > .card-row ~ .cc-actions { display: none; }
+
+/* The call's details, from the title's ▾ (CallDetails, as a small card). */
+#card-window .cc-details { position: absolute; z-index: 8; width: 280px; padding: 10px 14px; }
+#card-window[data-open=down] .cc-details { top: calc(100% - var(--margin, 12px) + 6px); }
+#card-window[data-open=up] .cc-details { bottom: calc(100% - var(--margin, 12px) + 6px); }
+#card-window[data-side=left] .cc-details { left: var(--margin, 12px); } #card-window[data-side=right] .cc-details { right: var(--margin, 12px); }
+.cc-details dl { display: grid; gap: 6px; margin: 0; }
+.cc-detail { display: grid; grid-template-columns: 96px 1fr; gap: 8px; font-size: 12.5px; }
+.cc-detail dt { color: var(--mu); } .cc-detail dd { margin: 0; }
+
+/* B1, Meet-like: a slim header (the name ▾ and the row), the stage with its actions and × in the corner, the call bar
+   over the picture's foot near the pointer, see-through. */
+:is(#card-window, .cc-card-picture) .cc-pip-meet { position: relative; gap: 6px; padding: 6px 6px 6px; }
+.cc-pip-meet .pip-head { padding: 0 0 0 4px; }
+.cc-pip-meet .pip-head .stage-heading { font-size: 14px; }
+.cc-pip-meet .pip-canvas { border-radius: var(--sv-radius-xl, 14px); overflow: hidden; }
+.cc-pip-meet .pip-frame-actions { position: absolute; z-index: 5; top: 8px; right: 8px; display: flex; gap: 2px; padding: 2px; border-radius: 9px;
+  background: color-mix(in srgb, var(--sv-surface) 72%, transparent); backdrop-filter: blur(8px); }
+.cc-pip-meet .pip-frame-actions .cc-actions { display: inline-flex; flex-direction: row-reverse; }
+.cc-pip-meet .pip-frame-actions .cc-action { color: var(--sv-text); }
+.cc-pip-meet .pip-hover-bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 18px 0 8px;
+  background: linear-gradient(transparent, rgb(10 12 18 / 55%)); opacity: 0; transition: opacity .15s; pointer-events: none; }
+#card-window[data-expanded] .cc-pip-meet .pip-hover-bar { opacity: 1; pointer-events: auto; }
+.cc-pip-meet .pip-hover-bar .call-bar { padding: 0; background: none; }
+.cc-pip-meet .pip-hover-bar .call-actions { background: color-mix(in srgb, var(--sv-surface) 70%, transparent); backdrop-filter: blur(10px); border-color: rgb(255 255 255 / 12%); }
+.cc-pip-meet .pip-hover-bar .call-button { --sv-call-button: 38px; }
+.cc-pip-meet .pip-hover-bar .call-button svg { width: 18px !important; height: 18px !important; }
+.cc-pip-meet .pip-hover-bar #connect { width: 52px !important; }
+.cc-pip-meet .pip-hover-bar .audio-devices-toggle { width: 34px; height: 38px; }
+/* Resizing: the corners and the sides, near the pointer; 16:9 kept. */
+.cc-resize { position: absolute; z-index: 9; opacity: 0; }
+#card-window[data-expanded] .cc-resize, #card-window.resizing .cc-resize { opacity: 1; }
+.cc-resize[data-edge=nw], .cc-resize[data-edge=ne], .cc-resize[data-edge=sw], .cc-resize[data-edge=se] { width: 14px; height: 14px; }
+.cc-resize[data-edge=nw] { left: calc(var(--margin, 12px) - 5px); top: calc(var(--margin, 12px) - 5px); cursor: nwse-resize; }
+.cc-resize[data-edge=se] { right: calc(var(--margin, 12px) - 5px); bottom: calc(var(--margin, 12px) - 5px); cursor: nwse-resize; }
+.cc-resize[data-edge=ne] { right: calc(var(--margin, 12px) - 5px); top: calc(var(--margin, 12px) - 5px); cursor: nesw-resize; }
+.cc-resize[data-edge=sw] { left: calc(var(--margin, 12px) - 5px); bottom: calc(var(--margin, 12px) - 5px); cursor: nesw-resize; }
+.cc-resize[data-edge=w], .cc-resize[data-edge=e] { top: 35%; bottom: 35%; width: 8px; cursor: ew-resize; }
+.cc-resize[data-edge=w] { left: calc(var(--margin, 12px) - 4px); } .cc-resize[data-edge=e] { right: calc(var(--margin, 12px) - 4px); }
+.cc-resize[data-edge=nw]::after, .cc-resize[data-edge=ne]::after, .cc-resize[data-edge=sw]::after, .cc-resize[data-edge=se]::after { content: ""; position: absolute; inset: 3px; border-radius: 3px; border: 2px solid var(--sv-accent); background: var(--sv-bg, #14171b); }
+.cc-resize[data-edge=w]::after, .cc-resize[data-edge=e]::after { content: ""; position: absolute; inset: 0 2px; border-radius: 2px; background: var(--sv-accent); opacity: .8; }
+#card-window.resizing { transition: none; cursor: nwse-resize; }
+.cc-card-picture .cc-resize, .cc-card-picture .pip-hover-bar { display: none; }
+
+/* C1: its name, a pill of its controls' width (or none: the avatar at the top); controls and the row under it. */
+#card-window .cc-mascot > .cc-strip { flex-direction: column; align-items: stretch; gap: 6px; }
+.cc-mascot > .cc-strip .cc-switch-row { justify-content: center; }
+.cc-mascot > .cc-name-pill { box-sizing: border-box; display: flex; justify-content: center; }
+.cc-mascot > .cc-name-pill .card-title { max-width: 100%; font-size: 12px; justify-content: center; }
+.cc-mascot[data-title=none] { padding-top: 0; }
+#card-window[data-format=mascot][data-open=down] .cc-picker { top: calc(var(--margin, 12px) + var(--w) * .9 + 92px); }
+
+/* Settings: the card on this screen's top right, at its true size against it. */
+.cc-mini-card { padding: 12px; }
+.cc-preview[data-preview] { height: 128px; }
+
+/* After the picture is hidden for the call. */
+.dismissed-note { position: absolute; z-index: 50; right: 16px; bottom: 64px; display: grid; gap: 6px; max-width: 300px; padding: 12px 14px; border-radius: 12px; background: #1c2128; color: #e8edf1;
+  font: 13px/1.4 var(--font); box-shadow: 0 10px 30px rgb(0 0 0 / 45%); }
+.dismissed-note[hidden] { display: none; }
+.dismissed-note button { justify-self: start; padding: 5px 10px; border: 0; border-radius: 8px; background: #3a2f52; color: #fff; font: 600 12.5px var(--font); cursor: pointer; }
+.dismissed-note small { color: #a1acb9; }
+.cc-pip-meet .pip-frame-back { position: absolute; z-index: 5; top: 8px; left: 8px; display: flex; padding: 2px; border-radius: 9px; background: color-mix(in srgb, var(--sv-surface) 72%, transparent); backdrop-filter: blur(8px); }
+.cc-pip-meet .pip-frame-back .cc-action { color: var(--sv-text); }
+.cc-mascot > .cc-name-pill { justify-content: space-between; align-items: center; gap: 4px; }
+.cc-mascot > .cc-name-pill .card-title { flex: 1; min-width: 0; justify-content: flex-start; }
+.cc-mascot > .cc-name-pill .cc-actions { position: static; visibility: visible; opacity: 1; box-shadow: none; background: none; padding: 0; }
+.cc-mascot > .cc-name-pill .cc-action { width: 24px; height: 24px; }
+#card-window[data-expanded][data-open=down] .cc-mascot .cc-captions { top: calc(var(--w) * .9 + 92px); }
+/* Muted, your wave is crossed as the app's card crosses it, but thin and within the bars (call-card.css's long slash,
+   at this wave's width, stuck out past them). */
+.cc-a1 .your-wave[data-muted]::after { left: 3px; right: 3px; height: 1.2px; border-radius: 1px; transform: rotate(-14deg); opacity: .85; }
+/* C1 polish: its name pill and controls centred on it (against an edge, kept to that edge), hidden until the pointer
+   comes; one glass for both, a thin rule between the call's controls and the conversations; quieter resize handles. */
+.cc-mascot > .cc-name-pill .cc-actions { visibility: inherit; }
+#card-window:not([data-flush]) .cc-mascot > :is(.cc-name-pill, .cc-strip) { left: 50%; right: auto; transform: translateX(-50%); }
+.cc-mascot > .cc-name-pill .card-title { font-size: 11.5px; font-weight: 650; }
+#card-window .cc-mascot > .cc-strip { padding: 6px; gap: 0; }
+.cc-mascot > .cc-strip .card-controls { justify-content: space-between; padding: 0 2px 6px; }
+.cc-mascot > .cc-strip .cc-switch-row { padding-top: 6px; border-top: 1px solid var(--line); }
+.cc-mascot .cc-resize[data-edge=w], .cc-mascot .cc-resize[data-edge=e], #card-window[data-format=mascot] .cc-resize[data-edge=w], #card-window[data-format=mascot] .cc-resize[data-edge=e] { display: none; }
+#card-window[data-format=mascot] .cc-resize::after { inset: 4px; border-radius: 50%; border-width: 1.5px; }

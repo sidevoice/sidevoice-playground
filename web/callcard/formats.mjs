@@ -5,15 +5,16 @@
 /** The three formats the operator kept (2026-10-19). Sizes are the card's own box in CSS pixels, without the window's
  *  shadow margin: a card's width, a picture's width and height, the avatar's square. */
 export const FORMATS = [
-  { id: "card", label: "A1 · Title card", sizes: { m: { w: 390 }, l: { w: 450 } },
+  { id: "card", label: "A1 · Title card", sizes: { s: { w: 340 }, m: { w: 390 }, l: { w: 450 } },
     blurb: "Today's card grown up: the avatar in place of the brand mark, the conversation, its machine and its state; today's controls near the pointer. Captions as plain lines, above or below it." },
-  { id: "pip", label: "B1 · Picture in picture", sizes: { m: { w: 400, h: 225 }, l: { w: 512, h: 288 } },
+  { id: "pip", label: "B1 · Picture in picture", sizes: { s: { w: 280, h: 158 }, m: { w: 340, h: 191 }, l: { w: 560, h: 315 } },
     blurb: "The room's 16:9 stage itself, small, with nothing changed; a button at its top right goes back to the call; today's controls over it near the pointer." },
-  { id: "mascot", label: "C1 · Just the avatar", sizes: { m: { w: 160 }, l: { w: 220 } },
+  { id: "mascot", label: "C1 · Just the avatar", sizes: { s: { w: 120 }, m: { w: 160 }, l: { w: 220 } },
     blurb: "Only the avatar, floating on the desktop, on nothing; today's controls under it near the pointer. Its balloons open above or below it, never sideways." },
 ];
-
-export const SIZES = { m: "Medium", l: "Large" };
+/** The starting sizes. Small is back now that a card lays itself out again at any width (2026-10-19); a card resized by
+ *  hand is "Custom" until a size is picked again. */
+export const SIZES = { s: "Small", m: "Medium", l: "Large" };
 
 /** The settings, as the desktop app would store them, and their defaults. `alwaysShown` and `place` (per display)
  *  exist today (sidevoice-desktop: the "Always show the call controls" switch, and the card's place); `format` and
@@ -50,14 +51,18 @@ export const COPY = {
   "settings.callCard.format.mascot": { en: "Just the avatar", es: "Solo el avatar" },
   "settings.callCard.format.mascotHint": { en: "It floats on your desktop.", es: "Flota sobre tu escritorio." },
   "settings.callCard.size": { en: "Size", es: "Tamaño" },
+  "settings.callCard.size.s": { en: "Small", es: "Pequeño" },
   "settings.callCard.size.m": { en: "Medium", es: "Mediano" },
+  "settings.callCard.size.custom": { en: "Custom", es: "Personalizado" },
   "settings.callCard.size.l": { en: "Large", es: "Grande" },
   "settings.callCard.previewNote": { en: "Shown for a moment on your screen.", es: "Se muestra un momento en tu pantalla." },
-  "settings.callCard.sampleName": { en: "My project", es: "Mi proyecto" },
+
   "card.you": { en: "You", es: "Tú" },
   "settings.callCard.position": { en: "Position", es: "Posición" },
   "settings.callCard.positionHint": { en: "Drag it anywhere. It stays where you leave it on each screen.", es: "Arrástrala a donde quieras. Se queda donde la dejes en cada pantalla." },
-  "settings.callCard.positionReset": { en: "Reset position", es: "Restablecer posición" },
+  "settings.callCard.sizeTitle": { en: "Starting size", es: "Tamaño inicial" },
+  "settings.callCard.positionReset": { en: "Reset size and position", es: "Restablecer tamaño y posición" },
+  "settings.callCard.sizeHint": { en: "Or resize it by an edge or a corner: it keeps the size you leave it at.", es: "O cambia su tamaño desde un borde o una esquina: se queda como la dejes." },
   "card.captions.show": { en: "Show captions", es: "Mostrar subtítulos" },
   "card.captions.hide": { en: "Hide captions", es: "Ocultar subtítulos" },
 };
