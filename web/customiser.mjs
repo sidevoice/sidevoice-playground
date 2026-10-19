@@ -11,7 +11,7 @@ import {
   worksFor,
 } from "./customiser/bichos.mjs";
 import {
-  MAX_DESK_PROPS, crewMember, memberFromSeed, memberJson, parseMember, sideChanges, speciesOf, speciesSlots, withSpecies,
+  LEFT_OUT, MAX_DESK_PROPS, crewMember, memberFromSeed, memberJson, parseMember, sideChanges, speciesOf, speciesSlots, withSpecies,
 } from "./customiser/crew.mjs";
 import { hexToRgb, hslToRgb, rgbToHex, rgbToHsl } from "./customiser/colour.mjs";
 import { COLOUR_BACKDROPS, sceneBackdropSvg } from "./customiser/backdrops.mjs";
@@ -183,7 +183,7 @@ const partSection = (slot) => {
     choices(m) {
       const have = idsIn(m.figure, slot);
       const first = kindTheme(m);
-      const parts = partsIn(slot).map((p) => ({ key: p.id, label: partName(slot, p.id), selected: have.includes(p.id), rarity: p.rarity, theme: NAMES.THEMES[p.file] ?? "More" }));
+      const parts = partsIn(slot).filter((p) => !(`${slot}:${p.id}` in LEFT_OUT)).map((p) => ({ key: p.id, label: partName(slot, p.id), selected: have.includes(p.id), rarity: p.rarity, theme: NAMES.THEMES[p.file] ?? "More" }));
       const order = [...new Set(["Classic", first, ...parts.map((p) => p.theme)])].filter(Boolean);
       parts.sort((a, b) => order.indexOf(a.theme) - order.indexOf(b.theme));
       return [...(optional ? [{ key: "none", label: "None", selected: have.length === 0, theme: "Classic" }] : []), ...parts];
@@ -744,7 +744,7 @@ function randomIn(s) {
   else if (s.kind === "check") {
     const max = SLOTS.find((x) => x.id === s.id)?.max ?? 2;
     let figure = withPart(m.figure, s.id, null);
-    for (const p of partsIn(s.id).sort(() => Math.random() - 0.5).slice(0, Math.floor(Math.random() * (max + 1)))) figure = withPart(figure, s.id, p.id);
+    for (const p of partsIn(s.id).filter((p) => !(`${s.id}:${p.id}` in LEFT_OUT)).sort(() => Math.random() - 0.5).slice(0, Math.floor(Math.random() * (max + 1)))) figure = withPart(figure, s.id, p.id);
     next = { ...m, figure };
   } else {
     const options = s.options(m).filter((o) => !o.selected);

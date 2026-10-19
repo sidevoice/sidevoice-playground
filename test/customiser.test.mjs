@@ -78,3 +78,10 @@ test("an import says what is wrong, and reads a good crew member", async () => {
   assert.match(parseMember('{"figure":{"body":"cube"}}').error, /Unknown body "cube"/);
   assert.equal(parseMember('{"name":"A","figure":{"body":"round"}}').member.name, "A");
 });
+
+test("the parts left out are never offered, and a member that has one gets its stand-in", async () => {
+  const { LEFT_OUT, crewMember } = await import("../web/customiser/crew.mjs");
+  assert.ok("eyes:led" in LEFT_OUT);
+  const member = crewMember({ seed: "x", figure: { body: "box", parts: { eyes: "led", mouth: "smile" } } });
+  assert.equal(member.figure.parts.eyes, "two");
+});

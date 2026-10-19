@@ -20,6 +20,19 @@ import {
 import { COLOUR_BACKDROPS } from "./backdrops.mjs";
 
 export const CREW_VERSION = 1;
+
+/** Parts the customiser doesn't offer: they cover the face or break most combinations. Each one's stand-in is what a
+ *  crew member that has it (an import, an old save) gets instead. The engine still has them (for its own reasons:
+ *  the LED screen is its legacy robot face, for v3: seeds only, weight 0 in today's roller). */
+export const LEFT_OUT = { "eyes:led": "two" };
+const leftOut = (figure) => {
+  let out = figure;
+  for (const [key, stand] of Object.entries(LEFT_OUT)) {
+    const [slot, id] = key.split(":");
+    if (idsIn(out, slot).includes(id)) out = withPart(out, slot, stand);
+  }
+  return out;
+};
 export const MAX_DESK_PROPS = 3;
 const BODY_IDS = () => BODIES.map((b) => b.id);
 
@@ -40,7 +53,7 @@ export function crewMember(input) {
   const moves = raw.moves && typeof raw.moves === "object" ? raw.moves : {};
   return {
     ...base,
-    figure: raw.figure && typeof raw.figure === "object" ? normalizeSpec(raw.figure) : base.figure,
+    figure: raw.figure && typeof raw.figure === "object" ? leftOut(normalizeSpec(raw.figure)) : base.figure,
     scene: {
       backdrop: scene.backdrop in BACKDROPS || scene.backdrop in COLOUR_BACKDROPS ? scene.backdrop : base.scene.backdrop,
       tint: colour(scene.tint),
