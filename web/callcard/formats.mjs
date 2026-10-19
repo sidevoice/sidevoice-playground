@@ -42,7 +42,8 @@ export const COPY = {
   "settings.callCard.title": { en: "Floating call card", es: "Tarjeta flotante" },
   "settings.callCard.hint": { en: "What Sidevoice shows over your other apps during a call.", es: "Lo que Sidevoice muestra sobre tus otras aplicaciones durante una llamada." },
   "settings.desktop.alwaysShown": { en: "Always show the call controls", es: "Mostrar siempre los controles de llamada", existing: true },
-  "settings.desktop.alwaysShownHint": { en: "Off: they show only while the Sidevoice window is minimised during a call.", es: "Desactivado: solo se ven mientras la ventana de Sidevoice está minimizada durante una llamada.", existing: true },
+  // The same setting the desktop app has (it is the card's alwaysExpanded too); its line says both of what it does now.
+  "settings.desktop.alwaysShownHint": { en: "On: the card keeps its controls out, and stays with Sidevoice in front. Off: the controls show near the pointer, and the card only while Sidevoice is minimised.", es: "Activado: la tarjeta deja sus controles a la vista y sigue aunque Sidevoice esté delante. Desactivado: los controles salen al acercar el puntero, y la tarjeta solo con Sidevoice minimizada." },
   "settings.callCard.format": { en: "Style", es: "Estilo" },
   "settings.callCard.format.card": { en: "Card", es: "Tarjeta" },
   "settings.callCard.format.cardHint": { en: "The conversation, its state and the controls.", es: "La conversación, su estado y los controles." },

@@ -90,7 +90,7 @@ await esbuild.build({ entryPoints: [motion], bundle: true, platform: "browser", 
   banner: { js: `// GENERATED from sidevoice-web@${values.sha} by scripts/callcard-creatures.mjs: the bichos engine's own picks.` } });
 
 // The harness marks the stage's badge wears (components/ui/Icons.tsx HarnessIcon), from the web's own logo files.
-const marks = { claude: readFileSync(join(src, "assets/logos/claude.svg"), "utf8").trim() };
+const marks = Object.fromEntries(["claude", "codex"].map((name) => [name, readFileSync(join(src, `assets/logos/${name}.svg`), "utf8").trim()]));
 writeFileSync(join(out, "creatures.json"), JSON.stringify({ source: `sidevoice-web@${values.sha}`, creatures, marks }) + "\n");
 for (const path of ["styles/bichos.css", "styles/call.css", "styles/tokens.css", "styles/theme.css", "features/call/call-view.css",
   "call-controls/call-card.css", "components/ui/ui.css", "features/settings/settings.css"]) {

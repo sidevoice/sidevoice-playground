@@ -609,3 +609,34 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .c1 .c1-title { display: block; max-width: 100%; }
 .c1[data-style=plinth] .c1-base .cc-actions { display: none; }
 #card-window[data-expanded] .c1[data-style=plinth] .c1-base .cc-actions { display: inline-flex; }
+
+/* ---------- round 13 ---------- */
+/* One chevron opens the list, as the phone's: ▾, ▴ while the list is down. */
+.stage-heading .stage-heading-chevron, .c1 .card-title-chevron svg { transition: transform .15s; }
+.stage-heading[aria-expanded=true] .stage-heading-chevron, .c1-name[aria-expanded=true] .card-title-chevron svg { transform: rotate(180deg); }
+.c1 .c1-title { display: inline-flex !important; align-items: center; gap: 3px; }
+.c1 .c1-title .card-title-chevron { display: inline-grid; color: var(--mu); }
+/* B1's header in one row: the name ▾ (cut first), its machine (never), and open, settings and close at the far right. */
+.cc-pip-meet .pip-head-1 { display: flex !important; align-items: center; gap: 8px; min-width: 0; padding: 0 0 0 4px; }
+.pip-head-1 h2 { flex: 1; min-width: 0; }
+.pip-head-1 .stage-heading { max-width: 100%; }
+.pip-head-1 .stage-machine { flex: none; font-size: 11px; }
+.pip-head-1 .pip-head-actions { margin-left: auto; }
+/* The list's rows: the machine and the model on one line, their marks level, as the web's list. */
+.cc-picker .person-sub { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cc-picker .person-machine, .cc-picker .person-harness { display: inline-flex; align-items: center; gap: 4px; margin: 0; vertical-align: baseline; white-space: nowrap; }
+.cc-picker .person-reach { white-space: nowrap; }
+/* B1's grip: a small corner mark of three strokes, in the corner towards the screen's middle. */
+.cc-grip { width: 16px !important; height: 16px !important; opacity: 0; }
+#card-window[data-expanded] .cc-grip, #card-window.resizing .cc-grip { opacity: 1; }
+.cc-grip::after { content: "" !important; position: absolute; inset: 2px !important; border: 0 !important; border-radius: 0 !important; background:
+  linear-gradient(135deg, transparent 46%, var(--sv-text-muted, #b0b3bd) 46% 54%, transparent 54%) 0 0 / 100% 100%,
+  linear-gradient(135deg, transparent 71%, var(--sv-text-muted, #b0b3bd) 71% 79%, transparent 79%) 0 0 / 100% 100% !important; }
+.cc-grip[data-edge=se]::after { transform: none; } .cc-grip[data-edge=sw]::after { transform: scaleX(-1); }
+.cc-grip[data-edge=ne]::after { transform: scaleY(-1); } .cc-grip[data-edge=nw]::after { transform: scale(-1, -1); }
+.cc-grip[data-edge=se] { right: calc(var(--margin, 12px) + 2px) !important; bottom: calc(var(--margin, 12px) + 2px) !important; left: auto !important; top: auto !important; }
+.cc-grip[data-edge=sw] { left: calc(var(--margin, 12px) + 2px) !important; bottom: calc(var(--margin, 12px) + 2px) !important; right: auto !important; top: auto !important; }
+.cc-grip[data-edge=ne] { right: calc(var(--margin, 12px) + 2px) !important; top: calc(var(--margin, 12px) + 2px) !important; left: auto !important; bottom: auto !important; }
+.cc-grip[data-edge=nw] { left: calc(var(--margin, 12px) + 2px) !important; top: calc(var(--margin, 12px) + 2px) !important; right: auto !important; bottom: auto !important; }
+/* Settings' previews: still pictures. */
+.cc-card-picture *, .cc-card-picture *::before, .cc-card-picture *::after { animation: none !important; transition: none !important; }
