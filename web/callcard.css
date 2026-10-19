@@ -713,7 +713,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .pip-head-1 .pip-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pip-head-1 .cc-switcher { margin-left: auto; }
 .pip-head-1 .stage-machine + .cc-switcher { margin-left: auto; }
-@container pip (max-width: 420px) { .pip-head-1 .stage-machine { display: none; } }
+@container pip (max-width: 300px) { .pip-head-1 .stage-machine { display: none; } }
 @container pip (max-width: 330px) { .pip-head-1 .cc-switcher .header-avatar:not([aria-pressed=true]) { display: none; } }
 @container pip (max-width: 280px) { .pip-head-1 .cc-switcher .header-avatar { display: none; } }
 /* C1: the name, the switcher and the two actions in the pill (or on the base). */
@@ -725,3 +725,20 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-a1[data-expanded] .a1-top .cc-actions { display: inline-flex; }
 .cc-a1 .card-who { padding-right: 60px; }
 @container a1 (max-width: 400px) { .cc-a1 .card-who { padding-right: 40px; } }
+/* B1's header icons: near the pointer, or with focus in the card; "always" to compare. */
+#card-window:not([data-expanded]) .cc-pip-meet[data-icons=hover]:not(:focus-within) .pip-head-actions { visibility: hidden; }
+/* A stage badge whose words would not show is hidden whole (noStubs), never an icon alone. */
+.cc-pip-meet .stage-badge > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- B1, less noise (round 14) ---------- */
+/* The title line holds the title and the machine; the three icons lie over its right end near the pointer (or focus),
+   taking no room at rest. */
+.pip-head-1 { position: relative; }
+.pip-head-1 .pip-head-actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding-left: 18px;
+  background: linear-gradient(90deg, transparent, var(--sv-bg) 16px); }
+.pip-head-1 .stage-machine { margin-left: 4px; }
+/* The switcher in its own band over the stage, always there. */
+.cc-pip-meet .pip-switch-band { display: flex; align-items: center; min-height: 28px; padding: 0 2px; }
+.cc-pip-meet .pip-switch-band .cc-switcher { margin: 0; }
+/* At a preset the stage fills its area exactly: one frame, no band around it (the room's tile, its own border). */
+.cc-pip-meet:not([data-sized]) .pip-canvas { background: none; border-radius: 0; overflow: visible; }
