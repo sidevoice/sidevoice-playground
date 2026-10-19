@@ -4,11 +4,14 @@
 // (callcard/creatures.json) moved by the web's CSS and the engine's own picks (callcard/motion.mjs); the balloons, the
 // stage, today's controls card and the settings screen are the web's markup on copies of its stylesheets
 // (scripts/callcard-creatures.mjs). This page only plays a mock call through them.
-import { CAPTION_PLACES, COPY, FORMATS, PLACEMENT, SIZES, STATES, cardSettings, dropAt, firstPlace, fit } from "./callcard/formats.mjs";
+import { COPY, FORMATS, PLACEMENT, SIZES, STATES, cardSettings, dropAt, firstPlace, fit, opensDown } from "./callcard/formats.mjs";
 import { DESKTOPS } from "./callcard/desktops.mjs";
 import { ENTER_MS, enterFrom, nextIdle, nextWork, smoothPlaybackLevel, workTurn } from "./callcard/motion.mjs";
 
-const { source, creatures: CREATURES } = await (await fetch("/callcard/creatures.json")).json();
+const { source, creatures: ALL_CREATURES, marks: MARKS } = await (await fetch("/callcard/creatures.json")).json();
+/** The conversations' avatars; the person holding the microphone (onboarding's) is the settings previews' alone. */
+const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"));
+const SAMPLE = ALL_CREATURES.find((each) => each.id === "person:microphone");
 
 // Today's card answers the system's light or dark (call-card.css, prefers-color-scheme): here, the simulated
 // desktop's. The copy is loaded with that query turned into the card window's [data-scheme=light] (CSS nesting).
@@ -21,18 +24,20 @@ const { source, creatures: CREATURES } = await (await fetch("/callcard/creatures
 
 // ---------- what is picked: the address's hash ----------
 
-const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", where: "beside", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en" };
+const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", always: "0", x: "", y: "", state: "speaking",
+  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", previews: "small" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
   history.replaceState(null, "", "#" + new URLSearchParams(changed).toString());
 };
 const env = () => DESKTOPS[pick.env] ?? DESKTOPS.windows;
-const creature = () => CREATURES.find((each) => each.id === pick.creature) ?? CREATURES[0];
+/** The avatar drawn: the picked conversation's, or another for a while (withCreature: the settings' real previews). */
+let drawing = null;
+const creature = () => drawing ?? CREATURES.find((each) => each.id === pick.creature) ?? CREATURES[0];
+const withCreature = (c, draw) => { const was = drawing; drawing = c; try { return draw(); } finally { drawing = was; } };
 /** The settings the card is drawn from: the stored shape (formats.mjs SETTING_DEFAULTS), read from the address. */
-const settings = () => cardSettings({ format: pick.format, size: pick.size, captions: pick.captions === "1", captionPlace: pick.where,
-  alwaysShown: pick.always === "1", place: pick.x !== "" && pick.y !== "" ? { x: Number(pick.x), y: Number(pick.y) } : null });
+const settings = () => cardSettings({ format: pick.format, size: pick.size, captions: pick.captions === "1", alwaysShown: pick.always === "1", place: pick.x !== "" && pick.y !== "" ? { x: Number(pick.x), y: Number(pick.y) } : null });
 const format = () => FORMATS.find((each) => each.id === settings().format);
 const words = (key) => COPY[key][pick.lang] ?? COPY[key].en;
 
@@ -40,7 +45,7 @@ const words = (key) => COPY[key][pick.lang] ?? COPY[key].en;
 
 const call = {
   state: pick.state in STATES ? pick.state : "speaking",
-  title: () => creature().seed === "Sidevoice" ? "Sidevoice" : creature().seed,
+  title: () => creature() === SAMPLE ? words("settings.callCard.sampleName") : creature().seed,
   machine: "MacBook-Pro",
   model: "opus · high",
   since: Date.now() - 12 * 60_000 - 4_000,
@@ -86,23 +91,26 @@ function tail(shape) {
 }
 /** The room's stage tile, `height` px tall: the conversation's name and machine in its corner, the avatar on its backdrop
  *  with its desk, and the slots the balloons go in — the agent's over its head, the person's at the tile's foot. */
-function stage(height) {
+function stage(height, { slots = true } = {}) {
   const c = creature(), d = c.deskColours;
   return `<div class="stage-tile" data-theme="dark" data-mood="${STAGE_MOOD[call.state]}" style="--k:${height / 440};--av-color:${c.tone}">
 <div class="stage-canvas"><div class="stage-scene"><div class="stage-backdrop" aria-hidden="true">${ownIds(c.backdrop)}</div>${avatar("stage", "stage-agent")}
 <div class="stage-desk" aria-hidden="true" style="--desk-top:${d.top};--desk-top-deep:${d.topDeep};--desk-front:${d.front};--desk-front-deep:${d.frontDeep}">${ownIds(c.desk)}</div></div></div>
 <div class="stage-name" translate="no"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2></div>
-<div class="stage-top cc-agent-slot"></div><div class="person-turns"></div></div>`;
+${slots ? '<div class="stage-top cc-agent-slot"></div>' : ""}<div class="stage-tags">${badge()}</div>${slots ? '<div class="person-turns"></div>' : ""}</div>`;
 }
+/** The agent's harness, model and effort at the tile's foot (CallStage AgentBadge; Icons.tsx HarnessIcon's mark). */
+const badge = () => `<span class="stage-tag stage-badge"><span class="ui-logo" style="display:inline-block;flex:none;width:12px;height:12px;line-height:0" aria-hidden="true">${MARKS.claude.replace("<svg ", '<svg width="100%" height="100%" ')}</span><span>${call.model}</span></span>`;
 /** The agent's balloon (AgentBubble): three lines a page (PagedText), its words lit as they are said (KaraokeText). */
 const agentBalloon = () => `<div class="speech-bubble stage-bubble" data-visible="" aria-hidden="true" translate="no"><span class="paged-text" data-turn="page" style="--paged-lines:3"><span class="paged-text-run"><span class="karaoke-text" data-playback="playing" data-progress="true"><span class="karaoke-played"></span><span class="karaoke-upcoming">${SAYS}</span></span></span></span><svg class="balloon-shine" viewBox="0 0 40 20" aria-hidden="true"><path d="M3 17Q5 4 24 3"/></svg>${tail("agent")}</div>`;
 /** The person's balloon while they speak and while it is transcribed (LiveVoiceBalloon): the voice's bars. */
 const liveBalloon = (phase) => `<div class="speech-bubble person-bubble" data-live="" translate="no"><span class="voice-wave" data-phase="${phase}" role="status"><canvas aria-hidden="true"></canvas></span><div class="person-live-actions"></div>${tail("person")}</div>`;
 /** What was sent, for its moment (PersonTurn SentBubble). */
 const sentBalloon = () => `<div class="speech-bubble person-bubble" data-sent="" translate="no"><span class="person-said">${HEARS}</span>${tail("person")}</div>`;
-/** Balloons beside a card or an avatar (or inside a card): the agent's from the left, the person's from the right, as the
- *  room has them; the balloons' room-sized scale is set by .cc-balloons (callcard.css). */
-const sides = (body) => `<div class="cc-side cc-balloons" data-side="agent" data-theme="dark"><div class="cc-agent-slot"></div></div>${body}<div class="cc-side cc-balloons" data-side="person" data-theme="dark"><div class="person-turns"></div></div>`;
+/** A card's captions, opening below or above it (data-open, place()): for the avatar, the room's balloons, the agent's
+ *  at the left and yours at the right; for the title card, plain lines as a transcript reads (.cc-lines). */
+const balloonCaptions = () => `<div class="cc-captions cc-balloons" data-theme="dark"><div class="cc-agent-slot"></div><div class="person-turns"></div></div>`;
+const lineCaptions = () => `<div class="cc-captions call-card cc-lines"></div>`;
 
 // ---------- today's call controls card (sidevoice-web call-controls/CallCard.tsx) ----------
 
@@ -112,28 +120,19 @@ const captionsButton = () => `<button type="button" class="card-skip card-captio
 const controls = () => `<div class="card-controls"><span class="card-mic"><button type="button" class="card-devices" title="Microphone and speaker" aria-label="Microphone and speaker">${svg("chevron", 13)}</button><button type="button" class="card-mute" data-run="mute"></button></span>
 ${captionsButton()}<button type="button" class="card-skip" data-run="skip"></button><button type="button" class="card-hangup" data-run="hangup" title="Hang up" aria-label="Hang up">${svg("hangup", 18)}</button></div>`;
 const openButton = () => `<button type="button" class="card-open" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button>`;
-/** Today's card holding only its controls row (and "open Sidevoice"): what the picture and the avatar show near the pointer. */
-const strip = () => `<div class="call-card cc-strip">${controls()}${openButton()}</div>`;
+/** Today's card holding only its controls row (and, under the avatar, "open Sidevoice"): near the pointer. */
+const strip = (open = true) => `<div class="call-card cc-strip">${controls()}${open ? openButton() : ""}</div>`;
 
 // ---------- the formats ----------
 
 const DRAW = {
-  card: () => {
-    const s = settings(), inside = s.captions && s.captionPlace === "inside";
-    const card = `<div class="call-card cc-a1"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
+  card: () => `<div class="cc"><div class="call-card cc-a1"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
 <div class="card-who"><button type="button" class="card-title"><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span><span aria-hidden="true">·</span><span class="card-clock"></span></span></div>
-${openButton()}${yourWave()}</div>
-${inside ? `<div class="cc-inside cc-balloons" data-theme="dark"><div class="cc-agent-slot"></div><div class="person-turns"></div></div>` : ""}
-${controls()}</div>`;
-    return s.captions && !inside ? `<div class="cc cc-row-win">${sides(`<div class="cc-body">${card}</div>`)}</div>` : `<div class="cc">${card}</div>`;
-  },
-  pip: (box) => `<div class="cc cc-pip">${stage(box.h)}<div class="pip-strip">${strip()}</div></div>`,
-  mascot: () => {
-    const body = `<div class="cc-body"><span class="m-figure">${avatar("stage")}</span>${strip()}</div>`;
-    return `<div class="cc cc-row-win cc-mascot">${settings().captions ? sides(body) : body}</div>`;
-  },
+${openButton()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
+  pip: (box) => `<div class="cc cc-pip">${stage(box.h)}<button type="button" class="pip-open" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button><div class="pip-strip">${strip(false)}</div></div>`,
+  mascot: () => `<div class="cc cc-mascot"><span class="m-figure">${avatar("stage")}</span>${strip()}${settings().captions ? balloonCaptions() : ""}</div>`,
 };
 
 // ---------- the screen ----------
@@ -151,18 +150,29 @@ function drawDesktop() {
 function drawCard() {
   const s = settings(), f = format(), box = f.sizes[s.size];
   const win = $("card-window");
-  Object.assign(win.dataset, { theme: "dark", format: f.id, size: s.size, captions: s.captions ? "on" : "off", where: s.captionPlace,
+  Object.assign(win.dataset, { theme: "dark", format: f.id, size: s.size, captions: s.captions ? "on" : "off",
     scheme: pick.theme || env().theme });
   win.style.setProperty("--w", box.w + "px");
   if (box.h) win.style.setProperty("--h", box.h + "px"); else win.style.removeProperty("--h");
   win.style.setProperty("--margin", PLACEMENT.margin + "px");
-  win.hidden = call.appOpen && pick.view !== "settings" && !s.alwaysShown; // the settings mock keeps it in view, to see each change
+  // In front of the room the card hides (unless always shown); while Settings changes it, it shows a moment (preview()).
+  win.hidden = call.appOpen && !s.alwaysShown && Date.now() >= previewUntil;
   win.innerHTML = call.ended
     ? `<div class="call-card cc-ended"><span>Call ended</span><button type="button" data-run="again">Call again</button></div>`
     : DRAW[f.id](box);
   $("blurb").textContent = f.blurb;
   place();
   animator.restart();
+}
+
+/** Settings changed the card: it shows on the screen for a moment, as it now is, then hides again (the settings are
+ *  set where the card cannot be seen). */
+const PREVIEW_MS = 4000;
+let previewUntil = 0, previewTimer = 0;
+function preview() {
+  previewUntil = Date.now() + PREVIEW_MS;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => drawCard(), PREVIEW_MS + 20);
 }
 
 /** The work area's size, and the card window's (the card and its shadow margin). */
@@ -179,6 +189,11 @@ function place() {
   const at = fit(rest, size, work);
   win.style.left = at.x + "px";
   win.style.top = at.y + "px";
+  win.dataset.open = opensDown(at, size, work) ? "down" : "up";
+  win.dataset.side = at.x + size.width / 2 > work.width / 2 ? "right" : "left";
+  // The avatar's controls hang under it, or over it where the screen ends below it.
+  const strip = win.querySelector(".cc-mascot > .cc-strip");
+  win.toggleAttribute("data-strip-up", !!strip && at.y + size.height + strip.offsetHeight + 8 > work.height);
 }
 addEventListener("resize", () => place());
 
@@ -219,22 +234,34 @@ function settingsScreen() {
   const toggle = (name, on) => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}"><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
   const segmented = (name, options, value) => `<div class="ui-segmented ui-segmented--sm" role="radiogroup">${Object.entries(options).map(([id, label]) => `<button type="button" role="radio" class="ui-segment" aria-checked="${id === value}" data-setting="${name}" data-value="${id}">${label}</button>`).join("")}</div>`;
   const choice = (id) => `<button type="button" role="radio" aria-checked="${s.format === id}" class="ui-card ui-card--padded ui-card--interactive cc-choice" data-selected="${s.format === id || ""}" data-setting="format" data-value="${id}">
-${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="${id}">${preview(id)}</span>
+${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="${pick.previews}" data-format="${id}">${pick.previews === "real" ? realPreview(id) : smallPreview(id)}</span>
 <strong>${words(`settings.callCard.format.${id}`)}</strong><small>${words(`settings.callCard.format.${id}Hint`)}</small></button>`;
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
 <section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${words("settings.section.call")}</h2><p class="ui-section-description">${words("settings.call.description")}</p></div></header>
 <div class="ui-section-body"><div class="ui-group"><h3 class="ui-group-title">${words("settings.callCard.title")}</h3><div class="ui-group-card">
 ${row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown))}
-${row(words("settings.callCard.format"), "", `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
+${row(words("settings.callCard.format"), words("settings.callCard.previewNote"), `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
 ${row(words("settings.callCard.size"), "", segmented("size", { m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l") }, s.size))}
-${row(words("settings.callCard.captions"), words("settings.callCard.captionsHint"), toggle("captions", s.captions))}
-${s.format === "card" ? row(words("settings.callCard.captionPlace"), "", segmented("where", { beside: words("settings.callCard.captionPlace.beside"), inside: words("settings.callCard.captionPlace.inside") }, s.captionPlace)) : ""}
 ${row(words("settings.callCard.position"), words("settings.callCard.positionHint"), `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${s.place ? "" : " disabled"}><span class="ui-button-content">${words("settings.callCard.positionReset")}</span></button>`)}
 </div></div><p class="settings-note muted">${pick.lang === "es" ? "El atajo para silenciar sigue en Atajos." : "The mute shortcut stays in Shortcuts."}</p></div></section></div></div></div>`;
 }
 
-/** A format's small picture for its choice: the shapes of it, in the avatar's colour. */
-function preview(id) {
+/** A format's real card, small, with the person holding the microphone (onboarding's) and a sample conversation name:
+ *  drawn still, at medium size, scaled into the choice. */
+function realPreview(id) {
+  const box = FORMATS.find((f) => f.id === id).sizes.m;
+  const html = withCreature(SAMPLE, () => id === "card"
+    ? `<div class="call-card cc-a1" style="--w:${box.w}px"><div class="card-row"><span class="cc-face" style="--tone:${SAMPLE.tone}">${avatar("small")}</span><div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span></span><span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span></span><span class="cc-state"><i class="cc-dot"></i><span>${pick.lang === "es" ? "Tu turno" : "Your turn"}</span></span></div>${yourWave()}</div></div>`
+    : id === "pip" ? `<div class="cc-pip" style="--w:${box.w}px;--h:${box.h}px">${stage(box.h, { slots: false })}</div>`
+      : `<span class="m-figure" style="--w:${box.w}px">${avatar("stage")}</span>`);
+  // Its avatar holds still, awake and quiet: the animator leaves the previews alone.
+  const still = html.replaceAll('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"');
+  const scale = id === "mascot" ? 96 / box.w : 184 / box.w;
+  return `<span class="cc-real" data-format="${id}"><span class="cc-real-box" style="transform:translate(-50%, -50%) scale(${scale})">${still}</span></span>`;
+}
+
+/** A format's small picture: the shapes of it, in the avatar's colour. */
+function smallPreview(id) {
   const tone = creature().tone;
   if (id === "card") return `<i class="pv-card"><b style="background:${tone}"></b><i></i><i></i></i>`;
   if (id === "pip") return `<i class="pv-pip"><b style="background:${tone}"></b></i>`;
@@ -257,9 +284,9 @@ document.addEventListener("click", (event) => {
   if (run === "open") { call.appOpen = true; pick.view = ""; drawCard(); drawApp(); }
   if (run === "minimise") { call.appOpen = false; drawCard(); drawApp(); }
   if (setting === "always") pick.always = settings().alwaysShown ? "0" : "1";
-  if (setting === "captions") pick.captions = settings().captions ? "0" : "1";
-  if (setting === "format" || setting === "size" || setting === "where") pick[setting] = target.dataset.value;
+  if (setting === "format" || setting === "size") pick[setting] = target.dataset.value;
   if (setting === "reset") pick.x = pick.y = "";
+  if (setting === "format" || setting === "size" || setting === "reset") preview();
   if (setting) refresh();
 });
 function refresh() { drawCard(); if (pick.view === "settings") drawApp(); drawPanel(); save(); }
@@ -328,6 +355,7 @@ const animator = (() => {
     const working = st.mood === "working" && c.works.length ? work : undefined;
     const idle = st.mood === "idle" ? (bored && idleStep ? idleStep.idle : "quiet") : undefined;
     for (const el of all(".sv-avatar")) {
+      if (el.closest(".cc-real")) continue;
       el.dataset.mood = st.mood;
       el.dataset.avatarState = st.mood;
       if (working) el.dataset.work = working; else delete el.dataset.work;
@@ -363,6 +391,10 @@ const animator = (() => {
 
   /** The agent's balloon's words: those said lit, the page turned so the line being said shows (PagedText). */
   function karaoke(said) {
+    for (const line of all('.cc-line[data-role="assistant"]')) {
+      line.querySelector(".karaoke-played").textContent = said;
+      line.querySelector(".karaoke-upcoming").textContent = SAYS.slice(said.length);
+    }
     for (const bubble of all(".stage-bubble")) {
       bubble.querySelector(".karaoke-played").textContent = said;
       bubble.querySelector(".karaoke-upcoming").textContent = SAYS.slice(said.length);
@@ -382,7 +414,14 @@ const animator = (() => {
     for (const turns of all(".person-turns")) {
       turns.innerHTML = call.state !== "listening" ? "" : personStep === 0 ? liveBalloon("listening") : personStep === 1 ? liveBalloon("transcribing") : sentBalloon();
     }
+    for (const lines of all(".cc-lines")) lines.innerHTML = transcriptLines();
     if (call.state === "speaking") karaoke(SAYS.split(" ").slice(0, word).join(" "));
+  }
+  /** The title card's captions: what is being said as a transcript reads, a line per speaker, its name over it. */
+  function transcriptLines() {
+    if (call.state === "speaking") return `<p class="cc-line" data-role="assistant"><b>${call.title()}</b><span class="karaoke-text"><span class="karaoke-played"></span><span class="karaoke-upcoming">${SAYS}</span></span></p>`;
+    if (call.state === "listening") return `<p class="cc-line" data-role="user"><b>${words("card.you")}</b><span>${personStep === 2 ? HEARS : "…"}</span></p>`;
+    return "";
   }
   function speak() {
     const all_ = SAYS.split(" ");
@@ -500,17 +539,16 @@ function drawPanel() {
     select("env", "Desktop", Object.entries(DESKTOPS).map(([id, d]) => [id, d.label]), pick.env),
     select("format", "Format", FORMATS.map((f) => [f.id, f.label]), s.format),
     select("size", "Size", Object.entries(SIZES), s.size),
-    `<label class="check"><input type="checkbox" data-pick="captions"${s.captions ? " checked" : ""}> Captions (the card's own button too)</label>`,
-    s.format === "card" ? select("where", "Title card's captions", Object.entries(CAPTION_PLACES), s.captionPlace) : "",
+    `<label class="check"><input type="checkbox" data-pick="captions"${s.captions ? " checked" : ""}> Captions (as the card's own button)</label>`,
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
     select("creature", "Conversation", CREATURES.map((c) => [c.id, c.seed === "Sidevoice" ? "Sidevoice mascot" : c.seed]), creature().id),
     select("theme", "System theme", [["", `The desktop's (${env().theme})`], ["dark", "Dark"], ["light", "Light"]], pick.theme),
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
-    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}</div>`,
-    `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions, captionPlace: s.captionPlace } } }, null, 2)}</pre>
-<p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. The card's captions button flips <code>captions</code>.</p></details>`,
+    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("previews", "Its style previews", [["small", "(a) Small pictures"], ["real", "(b) The real card"]], pick.previews)}</div>`,
+    `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
+<p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");
 }
 

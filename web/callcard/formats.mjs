@@ -6,21 +6,20 @@
  *  shadow margin: a card's width, a picture's width and height, the avatar's square. */
 export const FORMATS = [
   { id: "card", label: "A1 · Title card", sizes: { m: { w: 390 }, l: { w: 450 } },
-    blurb: "Today's card grown up: the avatar in place of the brand mark, the conversation, its machine and its state; today's controls near the pointer." },
+    blurb: "Today's card grown up: the avatar in place of the brand mark, the conversation, its machine and its state; today's controls near the pointer. Captions as plain lines, above or below it." },
   { id: "pip", label: "B1 · Picture in picture", sizes: { m: { w: 400, h: 225 }, l: { w: 512, h: 288 } },
-    blurb: "The room's stage, small: the same screen, its balloons included; today's controls over it near the pointer." },
+    blurb: "The room's 16:9 stage itself, small, with nothing changed; a button at its top right goes back to the call; today's controls over it near the pointer." },
   { id: "mascot", label: "C1 · Just the avatar", sizes: { m: { w: 160 }, l: { w: 220 } },
-    blurb: "Only the avatar, floating on the desktop, on nothing; today's controls under it near the pointer." },
+    blurb: "Only the avatar, floating on the desktop, on nothing; today's controls under it near the pointer. Its balloons open above or below it, never sideways." },
 ];
 
 export const SIZES = { m: "Medium", l: "Large" };
 
-/** Where a title card's captions go: beside it, as the avatar's balloons (the default), or inside it. */
-export const CAPTION_PLACES = { beside: "Beside the card", inside: "Inside the card" };
-
-/** The settings, as the desktop app would store them, and their defaults. `alwaysShown` and `places` exist today
- *  (sidevoice-desktop: the "Always show the call controls" switch, and the card's place per display); the rest are new. */
-export const SETTING_DEFAULTS = { format: "card", size: "l", captions: true, captionPlace: "beside", alwaysShown: false, place: null };
+/** The settings, as the desktop app would store them, and their defaults. `alwaysShown` and `place` (per display)
+ *  exist today (sidevoice-desktop: the "Always show the call controls" switch, and the card's place); `format` and
+ *  `size` are new, set in Settings; `captions` is new too, but only the card's own button sets it (on by default; the
+ *  room's call view gets the same toggle later), never Settings. */
+export const SETTING_DEFAULTS = { format: "card", size: "l", captions: true, alwaysShown: false, place: null };
 
 /** One card's settings, filled from the defaults; unknown values fall back. */
 export function cardSettings(stored = {}) {
@@ -29,7 +28,6 @@ export function cardSettings(stored = {}) {
     format: FORMATS.some((each) => each.id === s.format) ? s.format : SETTING_DEFAULTS.format,
     size: SIZES[s.size] ? s.size : SETTING_DEFAULTS.size,
     captions: !!s.captions,
-    captionPlace: CAPTION_PLACES[s.captionPlace] ? s.captionPlace : SETTING_DEFAULTS.captionPlace,
     alwaysShown: !!s.alwaysShown,
     place: s.place && Number.isFinite(s.place.x) && Number.isFinite(s.place.y) ? s.place : null,
   };
@@ -54,11 +52,9 @@ export const COPY = {
   "settings.callCard.size": { en: "Size", es: "Tamaño" },
   "settings.callCard.size.m": { en: "Medium", es: "Mediano" },
   "settings.callCard.size.l": { en: "Large", es: "Grande" },
-  "settings.callCard.captions": { en: "Show captions", es: "Mostrar subtítulos" },
-  "settings.callCard.captionsHint": { en: "What the agent says and what it hears, in speech bubbles. The card's own button turns them on and off.", es: "Lo que dice el agente y lo que te oye, en bocadillos. El botón de la tarjeta los activa y desactiva." },
-  "settings.callCard.captionPlace": { en: "Captions on the card", es: "Subtítulos en la tarjeta" },
-  "settings.callCard.captionPlace.beside": { en: "Beside it", es: "Al lado" },
-  "settings.callCard.captionPlace.inside": { en: "Inside it", es: "Dentro" },
+  "settings.callCard.previewNote": { en: "Shown for a moment on your screen.", es: "Se muestra un momento en tu pantalla." },
+  "settings.callCard.sampleName": { en: "My project", es: "Mi proyecto" },
+  "card.you": { en: "You", es: "Tú" },
   "settings.callCard.position": { en: "Position", es: "Posición" },
   "settings.callCard.positionHint": { en: "Drag it anywhere. It stays where you leave it on each screen.", es: "Arrástrala a donde quieras. Se queda donde la dejes en cada pantalla." },
   "settings.callCard.positionReset": { en: "Reset position", es: "Restablecer posición" },
@@ -89,6 +85,10 @@ export function dropAt(at, size, work) {
 export function fit(place, size, work) {
   return { x: Math.max(0, Math.min(place.x, work.width - size.width)), y: Math.max(0, Math.min(place.y, work.height - size.height)) };
 }
+
+/** Which way a card's captions open from it: below it in the upper half of the screen, above it in the lower half
+ *  (sideways room is the scarcest); never configurable. The card itself stays where it was put. */
+export const opensDown = (place, size, work) => place.y + size.height / 2 < work.height / 2;
 
 /** The call's states the card shows. `mood` is what the avatar acts out (the room's stage moods). */
 export const STATES = {

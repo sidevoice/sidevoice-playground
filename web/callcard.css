@@ -157,6 +157,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* A format's small picture: its shape on a bit of desktop. */
 .cc-preview { display: grid; place-items: center; width: 100%; height: 64px; margin-bottom: 6px; border-radius: var(--sv-radius-md); background: linear-gradient(135deg, #20304f, #3a2a55); }
 .cc-preview > i { position: relative; display: block; }
+.cc-preview[data-preview=real] { height: 110px; overflow: hidden; }
+.cc-real { position: relative; display: block; width: 100%; height: 100%; }
+.cc-real-box { position: absolute; left: 50%; top: 50%; display: block; transform-origin: center; }
+.cc-real .cc-pip { position: relative; display: block; width: var(--w); height: var(--h); border-radius: 16px; overflow: hidden; }
+.cc-real .call-card { width: var(--w); --face-size: 64px; border-radius: 16px; }
+.cc-real .call-card .card-row { pointer-events: none; }
 .pv-card { width: 72%; height: 26px; border-radius: 8px; background: rgb(22 25 31 / 92%); box-shadow: 0 2px 6px rgb(0 0 0 / 40%); }
 .pv-card b { position: absolute; left: 5px; top: 5px; width: 16px; height: 16px; border-radius: 5px; }
 .pv-card i { position: absolute; left: 26px; top: 7px; width: 48%; height: 4px; border-radius: 2px; background: #e8edf1; }
@@ -193,39 +199,57 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* Today's controls row shows near the pointer (data-expanded, card-shell.tsx); the captions' button wears skip's look. */
 .call-card:not([data-expanded]) .card-controls { display: none; }
 .call-card .card-captions[aria-pressed=true] { color: var(--accent); }
-/* Inside the card: the room's balloons, the agent's at the left and yours at the right, under the row. */
-.cc-inside { display: grid; margin-top: 10px; padding: 4px 4px 0; }
-.cc-inside:not(:has(.speech-bubble)) { display: none; }
-.cc-inside .cc-agent-slot { justify-self: start; display: grid; }
-.cc-inside .person-turns { position: static; justify-self: end; }
-.cc-inside .speech-bubble { margin: 0 0 var(--tail-h); }
 
-/* ---------- beside a card or an avatar: the room's balloons, the agent's from the left, yours from the right ---------- */
+/* ---------- captions: above or below the card, never beside it (data-open, place()); the card stays where it was put ---------- */
+#card-window .cc-captions { position: absolute; z-index: 3; width: max(100%, 340px); pointer-events: none; }
+[data-size=l] .cc-captions { width: max(100%, 380px); }
+[data-open=down] .cc-captions { top: calc(100% + 8px); }
+[data-open=up] .cc-captions { bottom: calc(100% + 8px); }
+[data-side=left] .cc-captions { left: 0; }
+[data-side=right] .cc-captions { right: 0; }
+.cc-captions:empty, .cc-captions:not(:has(.speech-bubble, .cc-line)) { display: none; }
+/* The avatar's: the room's balloons, the agent's at the left and yours at the right; opening below it, their tails turn
+   up toward it. */
+.cc-balloons.cc-captions { display: grid; gap: 6px; }
+.cc-captions .cc-agent-slot { display: grid; justify-self: start; max-width: 100%; }
+.cc-captions .person-turns { position: static; justify-self: end; }
+.cc-captions .stage-bubble { margin: 0; max-width: 100%; justify-self: start; }
+[data-open=up] .cc-captions .speech-bubble { margin-bottom: var(--tail-h); }
+[data-open=down] .cc-captions .speech-bubble { margin-top: var(--tail-h); }
+[data-open=down] .cc-captions .balloon-tail { top: auto; bottom: calc(100% - var(--balloon-line) - 1px); transform: scaleY(-1); }
+[data-open=down] .cc-captions .stage-bubble .balloon-tail { transform: scale(-1, -1); }
+/* The mascot's controls hang under it (over it where the screen ends below), and the balloons make room for them. */
+.cc-mascot > .cc-strip { position: absolute; z-index: 4; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); }
+#card-window[data-strip-up] .cc-mascot > .cc-strip { top: auto; bottom: calc(100% + 4px); }
+#card-window[data-open=down]:not([data-strip-up]) .cc-mascot .cc-captions { top: calc(100% + 60px); }
+#card-window[data-open=up][data-strip-up] .cc-mascot .cc-captions { bottom: calc(100% + 60px); }
+/* The title card's: plain lines as a transcript reads, each speaker's name over what they say, on the card's own glass. */
+#card-window .cc-lines { padding: 10px 14px; }
+.cc-line { display: grid; gap: 2px; margin: 0; font-size: 13.5px; line-height: 1.45; }
+[data-size=l] .cc-line { font-size: 14.5px; }
+.cc-line b { font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+.cc-line[data-role=assistant] b { color: var(--accent); }
+.cc-line[data-role=user] b { color: var(--mu); }
+.cc-line .karaoke-played { color: var(--fg); }
+.cc-line .karaoke-upcoming { color: var(--mu); }
+.cc-line[data-role=user] > span { color: var(--fg); }
 /* The balloons' scale is the room's stage at a fixed size (call-view.css's .stage-tile variables, a tile about 330px
    tall): their words, ink, tail and padding as there. */
 .cc-balloons { --k: .75; --u: calc(var(--k) * 440px / 600); --stage-inset: calc(16 * var(--u)); --peek: 20;
   --bubble-fs: clamp(18px, calc(25.6 * var(--u)), 34px); --bubble-lh: 1.375; --bubble-pad: 24; --tail-w: calc(72 * var(--u)); --tail-h: calc(40 * var(--u));
   --person-fs: clamp(16px, calc(22.4 * var(--u)), 28px); --person-lh: 1.4286; --person-pad-b: 12; --person-pad-i: 20; --person-live-w: 272;
   color: var(--sv-text); font-family: var(--sv-font-sans); }
-.cc-row-win { display: flex; align-items: center; }
-.cc-side { flex: none; width: calc(var(--side-w, 300px)); display: flex; align-self: stretch; padding-bottom: var(--tail-h); pointer-events: none; }
-[data-size=l] .cc-side { --side-w: 330px; }
-.cc-side[data-side=agent] { justify-content: flex-end; align-items: center; }
-.cc-side[data-side=person] { justify-content: flex-start; align-items: center; }
-.cc-side .cc-agent-slot { display: grid; width: 100%; justify-items: end; }
-.cc-side .stage-bubble { margin: 0; max-width: 100%; }
-.cc-side .person-turns { position: static; align-items: flex-start; }
-.cc-body { flex: none; display: flex; flex-direction: column; align-items: center; }
 
-/* ---------- B1: the room's stage (call-view.css), small ---------- */
-#card-window .cc-pip { width: var(--w); height: var(--h); border-radius: 16px; overflow: hidden; box-shadow: 0 12px 34px rgb(0 0 0 / 45%); }
-/* The tile fills the picture as the room's fills its slot; its words follow it down further than the room lets them (a
-   picture-in-picture is smaller than any room), so it stays the same composition, only smaller. */
-.cc-pip .stage-tile { position: absolute; inset: 0; border-radius: inherit; --stage-avatar-share: .5;
-  --chip-fs: clamp(9px, calc(12 * var(--u)), 15px); --name-fs: clamp(11px, calc(20 * var(--u)), 26px);
-  --bubble-fs: clamp(10px, calc(25.6 * var(--u)), 34px); --person-fs: clamp(9px, calc(22.4 * var(--u)), 28px); }
+.pip-strip { position: absolute; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); }
+
+/* ---------- B1: the room's 16:9 stage itself (call-view.css), nothing changed; its one addition, "open Sidevoice" ---------- */
+#card-window .cc-pip { width: var(--w); height: var(--h); border-radius: var(--sv-radius-2xl); }
+.cc-pip .stage-tile { position: absolute; inset: 0; }
 [data-captions=off] .cc-pip :is(.stage-top, .person-turns) { display: none; }
 .pip-strip { position: absolute; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); }
+.pip-open { position: absolute; z-index: 5; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px;
+  background: color-mix(in srgb, var(--sv-surface) 84%, transparent); color: var(--sv-text); backdrop-filter: blur(8px); cursor: pointer; }
+.pip-open:hover { background: var(--sv-surface-raised); }
 
 /* ---------- C1: only the avatar, on nothing ---------- */
 .m-figure { display: block; width: var(--w); height: var(--w); }
@@ -239,7 +263,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* Muted, the microphone stays out even away from the pointer: it says why nothing is heard. */
 #card-window[data-state=muted]:not([data-expanded]) .cc-strip { visibility: visible; }
 #card-window[data-state=muted]:not([data-expanded]) .cc-strip > :not(.card-controls), #card-window[data-state=muted]:not([data-expanded]) .cc-strip .card-controls > :not(.card-mic) { display: none; }
-.cc-mascot .cc-strip { margin-top: 4px; }
 
 /* ---------- after hanging up ---------- */
 #card-window .cc-ended { display: flex; align-items: center; gap: 12px; width: auto; }

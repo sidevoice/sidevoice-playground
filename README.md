@@ -174,11 +174,13 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 
 A design mockup of the desktop app's floating call card, its own page at **`/callcard`** (linked from the header):
 the card over a simulated Windows 11, macOS or GNOME desktop with Sidevoice minimised, in the three formats kept (a
-title card, a picture-in-picture of the room's stage, just the avatar), medium or large, wherever it is dragged (kept
-inside the screen, against an edge near one, as the desktop app places it), in each call state, with captions on or
-off. The controls are today's call controls card; mute, captions, skip, hang up and open work. "Open the settings
-mock" shows Settings → Call with the card's settings, in English or Spanish, driving the same settings the card is
-drawn from. Everything picked is in the address.
+title card, the room's 16:9 stage as a picture-in-picture, just the avatar), medium or large, wherever it is dragged
+(kept inside the screen, against an edge near one, as the desktop app places it), in each call state. Its controls are
+today's call controls card; mute, captions, skip, hang up and open work. Captions are the card's own toggle, on by
+default, and open above or below it (below in the upper half of the screen), never sideways; the card stays where it
+was put. "Open the settings mock" shows Settings → Call with the card's settings, in English or Spanish, two styles of
+format previews to compare, and the card shown on the screen for a moment after each change. Everything picked is in
+the address.
 
 The formats, the settings, their words and the placement are data (`web/callcard/formats.mjs`). Nothing of the app is
 redrawn: `scripts/callcard-creatures.mjs` takes from a sidevoice-web commit the avatars' drawings

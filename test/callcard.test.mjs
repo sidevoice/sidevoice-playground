@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { COPY, FORMATS, PLACEMENT, SETTING_DEFAULTS, cardSettings, dropAt, firstPlace, fit } from "../web/callcard/formats.mjs";
+import { COPY, FORMATS, PLACEMENT, SETTING_DEFAULTS, cardSettings, dropAt, firstPlace, fit, opensDown } from "../web/callcard/formats.mjs";
 
 test("the three formats kept, each at medium and large, a picture with its height", () => {
   assert.deepEqual(FORMATS.map((format) => format.id), ["card", "pip", "mascot"]);
@@ -37,4 +37,10 @@ test("the creatures are drawn at both sizes, with their scene", async () => {
   for (const creature of creatures) {
     for (const key of ["stage", "small", "backdrop", "desk"]) assert.match(creature[key], /^<svg/, `${creature.id} ${key}`);
   }
+});
+
+test("captions open below a card in the upper half of the screen, above it in the lower half", () => {
+  const work = { width: 1000, height: 800 }, size = { width: 160, height: 160 };
+  assert.equal(opensDown({ x: 840, y: 0 }, size, work), true);
+  assert.equal(opensDown({ x: 0, y: 640 }, size, work), false);
 });

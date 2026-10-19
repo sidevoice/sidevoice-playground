@@ -38,6 +38,7 @@ import { idlesFor } from ${from("bichos/idle")};
 import { renderMascot } from ${from("styles/bichos")};
 import { backdropFromSeed, backdropSvg } from ${from("backdrop")};
 import { DESK_TOPS, deskFromSeed, deskSvg } from ${from("desk")};
+import { personSpec } from ${JSON.stringify(join(src, "features/avatar/bicho-draw"))};
 const scene = (seed, tone) => {
   const desk = deskFromSeed(seed);
   const [, top, topDeep, front, frontDeep] = DESK_TOPS[desk.top] ?? DESK_TOPS.wood;
@@ -51,6 +52,10 @@ const creatures = ${JSON.stringify(SEEDS)}.map((seed) => {
 const mascot = renderMascot("sidevoice", "stage");
 creatures.push({ id: "mascot:sidevoice", seed: "Sidevoice", tone: mascot.tone, works: [], idles: [], stage: mascot.html,
   small: renderMascot("sidevoice", "sidebar").html, ...scene("Sidevoice", mascot.tone) });
+// The person holding the microphone (onboarding's: PermissionsList PERSON_WITH_MIC), for the settings' previews.
+const person = personSpec("microphone");
+creatures.push({ id: "person:microphone", seed: "My project", tone: renderSpec(person, "stage").tone, works: [], idles: [], stage: renderSpec(person, "stage").html,
+  small: renderSpec(person, "sidebar").html, ...scene("My project", renderSpec(person, "stage").tone) });
 process.stdout.write(JSON.stringify(creatures));
 `);
 
@@ -83,7 +88,9 @@ export { smoothPlaybackLevel } from ${JSON.stringify(join(src, "features/avatar/
 await esbuild.build({ entryPoints: [motion], bundle: true, platform: "browser", format: "esm", logLevel: "warning", outfile: join(out, "motion.mjs"), plugins: [glob], minify: true,
   banner: { js: `// GENERATED from sidevoice-web@${values.sha} by scripts/callcard-creatures.mjs: the bichos engine's own picks.` } });
 
-writeFileSync(join(out, "creatures.json"), JSON.stringify({ source: `sidevoice-web@${values.sha}`, creatures }) + "\n");
+// The harness marks the stage's badge wears (components/ui/Icons.tsx HarnessIcon), from the web's own logo files.
+const marks = { claude: readFileSync(join(src, "assets/logos/claude.svg"), "utf8").trim() };
+writeFileSync(join(out, "creatures.json"), JSON.stringify({ source: `sidevoice-web@${values.sha}`, creatures, marks }) + "\n");
 for (const path of ["styles/bichos.css", "styles/call.css", "styles/tokens.css", "styles/theme.css", "features/call/call-view.css",
   "call-controls/call-card.css", "components/ui/ui.css", "features/settings/settings.css"]) {
   const css = readFileSync(join(src, path), "utf8");
