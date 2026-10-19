@@ -107,7 +107,10 @@ export function pagePermission(win, world) {
     const answer = await askMicrophone(world);
     if (answer === "missing") throw new win.DOMException("Requested device not found", "NotFoundError");
     if (answer !== "granted") throw new win.DOMException("Permission denied", "NotAllowedError");
-    return typeof win.MediaStream === "function" ? new win.MediaStream() : { getTracks: () => [] };
+    // A silent live audio track: the web refuses a stream without one ("no microphone").
+    const Ctx = win.AudioContext ?? win.webkitAudioContext;
+    if (Ctx) return new Ctx().createMediaStreamDestination().stream;
+    return typeof win.MediaStream === "function" ? new win.MediaStream() : { getTracks: () => [], getAudioTracks: () => [] };
   };
   // The device list, as a browser gives it without permission, and `devicechange` as a microphone is plugged in or out.
   const enumerateDevices = async () => micPlugged(world) ? [{ kind: "audioinput", deviceId: "default", label: "", groupId: "mock" }] : [];
