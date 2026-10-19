@@ -15,12 +15,13 @@
 // default, and it must not move a creature somebody made.
 import {
   BACKDROPS, DESK_PROPS, DESK_TOPS, IDLE_STYLES, MEMBERS, SLOTS, WORKS, backdropFromSeed, deskFromSeed, idsIn, memberSpec, normalizeSpec,
-  specFromSeed, withBody, withPart,
+  BODIES, specFromSeed, withBody, withPart,
 } from "./bichos.mjs";
 import { COLOUR_BACKDROPS } from "./backdrops.mjs";
 
 export const CREW_VERSION = 1;
 export const MAX_DESK_PROPS = 3;
+const BODY_IDS = () => BODIES.map((b) => b.id);
 
 /** The member a seed rolls: the app's default creature, scene and moves for it. */
 export function memberFromSeed(seed, name = seed) {
@@ -118,4 +119,26 @@ export function sideChanges(before, after, except = []) {
     if (from.join() !== to.join()) out.push({ slot: s.id, from, to });
   }
   return out;
+}
+
+// ---------- import ----------
+
+/** A crew member from pasted or loaded JSON: { member } when it is one, else { error } saying what is wrong, in words.
+ *  Strict where a mistake would silently become another creature (the body, the figure's shape); lenient where the
+ *  customiser has a sane default (a missing scene or moves, an unknown part, which the engine drops). */
+export function parseMember(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch (e) { return { error: `That isn't JSON (${e.message.replace(/^JSON\.parse: /, "")}).` }; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { error: "That JSON isn't a crew member: expected an object like { \"v\": 1, \"figure\": { … } }." };
+  if (raw.v !== undefined && raw.v !== CREW_VERSION) return { error: `This crew member is version ${JSON.stringify(raw.v)}; this customiser reads version ${CREW_VERSION}.` };
+  const fig = raw.figure;
+  if (!fig || typeof fig !== "object") return { error: "It has no \"figure\": the creature itself is missing." };
+  if (typeof fig.body !== "string" || !BODY_IDS().includes(fig.body)) return { error: `Unknown body ${JSON.stringify(fig.body)}. Known: ${BODY_IDS().join(", ")}.` };
+  if (fig.parts !== undefined && (typeof fig.parts !== "object" || Array.isArray(fig.parts))) return { error: "\"figure.parts\" must be an object of slot → part." };
+  const c = fig.color;
+  if (c !== undefined && (typeof c !== "object" || ![c.hue, c.sat, c.light].every((v) => typeof v === "number" && Number.isFinite(v)))) {
+    return { error: "\"figure.color\" must have numeric hue, sat and light." };
+  }
+  if (raw.name !== undefined && typeof raw.name !== "string") return { error: "\"name\" must be text." };
+  return { member: crewMember(raw) };
 }

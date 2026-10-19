@@ -1,68 +1,60 @@
 // The avatar customiser exploration (customiser.html): the creature's canvas, as the call's stage shows it, and a
-// character-creator panel behind its brush button. Everything is drawn by sidevoice-web's bichos engine, bundled as
+// character creator behind its palette button. Everything is drawn by sidevoice-web's bichos engine, bundled as
 // customiser/bichos.mjs (scripts/customiser-engine.mjs), and moved by the web's own CSS (customiser/bichos.css,
-// customiser/call.css). What the person picks is one crew member (customiser/crew.mjs), kept in local storage.
-// Two layouts of the same choices, switched by ?layout= (or L): "tabs" (a tab per category) and "overview" (every slot
-// as a row around the preview, each opening a strip of tiles).
+// customiser/call.css). What the person picks is one crew member (customiser/crew.mjs), kept in local storage; every
+// name shown is in customiser/names.mjs.
+// Two layouts of the same choices, switched by ?layout= (or L): "creator" (the default: a plain list of sections, the
+// creature large in the middle, the selected section's options beside it) and "overview" (every section a row with
+// its current pick, each opening a strip of options).
 import {
-  BACKDROPS, BODIES, DESK_PROPS, DESK_TOPS, FAMILIES, MEMBERS, SLOTS, SOURCE, SWATCHES, backdropSvg, deskSvg, idlesFor, idsIn,
-  partsIn, renderSpec, withBody, withPart, worksFor,
+  BACKDROPS, BODIES, DESK_PROPS, DESK_TOPS, SLOTS, SOURCE, SWATCHES, deskSvg, idlesFor, idsIn, partsIn, renderSpec, withBody, withPart,
+  worksFor,
 } from "./customiser/bichos.mjs";
 import {
-  MAX_DESK_PROPS, crewMember, isSpecies, memberFromSeed, memberJson, sideChanges, speciesOf, speciesSlots, withSpecies,
+  MAX_DESK_PROPS, crewMember, memberFromSeed, memberJson, parseMember, sideChanges, speciesOf, speciesSlots, withSpecies,
 } from "./customiser/crew.mjs";
 import { hexToRgb, hslToRgb, rgbToHex, rgbToHsl } from "./customiser/colour.mjs";
 import { COLOUR_BACKDROPS, sceneBackdropSvg } from "./customiser/backdrops.mjs";
+import * as NAMES from "./customiser/names.mjs";
 
 const $ = (id) => document.getElementById(id);
 const STORE = "sidevoice-customiser:member";
 
-// ---------- icons (Lucide-style strokes) ----------
+// ---------- icons (Lucide-style strokes, in currentColor) ----------
 
 const ICONS = {
-  brush: '<path d="m14.6 3.4 6 6-8.9 8.9-6-6Z"/><path d="M5.7 12.3 3 21l8.7-2.7"/><path d="m11 7 6 6"/>',
   dice: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
-  shuffle: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
   reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-  paw: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.05Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/>',
-  blob: '<path d="M12 3c5 0 8 4 8 9s-3 9-8 9-8-3.5-8-8.5S7 3 12 3Z"/>',
-  face: '<circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/>',
-  crown: '<path d="m2 6 4 11h12l4-11-6 5-4-7-4 7Z"/><path d="M6 21h12"/>',
-  hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
-  gem: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
-  palette: '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C21.97 6.01 17.46 2 12 2Z"/>',
-  mountain: '<path d="m8 3 4 8 5-5 5 15H2Z"/>',
-  zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9Z"/>',
+  download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  upload: '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/>',
+  paste: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
   swap: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
-  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
-  tabs: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v6"/>',
+  prev: '<path d="m15 18-6-6 6-6"/>',
+  next: '<path d="m9 18 6-6-6-6"/>',
+  creator: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16"/>',
   rows: '<path d="M3 5h18M3 12h18M3 19h18"/>',
+  zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9Z"/>',
 };
 const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
 const fillIcons = (root) => { for (const el of root.querySelectorAll("[data-icon]")) el.innerHTML = icon(el.dataset.icon); };
-
-// ---------- names: the engine's labels are Spanish data; this page is English, so it names things by their ids ----------
-
-const human = (id) => { const text = String(id).replace(/[-_]/g, " "); return text.charAt(0).toUpperCase() + text.slice(1); };
-const SLOT_NAMES = { top: "Head top", eyes: "Eyes", mouth: "Mouth", arms: "Arms", legs: "Feet", tail: "Tail", back: "Back",
-  pattern: "Patterns", cheeks: "Cheeks", marks: "Markings", nose: "Nose", neckwear: "Neck", headgear: "Hats", earwear: "Ear gear",
-  pins: "Split pins", eyewear: "Eyewear", held: "In hand" };
-const FAMILY_NAMES = { monsters: "Monsters", furry: "Furries", birds: "Birds", pond: "Pond", bots: "Robots", sprouts: "Sprouts",
-  snacks: "Snacks", sea: "Sea", bugs: "Bugs", spirits: "Spirits", elementals: "Elementals" };
-const WORK_NAMES = { crank: "Crank", hammer: "Hammer", read: "Book", type: "Laptop" };
-const IDLE_NAMES = { quiet: "Quiet", juggle: "Juggling", soup: "Soup", water: "Watering", fish: "Fishing", bubbles: "Bubbles",
-  music: "Music", stretch: "Stretching", nap: "Nap" };
-const slotName = (id) => SLOT_NAMES[id] ?? human(id);
-const BACKDROP_NAMES = { tone: "Its colour", flat: "Flat", fade: "Fade", duo: "Duo" };
-/** The customise button's mark: a painter's palette with its blobs of paint. */
+/** The customise button's mark: a painter's palette, in the UI's own ink. */
 const PALETTE = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 <path d="M12 3C6.9 3 3 6.8 3 11.5 3 16.6 7 21 11.6 21c1.5 0 2.2-.9 2.2-1.9 0-1.3-1.1-1.7-1.1-2.8 0-1 .8-1.6 1.8-1.6h2.3c2.6 0 4.2-2 4.2-4.4C21 6.3 17 3 12 3Z"/>
 <circle cx="7.6" cy="11.3" r="1.3" fill="currentColor" stroke="none"/><circle cx="9.6" cy="7.4" r="1.3" fill="currentColor" stroke="none"/>
 <circle cx="14.2" cy="6.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="17.5" cy="9.6" r="1.3" fill="currentColor" stroke="none"/></svg>`;
+
+// ---------- names (customiser/names.mjs) ----------
+
+const partName = (slot, id) => NAMES.PARTS[slot]?.[id] ?? id;
+const slotName = (id) => NAMES.SLOTS[id]?.[0] ?? id;
+const memberKey = (sp) => sp && `${sp.family}/${sp.member}`;
+/** The kind and variant the figure is, if it is one ({ kind, variant, key }). */
+const creatureOf = (figure) => { const key = memberKey(speciesOf(figure)); const k = key && NAMES.kindOf(key); return k ? { ...k, key } : null; };
 
 // ---------- drawing ----------
 
@@ -78,24 +70,36 @@ function avatarHtml(figure, { size = "stage", mood, work, idle, desk } = {}) {
 }
 
 /** The call's stage tile (the web's StageScene): backdrop, creature, desk; `height` sets its scale, else a resize does. */
-function stageHtml(member, { mood = "idle", figure = member.figure, scene = member.scene, height, work, idle, over = "" } = {}) {
+function stageHtml(member, { mood = "idle", figure = member.figure, scene = member.scene, height, work, idle } = {}) {
   const [, top, topDeep, front, frontDeep] = DESK_TOPS[scene.desk.top] ?? DESK_TOPS.wood;
   const k = height ? `style="--k:${height / 440}"` : "";
   return `<div class="stage-tile" data-mood="${mood}" ${k}><div class="stage-scene">
 <div class="stage-backdrop">${ownIds(sceneBackdropSvg(scene, figure.color))}</div>
-<div class="stage-agent">${avatarHtml(figure, { mood, work, idle, desk: mood === "working" })}${over}</div>
+<div class="stage-agent">${avatarHtml(figure, { mood, work, idle, desk: mood === "working" })}</div>
 <div class="stage-desk" style="--desk-top:${top};--desk-top-deep:${topDeep};--desk-front:${front};--desk-front-deep:${frontDeep}">${ownIds(deskSvg(scene.desk))}</div></div></div>`;
 }
 
 /** Keeps a stage tile's --k (its height over the scene's 440) as its box resizes. */
 const scaler = new ResizeObserver((entries) => { for (const e of entries) e.target.style.setProperty("--k", String(e.contentRect.height / 440)); });
 
-// ---------- the moods a stage can act out, and the rotation the app would run ----------
+/** Where a slot sits on the figure, [x, y, zoom] in its 120 box, from its body's frame: tiles show that close-up. */
+function regionOf(slot, figure) {
+  const f = BODIES.find((b) => b.id === figure.body)?.frame ?? { top: 40, eyeY: 60, mouthY: 77, armY: 76, half: 31, bottom: 97 };
+  const face = (f.eyeY + f.mouthY) / 2;
+  return {
+    top: [60, f.top - 12, 1.45], headgear: [60, f.top - 10, 1.5], earwear: [60, f.top + 8, 1.6], eyes: [60, f.eyeY, 2.2],
+    eyewear: [60, f.eyeY, 2.1], marks: [60, f.eyeY + 3, 1.9], nose: [60, face, 2.4], mouth: [60, f.mouthY, 2.4],
+    cheeks: [60, face + 3, 2], neckwear: [60, f.mouthY + 9, 1.8], arms: [60, f.armY, 1.3], held: [60 + f.half + 2, f.armY, 1.7],
+    legs: [60, f.bottom - 6, 1.7], tail: [60 + f.half - 4, f.bottom - 16, 1.5], back: [60, f.armY - 8, 1.2], pattern: [60, f.armY + 4, 1.35],
+  }[slot] ?? [60, 66, 1];
+}
+const crop = (html, slot, figure) => { const [x, y, z] = regionOf(slot, figure); return `<span class="crop" style="--cx:${x};--cy:${y};--z:${z}">${html}</span>`; };
+
+// ---------- moods ----------
 
 const MOODS = [["idle", "Idle"], ["speaking", "Speaking"], ["listening", "Listening"], ["working", "Working"]];
 let clock = 0;
 setInterval(() => { clock += 1; }, 6000);
-/** The work or idle style a stage shows: the member's pinned one, else the app's rotation over what it can do. */
 /** The styles a member may take: its picks among what it can do, or all of them. */
 const allowed = (list, can) => { const kept = (list ?? can).filter((x) => can.includes(x)); return kept.length ? kept : can; };
 const workOf = (m) => { const list = allowed(m.moves.works, worksFor(m.figure)); return list[clock % list.length] || "crank"; };
@@ -133,6 +137,12 @@ const load = () => { try { const raw = localStorage.getItem(STORE); return raw ?
 let saved = load() ?? memberFromSeed("Refactor del relay");
 let canvasMood = "speaking";
 
+function describe(m) {
+  const c = creatureOf(m.figure);
+  return [c ? `${c.kind.name}${c.variant === "Classic" ? "" : ` · ${c.variant}`}` : "Custom creature", `${NAMES.BODIES[m.figure.body] ?? m.figure.body} body`,
+    `${NAMES.BACKDROPS[m.scene.backdrop] ?? m.scene.backdrop} backdrop`].join(" · ");
+}
+
 function drawCanvas() {
   const canvas = $("canvas");
   canvas.innerHTML = stageHtml(saved, { mood: canvasMood, work: workOf(saved), idle: idleOf(saved) });
@@ -142,52 +152,41 @@ function drawCanvas() {
   moodSeg($("canvas-moods"), canvasMood, (mood) => { canvasMood = mood; drawCanvas(); });
 }
 
-const describe = (member) => { const sp = speciesOf(member.figure); return [sp ? human(sp.member) : "Custom", human(member.figure.body) + " body", (member.scene.backdrop === "tone" ? "its colour" : human(member.scene.backdrop).toLowerCase()) + " backdrop",
-  member.moves.works ? `works: ${member.moves.works.map((w) => (WORK_NAMES[w] ?? w).toLowerCase()).join(", ")}` : "", member.moves.idles ? `idles: ${member.moves.idles.map((w) => (IDLE_NAMES[w] ?? w).toLowerCase()).join(", ")}` : ""].filter(Boolean).join(" · "); };
-
-
-// ---------- close-ups: where each slot sits on the figure, to crop a thumbnail of the live creature there ----------
-
-/** [x, y, zoom] in the figure's 120 box, from its body's frame (bichos kit: top, eyeY, mouthY, armY, half, bottom). */
-function regionOf(slot, figure) {
-  const f = BODIES.find((b) => b.id === figure.body)?.frame ?? { top: 40, eyeY: 60, mouthY: 77, armY: 76, half: 31, bottom: 97 };
-  const face = (f.eyeY + f.mouthY) / 2;
-  return {
-    top: [60, f.top - 6, 2], headgear: [60, f.top - 6, 1.9], earwear: [60, f.top + 6, 1.7], eyes: [60, f.eyeY, 2.3],
-    eyewear: [60, f.eyeY, 2.2], marks: [60, f.eyeY + 2, 2], nose: [60, face, 2.6], mouth: [60, f.mouthY, 2.6],
-    cheeks: [60, face + 3, 2.1], neckwear: [60, f.mouthY + 9, 1.9], arms: [60, f.armY, 1.35], held: [60 + f.half + 4, f.armY + 2, 1.9],
-    legs: [60, f.bottom - 4, 1.9], tail: [60 + f.half, f.bottom - 14, 1.7], back: [60, f.armY - 6, 1.25],
-  }[slot] ?? [60, 68, 1.05];
-}
-/** A close-up of `html` (one avatar's markup) on `slot`. */
-const crop = (html, slot, figure) => { const [x, y, z] = regionOf(slot, figure); return `<span class="crop" style="--cx:${x};--cy:${y};--z:${z}">${ownIds(html)}</span>`; };
-
 // ---------- the choices: sections ----------
 
-/** A section: one set of choices. `choices(m)` lists them cheaply ({ key, label, selected }); `options(m)` adds what a
- *  tile needs (the figure or scene wearing it, the side changes) and `apply`. `kind`: "radio" picks one (selection
- *  follows the arrow keys), "check" toggles several, "colour" is the colour editor. */
-/** What else a pick changes, said in words: the line under a tile ("replaces Crown") and its full tooltip. */
-const sideText = (changes) => changes.map((c) => `${slotName(c.slot)}: ${c.from.map(human).join(" + ") || "none"} → ${c.to.map(human).join(" + ") || "none"}`);
-function sideLine(changes) {
-  if (!changes.length) return "";
-  if (changes.length > 1) return `changes ${changes.length} parts`;
-  const [c] = changes;
-  const gone = c.from.filter((x) => !c.to.includes(x)), come = c.to.filter((x) => !c.from.includes(x));
-  return gone.length ? `replaces ${human(gone[0])}` : `adds ${human(come[0])}`;
+/** A section: one set of choices. `choices(m)` lists them cheaply ({ key, label, selected, theme? }); `options(m)`
+ *  adds what a tile needs (the figure or scene wearing it, what else it changes) and `apply`. `kind`: "radio" picks one
+ *  (selection follows the arrow keys), "check" toggles several, "colour" is the colour editor. */
+const sideText = (changes) => changes.map((c) => `${slotName(c.slot)}: ${c.from.map((x) => partName(c.slot, x)).join(" + ") || "none"} → ${c.to.map((x) => partName(c.slot, x)).join(" + ") || "none"}`);
+/** What else a pick changes, in words: the line under a tile ("replaces Crown") and its full tooltip. */
+function sides(before, after, except = []) {
+  const list = sideChanges(before, after, except);
+  if (!list.length) return {};
+  let line = `changes ${list.length} parts`;
+  if (list.length === 1) {
+    const [c] = list;
+    const gone = c.from.filter((x) => !c.to.includes(x)), come = c.to.filter((x) => !c.from.includes(x));
+    line = gone.length ? `takes off ${partName(c.slot, gone[0])}` : `adds ${partName(c.slot, come[0])}`;
+  }
+  return { swaps: sideText(list), swapLine: line };
 }
-const sides = (before, after, except) => { const list = sideChanges(before, after, except); return { swaps: sideText(list), swapLine: sideLine(list) }; };
+
+/** The theme the current kind's own options are under: those come first in every grid. */
+const kindTheme = (m) => creatureOf(m.figure)?.kind.theme;
 
 const partSection = (slot) => {
   const def = SLOTS.find((s) => s.id === slot);
   const optional = !def?.required && !def?.multi;
   return {
-    id: slot, label: slotName(slot), kind: def?.multi ? "check" : "radio", region: slot,
-    note: def?.multi ? `Up to ${def.max ?? "several"}; the oldest one goes when you add another.` : def?.required ? "Always one." : "",
+    id: slot, label: slotName(slot), hint: NAMES.SLOTS[slot]?.[1] ?? "", kind: def?.multi ? "check" : "radio", region: slot,
+    note: def?.multi ? `Up to ${def.max ?? "several"}; the oldest one goes when you add another.` : def?.required ? "" : "",
     choices(m) {
       const have = idsIn(m.figure, slot);
-      return [...(optional ? [{ key: "none", label: "None", selected: have.length === 0 }] : []),
-        ...partsIn(slot).map((p) => ({ key: p.id, label: human(p.id), selected: have.includes(p.id), rarity: p.rarity }))];
+      const first = kindTheme(m);
+      const parts = partsIn(slot).map((p) => ({ key: p.id, label: partName(slot, p.id), selected: have.includes(p.id), rarity: p.rarity, theme: NAMES.THEMES[p.file] ?? "More" }));
+      const order = [...new Set(["Classic", first, ...parts.map((p) => p.theme)])].filter(Boolean);
+      parts.sort((a, b) => order.indexOf(a.theme) - order.indexOf(b.theme));
+      return [...(optional ? [{ key: "none", label: "None", selected: have.length === 0, theme: "Classic" }] : []), ...parts];
     },
     options(m) {
       return this.choices(m).map((c) => {
@@ -198,62 +197,69 @@ const partSection = (slot) => {
   };
 };
 
-const SPECIES_NOTE = "Changes the species only: its body and its own parts come in, your colour and other picks stay. The amber line under a tile says what else would change.";
-const anyOf = (members) => (mm) => { const x = members[Math.floor(Math.random() * members.length)]; return { ...mm, figure: withSpecies(mm.figure, x.family, x.id) }; };
-const speciesSection = (id, label, members) => ({
-  id, label, kind: "radio", region: "species", note: SPECIES_NOTE, random: (m) => anyOf(members)(m),
-  dice: id === "species" ? "Any species" : `Any ${label.toLowerCase()}`,
-  choices(m) {
-    const now = speciesOf(m.figure);
-    return members.map((x) => ({ key: `${x.family}/${x.id}`, label: human(x.id), sub: FAMILY_NAMES[x.family] ?? human(x.family),
-      selected: now ? now.family === x.family && now.member === x.id : false }));
-  },
-  options(m) {
-    const old = speciesOf(m.figure);
-    const dice = id === "species" ? [] : [{ key: "any", label: this.dice, dice: true, selected: false, figure: withSpecies(m.figure, members[0].family, members[0].id, old), apply: anyOf(members) }];
-    return [...dice, ...this.choices(m).map((c) => {
-      const [family, member] = c.key.split("/");
-      const figure = withSpecies(m.figure, family, member, old);
-      return { ...c, figure, ...(c.selected ? {} : sides(m.figure, figure, [...speciesSlots(family, member), ...(old ? speciesSlots(old.family, old.member) : [])])),
-        apply: (mm) => ({ ...mm, figure: withSpecies(mm.figure, family, member) }) };
-    })];
-  },
-});
-
-const SWATCH_NAMES = { mostaza: "Mustard", terracota: "Terracotta", "verde azulado": "Teal", salvia: "Sage", ciruela: "Plum", "añil": "Indigo",
-  frambuesa: "Raspberry", naranja: "Orange", lima: "Lime", cielo: "Sky", chicle: "Bubblegum", nube: "Cloud" };
-const coatHex = (c) => rgbToHex(hslToRgb(c));
+const SPECIES_NOTE = "Changing it keeps your colour and every other pick; only what can't go with it changes, and the tile says what.";
+const anyOf = (keys) => (mm) => { const [family, member] = keys[Math.floor(Math.random() * keys.length)].split("/"); return { ...mm, figure: withSpecies(mm.figure, family, member) }; };
+const toSpecies = (key) => (mm) => { const [family, member] = key.split("/"); return { ...mm, figure: withSpecies(mm.figure, family, member) }; };
+const ALL_MEMBERS = NAMES.KINDS.flatMap((k) => Object.keys(k.variants));
 
 const S = {
-  species: speciesSection("species", "Species", MEMBERS),
-  body: { id: "body", label: "Shape", kind: "radio", region: "body", note: "Parts that don't fit the new shape come off: ⇄ says which.",
-    choices: (m) => BODIES.map((b) => ({ key: b.id, label: human(b.id), selected: m.figure.body === b.id })),
+  kind: { id: "kind", label: "Kind", hint: "What it is: a monster, a cat, a robot…", kind: "radio", region: "creature", note: SPECIES_NOTE, random: (m) => anyOf(ALL_MEMBERS)(m), dice: "Any kind",
+    choices(m) { const now = creatureOf(m.figure); return NAMES.KINDS.map((k) => ({ key: k.id, label: k.name, selected: now?.kind.id === k.id, theme: k.shelf })); },
+    options(m) {
+      const old = speciesOf(m.figure);
+      return this.choices(m).map((c) => {
+        const first = Object.keys(NAMES.KINDS.find((k) => k.id === c.key).variants)[0];
+        const [family, member] = first.split("/");
+        const figure = withSpecies(m.figure, family, member, old);
+        return { ...c, figure, ...(c.selected ? {} : sides(m.figure, figure, [...speciesSlots(family, member), ...(old ? speciesSlots(old.family, old.member) : [])])), apply: toSpecies(first) };
+      });
+    } },
+  variant: { id: "variant", label: "Variant", kind: "radio", region: "creature", note: SPECIES_NOTE,
+    get hint() { const c = creatureOf(ui.member.figure); return c ? `The ${c.kind.name.toLowerCase()} kind's variants` : "Pick a kind first"; },
+    random: (m) => { const c = creatureOf(m.figure); return c ? anyOf(Object.keys(c.kind.variants))(m) : anyOf(ALL_MEMBERS)(m); },
+    choices(m) {
+      const c = creatureOf(m.figure);
+      if (!c) return [];
+      return Object.entries(c.kind.variants).map(([key, label]) => ({ key, label, selected: key === c.key }));
+    },
+    options(m) {
+      const old = speciesOf(m.figure);
+      return this.choices(m).map((c) => {
+        const [family, member] = c.key.split("/");
+        const figure = withSpecies(m.figure, family, member, old);
+        return { ...c, figure, ...(c.selected ? {} : sides(m.figure, figure, [...speciesSlots(family, member), ...(old ? speciesSlots(old.family, old.member) : [])])), apply: toSpecies(c.key) };
+      });
+    } },
+  body: { id: "body", label: "Body shape", hint: "The silhouette; parts that can't fit come off", kind: "radio", region: "creature",
+    choices: (m) => BODIES.map((b) => ({ key: b.id, label: NAMES.BODIES[b.id] ?? b.id, selected: m.figure.body === b.id })),
     options(m) { return this.choices(m).map((c) => { const figure = withBody(m.figure, c.key); return { ...c, figure, ...(c.selected ? {} : sides(m.figure, figure)), apply: (mm) => ({ ...mm, figure: withBody(mm.figure, c.key) }) }; }); } },
-  swatch: { id: "swatch", label: "Coat", kind: "radio", region: "coat", note: "Ready-made coats; fine-tune in HSL, RGB or hex.",
-    choices: (m) => SWATCHES.map(([id, hue, sat, light]) => ({ key: id, label: SWATCH_NAMES[id] ?? human(id), hsl: { hue, sat, light },
+  swatch: { id: "swatch", label: "Coat", hint: "A ready-made coat, or any colour below", kind: "radio", region: "coat", editor: "coat",
+    choices: (m) => SWATCHES.map(([id, hue, sat, light]) => ({ key: id, label: NAMES.COATS[id] ?? id, hsl: { hue, sat, light },
       selected: !m.figure.shiny && m.figure.color.hue === hue && m.figure.color.sat === sat && m.figure.color.light === light })),
     options(m) { return this.choices(m).map((c) => { const recolour = (mm) => ({ ...mm, figure: { ...mm.figure, color: { ...mm.figure.color, ...c.hsl }, shiny: undefined } });
       return { ...c, figure: recolour(m).figure, apply: recolour }; }); } },
-  colour: { id: "colour", label: "Tune", kind: "colour", target: "coat", region: "coat", note: "The coat in HSL, RGB or hex (kept in sync), and the accent its spots and patterns take." },
-  backdrop: { id: "backdrop", label: "Backdrop", kind: "radio", region: "backdrop", stage: true, note: "Scenes, and colour backdrops painted in the Backdrop colour.",
-    choices: (m) => [...Object.keys(BACKDROPS), ...Object.keys(COLOUR_BACKDROPS)].map((id) => ({ key: id, label: BACKDROP_NAMES[id] ?? human(id), selected: m.scene.backdrop === id })),
+  colour: { id: "colour", label: "Coat colour", hint: "Any colour, in HSL, RGB or hex; and the accent of its spots", kind: "colour", target: "coat", region: "coat" },
+  backdrop: { id: "backdrop", label: "Backdrop", hint: "Behind it on the call's stage; the colour ones take the colour below", kind: "radio", region: "backdrop", stage: true, editor: "tint",
+    choices: (m) => [...Object.keys(BACKDROPS), ...Object.keys(COLOUR_BACKDROPS)].map((id) => ({ key: id, label: NAMES.BACKDROPS[id] ?? id, selected: m.scene.backdrop === id,
+      theme: id in COLOUR_BACKDROPS || id === "tone" || id === "plain" ? "Colours" : "Scenes" })).sort((a, b) => (a.theme === b.theme ? 0 : a.theme === "Colours" ? -1 : 1)),
     options(m) { return this.choices(m).map((c) => ({ ...c, scene: { ...m.scene, backdrop: c.key }, apply: (mm) => ({ ...mm, scene: { ...mm.scene, backdrop: c.key } }) })); } },
-  desk: { id: "desk", label: "Desk", kind: "radio", region: "desk", stage: true, mood: "working",
-    choices: (m) => Object.keys(DESK_TOPS).map((id) => ({ key: id, label: human(id), selected: m.scene.desk.top === id })),
+  tint: { id: "tint", label: "Backdrop colour", hint: "The colour of Its colour, Flat colour, Fade and Two-tone", kind: "colour", target: "tint", region: "tint" },
+  desk: { id: "desk", label: "Desk", hint: "The desk it works at", kind: "radio", region: "desk", stage: true, mood: "working",
+    choices: (m) => Object.keys(DESK_TOPS).map((id) => ({ key: id, label: NAMES.DESKS[id] ?? id, selected: m.scene.desk.top === id })),
     options(m) { return this.choices(m).map((c) => ({ ...c, scene: { ...m.scene, desk: { ...m.scene.desk, top: c.key } }, apply: (mm) => ({ ...mm, scene: { ...mm.scene, desk: { ...mm.scene.desk, top: c.key } } }) })); } },
-  props: { id: "props", label: "On the desk", kind: "check", region: "props", mood: "working", note: `Up to ${MAX_DESK_PROPS}, left, right, then left again: the number is its place.`,
-    choices: (m) => Object.keys(DESK_PROPS).map((id) => { const at = m.scene.desk.props.indexOf(id); return { key: id, label: human(id), selected: at >= 0, badge: at >= 0 ? String(at + 1) : "", prop: id }; }),
+  props: { id: "props", label: "On the desk", hint: `Up to ${MAX_DESK_PROPS} things; the number is where it stands`, kind: "check", region: "props", mood: "working",
+    choices: (m) => Object.keys(DESK_PROPS).map((id) => { const at = m.scene.desk.props.indexOf(id); return { key: id, label: NAMES.DESK_PROPS[id] ?? id, selected: at >= 0, badge: at >= 0 ? String(at + 1) : "", prop: id }; }),
     options(m) { return this.choices(m).map((c) => ({ ...c, apply: (mm) => { const list = mm.scene.desk.props; const next = list.includes(c.key) ? list.filter((p) => p !== c.key) : [...list, c.key].slice(-MAX_DESK_PROPS); return { ...mm, scene: { ...mm.scene, desk: { ...mm.scene.desk, props: next } } }; } })); } },
-  tint: { id: "tint", label: "Backdrop colour", kind: "colour", target: "tint", region: "tint",
-    note: "The colour the colour backdrops (Its colour, Flat, Fade, Duo) are painted in; by default the creature's own." },
-  work: movesSection("work", "While working", "works", worksFor, WORK_NAMES, "working"),
-  idle: movesSection("idle", "While idle", "idles", idlesFor, IDLE_NAMES, "idle"),
+  work: movesSection("work", "While working", "What it does when the agent works; it takes turns", "works", worksFor, NAMES.WORKS, "working"),
+  idle: movesSection("idle", "While idle", "What it does while it waits; it takes turns", "idles", idlesFor, NAMES.IDLES, "idle"),
 };
+for (const slot of SLOTS) S[slot.id] = partSection(slot.id);
+
 /** Moves: the styles it may take, several at once and at least one; it takes turns between them. */
-function movesSection(id, label, key, can, names, mood) {
+function movesSection(id, label, hint, key, can, names, mood) {
   return {
-    id, label, kind: "check", region: id, stage: true, mood, live: true, note: "Every one picked is in its rotation; at least one stays on.",
-    choices: (m) => { const all = can(m.figure); return all.map((x) => ({ key: x, label: names[x] ?? human(x), selected: allowed(m.moves[key], all).includes(x) })); },
+    id, label, hint, kind: "check", region: "moves", stage: true, mood, live: true, note: "At least one stays on.",
+    choices: (m) => { const all = can(m.figure); return all.map((x) => ({ key: x, label: names[x] ?? x, selected: allowed(m.moves[key], all).includes(x) })); },
     options(m) {
       return this.choices(m).map((c) => ({ ...c, [id]: c.key, apply: (mm) => {
         const all = can(mm.figure), on = allowed(mm.moves[key], all);
@@ -264,38 +270,31 @@ function movesSection(id, label, key, can, names, mood) {
     random: (m) => { const all = can(m.figure); const pick = all.filter(() => Math.random() < 0.5); return { ...m, moves: { ...m.moves, [key]: pick.length ? pick : [all[Math.floor(Math.random() * all.length)]] } }; },
   };
 }
-for (const slot of SLOTS) S[slot.id] = partSection(slot.id);
-const FAMILY_SECTIONS = FAMILIES.map((f) => speciesSection(`family-${f.id}`, FAMILY_NAMES[f.id] ?? human(f.id), MEMBERS.filter((x) => x.family === f.id)));
-for (const s of FAMILY_SECTIONS) S[s.id] = s;
 
-/** The categories: tabs in the tabbed layout, groups of rows or cards in the others. */
+/** The sections, grouped: the creator's list and the overview's rows. */
 const GROUPS = [
-  { id: "species", label: "Species", icon: "paw", zoom: "full", tabs: FAMILY_SECTIONS.map((s) => s.id), rows: ["species"] },
-  { id: "body", label: "Body", icon: "blob", zoom: "full", rows: ["body"] },
-  { id: "face", label: "Face", icon: "face", zoom: "face", rows: ["eyes", "mouth", "nose", "cheeks", "marks"] },
-  { id: "head", label: "Head", icon: "crown", zoom: "head", rows: ["top", "headgear", "earwear", "eyewear"] },
-  { id: "limbs", label: "Limbs", icon: "hand", zoom: "full", rows: ["arms", "legs", "tail", "back"] },
-  { id: "extras", label: "Extras", icon: "gem", zoom: "full", rows: ["pattern", "neckwear", "held", "pins"] },
-  { id: "colour", label: "Colour", icon: "palette", zoom: "full", rows: ["swatch", "colour"] },
-  { id: "scene", label: "Scene", icon: "mountain", zoom: "scene", rows: ["backdrop", "tint", "desk", "props"] },
-  { id: "moves", label: "Moves", icon: "zap", zoom: "scene", rows: ["work", "idle"] },
+  { id: "creature", label: "Creature", rows: ["kind", "variant", "body"] },
+  { id: "face", label: "Face", rows: ["eyes", "mouth", "nose", "cheeks", "marks"] },
+  { id: "head", label: "Head", rows: ["top", "headgear", "earwear", "eyewear"] },
+  { id: "body", label: "Body", rows: ["arms", "legs", "tail", "back", "pattern"] },
+  { id: "extras", label: "Accessories", rows: ["neckwear", "held", "pins"] },
+  { id: "colour", label: "Colour", rows: ["swatch"] },
+  { id: "scene", label: "Scene", rows: ["backdrop", "desk", "props"] },
+  { id: "moves", label: "Moves", rows: ["work", "idle"] },
 ];
-// Any slot a newer engine adds and no group names yet still gets a place, in Extras.
+// Any slot a newer engine adds and no group names yet still gets a place, in Accessories.
 {
   const named = new Set(GROUPS.flatMap((g) => g.rows));
   for (const s of SLOTS) if (!named.has(s.id)) GROUPS.find((g) => g.id === "extras").rows.push(s.id);
 }
-const groupOf = (sectionId) => GROUPS.find((g) => g.rows.includes(sectionId) || g.tabs?.includes(sectionId));
-const zoomOf = (s) => (s.stage ? "scene" : s.prop ? "props" : groupOf(s.id)?.zoom ?? "full");
-const tabSections = (g) => (g.tabs ?? g.rows).map((id) => S[id]);
+const ORDER = GROUPS.flatMap((g) => g.rows);
+const zoomOf = (s) => (s.stage ? "scene" : s.region === "props" ? "props" : s.region === "creature" || s.region === "coat" ? "full" : "part");
 
 // ---------- the customiser's state ----------
 
-const LAYOUTS = [["tabs", "Tabs", "tabs"], ["overview", "Overview", "rows"]];
-const ui = { member: saved, opened: saved, history: [], future: [], layout: "tabs", tab: 0, section: Object.fromEntries(GROUPS.map((g) => [g.id, 0])),
-  previewMood: "idle", colourMode: "hsl", colourBase: null, active: null };
-const group = () => GROUPS[ui.tab];
-const section = () => tabSections(group())[ui.section[group().id]];
+const LAYOUTS = [["creator", "Creator", "creator"], ["overview", "Overview", "rows"]];
+const ui = { member: saved, opened: saved, history: [], future: [], layout: "creator", optionsMode: "right", drilled: false, active: "kind", open: null,
+  previewMood: "idle", colourMode: "hsl", colourBase: null };
 
 function change(next, opts = {}) {
   ui.history.push(ui.member);
@@ -317,10 +316,21 @@ function open() {
   focusFirst();
 }
 
-function setLayout(id) {
-  ui.layout = LAYOUTS.some(([l]) => l === id) ? id : "tabs";
+/** The creator's sub-option: options beside the creature ("right") or in the menu itself ("drill"). */
+function setOptions(id) {
+  ui.optionsMode = id === "drill" ? "drill" : "right";
+  ui.drilled = false;
   const url = new URL(location.href);
-  if (ui.layout === "tabs") url.searchParams.delete("layout"); else url.searchParams.set("layout", ui.layout);
+  if (ui.optionsMode === "right") url.searchParams.delete("options"); else url.searchParams.set("options", "drill");
+  history.replaceState(null, "", url);
+  draw();
+  focusFirst();
+}
+
+function setLayout(id) {
+  ui.layout = LAYOUTS.some(([l]) => l === id) ? id : "creator";
+  const url = new URL(location.href);
+  if (ui.layout === "creator") url.searchParams.delete("layout"); else url.searchParams.set("layout", ui.layout);
   history.replaceState(null, "", url);
   draw();
   focusFirst();
@@ -329,88 +339,98 @@ function setLayout(id) {
 /** Everything that shows the member, in the layout in use; the focus is put back on the redrawn twin of what had it. */
 function draw({ keepTiles = false } = {}) {
   const had = document.activeElement;
-  const memo = had && { id: had.id, key: had.dataset?.key, slot: had.dataset?.slot, in: had.closest("[data-tiles]")?.dataset.tiles,
-    where: had.closest("#tabs") ? "tabs" : had.closest("#sections") ? "sections" : null };
-  const dialog = $("customiser");
-  dialog.dataset.layout = ui.layout;
+  const memo = had && { id: had.id, key: had.dataset?.key, slot: had.dataset?.slot, go: had.dataset?.go, in: had.closest("[data-tiles]")?.dataset.tiles };
+  $("customiser").dataset.layout = ui.layout;
+  $("options-mode").hidden = ui.layout !== "creator";
+  $("options-mode").innerHTML = [["right", "Beside the creature"], ["drill", "In the menu"]].map(([id, label]) => `<button type="button" role="radio" aria-checked="${id === ui.optionsMode}" tabindex="${id === ui.optionsMode ? 0 : -1}" data-set-options="${id}" title="Options: ${label.toLowerCase()}">${label}</button>`).join("");
   $("layouts").innerHTML = LAYOUTS.map(([id, label, ic]) => `<button type="button" role="radio" aria-checked="${id === ui.layout}" tabindex="${id === ui.layout ? 0 : -1}" data-set-layout="${id}" title="${label} layout (L)">${icon(ic, 15)}<span>${label}</span></button>`).join("");
-  $("tabs-layout").hidden = ui.layout !== "tabs";
-  $("alt").hidden = ui.layout === "tabs";
-  if (ui.layout === "tabs") drawTabsLayout(keepTiles); else drawOverview(keepTiles);
+  if (ui.layout === "creator") drawCreator(keepTiles); else drawOverview(keepTiles);
   syncActions();
   if (document.activeElement === had && had?.isConnected) return;
   restoreFocus(memo);
 }
 
 function syncActions() {
-  dialogButton("undo").disabled = !ui.history.length;
-  dialogButton("redo").disabled = !ui.future.length;
+  for (const b of $("customiser").querySelectorAll('[data-run="undo"]')) b.disabled = !ui.history.length;
+  for (const b of $("customiser").querySelectorAll('[data-run="redo"]')) b.disabled = !ui.future.length;
   if (document.activeElement !== $("name")) $("name").value = ui.member.name;
   $("config").textContent = memberJson(ui.member);
 }
-const dialogButton = (run) => $("customiser").querySelector(`.cz-head [data-run="${run}"]`);
 
 function restoreFocus(memo) {
   if (!memo || !$("customiser").open) return;
-  if (memo.where === "tabs") return $(`tab-${group().id}`)?.focus();
-  if (memo.where === "sections") return $("sections").querySelector('[aria-selected="true"]')?.focus();
   if (memo.in) { const box = document.querySelector(`[data-tiles="${memo.in}"]`); if (box) return focusTiles(box, memo.key); }
+  if (memo.go) return document.querySelector(`[data-go="${memo.go}"]`)?.focus();
   if (memo.slot) return document.querySelector(`.slot[data-slot="${memo.slot}"]`)?.focus();
   if (memo.id && $(memo.id)) return $(memo.id).focus();
   focusFirst();
 }
 function focusFirst() {
-  if (ui.layout === "tabs") return focusTiles($("grid"));
-  const slot = (ui.active && document.querySelector(`.slot[data-slot="${ui.active}"]`)) || document.querySelector("#alt .slot");
+  if (ui.layout === "creator") return document.querySelector(`[data-go="${ui.active}"]`)?.focus();
+  const slot = (ui.open && document.querySelector(`.slot[data-slot="${ui.open}"]`)) || document.querySelector("#alt .slot");
   slot?.focus();
 }
 
-// ---------- the stage preview (every layout) ----------
-
-function stageInto(box, { over = "" } = {}) {
+function stageInto(box) {
   const m = ui.member;
-  box.innerHTML = stageHtml(m, { mood: ui.previewMood, work: workOf(m), idle: idleOf(m), over });
+  box.innerHTML = stageHtml(m, { mood: ui.previewMood, work: workOf(m), idle: idleOf(m) });
   scaler.observe(box.firstElementChild);
 }
 const moodsInto = (el) => moodSeg(el, ui.previewMood, (mood) => { ui.previewMood = mood; draw(); });
 
-// ---------- tiles (every layout) ----------
+// ---------- tiles ----------
 
 function tilePreview(o, s) {
   const m = ui.member;
   if (o.prop) return `<svg class="prop-thumb" viewBox="-40 -80 80 86" aria-hidden="true">${ownIds(DESK_PROPS[o.prop][1])}</svg>`;
-  if (s.stage) return stageHtml(m, { mood: s.mood ?? "idle", scene: o.scene ?? m.scene, height: 110, work: o.work ?? workOf(m), idle: o.idle ?? idleOf(m) });
-  return avatarHtml(o.figure ?? m.figure);
+  if (s.stage) return stageHtml(m, { mood: s.mood ?? "idle", scene: o.scene ?? m.scene, height: 120, work: o.work ?? workOf(m), idle: o.idle ?? idleOf(m) });
+  const figure = o.figure ?? m.figure;
+  return zoomOf(s) === "part" ? crop(avatarHtml(figure), s.region, figure) : avatarHtml(figure);
 }
 
 function tileHtml(o, s, focusable) {
   const role = s.kind === "check" ? "checkbox" : "radio";
   const swaps = o.swapLine ? `<span class="tile-warn" title="Also changes ${o.swaps.join("; ")}">${icon("swap", 11)}${o.swapLine}</span>` : "";
-  const title = [o.label, o.sub, o.rarity && `(${o.rarity})`, o.swaps?.length && `also changes ${o.swaps.join("; ")}`].filter(Boolean).join(" · ");
+  const title = [o.label, o.rarity && `(${o.rarity})`, o.swaps?.length && `also changes ${o.swaps.join("; ")}`].filter(Boolean).join(" · ");
   return `<button type="button" class="tile${o.dice ? " dice" : ""}${o.rarity ? ` ${o.rarity}` : ""}" role="${role}" aria-checked="${o.selected}" tabindex="${focusable ? 0 : -1}" data-key="${o.key}" title="${title}">
-<span class="thumb">${tilePreview(o, s)}${o.dice ? `<span class="dice-mark">${icon("dice", 22)}</span>` : ""}</span>
-<span class="tile-label">${o.label}</span>${swaps}${o.rarity ? `<i class="rarity">${o.rarity === "rare" ? "★" : "◆"}</i>` : ""}${o.badge ? `<i class="badge">${o.badge}</i>` : ""}<i class="tick">${icon("check", 14)}</i></button>`;
+<span class="thumb">${tilePreview(o, s)}</span>
+<span class="tile-label">${o.label}</span>${swaps}${o.rarity ? `<i class="rarity" title="${o.rarity}">${o.rarity === "rare" ? "★" : "◆"}</i>` : ""}${o.badge ? `<i class="badge">${o.badge}</i>` : ""}<i class="tick">${icon("check", 14)}</i></button>`;
 }
 
-/** A box of tiles for section `s`: the grid of the tabbed layout, or a row's strip. */
+/** A box of tiles for section `s`, under its themes' headings: the creator's grid, or an overview row's strip. */
 function tilesInto(box, s, { focusKey } = {}) {
   box.dataset.tiles = s.id;
   box.dataset.zoom = zoomOf(s);
   box.dataset.kind = s.kind;
   box.toggleAttribute("data-live", Boolean(s.live));
   box.setAttribute("aria-label", s.label);
-  if (s.kind === "colour") { box.dataset.target = s.target ?? "coat"; box.setAttribute("role", "group"); box.innerHTML = colourHtml(box.dataset.target); syncColour(box); return; }
+  if (s.kind === "colour") { box.dataset.target = s.target; box.setAttribute("role", "group"); box.innerHTML = colourHtml(s.target); syncColour(box); return; }
   box.setAttribute("role", s.kind === "check" ? "group" : "radiogroup");
   const options = s.options(ui.member);
+  if (!options.length) { box.innerHTML = `<p class="empty">${s.hint}</p>`; return; }
   const at = Math.max(0, options.findIndex((o) => (focusKey ? o.key === focusKey : o.selected)));
-  box.innerHTML = options.map((o, i) => tileHtml(o, s, i === at)).join("");
+  const themes = new Set(options.map((o) => o.theme).filter(Boolean));
+  let last = null;
+  box.innerHTML = options.map((o, i) => {
+    const head = themes.size > 1 && o.theme !== last ? `<h4 class="tile-theme">${o.theme === kindTheme(ui.member) && o.theme !== "Classic" ? `For a ${creatureOf(ui.member.figure).kind.name.toLowerCase()}` : o.theme}</h4>` : "";
+    last = o.theme;
+    return head + tileHtml(o, s, i === at);
+  }).join("");
+  // A section with a colour editor (coat, backdrop) shows it under its tiles; an overview strip, under the strip.
+  const host = box.closest(".ov-row") ?? box;
+  host.querySelector(".inline-editor")?.remove();
+  if (s.editor) {
+    host.insertAdjacentHTML("beforeend", `<div class="inline-editor" data-target="${s.editor}"><h4 class="tile-theme">${s.editor === "tint" ? "Backdrop colour" : "Any colour"}</h4>${colourHtml(s.editor)}</div>`);
+    syncColour(host.querySelector(".inline-editor"));
+  }
 }
 
 /** After a pick inside the same box: the tiles' pictures stand (they differ in this slot only), their state moves. */
 function refreshTiles(box, s) {
   if (s.kind === "colour") return syncColour(box);
-  const options = s.options(ui.member);
-  for (const o of options) {
+  const editor = (box.closest(".ov-row") ?? box).querySelector(".inline-editor");
+  if (editor) syncColour(editor);
+  for (const o of s.options(ui.member)) {
     const tile = box.querySelector(`[data-key="${CSS.escape(o.key)}"]`);
     if (!tile) continue;
     tile.setAttribute("aria-checked", String(o.selected));
@@ -423,11 +443,11 @@ function refreshTiles(box, s) {
 }
 
 function focusTiles(box, key) {
-  const tile = (key && box.querySelector(`[data-key="${CSS.escape(key)}"]`)) || box.querySelector('[tabindex="0"]') || box.querySelector("button, input");
+  const tile = (key && box.querySelector(`[data-key="${CSS.escape(key)}"]`)) || box.querySelector('.tile[tabindex="0"]') || box.querySelector("button, input");
   tile?.focus();
 }
 
-/** A pick: species, body and colour picks change every tile's picture, so their box is drawn again; others only move. */
+/** A pick: picks that change the whole figure draw the tiles again (their pictures change); others only move state. */
 function pickIn(s, key) {
   const o = s.options(ui.member).find((x) => x.key === key);
   if (!o) return;
@@ -435,25 +455,59 @@ function pickIn(s, key) {
   const next = o.apply(ui.member);
   if (next === ui.member) return;
   if (s.mood) ui.previewMood = s.mood;
-  const reshapes = /^(species|family-|body|swatch)/.test(s.id) || s.stage;
+  const reshapes = ["kind", "variant", "body", "swatch"].includes(s.id) || s.stage;
   change(next, { keepTiles: !reshapes });
 }
 
-/** ‹ › on a row or a card: the next or previous choice of a radio section. */
+/** ‹ › on an overview row: the next or previous choice of a radio section. */
 function cycle(s, step) {
   if (s.kind !== "radio") return;
-  const list = s.choices(ui.member).filter((c) => !c.dice);
+  const list = s.choices(ui.member);
+  if (!list.length) return;
   const at = list.findIndex((c) => c.selected);
   const next = list[(at + step + list.length) % list.length];
   if (s.mood) ui.previewMood = s.mood;
-  const o = s.options(ui.member).find((x) => x.key === next.key);
-  change(o.apply(ui.member));
+  change(s.options(ui.member).find((x) => x.key === next.key).apply(ui.member));
+}
+
+/** Arrow keys over tiles: a 2-D roving focus by position; in a radio box the selection follows. */
+function tileKeys(event, box) {
+  const tiles = [...box.querySelectorAll(".tile:not(.shiny)")];
+  const here = document.activeElement;
+  const i = tiles.indexOf(here);
+  if (i < 0) return false;
+  let next;
+  if (event.key === "ArrowRight") next = tiles[i + 1];
+  else if (event.key === "ArrowLeft") next = tiles[i - 1];
+  else if (event.key === "Home") next = tiles[0];
+  else if (event.key === "End") next = tiles.at(-1);
+  else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const r = here.getBoundingClientRect(), down = event.key === "ArrowDown";
+    let best = null, score = Infinity;
+    for (const t of tiles) {
+      const q = t.getBoundingClientRect();
+      const dy = down ? q.top - r.top : r.top - q.top;
+      if (dy < 8) continue;
+      const d = dy * 4 + Math.abs(q.left - r.left);
+      if (d < score) { score = d; best = t; }
+    }
+    next = best;
+  } else return false;
+  if (!next) return event.key === "ArrowLeft" || event.key === "ArrowUp" ? false : (event.preventDefault(), true);
+  event.preventDefault();
+  for (const t of tiles) t.tabIndex = t === next ? 0 : -1;
+  next.focus();
+  next.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const s = S[box.dataset.tiles];
+  if (s.kind === "radio") pickIn(s, next.dataset.key);
+  return true;
 }
 
 // ---------- the colour editor: HSL, RGB or hex, kept in sync; the picker is the platform's ----------
 
 const COLOUR_MODES = [["hsl", "HSL"], ["rgb", "RGB"], ["hex", "Hex"]];
 const colourOf = (target, m = ui.member) => (target === "tint" ? m.scene.tint ?? m.figure.color : m.figure.color);
+const coatHex = (c) => rgbToHex(hslToRgb(c));
 function withColour(target, m, c) {
   return target === "tint" ? { ...m, scene: { ...m.scene, tint: { hue: c.hue, sat: c.sat, light: c.light } } }
     : { ...m, figure: { ...m.figure, color: c, shiny: undefined } };
@@ -470,16 +524,16 @@ function colourHtml(target) {
 <label>Hex <input type="text" data-col="hex" value="${rgbToHex([r, g, b])}" maxlength="7" spellcheck="false" autocomplete="off"></label></div>`;
   return `<div class="tune" data-mode="${mode}">
 <div class="seg colour-modes" role="radiogroup" aria-label="Colour as">${COLOUR_MODES.map(([id, label]) => `<button type="button" role="radio" aria-checked="${id === mode}" data-colmode="${id}">${label}</button>`).join("")}</div>
-<span class="coat-chip" style="background:${rgbToHex([r, g, b])}" title="The coat"></span>
-${fields}${target === "coat" ? `${slider("spot", "Accent", 359, c.spot)}
+<span class="coat-chip" title="The colour"></span>
+${fields}${target === "coat" ? `${slider("spot", "Accent (spots and patterns)", 359, c.spot)}
 <button type="button" class="tile shiny" role="switch" aria-checked="${Boolean(ui.member.figure.shiny)}" data-run="shiny" title="The legendary gold coat">
-<span class="thumb">${avatarHtml({ ...ui.member.figure, shiny: true })}</span><span class="tile-label">Shiny</span><i class="tick">${icon("check", 14)}</i></button>`
+<span class="thumb">${avatarHtml({ ...ui.member.figure, shiny: true })}</span><span class="tile-label">Shiny gold</span><i class="tick">${icon("check", 14)}</i></button>`
   : `<button type="button" class="act own-colour" data-run="untint" ${ui.member.scene.tint ? "" : "disabled"}>Use its own colour</button>`}</div>`;
 }
 
 /** The editor's fields from the member, without drawing them again (a slider being dragged keeps its grip). */
 function syncColour(box) {
-  const c = { spot: 0, ...colourOf(box.dataset.target) };
+  const c = { spot: ui.member.figure.color.spot, ...colourOf(box.dataset.target) };
   const rgb = hslToRgb(c), hex = rgbToHex(rgb);
   const values = { hue: c.hue, sat: c.sat, light: c.light, spot: c.spot, r: rgb[0], g: rgb[1], b: rgb[2], picker: hex, hex };
   for (const input of box.querySelectorAll("[data-col]")) {
@@ -496,8 +550,7 @@ function syncColour(box) {
   for (const input of box.querySelectorAll("input[type=range]")) input.style.setProperty("--track", tracks[input.dataset.col]);
   const chip = box.querySelector(".coat-chip");
   if (chip) chip.style.background = hex;
-  const shiny = box.querySelector("[data-run=shiny]");
-  if (shiny) shiny.setAttribute("aria-checked", String(Boolean(ui.member.figure.shiny)));
+  box.querySelector("[data-run=shiny]")?.setAttribute("aria-checked", String(Boolean(ui.member.figure.shiny)));
   const own = box.querySelector("[data-run=untint]");
   if (own) own.disabled = !ui.member.scene.tint;
 }
@@ -505,151 +558,152 @@ function syncColour(box) {
 /** One edit from the editor: the first of a drag is one undo step; the preview follows every move. */
 function colourInput(input, committed) {
   const key = input.dataset.col;
-  const target = input.closest("[data-target]").dataset.target;
+  const box = input.closest("[data-target]");
+  const target = box.dataset.target;
   const c = { spot: ui.member.figure.color.spot, ...colourOf(target) };
   let next;
   if (["hue", "sat", "light", "spot"].includes(key)) next = { ...c, [key]: Number(input.value) };
   else if (["r", "g", "b"].includes(key)) { const rgb = hslToRgb(c); rgb["rgb".indexOf(key)] = Number(input.value); next = { ...c, ...rgbToHsl(rgb) }; }
-  else { const rgb = hexToRgb(input.value); if (!rgb) { if (committed) syncColour(input.closest("[data-tiles]")); return; } next = { ...c, ...rgbToHsl(rgb) }; }
+  else { const rgb = hexToRgb(input.value); if (!rgb) { if (committed) syncColour(box); return; } next = { ...c, ...rgbToHsl(rgb) }; }
   if (!ui.colourBase) { ui.colourBase = ui.member; ui.history.push(ui.member); ui.future = []; }
   ui.member = crewMember(key === "spot" ? { ...ui.member, figure: { ...ui.member.figure, color: next } } : withColour(target, ui.member, next));
   if (committed) { ui.colourBase = null; draw({ keepTiles: true }); return; }
-  syncColour(input.closest("[data-tiles]"));
+  syncColour(box);
   previewOnly();
 }
 /** The stage and the small views, while a slider moves. */
 function previewOnly() {
-  const stage = document.querySelector(ui.layout === "tabs" ? "#preview" : "#alt-stage");
+  const stage = $("cz-stage");
   if (stage) stageInto(stage);
-  if (ui.layout === "tabs") drawSmallPreviews();
   syncActions();
 }
 
-// ---------- layout 1: tabs ----------
+// ---------- layout 1: creator (list | creature | options) ----------
 
-function drawTabsLayout(keepTiles) {
-  $("tabs").innerHTML = GROUPS.map((g, i) => `<button type="button" role="tab" id="tab-${g.id}" aria-selected="${i === ui.tab}" tabindex="${i === ui.tab ? 0 : -1}" data-tab="${i}" title="${g.label} (${i + 1})">
-${icon(g.icon, 20)}<span>${g.label}</span></button>`).join("");
-  const list = tabSections(group());
-  $("sections").hidden = list.length < 2;
-  $("sections").innerHTML = list.map((s, i) => `<button type="button" role="tab" aria-selected="${i === ui.section[group().id]}" tabindex="${i === ui.section[group().id] ? 0 : -1}" data-section="${i}">${s.label}</button>`).join("");
-  $("section-note").textContent = section().note ?? "";
-  $("section-tools").innerHTML = (section().kind === "colour" ? "" : diceButton(section())) + (group().id === "species" ? diceButton(S.species) : "")
-    + (section().kind === "colour" ? diceButton(section(), { label: section().target === "tint" ? "Random backdrop colour" : "Random coat" }) : "");
-  const grid = $("grid");
-  if (keepTiles && grid.dataset.tiles === section().id) refreshTiles(grid, section()); else tilesInto(grid, section());
-  stageInto($("preview"));
-  moodsInto($("preview-moods"));
-  drawSmallPreviews();
+function drawCreator(keepTiles) {
+  const alt = $("alt");
+  const s = S[ui.active];
+  const drill = ui.optionsMode === "drill";
+  const grid = alt.querySelector("#cr-grid");
+  if (keepTiles && grid && grid.dataset.tiles === s.id && alt.dataset.layout === "creator" && alt.dataset.options === ui.optionsMode) {
+    refreshTiles(grid, s);
+    stageInto($("cz-stage"));
+    $("cr-traits").textContent = describe(ui.member);
+    return;
+  }
+  const i = ORDER.indexOf(s.id);
+  const prev = S[ORDER[(i - 1 + ORDER.length) % ORDER.length]], next = S[ORDER[(i + 1) % ORDER.length]];
+  alt.dataset.layout = "creator";
+  alt.dataset.options = ui.optionsMode;
+  const list = `<nav class="cr-list" aria-label="What to edit">${GROUPS.map((g) => `<div class="cr-group"><h3>${g.label}</h3>
+${g.rows.map((id) => `<button type="button" class="cr-item" data-go="${id}" ${id === ui.active ? 'aria-current="true" tabindex="0"' : 'tabindex="-1"'}>${S[id].label}${drill ? `<span aria-hidden="true">${icon("next", 14)}</span>` : ""}</button>`).join("")}</div>`).join("")}</nav>`;
+  const options = `<section class="cr-options" aria-labelledby="cr-title">
+${drill ? `<button type="button" class="cr-back" data-run="back" title="Back to the list (Esc)">${icon("prev", 16)}All parts</button>` : ""}
+<header class="cr-head"><button type="button" class="step" data-go="${prev.id}" data-step tabindex="-1" title="${prev.label} (Q or Page Up)" aria-label="Previous section: ${prev.label}">${icon("prev", 18)}</button>
+<div class="cr-title"><h3 id="cr-title">${s.label}</h3><small>${s.hint ?? ""}</small></div>
+<button type="button" class="step" data-go="${next.id}" data-step tabindex="-1" title="${next.label} (E or Page Down)" aria-label="Next section: ${next.label}">${icon("next", 18)}</button></header>
+<div class="cr-tools">${s.kind === "colour" ? "" : diceButton(s)}${s.note ? `<p class="cr-note">${s.note}</p>` : ""}</div>
+<div id="cr-grid" class="grid"></div>
+<p class="cr-keys">${drill ? "<kbd>Esc</kbd> back to the list" : "<kbd>↑</kbd><kbd>↓</kbd> section · <kbd>→</kbd>/<kbd>Enter</kbd> into the options · <kbd>Esc</kbd> back"} · <kbd>Q</kbd><kbd>E</kbd> step</p></section>`;
+  // The creature is the hero: the stage fills its card, with the edit tools floating over it and the moods under it.
+  const tool = (run, ic, label, keys) => `<button type="button" class="tool" data-run="${run}" title="${label} (${keys})" aria-label="${label}">${icon(ic, 18)}</button>`;
+  const stage = `<section class="cr-stage" aria-label="Your creature"><div id="cz-stage" class="preview-stage"></div>
+<div class="cr-toolbar" role="toolbar" aria-label="Edit">${tool("undo", "undo", "Undo", "Z")}${tool("redo", "redo", "Redo", "Shift+Z")}<span class="sep"></span>${tool("reset", "reset", "Reset", "Backspace")}
+<button type="button" class="tool wide" data-run="random" title="A whole new creature (R)">${icon("dice", 17)}<span>Randomise all</span></button></div>
+<div class="cr-bottom"><div class="seg" id="cz-moods" role="radiogroup" aria-label="Preview as"></div><p class="traits" id="cr-traits">${describe(ui.member)}</p></div></section>`;
+  alt.innerHTML = drill ? `<div class="cr-panel${ui.drilled ? " in" : ""}">${ui.drilled ? options : list}</div>${stage}` : list + stage + options;
+  if (!drill || ui.drilled) tilesInto($("cr-grid"), s);
+  stageInto($("cz-stage"));
+  moodsInto($("cz-moods"));
 }
-function drawSmallPreviews() {
-  const m = ui.member;
-  $("preview-row").innerHTML = avatarHtml(m.figure, { size: "sidebar", mood: ui.previewMood === "speaking" ? "speaking" : "idle" });
-  $("preview-rail").innerHTML = avatarHtml(m.figure, { size: "sidebar" });
-  for (const el of document.querySelectorAll(".pv-name")) el.textContent = m.name;
-  $("traits").textContent = describe(m);
+
+/** Shows another section's options; `into` puts the focus on them, else on its list entry. */
+function go(id, { into = false } = {}) {
+  if (!S[id]) return;
+  ui.active = id;
+  if (ui.layout !== "creator") return;
+  if (ui.optionsMode === "drill") ui.drilled = into || ui.drilled && Boolean(document.activeElement?.closest(".cr-options"));
+  drawCreator(false);
+  syncActions();
+  if (into && $("cr-grid")) focusTiles($("cr-grid"));
+  else document.querySelector(`.cr-item[data-go="${id}"]`)?.focus();
 }
-function setTab(i) { ui.tab = (i + GROUPS.length) % GROUPS.length; draw(); $(`tab-${group().id}`).focus(); }
-function setSection(i) { const n = tabSections(group()).length; ui.section[group().id] = (i + n) % n; draw(); focusTiles($("grid")); }
+/** The drill-in menu's back arrow: the list again, on the section it came from. */
+function back() { ui.drilled = false; drawCreator(false); document.querySelector(`.cr-item[data-go="${ui.active}"]`)?.focus(); }
+const step = (n) => { const i = ORDER.indexOf(ui.active); go(ORDER[(i + n + ORDER.length) % ORDER.length], { into: Boolean(document.activeElement?.closest("#cr-grid")) || (ui.optionsMode === "drill" && ui.drilled) }); };
 
-// ---------- the slots' current values (overview rows) ----------
+// ---------- layout 2: overview (every section a row; one row opens its strip of options) ----------
 
-/** What a slot holds now: its label, and a picture of it. */
+/** What a section holds now: its label, and a picture of it. */
 function slotNow(s, m, figureHtml) {
   const picked = s.kind === "colour" ? [] : s.choices(m).filter((c) => c.selected);
-  const label = s.kind === "colour" ? (s.target === "tint" && !m.scene.tint ? "Its own colour" : coatHex(colourOf(s.target, m))) : picked.map((c) => c.label).join(" + ") || (s.kind === "check" ? "None" : s.id.startsWith("species") ? "Custom" : s.id === "swatch" ? (m.figure.shiny ? "Shiny" : coatHex(m.figure.color)) : "—");
+  let label = picked.map((c) => c.label).join(" + ");
+  if (s.kind === "colour") label = s.target === "tint" && !m.scene.tint ? "Its own colour" : coatHex(colourOf(s.target, m));
+  else if (!label) label = s.id === "swatch" ? (m.figure.shiny ? "Shiny gold" : "Custom colour") : s.id === "kind" || s.id === "variant" ? "Custom" : "None";
   let pic;
   if (s.region === "coat") pic = `<span class="dot" style="background:${m.figure.shiny ? "linear-gradient(135deg,#f6d36b,#c99a2e)" : coatHex(m.figure.color)}"></span>`;
   else if (s.region === "backdrop") pic = `<span class="crop scene-crop">${ownIds(sceneBackdropSvg(m.scene, m.figure.color))}</span>`;
   else if (s.region === "tint") pic = `<span class="dot" style="background:${coatHex(m.scene.tint ?? m.figure.color)}"></span>`;
   else if (s.region === "desk") pic = `<span class="dot" style="background:linear-gradient(${DESK_TOPS[m.scene.desk.top]?.[1]},${DESK_TOPS[m.scene.desk.top]?.[4]})"></span>`;
   else if (s.region === "props") pic = `<span class="crop prop-crop">${m.scene.desk.props[0] ? `<svg viewBox="-40 -80 80 86" aria-hidden="true">${ownIds(DESK_PROPS[m.scene.desk.props[0]][1])}</svg>` : ""}</span>`;
-  else if (s.region === "work" || s.region === "idle") pic = `<span class="dot glyph">${icon("zap", 16)}</span>`;
-  else pic = crop(figureHtml, s.region === "species" || s.region === "body" ? "" : s.region, m.figure);
+  else if (s.region === "moves") pic = `<span class="dot glyph">${icon("zap", 16)}</span>`;
+  else pic = crop(ownIds(figureHtml), s.region === "creature" ? "" : s.region, m.figure);
   return { label, pic };
 }
-const ROW_IDS = GROUPS.flatMap((g) => g.rows);
-
-// ---------- layout 2: overview (every slot a row; one row opens its strip of tiles) ----------
 
 function drawOverview(keepTiles) {
   const m = ui.member;
   const alt = $("alt");
   const strip = alt.querySelector(".strip[data-tiles]");
-  if (keepTiles && strip && strip.dataset.tiles === ui.active && alt.dataset.layout === "overview") {
-    refreshTiles(strip, S[ui.active]);
+  if (keepTiles && strip && strip.dataset.tiles === ui.open && alt.dataset.layout === "overview") {
+    refreshTiles(strip, S[ui.open]);
     fillRows(alt, m);
-    stageInto($("alt-stage"));
+    stageInto($("cz-stage"));
     return;
   }
   alt.dataset.layout = "overview";
-  alt.innerHTML = `<section class="ov-preview" aria-label="Preview"><div id="alt-stage" class="preview-stage"></div><div class="seg" id="alt-moods" role="radiogroup" aria-label="Preview as"></div>
-<p class="traits">${describe(m)}</p><p class="ov-help"><kbd>↑</kbd><kbd>↓</kbd> slot · <kbd>←</kbd><kbd>→</kbd> cycle · <kbd>Enter</kbd> all options · <kbd>Q</kbd><kbd>E</kbd> group</p></section>
-<section class="ov-list" aria-label="Every slot">${GROUPS.map((g) => `<div class="ov-group"><h3 data-group="${g.id}">${icon(g.icon, 15)}${g.label}</h3>
-${g.rows.map((id) => `<div class="ov-row${ui.active === id ? " open" : ""}" data-row="${id}"><div class="slot" tabindex="-1" data-slot="${id}" role="group" aria-label="${S[id].label}"></div>
-${ui.active === id ? `<div class="strip" data-tiles></div>${S[id].note ? `<p class="strip-note">${S[id].note}</p>` : ""}` : ""}</div>`).join("")}</div>`).join("")}</section>`;
+  alt.innerHTML = `<section class="ov-preview" aria-label="Your creature"><div id="cz-stage" class="preview-stage"></div><div class="seg" id="cz-moods" role="radiogroup" aria-label="Preview as"></div>
+<p class="traits"></p><p class="ov-help"><kbd>↑</kbd><kbd>↓</kbd> section · <kbd>←</kbd><kbd>→</kbd> cycle · <kbd>Enter</kbd> all options · <kbd>Q</kbd><kbd>E</kbd> group</p></section>
+<section class="ov-list" aria-label="Every section">${GROUPS.map((g) => `<div class="ov-group"><h3>${g.label}</h3>
+${g.rows.map((id) => `<div class="ov-row${ui.open === id ? " open" : ""}"><div class="slot" tabindex="-1" data-slot="${id}" role="group" aria-label="${S[id].label}"></div>
+${ui.open === id ? `<div class="strip" data-tiles></div>${S[id].note ? `<p class="strip-note">${S[id].note}</p>` : ""}` : ""}</div>`).join("")}</div>`).join("")}</section>`;
   fillRows(alt, m);
-  if (ui.active) { const box = alt.querySelector(".strip"); tilesInto(box, S[ui.active]); }
-  stageInto($("alt-stage"));
-  moodsInto($("alt-moods"));
-  rove(alt);
+  if (ui.open) tilesInto(alt.querySelector(".strip"), S[ui.open]);
+  stageInto($("cz-stage"));
+  moodsInto($("cz-moods"));
+  const slots = [...alt.querySelectorAll(".slot[data-slot]")];
+  const at = slots.find((x) => x.dataset.slot === ui.open) ?? slots[0];
+  for (const x of slots) x.tabIndex = x === at ? 0 : -1;
 }
 
-/** Each row's (or card's) face: its picture, its name, its value and its arrows. */
+/** Each row's face: its picture, its name, its value, its arrows and its dice. */
 function fillRows(root, m) {
   const figureHtml = avatarHtml(m.figure);
   for (const el of root.querySelectorAll(".slot[data-slot]")) {
     const s = S[el.dataset.slot];
     const now = slotNow(s, m, figureHtml);
-    const arrows = s.kind === "radio";
     el.innerHTML = `<span class="slot-pic">${now.pic}</span><span class="slot-text"><small>${s.label}</small><b>${now.label}</b></span>
-${arrows ? `<span class="cyc"><button type="button" tabindex="-1" data-cycle="-1" aria-label="Previous ${s.label}">‹</button><button type="button" tabindex="-1" data-cycle="1" aria-label="Next ${s.label}">›</button></span>` : ""}
-${diceButton(s, { small: true })}<span class="more" aria-hidden="true">${ui.active === s.id ? "▴" : "▾"}</span>`;
-    el.setAttribute("aria-expanded", String(ui.active === s.id));
-    el.classList.toggle("active", ui.active === s.id);
+${s.kind === "radio" ? `<span class="cyc"><button type="button" tabindex="-1" data-cycle="-1" aria-label="Previous ${s.label}">‹</button><button type="button" tabindex="-1" data-cycle="1" aria-label="Next ${s.label}">›</button></span>` : ""}
+${s.kind === "colour" ? "" : diceButton(s, { small: true })}<span class="more" aria-hidden="true">${ui.open === s.id ? "▴" : "▾"}</span>`;
+    el.setAttribute("aria-expanded", String(ui.open === s.id));
+    el.classList.toggle("active", ui.open === s.id);
   }
   const traits = root.querySelector(".traits");
   if (traits) traits.textContent = describe(m);
 }
-function rove(root) {
-  const slots = [...root.querySelectorAll(".slot[data-slot]")];
-  const at = slots.find((s) => s.dataset.slot === ui.active) ?? slots[0];
-  for (const s of slots) s.tabIndex = s === at ? 0 : -1;
-}
 
-function openSlot(id, { focus = true } = {}) {
-  ui.active = ui.active === id && ui.layout === "overview" ? null : id;
+function openRow(id) {
+  ui.open = ui.open === id ? null : id;
   draw();
-  const box = document.querySelector("#alt [data-tiles]");
-  if (focus && ui.active && box) focusTiles(box);
+  const box = document.querySelector("#alt .strip[data-tiles]");
+  if (ui.open && box) focusTiles(box);
   else document.querySelector(`.slot[data-slot="${id}"]`)?.focus();
-}
-
-// ---------- keyboard: grids of tiles ----------
-
-/** Arrow keys over tiles: a 2-D roving focus (a strip is one row); in a radio box the selection follows. */
-function tileKeys(event, box) {
-  const tiles = [...box.querySelectorAll(".tile:not(.shiny)")];
-  const i = tiles.indexOf(document.activeElement);
-  if (i < 0) return false;
-  const cols = Math.max(1, tiles.filter((t) => t.offsetTop === tiles[0].offsetTop).length);
-  const to = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + cols, ArrowUp: i - cols, Home: 0, End: tiles.length - 1 }[event.key];
-  if (to === undefined) return false;
-  // Leaving a strip upwards (or out of a one-row strip) goes back to its slot.
-  if (ui.layout !== "tabs" && (to < 0 || (event.key === "ArrowDown" && to >= tiles.length))) return false;
-  event.preventDefault();
-  const next = tiles[Math.min(tiles.length - 1, Math.max(0, to))];
-  for (const t of tiles) t.tabIndex = t === next ? 0 : -1;
-  next.focus();
-  next.scrollIntoView({ block: "nearest", inline: "nearest" });
-  const s = S[box.dataset.tiles];
-  if (s.kind === "radio" && !next.classList.contains("dice")) pickIn(s, next.dataset.key);
-  return true;
 }
 
 function slotKeys(event, el) {
   const slots = [...document.querySelectorAll("#alt .slot[data-slot]")];
   const i = slots.indexOf(el);
+  // (rows of the overview)
   const s = S[el.dataset.slot];
   const move = (to) => { const next = slots[(to + slots.length) % slots.length]; for (const x of slots) x.tabIndex = x === next ? 0 : -1; next.focus(); next.scrollIntoView({ block: "nearest" }); };
   switch (event.key) {
@@ -657,7 +711,7 @@ function slotKeys(event, el) {
     case "ArrowUp": move(i - 1); break;
     case "ArrowRight": cycle(s, 1); break;
     case "ArrowLeft": cycle(s, -1); break;
-    case "Enter": case " ": openSlot(s.id); break;
+    case "Enter": case " ": openRow(s.id); break;
     case "Home": move(0); break;
     case "End": move(slots.length - 1); break;
     default: return false;
@@ -666,55 +720,51 @@ function slotKeys(event, el) {
   return true;
 }
 
-/** Q / E in the overview: the first slot of the previous or next group. */
-function jumpGroup(step) {
+/** Q / E in the overview: the first row of the previous or next group. */
+function jumpGroup(n) {
   const slots = [...document.querySelectorAll("#alt .slot[data-slot]")];
-  const here = document.activeElement?.closest(".slot, [data-tiles]");
-  const id = here?.dataset.slot ?? here?.dataset.tiles ?? slots[0]?.dataset.slot;
+  const id = document.activeElement?.closest(".slot")?.dataset.slot ?? document.activeElement?.closest("[data-tiles]")?.dataset.tiles ?? slots[0]?.dataset.slot;
   const g = GROUPS.findIndex((x) => x.rows.includes(id));
-  for (let k = 1; k <= GROUPS.length; k += 1) {
-    const next = GROUPS[(g + step * k + GROUPS.length * k) % GROUPS.length];
-    const el = slots.find((x) => next.rows.includes(x.dataset.slot));
-    if (el) { for (const x of slots) x.tabIndex = x === el ? 0 : -1; el.focus(); el.scrollIntoView({ block: "nearest" }); return; }
-  }
+  const target = GROUPS[(g + n + GROUPS.length) % GROUPS.length];
+  const el = slots.find((x) => target.rows.includes(x.dataset.slot));
+  if (el) { for (const x of slots) x.tabIndex = x === el ? 0 : -1; el.focus(); el.scrollIntoView({ block: "nearest" }); }
 }
 
-// ---------- actions ----------
+// ---------- randomise, one section or all ----------
 
-/** Re-rolls one section and nothing else: one body, one coat, a few patterns, any species… */
+/** Re-rolls one section and nothing else: one body, one coat, a few patterns, any kind… */
 function randomIn(s) {
   if (!s) return;
   const m = ui.member;
   const any = (list) => list[Math.floor(Math.random() * list.length)];
   let next;
   if (s.random) next = s.random(m);
-  else if (s.kind === "colour") {
-    const c = { hue: Math.round(Math.random() * 360), sat: Math.round(30 + Math.random() * 55), light: Math.round(40 + Math.random() * 30) };
-    next = withColour(s.target, m, { ...m.figure.color, ...c });
-  } else if (s.id === "props") {
-    const pool = Object.keys(DESK_PROPS).sort(() => Math.random() - 0.5);
-    next = { ...m, scene: { ...m.scene, desk: { ...m.scene.desk, props: pool.slice(0, 2 + Math.round(Math.random())) } } };
-  } else if (s.kind === "check") {
-    const slot = s.id, max = SLOTS.find((x) => x.id === slot)?.max ?? 2;
-    let figure = withPart(m.figure, slot, null);
-    for (const p of partsIn(slot).sort(() => Math.random() - 0.5).slice(0, Math.floor(Math.random() * (max + 1)))) figure = withPart(figure, slot, p.id);
+  else if (s.kind === "colour") next = withColour(s.target, m, { ...m.figure.color, hue: Math.round(Math.random() * 360), sat: Math.round(30 + Math.random() * 55), light: Math.round(40 + Math.random() * 30) });
+  else if (s.id === "props") next = { ...m, scene: { ...m.scene, desk: { ...m.scene.desk, props: Object.keys(DESK_PROPS).sort(() => Math.random() - 0.5).slice(0, 2 + Math.round(Math.random())) } } };
+  else if (s.kind === "check") {
+    const max = SLOTS.find((x) => x.id === s.id)?.max ?? 2;
+    let figure = withPart(m.figure, s.id, null);
+    for (const p of partsIn(s.id).sort(() => Math.random() - 0.5).slice(0, Math.floor(Math.random() * (max + 1)))) figure = withPart(figure, s.id, p.id);
     next = { ...m, figure };
   } else {
-    const options = s.options(m).filter((o) => !o.selected && !o.dice);
+    const options = s.options(m).filter((o) => !o.selected);
     if (!options.length) return;
     next = any(options).apply(m);
   }
   if (s.mood) ui.previewMood = s.mood;
   change(next);
 }
-/** The section the focus is in (or the open one): what Shift+R re-rolls. */
-const focusedSection = () => (ui.layout === "tabs" ? section()
-  : S[document.activeElement?.closest(".slot")?.dataset.slot ?? document.activeElement?.closest("[data-tiles]")?.dataset.tiles ?? ui.active]);
-const diceButton = (s, { label = s.dice ?? `Randomise ${s.label.toLowerCase()}`, small = false } = {}) =>
-  `<button type="button" class="${small ? "dice-mini" : "act dice-btn"}" data-dice="${s.id}" ${small ? 'tabindex="-1"' : ""} title="${label} (only this; Shift+R)" aria-label="${label}">${icon("dice", small ? 14 : 15)}${small ? "" : `<span>${label}</span>`}</button>`;
-
+/** The section in hand: what Shift+R re-rolls. */
+const focusedSection = () => S[document.activeElement?.closest(".slot")?.dataset.slot ?? document.activeElement?.closest("[data-tiles]")?.dataset.tiles
+  ?? (ui.layout === "creator" ? ui.active : ui.open)];
+const diceButton = (s, { small = false } = {}) => {
+  const label = s.dice ?? `Random ${s.label.toLowerCase()}`;
+  return `<button type="button" class="${small ? "dice-mini" : "act dice-btn"}" data-dice="${s.id}" ${small ? 'tabindex="-1"' : ""} title="${label}: re-rolls only this (Shift+R)" aria-label="${label}">${icon("dice", small ? 14 : 15)}${small ? "" : `<span>${label}</span>`}</button>`;
+};
 const randomSeed = () => `crew-${Math.random().toString(36).slice(2, 8)}`;
 const randomise = () => change({ ...memberFromSeed(randomSeed()), name: ui.member.name });
+
+// ---------- the crew member: save, export, import ----------
 
 function save() {
   saved = ui.member;
@@ -723,15 +773,43 @@ function save() {
   drawCanvas();
 }
 
+function exportFile() {
+  const blob = new Blob([memberJson(ui.member) + "\n"], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(ui.member.name || "crew-member").replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "crew-member"}.crew.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  note("Downloaded.");
+}
+async function copyJson() {
+  try { await navigator.clipboard.writeText(memberJson(ui.member)); note("Copied to the clipboard."); }
+  catch { note("The browser didn't allow the clipboard here: use Download.", true); }
+}
+/** Imports a crew member from JSON text: one undoable change, or a message saying what is wrong. */
+function importText(text) {
+  const { member, error } = parseMember(text);
+  if (error) return note(error, true);
+  change(member);
+  note(`Imported "${member.name}". Undo (Z) brings back the one before.`);
+  $("paste-box").hidden = true;
+}
+function note(text, bad = false) { const el = $("io-note"); el.textContent = text; el.classList.toggle("bad", bad); }
+
 const RUN = {
-  undo, redo,
+  undo, redo, back,
   reset: () => change(ui.opened),
   random: randomise,
   close: () => $("customiser").close(),
   save,
+  download: exportFile,
+  copy: copyJson,
+  "import-file": () => $("import-file").click(),
+  "import-paste": () => { $("paste-box").hidden = false; $("paste-text").focus(); },
+  "paste-apply": () => importText($("paste-text").value),
+  "paste-cancel": () => { $("paste-box").hidden = true; note(""); },
   untint: () => change({ ...ui.member, scene: { ...ui.member.scene, tint: null } }, { keepTiles: true }),
   shiny: () => change({ ...ui.member, figure: { ...ui.member.figure, shiny: !ui.member.figure.shiny } }, { keepTiles: true }),
-  copy: async () => { await navigator.clipboard?.writeText(memberJson(ui.member)).catch(() => {}); },
 };
 
 function bind() {
@@ -739,75 +817,93 @@ function bind() {
   $("source").textContent = SOURCE;
   $("open").innerHTML = PALETTE;
   $("open").setAttribute("aria-expanded", "false");
-  $("customiser").addEventListener("close", () => $("open").setAttribute("aria-expanded", "false"));
   $("open").onclick = open;
   const dialog = $("customiser");
+  dialog.addEventListener("close", () => $("open").setAttribute("aria-expanded", "false"));
   dialog.addEventListener("click", (event) => {
     const t = event.target;
     const run = t.closest("[data-run]");
     if (run) { event.preventDefault(); RUN[run.dataset.run](); return; }
     const dice = t.closest("[data-dice]");
-    if (dice) { const id = dice.dataset.dice; randomIn(S[id]); return document.querySelector(`.slot[data-slot="${id}"]`)?.focus(); }
+    if (dice) return randomIn(S[dice.dataset.dice]);
+    const opts = t.closest("[data-set-options]");
+    if (opts) return setOptions(opts.dataset.setOptions);
     const layout = t.closest("[data-set-layout]");
     if (layout) return setLayout(layout.dataset.setLayout);
     const mode = t.closest("[data-colmode]");
     if (mode) { ui.colourMode = mode.dataset.colmode; draw(); return dialog.querySelector(`[data-colmode="${ui.colourMode}"]`)?.focus(); }
-    const tab = t.closest("[data-tab]");
-    if (tab) return setTab(Number(tab.dataset.tab));
-    const sec = t.closest("[data-section]");
-    if (sec) return setSection(Number(sec.dataset.section));
     const tile = t.closest("[data-tiles] .tile[data-key]");
     if (tile) return pickIn(S[tile.closest("[data-tiles]").dataset.tiles], tile.dataset.key);
+    const target = t.closest("[data-go]");
+    if (target) return go(target.dataset.go, { into: ui.optionsMode === "drill" ? !target.hasAttribute("data-step") || ui.drilled : target.hasAttribute("data-step") && Boolean(document.activeElement?.closest("#cr-grid")) });
     const cyc = t.closest("[data-cycle]");
     if (cyc) { const slot = cyc.closest(".slot").dataset.slot; cycle(S[slot], Number(cyc.dataset.cycle)); return document.querySelector(`.slot[data-slot="${slot}"]`)?.focus(); }
     const slot = t.closest(".slot[data-slot]");
-    if (slot) return openSlot(slot.dataset.slot);
+    if (slot) return openRow(slot.dataset.slot);
   });
   dialog.addEventListener("input", (event) => { if (event.target.matches("[data-col]") && event.target.dataset.col !== "hex") colourInput(event.target, false); });
   dialog.addEventListener("change", (event) => { if (event.target.matches("[data-col]")) colourInput(event.target, true); });
-  $("name").addEventListener("input", (e) => { ui.member = { ...ui.member, name: e.target.value || ui.member.seed }; syncActions(); if (ui.layout === "tabs") drawSmallPreviews(); });
-  // Esc inside a strip goes back to its slot; only from elsewhere does it close the customiser.
+  $("import-file").addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 64 * 1024) return note("That file is too big for a crew member (over 64 KB).", true);
+    importText(await file.text());
+  });
+  $("name").addEventListener("input", (e) => { ui.member = { ...ui.member, name: e.target.value || ui.member.seed }; syncActions(); });
+  // Esc inside the options goes back to the section; only from elsewhere does it close the customiser.
   dialog.addEventListener("cancel", (event) => { if (ui.escapeHandled) { event.preventDefault(); ui.escapeHandled = false; } });
   document.addEventListener("keydown", (event) => {
     if (!dialog.open) return;
     const target = event.target;
-    const inText = target.matches("input[type=text]");
+    const inText = target.matches("input[type=text], textarea");
     const mod = event.ctrlKey || event.metaKey;
     if (mod && event.key === "Enter") { event.preventDefault(); return save(); }
     if (!inText && mod && (event.key.toLowerCase() === "y" || (event.shiftKey && event.key.toLowerCase() === "z"))) { event.preventDefault(); return redo(); }
     if (!inText && mod && event.key.toLowerCase() === "z") { event.preventDefault(); return undo(); }
-    if (event.key === "Escape" && ui.layout !== "tabs") {
+    if (event.key === "Escape") {
       const box = target.closest("#alt [data-tiles]");
       if (box) {
         event.preventDefault(); ui.escapeHandled = true;
-        const id = ui.active; ui.active = null; draw();
+        if (ui.layout === "creator") return ui.optionsMode === "drill" ? back() : document.querySelector(`.cr-item[data-go="${ui.active}"]`)?.focus();
+        const id = ui.open; ui.open = null; draw();
         return document.querySelector(`.slot[data-slot="${id}"]`)?.focus();
       }
+      if (!$("paste-box").hidden && target.closest("#paste-box")) { event.preventDefault(); ui.escapeHandled = true; return RUN["paste-cancel"](); }
     }
     if (inText || mod || event.altKey) return;
-    if (target.closest("#tabs") && rovingTabs(event, GROUPS, ui.tab, setTab)) return;
-    if (target.closest("#sections") && rovingTabs(event, tabSections(group()), ui.section[group().id], setSection)) return;
-    if (target.closest("#layouts") && rovingTabs(event, LAYOUTS, LAYOUTS.findIndex(([l]) => l === ui.layout), (i) => { setLayout(LAYOUTS[(i + 3) % 3][0]); $("layouts").querySelector('[aria-checked="true"]')?.focus(); })) return;
+    if (event.key === "PageUp" && ui.layout === "creator") { event.preventDefault(); return step(-1); }
+    if (event.key === "PageDown" && ui.layout === "creator") { event.preventDefault(); return step(1); }
+    if (target.closest("#layouts") && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault(); setLayout(ui.layout === "creator" ? "overview" : "creator"); return $("layouts").querySelector('[aria-checked="true"]')?.focus();
+    }
+    // The creator's list: ↑/↓ moves through the sections (their options follow), →/Enter goes into them.
+    if (target.matches(".cr-item")) {
+      const items = [...document.querySelectorAll(".cr-item")];
+      const i = items.indexOf(target);
+      const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[event.key];
+      if (to !== undefined) {
+        event.preventDefault();
+        const id = items[(to + items.length) % items.length].dataset.go;
+        if (ui.optionsMode === "drill") { ui.active = id; for (const x of items) { x.toggleAttribute("aria-current", x.dataset.go === id); x.tabIndex = x.dataset.go === id ? 0 : -1; } return document.querySelector(`.cr-item[data-go="${id}"]`).focus(); }
+        return go(id);
+      }
+      if (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ") { event.preventDefault(); return go(target.dataset.go, { into: true }); }
+    }
     const box = target.closest("[data-tiles]");
     if (box && box.dataset.kind !== "colour" && tileKeys(event, box)) return;
-    if (box && ui.layout !== "tabs" && (event.key === "ArrowUp" || event.key === "ArrowDown") && box.dataset.kind !== "colour") {
-      event.preventDefault();
-      return document.querySelector(`.slot[data-slot="${box.dataset.tiles}"]`)?.focus();
+    if (box && ui.layout === "creator" && event.key === "ArrowLeft" && box.dataset.kind !== "colour") {
+      event.preventDefault(); return ui.optionsMode === "drill" ? back() : document.querySelector(`.cr-item[data-go="${ui.active}"]`)?.focus();
+    }
+    if (box && ui.layout === "overview" && (event.key === "ArrowUp" || event.key === "ArrowDown") && box.dataset.kind !== "colour") {
+      event.preventDefault(); return document.querySelector(`.slot[data-slot="${box.dataset.tiles}"]`)?.focus();
     }
     if (target.matches(".slot[data-slot]") && slotKeys(event, target)) return;
     if (target.matches("input[type=range]")) return;
     const key = event.key;
-    if (key === "l" || key === "L") return setLayout(LAYOUTS[(LAYOUTS.findIndex(([l]) => l === ui.layout) + 1) % LAYOUTS.length][0]);
-    if (ui.layout === "tabs") {
-      if (key === "q" || key === "Q") return setTab(ui.tab - 1);
-      if (key === "e" || key === "E") return setTab(ui.tab + 1);
-      if (key === "[") return setSection(ui.section[group().id] - 1);
-      if (key === "]") return setSection(ui.section[group().id] + 1);
-      if (/^[1-9]$/.test(key) && Number(key) <= GROUPS.length) return setTab(Number(key) - 1);
-    } else {
-      if (key === "q" || key === "Q") return jumpGroup(-1);
-      if (key === "e" || key === "E") return jumpGroup(1);
-    }
+    if (key === "l" || key === "L") return setLayout(ui.layout === "creator" ? "overview" : "creator");
+    if (key === "q" || key === "Q") return ui.layout === "creator" ? step(-1) : jumpGroup(-1);
+    if (key === "e" || key === "E") return ui.layout === "creator" ? step(1) : jumpGroup(1);
     if (key === "R") return randomIn(focusedSection());
     if (key === "r") return randomise();
     if (key === "Z") return redo();
@@ -825,33 +921,23 @@ function bind() {
     if (canvasMood === "working" || canvasMood === "idle") drawCanvas();
     if (dialog.open && (ui.previewMood === "working" || ui.previewMood === "idle") && !ui.colourBase) previewOnly();
   }, 6000);
-  // ?layout=tabs|overview; ?open[&tab=<group>][&section=<id>][&slot=<id>][&mood=…][&colour=hsl|rgb|hex] opens it there.
+  // ?layout=creator|overview[&options=right|drill]; ?open[&section=<id>][&mood=…][&colour=hsl|rgb|hex] opens it there.
   const query = new URLSearchParams(location.search);
-  ui.layout = LAYOUTS.some(([l]) => l === query.get("layout")) ? query.get("layout") : "tabs";
+  ui.layout = LAYOUTS.some(([l]) => l === query.get("layout")) ? query.get("layout") : "creator";
   if (query.get("colour")) ui.colourMode = query.get("colour");
-  if (query.has("open")) {
-    ui.tab = Math.max(0, GROUPS.findIndex((g) => g.id === query.get("tab")));
-    const at = tabSections(group()).findIndex((s) => s.id === query.get("section"));
-    if (at >= 0) ui.section[group().id] = at;
-    if (query.get("slot") && S[query.get("slot")]) ui.active = query.get("slot");
-    if (query.get("mood")) ui.previewMood = query.get("mood");
-    open();
-  }
-}
-
-function rovingTabs(event, list, current, set) {
-  const step = { ArrowRight: 1, ArrowLeft: -1, Home: -current, End: list.length - 1 - current }[event.key];
-  if (step === undefined) return false;
-  event.preventDefault();
-  set(current + step);
-  return true;
+  ui.optionsMode = query.get("options") === "drill" ? "drill" : "right";
+  if (ui.optionsMode === "drill" && query.get("section")) ui.drilled = true;
+  const section = query.get("section") ?? query.get("slot");
+  if (section && S[section]) { ui.active = section; ui.open = section; }
+  if (query.get("mood")) ui.previewMood = query.get("mood");
+  if (query.has("open")) open();
 }
 
 bind();
 
 // ---------- live reload: a saved edit to this page's files reloads it ----------
 
-const WATCHED = ["/customiser.html", "/customiser.mjs", "/customiser.css", "/customiser/crew.mjs", "/customiser/colour.mjs"];
+const WATCHED = ["/customiser.html", "/customiser.mjs", "/customiser.css", "/customiser/crew.mjs", "/customiser/colour.mjs", "/customiser/names.mjs", "/customiser/backdrops.mjs"];
 const seen = new Map();
 setInterval(async () => {
   for (const path of WATCHED) {

@@ -55,3 +55,26 @@ test("the coat converts between HSL, RGB and hex both ways", () => {
   const back = hslToRgb(rgbToHsl([108, 188, 177]));
   assert.deepEqual(back, [108, 188, 177]);
 });
+
+test("every part, body and creature has an English name, and every creature a kind", async () => {
+  const E = await import("../web/customiser/bichos.mjs");
+  const N = await import("../web/customiser/names.mjs");
+  for (const slot of E.SLOTS) {
+    assert.ok(N.SLOTS[slot.id], `slot ${slot.id}`);
+    for (const part of E.partsIn(slot.id)) {
+      assert.ok(N.PARTS[slot.id]?.[part.id], `${slot.id}:${part.id}`);
+      assert.ok(N.THEMES[part.file], `theme ${part.file}`);
+    }
+  }
+  for (const body of E.BODIES) assert.ok(N.BODIES[body.id], `body ${body.id}`);
+  for (const m of E.MEMBERS) assert.ok(N.kindOf(`${m.family}/${m.id}`), `member ${m.family}/${m.id}`);
+});
+
+test("an import says what is wrong, and reads a good crew member", async () => {
+  const { parseMember } = await import("../web/customiser/crew.mjs");
+  assert.match(parseMember("{x").error, /isn't JSON/);
+  assert.match(parseMember("[]").error, /isn't a crew member/);
+  assert.match(parseMember('{"v":2,"figure":{"body":"round"}}').error, /version 2/);
+  assert.match(parseMember('{"figure":{"body":"cube"}}').error, /Unknown body "cube"/);
+  assert.equal(parseMember('{"name":"A","figure":{"body":"round"}}').member.name, "A");
+});

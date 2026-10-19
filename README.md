@@ -173,24 +173,27 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 ## Avatar customiser exploration
 
 A design mockup of a character creator for the creatures, its own page at **`/customiser`** (linked from the header):
-the creature's canvas as the call's stage shows it, with a painter's-palette button in its corner (or `C`) that opens
-the customiser. Three layouts of the same choices, switched in its header, with `L`, or by `?layout=`:
+the creature's canvas as the call's stage shows it, with a quiet painter's-palette button in its corner (or `C`) that
+opens the customiser. Two layouts of the same choices, switched in its header, with `L`, or by `?layout=`:
 
-- `tabs` (the default): a tab per category (species, body, face, head, limbs, extras, colour, scene, moves), tile grids;
-- `overview`: every slot at once as a row with a close-up of the live creature, ‹ › to cycle, and a strip of tiles
-  for the one opened;
-- `loadout`: an equipment screen: slot cards around the creature, its parts clickable, one picker under it.
+- `creator` (the default): a plain list of what to edit | the creature, large | the options of the selected part.
+  `&options=drill` shows the options in the menu itself instead, with a way back. ↑/↓ in the list, →/Enter into the
+  options, Esc back, Q/E or Page Up/Down to step through the parts.
+- `overview`: every part at once as a row with its current pick, ‹ › to cycle, and a strip of options for the one
+  opened.
 
-Every section re-rolls on its own (its dice, or Shift+R), Randomise re-rolls everything; undo and redo (Z, Shift+Z,
-Ctrl+Z, Ctrl+Y). Changing species keeps the colour and the other picks, and a tile says what else a pick would change.
-The coat and the backdrop's colour are edited in HSL, RGB or hex (`<input type=color>` for the picker).
-`/customiser?open&layout=<id>&tab=<id>&section=<id>&slot=<id>&colour=hsl|rgb|hex` opens it there.
+The creature is a kind (monster, cat, robot…) and that kind's variant; changing either keeps the colour and the other
+picks. Every part re-rolls on its own (its dice, or Shift+R); Randomise re-rolls everything; undo and redo (Z, Shift+Z,
+Ctrl+Z, Ctrl+Y). The coat and the backdrop's colour are edited in HSL, RGB or hex. The crew member exports as a JSON file
+or to the clipboard, and imports from a file or pasted JSON (checked, and undoable).
+`/customiser?open&layout=<id>&options=<right|drill>&section=<part>&colour=<hsl|rgb|hex>` opens it there.
 
 What it edits is one crew member (`web/customiser/crew.mjs`): a name, the seed it started from, the engine's own
 figure spec, its scene (backdrop, backdrop colour, desk and desk props) and its moves (the work styles and pastimes it
-takes turns between). It is kept in this browser's local storage only. The creatures are drawn live by sidevoice-web's
-bichos engine, bundled as `web/customiser/bichos.mjs`, and moved by its stylesheets, copied beside it; the colour
-backdrops (`web/customiser/backdrops.mjs`) are this page's own. To bundle the engine again from another web commit:
+takes turns between). It is kept in this browser's local storage only. Every name shown is in
+`web/customiser/names.mjs`. The creatures are drawn live by sidevoice-web's bichos engine, bundled as
+`web/customiser/bichos.mjs`, and moved by its stylesheets, copied beside it; the colour backdrops
+(`web/customiser/backdrops.mjs`) are this page's own. To bundle the engine again from another web commit:
 `node scripts/customiser-engine.mjs --web <sidevoice-web tree> --sha <commit> --esbuild <node_modules/esbuild>`. The
 page reloads itself when one of its files is saved.
 
