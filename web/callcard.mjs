@@ -514,7 +514,8 @@ function desktopPreview(id) {
 /** Scales each real card into its choice: as large as fits with a margin, centred. */
 function fitPreviews() {
   // The screen's top right, 640 of its pixels across the frame, the same for the three: their cards at their true sizes.
-  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / 640));
+  // The title card a little closer, so its words read (operator, 2026-10-19).
+  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / (mini.dataset.format === "card" ? 540 : 640)));
   for (const box of document.querySelectorAll(".cc-real-box")) {
     const frame = box.parentElement, card = box.firstElementChild;
     // The avatar alone is as tall as the others' cards are wide in their frames: about half the frame.
@@ -649,7 +650,8 @@ const animator = (() => {
   const later = (fn, ms) => timers.push(setTimeout(fn, ms));
   const every = (fn, ms) => timers.push(setInterval(fn, ms));
   const scope = () => [$("card-window"), $("app-window")];
-  const all = (selector) => scope().flatMap((root) => [...root.querySelectorAll(selector)]);
+  // Everything the animator moves, but never the settings' previews: those are still pictures.
+  const all = (selector) => scope().flatMap((root) => [...root.querySelectorAll(selector)]).filter((el) => !el.closest(".cc-card-picture"));
   const balloonUp = () => call.state === "speaking";
 
   /** The avatar's root attributes, as CharacterAvatar sets them. */
