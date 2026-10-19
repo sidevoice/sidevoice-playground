@@ -89,8 +89,8 @@ function regionOf(slot, figure) {
   return {
     top: [60, f.top - 12, 1.45], headgear: [60, f.top - 10, 1.5], earwear: [60, f.top + 8, 1.6], eyes: [60, f.eyeY, 2.2],
     eyewear: [60, f.eyeY, 2.1], marks: [60, f.eyeY + 3, 1.9], nose: [60, face, 2.4], mouth: [60, f.mouthY, 2.4],
-    cheeks: [60, face + 3, 2], neckwear: [60, f.mouthY + 9, 1.8], arms: [60, f.armY, 1.3], held: [60 + f.half + 2, f.armY, 1.7],
-    legs: [60, f.bottom - 6, 1.7], tail: [60 + f.half - 4, f.bottom - 16, 1.5], back: [60, f.armY - 8, 1.2], pattern: [60, f.armY + 4, 1.35],
+    cheeks: [60, face + 3, 2], neckwear: [60, f.mouthY + 9, 1.8], arms: [60, f.armY, 1.3], held: [60 + f.half, f.armY - 4, 1.6],
+    legs: [60, f.bottom - 1, 2], tail: [60 + f.half - 2, f.bottom - 14, 1.5], back: [60, f.armY - 8, 1.2], pattern: [60, f.armY + 4, 1.35],
   }[slot] ?? [60, 66, 1];
 }
 const crop = (html, slot, figure) => { const [x, y, z] = regionOf(slot, figure); return `<span class="crop" style="--cx:${x};--cy:${y};--z:${z}">${html}</span>`; };
