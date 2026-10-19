@@ -27,7 +27,7 @@ const SAMPLE = ALL_CREATURES.find((each) => each.id === "person:microphone");
 // ---------- what is picked: the address's hash ----------
 
 const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", previews: "small", pipTitle: "bottom" };
+  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", previews: "small", pipTitle: "bottom", pipLayout: "stacked" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
@@ -72,6 +72,7 @@ const ICONS = {
   captionsOff: '<path d="M10.5 5H19a2 2 0 0 1 2 2v8.5"/><path d="M17 11h-.5"/><path d="M19 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="m2 2 20 20"/><path d="M7 11h4"/><path d="M7 15h2.5"/>',
   machine: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
   settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
 };
 const svg = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -94,12 +95,12 @@ function tail(shape) {
 }
 /** The room's stage tile, `height` px tall: the conversation's name and machine in its corner, the avatar on its backdrop
  *  with its desk, and the slots the balloons go in — the agent's over its head, the person's at the tile's foot. */
-function stage(height, { slots = true, nameExtra = "" } = {}) {
+function stage(height, { slots = true, nameExtra = "", name = true } = {}) {
   const c = creature(), d = c.deskColours;
   return `<div class="stage-tile" data-theme="dark" data-mood="${STAGE_MOOD[call.state]}" style="--k:${height / 440};--av-color:${c.tone}">
 <div class="stage-canvas"><div class="stage-scene"><div class="stage-backdrop" aria-hidden="true">${ownIds(c.backdrop)}</div>${avatar("stage", "stage-agent")}
 <div class="stage-desk" aria-hidden="true" style="--desk-top:${d.top};--desk-top-deep:${d.topDeep};--desk-front:${d.front};--desk-front-deep:${d.frontDeep}">${ownIds(c.desk)}</div></div></div>
-<div class="stage-name" translate="no"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${nameExtra}</div>
+${name ? "" : "<!--"}<div class="stage-name" translate="no"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${nameExtra}</div>${name ? "" : "-->"}
 ${slots ? '<div class="stage-top cc-agent-slot"></div>' : ""}<div class="stage-tags">${badge()}</div>${slots ? '<div class="person-turns"></div>' : ""}</div>`;
 }
 /** The agent's harness, model and effort at the tile's foot (CallStage AgentBadge; Icons.tsx HarnessIcon's mark). */
@@ -128,6 +129,15 @@ const actions = () => `<span class="cc-actions"><button type="button" class="cc-
 /** Today's card holding only its controls row (and, under the avatar, "open Sidevoice"): near the pointer. */
 const strip = () => `<div class="call-card cc-strip">${controls()}</div>`;
 
+/** The room's call bar (CallToolbar, CallIndicators, AudioDevices): the microphone's pill with its level and devices,
+ *  skip, the call and ⋮, centred; the captions' toggle beside skip, the room's own to come (a later web change). */
+const roomBar = () => `<footer class="call-bar pip-bar"><div class="controls" id="call-controls"><div class="call-actions">
+<div id="mic-control" class="mic-control" data-muted="false"><button type="button" class="audio-devices-toggle" aria-label="Microphone and speaker"><span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>${svg("chevron", 18).replace("<svg ", '<svg class="audio-chevron" ')}</button><button type="button" id="mute" class="ui-button ui-button--ghost call-button" data-run="mute"></button></div>
+<button type="button" class="ui-button ui-button--ghost call-button card-captions" data-run="captions"></button>
+<button type="button" id="skip-reply" class="ui-button ui-button--ghost call-button card-skip" data-run="skip"></button>
+<button type="button" id="connect" class="ui-button ui-button--primary call-button joined" data-run="hangup" title="Hang up" aria-label="Hang up">${svg("hangup", 22)}</button>
+<details id="call-menu" class="call-menu"><summary class="call-button" aria-label="More" title="More">${svg("more", 22)}</summary></details></div></div></footer>`;
+
 // ---------- the formats ----------
 
 const DRAW = {
@@ -137,7 +147,15 @@ const DRAW = {
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span><span aria-hidden="true">·</span><span class="card-clock"></span></span></div>
 ${actions()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
   // The room's stage; its name at the top right, clear of the agent's balloon, with the picture's two buttons under it.
-  pip: (box) => `<div class="cc cc-pip" data-title="${pick.pipTitle === "top" ? "top" : "bottom"}">${stage(box.h)}${actions()}<div class="pip-strip">${strip()}</div></div>`,
+  pip: (box) => pick.pipLayout === "overlay" ? DRAW.pipOverlay(box) : DRAW.pipStacked(box),
+  // B1 as the room's screen, small: its header (the name and machine, as the room's .stage-title, with the two actions),
+  // the 16:9 stage under it with nothing laid on it, and the room's call bar under that (CallToolbar).
+  pipStacked: (box) => {
+    const canvas = Math.round((box.w - 16) * 9 / 16);
+    return `<div class="cc cc-pip-stacked" data-theme="dark"><header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${actions()}</header>
+<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}</div>${roomBar()}</div>`;
+  },
+  pipOverlay: (box) => `<div class="cc cc-pip" data-title="${pick.pipTitle === "top" ? "top" : "bottom"}">${stage(box.h)}${actions()}<div class="pip-strip">${strip()}</div></div>`,
   mascot: () => `<div class="cc cc-mascot"><span class="m-figure">${avatar("stage")}</span>${actions()}${strip()}${settings().captions ? balloonCaptions() : ""}</div>`,
 };
 
@@ -399,6 +417,8 @@ const animator = (() => {
       btn.setAttribute("aria-pressed", String(muted()));
     }
     for (const mic of all(".card-mic")) mic.toggleAttribute("data-muted", muted());
+    for (const btn of all("#mute")) { btn.innerHTML = svg(muted() ? "micOff" : "mic", 22); btn.title = btn.ariaLabel = muted() ? "Unmute" : "Mute"; btn.setAttribute("aria-pressed", String(muted())); }
+    for (const mic of all("#mic-control")) mic.dataset.muted = String(muted());
     for (const skip of all('.card-skip[data-run="skip"]')) {
       skip.innerHTML = svg("skip", 17);
       skip.disabled = call.state !== "speaking";
@@ -520,6 +540,8 @@ const animator = (() => {
       }
       context.fill();
     }
+    // The room's microphone pill draws its level from --mic-fill (room-session-controller.js voiceLevel).
+    for (const mic of all("#mic-control")) mic.style.setProperty("--mic-fill", call.state === "listening" && !muted() ? Math.round(speechLevel(now - heardSince, 0.7) * 100) + "%" : "0%");
     // Your microphone's wave in today's card (useWave): the level while you speak.
     for (const w of all(".your-wave")) {
       [...w.children].forEach((bar, i) => {
@@ -594,7 +616,7 @@ function drawPanel() {
     select("theme", "System theme", [["", `The desktop's (${env().theme})`], ["dark", "Dark"], ["light", "Light"]], pick.theme),
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
-    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipTitle", "Picture's title", [["bottom", "Bottom left"], ["top", "One line at the top"]], pick.pipTitle)}${select("previews", "Its style previews", [["small", "(a) Small pictures"], ["real", "(b) The real card"]], pick.previews)}</div>`,
+    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipLayout", "Picture's layout", [["stacked", "Header, stage, controls (new)"], ["overlay", "Over the stage (previous)"]], pick.pipLayout)}${pick.pipLayout === "overlay" ? select("pipTitle", "Picture's title", [["bottom", "Bottom left"], ["top", "One line at the top"]], pick.pipTitle) : ""}${select("previews", "Its style previews", [["small", "(a) Small pictures"], ["real", "(b) The real card"]], pick.previews)}</div>`,
     `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
 <p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");
