@@ -70,6 +70,7 @@ const ICONS = {
   captionsOff: '<path d="M10.5 5H19a2 2 0 0 1 2 2v8.5"/><path d="M17 11h-.5"/><path d="M19 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="m2 2 20 20"/><path d="M7 11h4"/><path d="M7 15h2.5"/>',
   machine: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
 };
 const svg = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -91,12 +92,12 @@ function tail(shape) {
 }
 /** The room's stage tile, `height` px tall: the conversation's name and machine in its corner, the avatar on its backdrop
  *  with its desk, and the slots the balloons go in — the agent's over its head, the person's at the tile's foot. */
-function stage(height, { slots = true } = {}) {
+function stage(height, { slots = true, nameExtra = "" } = {}) {
   const c = creature(), d = c.deskColours;
   return `<div class="stage-tile" data-theme="dark" data-mood="${STAGE_MOOD[call.state]}" style="--k:${height / 440};--av-color:${c.tone}">
 <div class="stage-canvas"><div class="stage-scene"><div class="stage-backdrop" aria-hidden="true">${ownIds(c.backdrop)}</div>${avatar("stage", "stage-agent")}
 <div class="stage-desk" aria-hidden="true" style="--desk-top:${d.top};--desk-top-deep:${d.topDeep};--desk-front:${d.front};--desk-front-deep:${d.frontDeep}">${ownIds(c.desk)}</div></div></div>
-<div class="stage-name" translate="no"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2></div>
+<div class="stage-name" translate="no"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${nameExtra}</div>
 ${slots ? '<div class="stage-top cc-agent-slot"></div>' : ""}<div class="stage-tags">${badge()}</div>${slots ? '<div class="person-turns"></div>' : ""}</div>`;
 }
 /** The agent's harness, model and effort at the tile's foot (CallStage AgentBadge; Icons.tsx HarnessIcon's mark). */
@@ -131,7 +132,8 @@ const DRAW = {
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span><span aria-hidden="true">·</span><span class="card-clock"></span></span></div>
 ${openButton()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
-  pip: (box) => `<div class="cc cc-pip">${stage(box.h)}<button type="button" class="pip-open" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button><div class="pip-strip">${strip(false)}</div></div>`,
+  // The room's stage; its name at the top right, clear of the agent's balloon, with the picture's two buttons under it.
+  pip: (box) => `<div class="cc cc-pip">${stage(box.h, { nameExtra: `<span class="pip-actions"><button type="button" class="pip-button" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="pip-button" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button></span>` })}<div class="pip-strip">${strip(false)}</div></div>`,
   mascot: () => `<div class="cc cc-mascot"><span class="m-figure">${avatar("stage")}</span>${strip()}${settings().captions ? balloonCaptions() : ""}</div>`,
 };
 
@@ -238,7 +240,7 @@ ${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check
 <strong>${words(`settings.callCard.format.${id}`)}</strong><small>${words(`settings.callCard.format.${id}Hint`)}</small></button>`;
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
 <section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${words("settings.section.call")}</h2><p class="ui-section-description">${words("settings.call.description")}</p></div></header>
-<div class="ui-section-body"><div class="ui-group"><h3 class="ui-group-title">${words("settings.callCard.title")}</h3><div class="ui-group-card">
+<div class="ui-section-body"><div class="ui-group cc-card-group"><h3 class="ui-group-title">${words("settings.callCard.title")}</h3><div class="ui-group-card">
 ${row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown))}
 ${row(words("settings.callCard.format"), words("settings.callCard.previewNote"), `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
 ${row(words("settings.callCard.size"), "", segmented("size", { m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l") }, s.size))}
@@ -283,6 +285,8 @@ document.addEventListener("click", (event) => {
   if (run === "again") { call.ended = false; call.since = Date.now(); drawCard(); }
   if (run === "open") { call.appOpen = true; pick.view = ""; drawCard(); drawApp(); }
   if (run === "minimise") { call.appOpen = false; drawCard(); drawApp(); }
+  // The picture's gear: straight to Settings → Call → Floating call card.
+  if (run === "card-settings") { call.appOpen = true; pick.view = "settings"; draw(); $("app-window").querySelector(".cc-card-group")?.scrollIntoView({ block: "start" }); }
   if (setting === "always") pick.always = settings().alwaysShown ? "0" : "1";
   if (setting === "format" || setting === "size") pick[setting] = target.dataset.value;
   if (setting === "reset") pick.x = pick.y = "";

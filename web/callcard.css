@@ -247,9 +247,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-pip .stage-tile { position: absolute; inset: 0; }
 [data-captions=off] .cc-pip :is(.stage-top, .person-turns) { display: none; }
 .pip-strip { position: absolute; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); }
-.pip-open { position: absolute; z-index: 5; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px;
-  background: color-mix(in srgb, var(--sv-surface) 84%, transparent); color: var(--sv-text); backdrop-filter: blur(8px); cursor: pointer; }
-.pip-open:hover { background: var(--sv-surface-raised); }
+/* The name moves to the top right: the agent's balloon fills the top left of a small tile (it reaches 112 of the slide's
+   units right of the middle), so the name keeps to the room right of it, and the picture's buttons sit under it. */
+.cc-pip .stage-name { left: auto; right: var(--stage-inset); justify-items: end; text-align: end;
+  max-width: calc(50% - 112 * var(--u) - 2 * var(--stage-inset)); }
+.cc-pip .stage-name h2, .cc-pip .stage-heading { justify-items: end; justify-content: flex-end; }
+.pip-actions { display: flex; gap: 6px; margin-top: 2px; }
+.pip-button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: color-mix(in srgb, var(--sv-text) 10%, transparent);
+  color: var(--sv-text); cursor: pointer; }
+.pip-button:hover { background: color-mix(in srgb, var(--sv-text) 18%, transparent); }
 
 /* ---------- C1: only the avatar, on nothing ---------- */
 .m-figure { display: block; width: var(--w); height: var(--w); }
