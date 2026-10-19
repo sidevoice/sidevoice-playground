@@ -84,6 +84,7 @@ export { nextWork, workTurn } from ${from("bichos/work")};
 export { nextIdle } from ${from("bichos/idle")};
 export { enterFrom, ENTER_MS } from ${from("styles/bichos")};
 export { smoothPlaybackLevel } from ${JSON.stringify(join(src, "features/avatar/playback-mouth"))};
+export { createPlaybackLevelChannel } from ${JSON.stringify(join(src, "state/playback-level"))};
 `);
 await esbuild.build({ entryPoints: [motion], bundle: true, platform: "browser", format: "esm", logLevel: "warning", outfile: join(out, "motion.mjs"), plugins: [glob], minify: true,
   banner: { js: `// GENERATED from sidevoice-web@${values.sha} by scripts/callcard-creatures.mjs: the bichos engine's own picks.` } });

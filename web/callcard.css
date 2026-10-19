@@ -201,10 +201,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .call-card .card-captions[aria-pressed=true] { color: var(--accent); }
 
 /* ---------- captions: above or below the card, never beside it (data-open, place()); the card stays where it was put ---------- */
-#card-window .cc-captions { position: absolute; z-index: 3; width: max(100%, 340px); pointer-events: none; }
-[data-size=l] .cc-captions { width: max(100%, 380px); }
-[data-open=down] .cc-captions { top: calc(100% + 8px); }
-[data-open=up] .cc-captions { bottom: calc(100% + 8px); }
 [data-side=left] .cc-captions { left: 0; }
 [data-side=right] .cc-captions { right: 0; }
 .cc-captions:empty, .cc-captions:not(:has(.speech-bubble, .cc-line)) { display: none; }
@@ -219,10 +215,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 [data-open=down] .cc-captions .balloon-tail { top: auto; bottom: calc(100% - var(--balloon-line) - 1px); transform: scaleY(-1); }
 [data-open=down] .cc-captions .stage-bubble .balloon-tail { transform: scale(-1, -1); }
 /* The mascot's controls hang under it (over it where the screen ends below), and the balloons make room for them. */
-.cc-mascot > .cc-strip { position: absolute; z-index: 4; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); }
-#card-window[data-strip-up] .cc-mascot > .cc-strip { top: auto; bottom: calc(100% + 4px); }
-#card-window[data-open=down]:not([data-strip-up]) .cc-mascot .cc-captions { top: calc(100% + 60px); }
-#card-window[data-open=up][data-strip-up] .cc-mascot .cc-captions { bottom: calc(100% + 60px); }
 /* The title card's: plain lines as a transcript reads, each speaker's name over what they say, on the card's own glass. */
 #card-window .cc-lines { padding: 10px 14px; }
 .cc-line { display: grid; gap: 2px; margin: 0; font-size: 13.5px; line-height: 1.45; }
@@ -247,15 +239,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-pip .stage-tile { position: absolute; inset: 0; }
 [data-captions=off] .cc-pip :is(.stage-top, .person-turns) { display: none; }
 .pip-strip { position: absolute; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); }
-/* The name moves to the top right: the agent's balloon fills the top left of a small tile (it reaches 112 of the slide's
-   units right of the middle), so the name keeps to the room right of it, and the picture's buttons sit under it. */
-.cc-pip .stage-name { left: auto; right: var(--stage-inset); justify-items: end; text-align: end;
-  max-width: calc(50% - 112 * var(--u) - 2 * var(--stage-inset)); }
-.cc-pip .stage-name h2, .cc-pip .stage-heading { justify-items: end; justify-content: flex-end; }
-.pip-actions { display: flex; gap: 6px; margin-top: 2px; }
-.pip-button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: color-mix(in srgb, var(--sv-text) 10%, transparent);
-  color: var(--sv-text); cursor: pointer; }
-.pip-button:hover { background: color-mix(in srgb, var(--sv-text) 18%, transparent); }
 
 /* ---------- C1: only the avatar, on nothing ---------- */
 .m-figure { display: block; width: var(--w); height: var(--w); }
@@ -298,3 +281,57 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .panel-settings button, .place button { font: 600 12px Inter, system-ui, sans-serif; padding: 5px 10px; border-radius: 6px; border: 1px solid #d8bf6a; background: #fdeeb8; color: #2b2410; cursor: pointer; }
 .panel-map pre { margin: 6px 0; padding: 8px; border-radius: 6px; background: #fffdf4; font-size: 11px; white-space: pre-wrap; }
 .panel-map p { margin: 0; font-size: 11.5px; }
+
+/* ---------- round 6 ---------- */
+/* Captions open from the card up or down, never sideways; on the avatar, close to the drawing (its box has room above
+   the head and under the feet), as wide as a title card at most, their words scaled with the size. */
+#card-window .cc-captions { position: absolute; z-index: 3; width: max(100%, 340px); pointer-events: none; }
+[data-size=l] .cc-captions { width: max(100%, 380px); }
+[data-open=down] .cc-captions { top: calc(100% + 8px); }
+[data-open=up] .cc-captions { bottom: calc(100% + 8px); }
+#card-window .cc-mascot .cc-captions { width: 320px; }
+#card-window[data-size=l] .cc-mascot .cc-captions { width: 400px; }
+#card-window[data-open=down] .cc-mascot .cc-captions { top: calc(var(--w) * .92); }
+#card-window[data-open=up] .cc-mascot .cc-captions { bottom: calc(100% - var(--w) * .12); }
+[data-side=left] .cc-mascot .cc-captions { left: 0; } [data-side=right] .cc-mascot .cc-captions { right: 0; }
+.cc-mascot .cc-balloons { --k: .5; --bubble-fs: 14px; --person-fs: 13px; }
+[data-size=l] .cc-mascot .cc-balloons { --k: .66; --bubble-fs: 17px; --person-fs: 15px; }
+/* The avatar's controls: always straight under it, as wide as they need, near the pointer (over its balloons). */
+.cc-mascot > .cc-strip { position: absolute; z-index: 4; left: 50%; top: calc(var(--w) * .9); transform: translateX(-50%); }
+
+/* The two actions (settings, open Sidevoice), the same on every format. */
+.cc-actions { display: inline-flex; gap: 2px; flex: none; }
+.cc-action { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--mu, var(--sv-text-muted)); cursor: pointer; }
+.cc-action:hover { background: var(--btn, rgb(255 255 255 / 9%)); color: var(--fg, var(--sv-text)); }
+/* A1: in the header, where today's "open Sidevoice" is, near the pointer as it is. */
+.cc-a1 .cc-actions { align-self: flex-start; visibility: hidden; opacity: 0; transition: opacity .15s; }
+.cc-a1[data-expanded] .cc-actions { visibility: visible; opacity: 1; }
+/* B1: over the picture's top right corner, always. */
+.cc-pip > .cc-actions { position: absolute; z-index: 5; top: var(--pip-inset, 10px); right: var(--pip-inset, 10px); padding: 2px; border-radius: 9px;
+  background: color-mix(in srgb, var(--sv-surface) 84%, transparent); backdrop-filter: blur(8px); }
+.cc-pip > .cc-actions .cc-action { color: var(--sv-text); }
+/* C1: by the avatar's top corner, near the pointer. */
+.cc-mascot > .cc-actions { position: absolute; z-index: 4; top: 4px; right: calc((100% - var(--w)) / 2); padding: 2px; border-radius: 9px; background: var(--sv-surface, #1c2128);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%); visibility: hidden; }
+#card-window[data-expanded] .cc-mascot > .cc-actions { visibility: visible; }
+.cc-mascot > .cc-actions .cc-action { color: var(--sv-text, #fafafa); }
+
+/* B1's title, two places to compare. Bottom left: the name over its machine, clear of the badge in the middle. */
+.cc-pip[data-title=bottom] .stage-name { top: auto; bottom: var(--stage-inset); max-width: calc(50% - 64px - var(--stage-inset)); }
+/* Hovered, the controls take the bottom: the name steps up over them. */
+#card-window[data-expanded] .cc-pip[data-title=bottom] .stage-name { bottom: 58px; }
+/* One line at the top: "name · machine", and the agent's balloon starts under it. */
+.cc-pip[data-title=top] .stage-name { max-width: calc(100% - 2 * var(--stage-inset) - 70px); }
+.cc-pip[data-title=top] .stage-heading { display: flex; align-items: center; gap: .5em; }
+.cc-pip[data-title=top] .stage-top { top: calc(var(--stage-inset) + 2.4 * var(--name-fs)); }
+/* The title card's "You" line: the room's bars (VoiceWaveform) while you speak and while it is transcribed. */
+.cc-line .voice-wave { display: block; width: 100%; height: 22px; color: var(--accent); }
+.cc-line .voice-wave canvas { display: block; width: 100%; height: 100%; }
+.cc-line .voice-wave[data-phase="transcribing"] canvas { animation: person-wave-blink 1s ease-in-out infinite; }
+/* The avatar's window is the drawing's width; its controls keep to the screen's side of it, and push its balloons down
+   while they show. */
+#card-window .cc-mascot { width: var(--w); }
+.cc-mascot > .cc-strip { transform: none; left: auto; right: auto; }
+[data-side=left] .cc-mascot > .cc-strip { left: 0; }
+[data-side=right] .cc-mascot > .cc-strip { right: 0; }
+#card-window[data-expanded][data-open=down] .cc-mascot .cc-captions { top: calc(var(--w) * .9 + 54px); }

@@ -6,7 +6,9 @@
 // (scripts/callcard-creatures.mjs). This page only plays a mock call through them.
 import { COPY, FORMATS, PLACEMENT, SIZES, STATES, cardSettings, dropAt, firstPlace, fit, opensDown } from "./callcard/formats.mjs";
 import { DESKTOPS } from "./callcard/desktops.mjs";
-import { ENTER_MS, enterFrom, nextIdle, nextWork, smoothPlaybackLevel, workTurn } from "./callcard/motion.mjs";
+import { ENTER_MS, createPlaybackLevelChannel, enterFrom, nextIdle, nextWork, smoothPlaybackLevel, workTurn } from "./callcard/motion.mjs";
+// The voice the mocked room speaks and hears with (preview/mock/voice.mjs, linked here): its level while a voice sounds.
+import { speechLevel } from "./callcard/mock/voice.mjs";
 
 const { source, creatures: ALL_CREATURES, marks: MARKS } = await (await fetch("/callcard/creatures.json")).json();
 /** The conversations' avatars; the person holding the microphone (onboarding's) is the settings previews' alone. */
@@ -25,7 +27,7 @@ const SAMPLE = ALL_CREATURES.find((each) => each.id === "person:microphone");
 // ---------- what is picked: the address's hash ----------
 
 const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", previews: "small" };
+  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", previews: "small", pipTitle: "bottom" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
@@ -120,9 +122,11 @@ const captionsButton = () => `<button type="button" class="card-skip card-captio
 /** Today's controls row: the microphone with its devices, skip, hang up; the captions' toggle beside skip, in its look. */
 const controls = () => `<div class="card-controls"><span class="card-mic"><button type="button" class="card-devices" title="Microphone and speaker" aria-label="Microphone and speaker">${svg("chevron", 13)}</button><button type="button" class="card-mute" data-run="mute"></button></span>
 ${captionsButton()}<button type="button" class="card-skip" data-run="skip"></button><button type="button" class="card-hangup" data-run="hangup" title="Hang up" aria-label="Hang up">${svg("hangup", 18)}</button></div>`;
-const openButton = () => `<button type="button" class="card-open" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button>`;
+/** The card's two actions, the same on every format: its settings (Settings → Call → Floating call card) and back to
+ *  Sidevoice. A1 has them in its header, B1 over the picture, C1 by the avatar's top corner near the pointer. */
+const actions = () => `<span class="cc-actions"><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button></span>`;
 /** Today's card holding only its controls row (and, under the avatar, "open Sidevoice"): near the pointer. */
-const strip = (open = true) => `<div class="call-card cc-strip">${controls()}${open ? openButton() : ""}</div>`;
+const strip = () => `<div class="call-card cc-strip">${controls()}</div>`;
 
 // ---------- the formats ----------
 
@@ -131,10 +135,10 @@ const DRAW = {
 <div class="card-who"><button type="button" class="card-title"><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span><span aria-hidden="true">·</span><span class="card-clock"></span></span></div>
-${openButton()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
+${actions()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
   // The room's stage; its name at the top right, clear of the agent's balloon, with the picture's two buttons under it.
-  pip: (box) => `<div class="cc cc-pip">${stage(box.h, { nameExtra: `<span class="pip-actions"><button type="button" class="pip-button" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="pip-button" data-run="open" title="Open Sidevoice" aria-label="Open Sidevoice">${svg("open", 15)}</button></span>` })}<div class="pip-strip">${strip(false)}</div></div>`,
-  mascot: () => `<div class="cc cc-mascot"><span class="m-figure">${avatar("stage")}</span>${strip()}${settings().captions ? balloonCaptions() : ""}</div>`,
+  pip: (box) => `<div class="cc cc-pip" data-title="${pick.pipTitle === "top" ? "top" : "bottom"}">${stage(box.h)}${actions()}<div class="pip-strip">${strip()}</div></div>`,
+  mascot: () => `<div class="cc cc-mascot"><span class="m-figure">${avatar("stage")}</span>${actions()}${strip()}${settings().captions ? balloonCaptions() : ""}</div>`,
 };
 
 // ---------- the screen ----------
@@ -193,9 +197,6 @@ function place() {
   win.style.top = at.y + "px";
   win.dataset.open = opensDown(at, size, work) ? "down" : "up";
   win.dataset.side = at.x + size.width / 2 > work.width / 2 ? "right" : "left";
-  // The avatar's controls hang under it, or over it where the screen ends below it.
-  const strip = win.querySelector(".cc-mascot > .cc-strip");
-  win.toggleAttribute("data-strip-up", !!strip && at.y + size.height + strip.offsetHeight + 8 > work.height);
 }
 addEventListener("resize", () => place());
 
@@ -208,6 +209,7 @@ function expand(on) {
   const win = $("card-window");
   if (on === win.hasAttribute("data-expanded")) return;
   win.toggleAttribute("data-expanded", on);
+  if (on) guardUntil = Date.now() + CLICK_GUARD_MS;
   for (const el of win.querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", on);
   if (!drag) place();
 }
@@ -274,9 +276,14 @@ function draw() { drawDesktop(); drawCard(); drawApp(); drawPanel(); save(); }
 
 // ---------- what the buttons do ----------
 
+/** As today's card: a click within CLICK_GUARD_MS of the controls appearing (or the card changing size) runs nothing, so
+ *  a click meant for what was under the pointer never hits a button that just moved there. */
+const CLICK_GUARD_MS = 350;
+let guardUntil = 0;
 document.addEventListener("click", (event) => {
   const target = event.target.closest("[data-run], [data-setting]");
   if (!target) return;
+  if (target.closest("#card-window") && Date.now() < guardUntil) return;
   const run = target.dataset.run, setting = target.dataset.setting;
   if (run === "mute") setState(muted() ? "listening" : "muted");
   if (run === "skip") setState("idle");
@@ -309,21 +316,29 @@ function setState(state) {
 // Dragging the card: it follows the pointer anywhere; dropped, it stays where it was let go, kept inside the work area
 // and against an edge when dropped near one (the desktop app's "free with magnet"). Its place is the setting it keeps.
 let drag = null;
+/** As today's card (card-shell.tsx): a press moves the card only past DRAG_THRESHOLD_PX, and only then is the pointer
+ *  captured, so a click (a little jitter included) never moves it and never holds the pointer; the title counts as card. */
+const DRAG_THRESHOLD_PX = 4;
 $("card-window").addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || event.target.closest("button")) return;
+  if (event.button !== 0 || event.target.closest("button:not(.card-title)")) return;
   const win = $("card-window");
-  drag = { dx: event.clientX - win.offsetLeft, dy: event.clientY - win.offsetTop, moved: false };
-  win.setPointerCapture(event.pointerId);
+  drag = { x: event.clientX, y: event.clientY, dx: event.clientX - win.offsetLeft, dy: event.clientY - win.offsetTop, moved: false, id: event.pointerId };
 });
-$("card-window").addEventListener("pointermove", (event) => {
-  if (!drag) return;
+addEventListener("pointermove", (event) => {
+  if (!drag || drag.id !== event.pointerId) return;
   const win = $("card-window");
-  drag.moved = true;
-  win.classList.add("dragging");
+  if (!drag.moved) {
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= DRAG_THRESHOLD_PX) return;
+    drag.moved = true;
+    win.setPointerCapture(event.pointerId);
+    win.classList.add("dragging");
+  }
   win.style.left = event.clientX - drag.dx + "px";
   win.style.top = event.clientY - drag.dy + "px";
 });
-$("card-window").addEventListener("pointerup", () => {
+$("card-window").addEventListener("pointercancel", () => { drag = null; $("card-window").classList.remove("dragging"); place(); });
+// Released anywhere (a press that left the card before it moved ends too).
+addEventListener("pointerup", () => {
   if (!drag) return;
   const win = $("card-window"), moved = drag.moved;
   drag = null;
@@ -424,27 +439,55 @@ const animator = (() => {
   /** The title card's captions: what is being said as a transcript reads, a line per speaker, its name over it. */
   function transcriptLines() {
     if (call.state === "speaking") return `<p class="cc-line" data-role="assistant"><b>${call.title()}</b><span class="karaoke-text"><span class="karaoke-played"></span><span class="karaoke-upcoming">${SAYS}</span></span></p>`;
-    if (call.state === "listening") return `<p class="cc-line" data-role="user"><b>${words("card.you")}</b><span>${personStep === 2 ? HEARS : "…"}</span></p>`;
+    if (call.state === "listening") return `<p class="cc-line" data-role="user"><b>${words("card.you")}</b>${personStep === 2 ? `<span>${HEARS}</span>` : `<span class="voice-wave" data-phase="${personStep === 1 ? "transcribing" : "listening"}" role="status"><canvas aria-hidden="true"></canvas></span>`}</p>`;
     return "";
   }
+  /** The output level, as the room's voice publishes it while a reply sounds (preview/mock/voice.mjs: every 80 ms,
+   *  speechLevel, one silent slice in five; 0 between sentences), on the web's own channel (state/playback-level.ts). */
+  const playback = createPlaybackLevelChannel();
+  let sounding = false, soundingSince = 0, says = 0;
+  setInterval(() => {
+    if (!sounding) return;
+    const elapsed = Date.now() - soundingSince;
+    playback.publish(Math.floor(elapsed / 80) % 5 === 4 ? 0 : speechLevel(elapsed, says * 1.7), "call");
+  }, 80);
+  /** The stage avatars' mouths, as CharacterAvatar's "playback" effect follows the channel: each sample smoothed
+   *  (smoothPlaybackLevel), a sample older than 300 ms read as silence, and back to rest 300 ms after the last. */
+  let shown = 0, stale = 0;
+  playback.subscribe(function paintMouth(sample) {
+    let level = call.state === "speaking" && sample.threadId === "call" ? sample.level : 0;
+    if (level > 0 && Date.now() - sample.receivedAt >= 300) level = 0;
+    shown = smoothPlaybackLevel(shown, level);
+    for (const el of all('.sv-avatar[data-mouth="playback"]')) {
+      el.style.setProperty("--mouth", String(shown));
+      if (shown > 0) el.setAttribute("data-mouth-active", ""); else el.removeAttribute("data-mouth-active");
+    }
+    clearTimeout(stale);
+    if (shown > 0) stale = setTimeout(() => paintMouth({ threadId: "call", level: 0, receivedAt: Date.now() }), Math.max(0, sample.receivedAt + 300 - Date.now()));
+  });
   function speak() {
     const all_ = SAYS.split(" ");
-    if (word >= all_.length) { later(() => { word = 0; balloons(); speak(); }, 2600); return; }
+    if (word >= all_.length) { sounding = false; playback.publish(0, "call"); later(() => { word = 0; balloons(); speak(); }, 2600); return; }
+    if (!sounding) { sounding = true; soundingSince = Date.now(); says += 1; }
     word += 1;
     beat = beat === "a" ? "b" : "a";
     for (const el of all('.sv-avatar[data-mouth="voice"]')) el.dataset.beat = beat;
     karaoke(all_.slice(0, word).join(" "));
-    later(speak, /[.?!,]$/.test(all_[word - 1]) ? 650 : 180 + Math.random() * 240);
+    // Between sentences the voice is silent (the mock's quiet() between chunks).
+    if (/[.?!]$/.test(all_[word - 1])) { sounding = false; playback.publish(0, "call"); later(() => { sounding = true; soundingSince = Date.now(); speak(); }, 650); }
+    else later(speak, /,$/.test(all_[word - 1]) ? 650 : 180 + Math.random() * 240);
   }
   /** The person's turn: speaking 3.5 s (the bars move), transcribed 1 s (they hold and blink), sent 2.5 s (PAGE_MS-ish). */
   function personTurn() {
-    balloons();
+    if (personStep === 1) for (const wave of all('.voice-wave[data-phase="listening"]')) wave.dataset.phase = "transcribing";
+    else balloons();
+    if (personStep === 0) { heardSince = performance.now(); columns.length = 0; }
     later(() => { personStep = (personStep + 1) % 3; personTurn(); }, [3500, 1000, 2500][personStep]);
   }
   /** The voice's bars as VoiceWaveform paints them on the stage (pitch 6, bar 3): newest at the right, a column every
    *  55 ms, silences adding none; frozen while transcribed. */
   const columns = [];
-  let lastColumn = 0, talk = 0;
+  let lastColumn = 0, heardSince = performance.now();
   function frame(now) {
     for (const canvas of all('.voice-wave[data-phase="listening"] canvas')) {
       const ratio = devicePixelRatio || 1, width = canvas.clientWidth, height = canvas.clientHeight;
@@ -452,8 +495,8 @@ const animator = (() => {
       if (canvas.width !== Math.round(width * ratio)) { canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio); }
       if (now - lastColumn >= 55) {
         lastColumn = now;
-        talk = (talk + 1) % 40;
-        const value = talk > 33 ? 0 : Math.min(1, 0.25 + 0.5 * Math.abs(Math.sin(now / 170)) * Math.random() + Math.random() * 0.25);
+        // The microphone's level as the mocked room's voice reports it while you speak (speechLevel); silence adds none.
+        const value = speechLevel(now - heardSince, 0.7);
         if (value >= 0.04) columns.push(value);
       }
       const context = canvas.getContext("2d");
@@ -468,13 +511,6 @@ const animator = (() => {
         context.roundRect(width - 3 - slot * 6, height / 2 - bar / 2, 3, bar, 1.5);
       }
       context.fill();
-    }
-    // The stage avatar's mouth follows the voice's output level (CharacterAvatar "playback", smoothPlaybackLevel).
-    const level = call.state === "speaking" ? (Math.random() < 0.12 ? 0 : 0.25 + Math.random() * 0.7) : 0;
-    mouth = smoothPlaybackLevel(mouth, level);
-    for (const el of all('.sv-avatar[data-mouth="playback"]')) {
-      el.style.setProperty("--mouth", String(mouth));
-      el.toggleAttribute("data-mouth-active", mouth > 0);
     }
     // Your microphone's wave in today's card (useWave): the level while you speak.
     for (const w of all(".your-wave")) {
@@ -509,7 +545,7 @@ const animator = (() => {
       timers.forEach((t) => { clearTimeout(t); clearInterval(t); });
       timers = [];
       cancelAnimationFrame(raf);
-      word = 0; personStep = 0; bored = false; idleStep = null;
+      word = 0; personStep = 0; bored = false; idleStep = null; sounding = false; playback.publish(0, "call"); heardSince = performance.now(); columns.length = 0;
       if (STATES[call.state].mood !== "working") work = null;
       paint();
       balloons();
@@ -550,7 +586,7 @@ function drawPanel() {
     select("theme", "System theme", [["", `The desktop's (${env().theme})`], ["dark", "Dark"], ["light", "Light"]], pick.theme),
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
-    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("previews", "Its style previews", [["small", "(a) Small pictures"], ["real", "(b) The real card"]], pick.previews)}</div>`,
+    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipTitle", "Picture's title", [["bottom", "Bottom left"], ["top", "One line at the top"]], pick.pipTitle)}${select("previews", "Its style previews", [["small", "(a) Small pictures"], ["real", "(b) The real card"]], pick.previews)}</div>`,
     `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
 <p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");
