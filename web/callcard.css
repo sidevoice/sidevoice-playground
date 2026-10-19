@@ -713,7 +713,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .pip-head-1 .pip-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pip-head-1 .cc-switcher { margin-left: auto; }
 .pip-head-1 .stage-machine + .cc-switcher { margin-left: auto; }
-@container pip (max-width: 420px) { .pip-head-1 .stage-machine { display: none; } }
+@container pip (max-width: 300px) { .pip-head-1 .stage-machine { display: none; } }
 @container pip (max-width: 330px) { .pip-head-1 .cc-switcher .header-avatar:not([aria-pressed=true]) { display: none; } }
 @container pip (max-width: 280px) { .pip-head-1 .cc-switcher .header-avatar { display: none; } }
 /* C1: the name, the switcher and the two actions in the pill (or on the base). */
@@ -725,3 +725,25 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-a1[data-expanded] .a1-top .cc-actions { display: inline-flex; }
 .cc-a1 .card-who { padding-right: 60px; }
 @container a1 (max-width: 400px) { .cc-a1 .card-who { padding-right: 40px; } }
+
+/* ---------- B1, round 14, reapplied step by step ---------- */
+/* Header icons near the pointer, or with focus in the card; "always" to compare. They lie over the title line's right
+   end, so they take no room at rest. */
+#card-window:not([data-expanded]) .cc-pip-meet[data-icons=hover]:not(:focus-within) .pip-head-actions { visibility: hidden; }
+.cc-pip-meet[data-icons=hover] .pip-head-1 { position: relative; }
+.cc-pip-meet[data-icons=hover] .pip-head-1 .pip-head-actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding-left: 18px;
+  background: linear-gradient(90deg, transparent, var(--sv-bg) 16px); }
+.cc-pip-meet .stage-badge > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The switcher in a band of its own over the stage, always there. Four parts now (header, band, stage, bar): the stage's
+   row is the one that takes the free room when the window is sized freely. (The first version of this kept the old
+   three rows, so the band took the room and the stage got none: no avatar, an empty band.) */
+.cc-pip-meet .pip-switch-band { display: flex; align-items: center; min-height: 28px; padding: 0 2px; }
+.cc-pip-meet .pip-switch-band .cc-switcher { margin: 0; }
+.cc-pip-meet[data-sized] { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.pip-head-1 .stage-machine { margin-left: 4px; }
+/* At a preset the stage fills its area exactly: one frame, the room's tile's own. */
+.cc-pip-meet:not([data-sized]) .pip-canvas { background: none; border-radius: 0; overflow: visible; }
+/* The icons' backing covers whatever of the title line runs under them (no sliver of the machine left beside them). */
+.cc-pip-meet[data-icons=hover] .pip-head-1 .pip-head-actions { padding-left: 28px; background: linear-gradient(90deg, transparent, var(--sv-bg) 22px); }
+#card-window[data-expanded] .cc-pip-meet[data-icons=hover] .pip-head-1 .stage-machine, .cc-pip-meet[data-icons=hover]:focus-within .pip-head-1 .stage-machine { visibility: hidden; }
