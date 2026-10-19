@@ -34,18 +34,19 @@
   <dialog id="customiser" aria-labelledby="cz-title">
     <form method="dialog" class="cz">
       <header class="cz-head">
-        <h2 id="cz-title"><span class="cz-icon" data-icon="brush"></span>Customise your crew member</h2>
+        <h2 id="cz-title"><span class="cz-icon" data-icon="palette"></span>Customise your crew member</h2>
+        <div class="seg layouts" id="layouts" role="radiogroup" aria-label="Layout (L)"></div>
         <div class="cz-actions">
-          <button type="button" class="act" data-run="undo" title="Undo (Z)"><span data-icon="undo"></span><span class="lbl">Undo</span><kbd>Z</kbd></button>
+          <button type="button" class="act" data-run="undo" title="Undo (Z or Ctrl+Z)"><span data-icon="undo"></span><span class="lbl">Undo</span><kbd>Z</kbd></button>
+          <button type="button" class="act" data-run="redo" title="Redo (Shift+Z, Ctrl+Y or Ctrl+Shift+Z)"><span data-icon="redo"></span><span class="lbl">Redo</span><kbd>⇧Z</kbd></button>
           <button type="button" class="act" data-run="reset" title="Back to how it was when you opened this (Backspace)"><span data-icon="reset"></span><span class="lbl">Reset</span><kbd>⌫</kbd></button>
-          <button type="button" class="act" data-run="shuffle" title="A random choice in this section (Shift+R)"><span data-icon="shuffle"></span><span class="lbl">Shuffle section</span><kbd>⇧R</kbd></button>
-          <button type="button" class="act accent" data-run="random" title="A whole new creature (R)"><span data-icon="dice"></span><span class="lbl">Randomise</span><kbd>R</kbd></button>
+          <button type="button" class="act accent" data-run="random" title="A whole new creature (R); Shift+R re-rolls only the focused section"><span data-icon="dice"></span><span class="lbl">Randomise all</span><kbd>R</kbd></button>
           <button type="button" class="act icon-only" data-run="close" title="Close without saving (Esc)" aria-label="Close without saving"><span data-icon="close"></span></button>
         </div>
       </header>
 
-      <div class="cz-body">
-        <!-- Live preview: the stage as in the call, then the small sizes. -->
+      <!-- Layout "tabs": the preview on the left, a tab per category on the right. -->
+      <div class="cz-body" id="tabs-layout">
         <section class="cz-preview" aria-label="Preview">
           <div id="preview" class="preview-stage"></div>
           <div class="preview-moods seg" id="preview-moods" role="radiogroup" aria-label="Preview as"></div>
@@ -53,21 +54,22 @@
             <div class="row-mock"><span id="preview-row"></span><span><b class="pv-name"></b><small>Claude Code · now</small></span></div>
             <span id="preview-rail" class="rail-mock"></span>
           </div>
-          <label class="name-field">Name <input id="name" type="text" maxlength="40" autocomplete="off" spellcheck="false"></label>
           <p id="traits" class="traits"></p>
         </section>
-
-        <!-- The choices: a tab per category, sections inside, a grid of tiles in each. -->
         <section class="cz-pick">
           <nav class="tabs" role="tablist" aria-label="Categories" id="tabs"></nav>
-          <div class="tab-hint"><kbd>Q</kbd><kbd>E</kbd> category · <kbd>[</kbd><kbd>]</kbd> section · arrows to browse, <kbd>Enter</kbd> to pick <span class="legend">proposed addition (not in the app yet)</span></div>
-          <div id="sections" class="sections" role="tablist" aria-label="Sections"></div>
+          <div class="tab-hint"><kbd>Q</kbd><kbd>E</kbd> category · <kbd>[</kbd><kbd>]</kbd> section · arrows to browse, <kbd>Enter</kbd> to pick · <kbd>L</kbd> layout</div>
+          <div class="section-bar"><div id="sections" class="sections" role="tablist" aria-label="Sections"></div><div id="section-tools" class="section-tools"></div></div>
           <p id="section-note" class="section-note"></p>
           <div id="grid" class="grid" role="tabpanel"></div>
         </section>
       </div>
 
+      <!-- Layouts "overview" and "loadout": drawn by customiser.mjs. -->
+      <div class="cz-alt" id="alt" hidden></div>
+
       <footer class="cz-foot">
+        <label class="name-field">Name <input id="name" type="text" maxlength="40" autocomplete="off" spellcheck="false"></label>
         <details class="config">
           <summary>Crew member config <small>(what settings would store)</small></summary>
           <pre id="config"></pre>
