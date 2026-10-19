@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sidevoice avatar customiser exploration</title>
+  <link rel="stylesheet" href="/customiser/bichos.css">
+  <link rel="stylesheet" href="/customiser/call.css">
+  <link rel="stylesheet" href="/customiser.css">
+  <script type="module" src="/customiser.mjs"></script>
+</head>
+<body>
+  <main class="view">
+    <header class="view-head">
+      <a href="/" class="back" aria-label="Back to the playground">←</a>
+      <div>
+        <h1>Avatar customiser</h1>
+        <p>A design exploration. The creature is drawn live by sidevoice-web's bichos engine (<code id="source"></code>);
+          what you pick is a small crew-member object, kept on this device only.</p>
+      </div>
+    </header>
+
+    <!-- The creature's canvas, as the call's stage shows it. The brush opens the customiser. -->
+    <section class="canvas-wrap" aria-label="The creature">
+      <div id="canvas" class="canvas"></div>
+      <button type="button" id="open" class="brush" title="Customise (C)" aria-label="Customise this creature" aria-haspopup="dialog"></button>
+      <div class="canvas-foot">
+        <span><b id="canvas-name"></b> <small id="canvas-traits"></small></span>
+        <span id="canvas-moods" class="seg" role="radiogroup" aria-label="What it is doing"></span>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="customiser" aria-labelledby="cz-title">
+    <form method="dialog" class="cz">
+      <header class="cz-head">
+        <h2 id="cz-title">Customise your crew member</h2>
+        <div class="seg layouts" id="layouts" role="radiogroup" aria-label="Layout (L)"></div>
+        <div class="seg options-mode" id="options-mode" role="radiogroup" aria-label="Where the options show"></div>
+        <div class="cz-actions">
+          <button type="button" class="act" data-run="undo" title="Undo (Z or Ctrl+Z)"><span data-icon="undo"></span><span class="lbl">Undo</span></button>
+          <button type="button" class="act" data-run="redo" title="Redo (Shift+Z, Ctrl+Y or Ctrl+Shift+Z)"><span data-icon="redo"></span><span class="lbl">Redo</span></button>
+          <button type="button" class="act" data-run="reset" title="Back to how it was when you opened this (Backspace)"><span data-icon="reset"></span><span class="lbl">Reset</span></button>
+          <button type="button" class="act accent" data-run="random" title="A whole new creature (R); Shift+R re-rolls only the section in hand"><span data-icon="dice"></span><span class="lbl">Randomise all</span></button>
+          <button type="button" class="act icon-only" data-run="close" title="Close without saving (Esc)" aria-label="Close without saving"><span data-icon="close"></span></button>
+        </div>
+      </header>
+
+      <!-- The layouts ("creator", "overview") are drawn here by customiser.mjs. -->
+      <div class="cz-alt" id="alt"></div>
+
+      <footer class="cz-foot">
+        <label class="name-field">Name <input id="name" type="text" maxlength="40" autocomplete="off" spellcheck="false"></label>
+        <div class="io">
+          <span class="io-label">Crew member</span>
+          <button type="button" class="act" data-run="download" title="Download this crew member as a JSON file"><span data-icon="download"></span>Export</button>
+          <button type="button" class="act" data-run="copy" title="Copy its JSON"><span data-icon="copy"></span>Copy</button>
+          <button type="button" class="act" data-run="import-file" title="Load a crew member from a JSON file"><span data-icon="upload"></span>Import</button>
+          <button type="button" class="act" data-run="import-paste" title="Paste a crew member's JSON"><span data-icon="paste"></span>Paste</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+          <details class="config"><summary>JSON</summary><pre id="config"></pre></details>
+          <p id="io-note" class="io-note" role="status" aria-live="polite"></p>
+        </div>
+        <span class="grow"></span>
+        <button type="button" class="act" data-run="close">Cancel</button>
+        <button type="button" class="act primary" data-run="save" title="Save (Ctrl+Enter)"><span data-icon="check"></span>Save</button>
+        <div id="paste-box" class="paste-box" hidden>
+          <label for="paste-text">Paste a crew member's JSON</label>
+          <textarea id="paste-text" rows="7" spellcheck="false" placeholder='{ "v": 1, "name": "…", "figure": { "body": "round", … } }'></textarea>
+          <div><button type="button" class="act primary" data-run="paste-apply">Import</button><button type="button" class="act" data-run="paste-cancel">Cancel</button></div>
+        </div>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>
