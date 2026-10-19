@@ -130,13 +130,13 @@ const actions = () => `<span class="cc-actions"><button type="button" class="cc-
 const strip = () => `<div class="call-card cc-strip">${controls()}</div>`;
 
 /** The room's call bar (CallToolbar, CallIndicators, AudioDevices): the microphone's pill with its level and devices,
- *  skip, the call and ⋮, centred; the captions' toggle beside skip, the room's own to come (a later web change). */
+ *  skip and the call, centred (not ⋮: nothing of it belongs on a picture); the captions' toggle beside skip, the room's
+ *  own to come (a later web change). */
 const roomBar = () => `<footer class="call-bar pip-bar"><div class="controls" id="call-controls"><div class="call-actions">
 <div id="mic-control" class="mic-control" data-muted="false"><button type="button" class="audio-devices-toggle" aria-label="Microphone and speaker"><span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>${svg("chevron", 18).replace("<svg ", '<svg class="audio-chevron" ')}</button><button type="button" id="mute" class="ui-button ui-button--ghost call-button" data-run="mute"></button></div>
 <button type="button" class="ui-button ui-button--ghost call-button card-captions" data-run="captions"></button>
 <button type="button" id="skip-reply" class="ui-button ui-button--ghost call-button card-skip" data-run="skip"></button>
-<button type="button" id="connect" class="ui-button ui-button--primary call-button joined" data-run="hangup" title="Hang up" aria-label="Hang up">${svg("hangup", 22)}</button>
-<details id="call-menu" class="call-menu"><summary class="call-button" aria-label="More" title="More">${svg("more", 22)}</summary></details></div></div></footer>`;
+<button type="button" id="connect" class="ui-button ui-button--primary call-button joined" data-run="hangup" title="Hang up" aria-label="Hang up">${svg("hangup", 22)}</button></div></div></footer>`;
 
 // ---------- the formats ----------
 
