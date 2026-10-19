@@ -1,0 +1,294 @@
+/* COPIED from sidevoice-web@32e266d64adc873fc7b9223824d1f6ab871a975e apps/web/src/features/settings/settings.css by scripts/callcard-creatures.mjs. */
+/* Settings (SettingsDialog): a full-screen page — its sections beside the content on a desktop, a menu of them on a
+ * phone, each section a page of its own under it (settings-levels.tsx) — on the design system's dialog shell
+ * (components/ui/ui.css `.ui-dialog`). What fails is said in one line under the header (#settings-error), outside both:
+ * at the content's head on a desktop, the whole width on a phone, whichever level shows. */
+
+.settings-page .ui-dialog-body--flush { display: flex; min-height: 0; }
+.settings-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; margin: 0; }
+.settings-nav { grid-column: 1; grid-row: 1 / -1; min-height: 0; padding: var(--sv-space-3); overflow: auto; border-inline-end: 1px solid var(--sv-border); background: var(--sv-bg-subtle); }
+.settings-content { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.settings-column { width: 100%; max-width: 760px; padding: var(--sv-space-8) var(--sv-space-10) var(--sv-space-12); }
+.settings-pane { min-width: 0; }
+.settings-note { margin-top: var(--sv-space-4); font-size: var(--sv-font-sm); line-height: 1.25rem; }
+.settings-build { font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+.settings-error { margin: 0 auto 0 0; color: var(--sv-danger); font-size: var(--sv-font-sm); }
+.settings-error:empty { display: none; }
+.settings-page .ui-dialog-reason { margin-inline: auto 0; }
+.settings-error:not(:empty) + .ui-dialog-reason { margin-inline-start: 0; }
+#reset-settings-note:empty { display: none; }
+
+/* A provider: its mark beside its name; its key's field, and what saving said, before its actions. */
+.provider-name { display: inline-flex; align-items: center; gap: var(--sv-space-3); }
+.provider-mark { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-sm); background: var(--sv-surface); color: var(--sv-text); }
+.provider-mark:empty { display: none; }
+.provider-key-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sv-space-2); }
+.provider-key-actions [role="status"] { margin: 0 auto 0 0; font-size: var(--sv-font-sm); }
+.provider-key-actions [role="status"]:empty { visibility: hidden; }
+
+/* A voice slot: the model's block under its row, its try in it (model-prepare.css); the speed with its value. */
+.ui-row--block .model-prepare { margin-top: var(--sv-space-3); }
+/* How quick a try was: one plain line, the slow hint after it, each phase in its (i). */
+.voice-try-timing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-1) var(--sv-space-2); margin: 0; color: var(--sv-text-muted); }
+.voice-try-timing > span:first-child { color: var(--sv-text); font-weight: var(--sv-weight-semibold); }
+.voice-try-slow { color: var(--sv-warning); }
+.stage-try-error { margin: 0; color: var(--sv-danger); }
+.voice-speed { display: flex; align-items: center; gap: var(--sv-space-3); width: 100%; }
+.voice-speed input[type="range"] { flex: 1; min-width: 0; accent-color: var(--sv-accent); }
+.voice-speed output { min-width: 3.5em; font-size: var(--sv-font-sm); font-variant-numeric: tabular-nums; text-align: end; color: var(--sv-text-muted); }
+
+
+.provider-remove { margin: 0 0 0 48px; padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-bg-subtle); }
+.provider-key-link { display: inline-flex; align-items: center; gap: var(--sv-space-1); justify-self: start; font-size: var(--sv-font-sm); font-weight: 600; color: var(--sv-accent-text); text-decoration: none; }
+.provider-key-link:hover { text-decoration: underline; }
+/* The eye sits inside the box at its end; the box leaves it room. */
+.provider-key-input { position: relative; display: flex; align-items: center; }
+.provider-key-input .ui-input { flex: 1; padding-inline-end: 40px; }
+.provider-key-reveal { position: absolute; inset-inline-end: 4px; }
+.provider-key-cost, .provider-key-replacing { margin: 0; font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-text-muted); }
+.provider-remove p { margin: 0 0 var(--sv-space-3); font-size: var(--sv-font-sm); }
+@media (max-width: 767px) {
+  .provider-remove { margin-inline-start: 0; }
+}
+/* A section whose chosen model is not ready says so in the nav, in words. */
+.ui-nav-badge { margin-inline-start: auto; }
+/* Needs attention: the warning dot, as on the stage's title. */
+.settings-attention { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--sv-warning); box-shadow: 0 0 0 2px var(--sv-surface); }
+/* This device's entry: a machine's (MachineEntryCopy), "This device" in the other sections' size, its state under it
+   only where it is said in words (Not working); else one line, as any section. A
+   phone's menu says it on its row's line (settings-levels.tsx). */
+.ui-nav-item.this-device-entry { height: auto; min-height: 40px; padding-block: 6px; }
+.ui-nav-item.this-device-entry:has(.machine-state) { min-height: 52px; }
+.this-device-entry .machine-nav-name { font-size: var(--sv-font-md); line-height: 1.375rem; }
+
+/* Advanced → Downloaded models: one line each, its size, and Delete asking in place. */
+.downloaded-models { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sv-space-2); margin-top: var(--sv-space-2); }
+.downloaded-model { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sv-space-2); }
+.downloaded-model-main { display: flex; align-items: center; justify-content: space-between; gap: var(--sv-space-3); min-height: 36px; }
+.downloaded-model-copy { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); min-width: 0; }
+.downloaded-model-name { font-size: var(--sv-font-sm); overflow-wrap: anywhere; }
+.downloaded-model-size { font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+.downloaded-model .provider-remove { margin: 0; }
+.downloaded-model-error { margin: 0; font-size: var(--sv-font-sm); color: var(--sv-danger); }
+
+/* Settings › Providers, as a catalogue of connections: where keys are kept in one line, then "Your providers" — a row
+ * each: mark, name with how its key stands right after it, what it is for, and Disconnect at the end — and "Add a
+ * provider": a search at its head and the rest as cards in a grid, three across, each its own height, one across on a
+ * phone. Connect and Disconnect weigh the same. */
+.providers { display: grid; gap: var(--sv-space-5); }
+.provider-keys-where { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); margin: 0; font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-text-muted); }
+.provider-keys-where svg { flex: none; margin-top: 3px; color: var(--sv-warning); }
+.providers-card { display: grid; gap: var(--sv-space-4); padding: var(--sv-space-5); }
+.providers-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sv-space-4); }
+.providers-card-head h3 { margin: 0; font-size: var(--sv-font-md); font-weight: var(--sv-weight-semibold); line-height: 1.375rem; color: var(--sv-text); }
+.providers-card-head { align-items: center; min-height: 32px; }
+.providers-card > .muted { margin: 0; font-size: var(--sv-font-sm); }
+.provider-row .provider-mark, .provider-card .provider-mark { width: 40px; height: 40px; border-radius: var(--sv-radius-md); }
+.provider-rows { display: grid; gap: var(--sv-space-2); }
+.provider-row { display: flex; align-items: flex-start; gap: var(--sv-space-3); min-width: 0; padding: var(--sv-space-3) var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); }
+.provider-row:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.provider-row-copy { display: grid; gap: 2px; flex: 1; min-width: 0; min-height: 40px; align-content: center; }
+.provider-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); }
+/* Its pills small and soft: a quiet border in their own colour, as a tag rather than a button. */
+.provider-row-title .ui-badge { height: 20px; padding: 0 var(--sv-space-2); font-weight: 500; letter-spacing: .01em; border: 1px solid color-mix(in srgb, currentColor 24%, transparent); }
+.provider-row-line, .provider-card-purpose { font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-text-muted); }
+.provider-row-problem { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); margin-top: var(--sv-space-2); font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-text); }
+.provider-row-problem > svg { flex: none; color: var(--sv-warning); }
+.provider-row-problem p { flex: 1 1 14rem; margin: 0; }
+.provider-row-why { flex: 1 1 14rem; min-width: 0; }
+.provider-row[data-state="rejected"] .provider-row-problem > svg, .provider-row[data-state="unreadable"] .provider-row-problem > svg { color: var(--sv-danger); }
+.provider-key-detail { color: var(--sv-text-muted); }
+.provider-row-action { flex: none; margin-top: 4px; }
+/* As many across as fit with the name and Connect on one line (three where the column is wide), one on a phone. */
+.provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: var(--sv-space-3); }
+/* A provider is one line, as a row of Your providers is: its mark, its name over what it offers, Connect at the end. */
+.provider-card { display: flex; align-items: center; gap: var(--sv-space-3); min-width: 0; padding: var(--sv-space-3) var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); }
+.provider-card-copy { display: grid; gap: 2px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.provider-card-action { flex: none; }
+.provider-search { position: relative; display: flex; align-items: center; flex: none; width: 14rem; }
+.provider-search .ui-input { width: 100%; padding-inline: 32px; }
+.provider-search .ui-input::-webkit-search-cancel-button { appearance: none; }
+.provider-search-icon { position: absolute; inset-inline-start: 10px; color: var(--sv-text-subtle); pointer-events: none; }
+.provider-search-clear { position: absolute; inset-inline-end: 2px; }
+/* The key's dialog: the box with Show beside it; under it, where to get a key and where it is kept; the provider's own
+ * words after a refusal, muted. */
+.provider-key-help { display: grid; justify-items: start; gap: 2px; }
+.provider-key-help .provider-key-link { display: inline-flex; align-items: center; gap: var(--sv-space-1); }
+.provider-key-error { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); margin: 0; font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-danger); }
+.provider-key-error svg { flex: none; margin-top: 2px; }
+.provider-key-dialog .ui-dialog-reason:empty, .provider-disconnect-dialog .ui-dialog-reason:empty { flex: 0 0 0; }
+.provider-disconnect-dialog p { margin: 0 0 var(--sv-space-3); }
+.provider-disconnect-in-use { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); }
+.provider-disconnect-in-use svg { flex: none; margin-top: 3px; color: var(--sv-warning); }
+@media (max-width: 599px) {
+  .providers-card { padding: var(--sv-space-4); }
+  .providers-card-head { flex-direction: column; align-items: stretch; }
+  .provider-search { width: 100%; }
+  /* Too narrow for the name and its button side by side: the button goes under the name, at its start. */
+  .provider-row, .provider-card { flex-wrap: wrap; }
+  .provider-row-copy, .provider-card-copy { flex: 1 1 9rem; }
+  .provider-row-action, .provider-card-action { margin-inline-start: calc(40px + var(--sv-space-3)); }
+}
+
+/* "Saved", beside the title for a moment; the error line at the content's head. */
+.settings-saved { display: inline-flex; align-items: center; gap: var(--sv-space-1); margin-inline-start: var(--sv-space-3); font-size: var(--sv-font-sm); font-weight: var(--sv-weight-regular); color: var(--sv-text-muted); vertical-align: middle; }
+.settings-layout > .settings-error { grid-column: 2; grid-row: 1; margin: var(--sv-space-3) var(--sv-space-10) 0; }
+.settings-saved svg { color: var(--sv-positive); }
+
+/* A control pointed at (what's new's Set up): its row lit for a moment. */
+.ui-row.settings-highlight { border-radius: var(--sv-radius-md); background: var(--sv-accent-soft); box-shadow: 0 0 0 2px var(--sv-accent); transition: background-color var(--sv-dur-slow) var(--sv-ease); }
+@media (prefers-reduced-motion: reduce) { .ui-row.settings-highlight { transition: none; } }
+.downloaded-unused-confirm { margin: 0 0 var(--sv-space-2); }
+/* A downloaded model is one line: its name with its tags right after it (what it is for, a quiet chip with its icon,
+   then In use), its size at the end, and Delete. On a narrow screen the size
+   wraps under the name. */
+.downloaded-models:focus { outline: none; }
+.downloaded-model-copy { flex: 1 1 auto; justify-content: space-between; gap: var(--sv-space-3); }
+.downloaded-model-title { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); min-width: 0; }
+.downloaded-model-size { margin-inline-start: auto; }
+.model-purpose { display: inline-flex; align-items: center; gap: 4px; padding: 1px var(--sv-space-2); border-radius: var(--sv-radius-pill); background: var(--sv-bg-sunken); color: var(--sv-text-muted); font-size: var(--sv-font-xs); line-height: 1.125rem; white-space: nowrap; }
+.model-purpose svg { width: 13px; height: 13px; }
+.downloaded-remove-all { display: grid; gap: var(--sv-space-2); justify-items: start; margin-top: var(--sv-space-2); }
+.downloaded-models .downloaded-model + .downloaded-model { padding-top: var(--sv-space-2); border-top: 1px solid var(--sv-border); }
+
+
+/* ----- a phone: Settings as a menu of levels (settings-levels.tsx). One level shows at a time, in one place under the
+ * header and the error line; the one left is hidden once its slide ends (never only covered or transparent: what is new
+ * on it would be taken as seen). Every edge keeps clear of the screen's own (viewport-fit=cover). */
+@media (max-width: 767px) {
+  .ui-dialog.settings-page[data-layout] .ui-dialog-head { gap: var(--sv-space-2); min-height: var(--sv-header-height);
+    padding: calc(var(--sv-space-3) + env(safe-area-inset-top)) max(var(--sv-space-4), env(safe-area-inset-right)) var(--sv-space-3) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  /* One line, cut short when long (a machine's name: whole on its page). Focus goes to it, never by Tab. */
+  .settings-page .ui-dialog-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .settings-page .ui-dialog-title:focus { outline: none; }
+  .settings-back { flex: none; width: 44px; height: 44px; margin-inline-start: calc(-1 * var(--sv-space-2)); }
+  .settings-back svg:dir(rtl) { transform: scaleX(-1); }
+
+  .settings-layout { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+  .settings-layout > .settings-error { grid-column: 1; margin: 0; padding: var(--sv-space-2) max(var(--sv-space-4), env(safe-area-inset-right)) var(--sv-space-2) max(var(--sv-space-4), env(safe-area-inset-left));
+    border-bottom: 1px solid var(--sv-border); }
+  .settings-nav, .settings-content { grid-column: 1; grid-row: 2; background: var(--sv-bg); }
+  .settings-layout > .settings-nav { display: block; padding: var(--sv-space-4) max(var(--sv-space-4), env(safe-area-inset-right)) calc(var(--sv-space-8) + env(safe-area-inset-bottom)) max(var(--sv-space-4), env(safe-area-inset-left));
+    overflow: hidden auto; overscroll-behavior: contain; border: 0; }
+  .settings-column { padding: var(--sv-space-5) max(var(--sv-space-4), env(safe-area-inset-right)) calc(var(--sv-space-8) + env(safe-area-inset-bottom)) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  .settings-layout > .settings-nav[hidden], .settings-layout > .settings-content[hidden], .settings-sublevel[hidden] { display: none; }
+  /* The header says the section: its title is not repeated on the page (it still names it), its description stays as
+     the page's first paragraph. This device's page keeps its own: this device's name, and its rename. */
+  .settings-pane:not(#pane-this-computer) > .ui-section > .ui-section-head .ui-section-title { display: none; }
+  .settings-pane:not(#pane-this-computer) > .ui-section > .ui-section-head:not(:has(.ui-section-description, .ui-section-actions)) { display: none; }
+
+  /* A menu: one card of rows, a hairline between them from the label on. A row: its icon (with the "new" dot), its
+     label over its line, its badge or its state's dot, and the chevron of a page of its own. The label never gives
+     way; the line does first. */
+  .settings-menu { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-surface); }
+  .settings-menu > li { position: relative; }
+  .settings-menu > li + li::before { content: ""; position: absolute; z-index: 1; top: 0; inset-inline: calc(var(--sv-space-4) + 20px + var(--sv-space-3)) 0; border-top: 1px solid var(--sv-border); pointer-events: none; }
+  .settings-menu-row { display: flex; align-items: center; gap: var(--sv-space-3); width: 100%; min-height: 56px; margin: 0; padding: var(--sv-space-2) var(--sv-space-3) var(--sv-space-2) var(--sv-space-4);
+    border: 0; background: none; color: var(--sv-text); font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .settings-menu-row[data-lines="2"] { min-height: 64px; }
+  .settings-menu-row:active { background: var(--sv-hover); }
+  .settings-menu-row:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: -2px; }
+  .settings-menu-icon { display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--sv-text-muted); }
+  .settings-menu-icon .new-on-icon { --new-ground: var(--sv-surface); }
+  .settings-menu-text { display: grid; flex: 1; min-width: 0; }
+  .settings-menu-label { font-size: var(--sv-font-md); line-height: 1.375rem; font-weight: var(--sv-weight-medium); color: var(--sv-text); overflow-wrap: anywhere; }
+  .settings-menu-summary { min-height: 1.25rem; overflow: hidden; font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-text-muted); white-space: nowrap; text-overflow: ellipsis; }
+  .settings-menu-summary .machine-state { font-size: var(--sv-font-sm); line-height: 1.25rem; }
+  .settings-menu-row > .ui-badge { flex: none; }
+  .settings-menu-chevron { display: inline-grid; flex: none; color: var(--sv-text-subtle); }
+  .settings-menu-chevron svg:dir(rtl) { transform: scaleX(-1); }
+  /* Add a machine opens a dialog, not a page: the accent's words, no chevron. A machine's name, unlike a label, is cut. */
+  .settings-menu-row--add .settings-menu-icon, .settings-menu-row--add .settings-menu-label { color: var(--sv-accent-text); }
+  .machines-menu .settings-menu-label { display: flex; align-items: center; gap: var(--sv-space-1); min-width: 0; }
+  .machines-menu .settings-menu-label .machine-nav-name { min-width: 0; overflow: hidden; font-size: var(--sv-font-md); line-height: 1.375rem; white-space: nowrap; text-overflow: ellipsis; }
+
+  /* Machines' list and a machine's page, in the one place of the page they share. */
+  .settings-sublevels { display: grid; min-width: 0; }
+  .settings-sublevel { display: grid; align-content: start; gap: var(--sv-space-4); grid-area: 1 / 1; min-width: 0; background: var(--sv-bg); }
+  .settings-sublevel > .ui-section-description { margin: 0; }
+
+  /* The slide: the next level in from the inline end, the one left a quarter of the way out; back is its mirror. The one
+     left by a slide inside a page stays where it was scrolled (--level-shift). */
+  .settings-layout { --level-way: 1; }
+  .settings-layout:dir(rtl) { --level-way: -1; }
+  .settings-page [data-motion] { animation: var(--sv-dur-slow) var(--sv-ease) both; }
+  .settings-page [data-motion="in-forward"] { z-index: 1; animation-name: settings-level-in; }
+  .settings-page [data-motion="out-forward"] { animation-name: settings-level-out; }
+  .settings-page [data-motion="in-back"] { animation-name: settings-level-back-in; }
+  .settings-page [data-motion="out-back"] { z-index: 1; animation-name: settings-level-back-out; }
+  .settings-sublevel[data-motion^="out"] { translate: 0 var(--level-shift, 0px); }
+}
+@keyframes settings-level-in { from { transform: translateX(calc(100% * var(--level-way, 1))); } }
+@keyframes settings-level-out { to { transform: translateX(calc(-25% * var(--level-way, 1))); } }
+@keyframes settings-level-back-in { from { transform: translateX(calc(-25% * var(--level-way, 1))); } }
+@keyframes settings-level-back-out { to { transform: translateX(calc(100% * var(--level-way, 1))); } }
+/* No slide under reduced motion: the levels swap at once (settings-levels.tsx never starts one; this is its guard). */
+@media (prefers-reduced-motion: reduce) { .settings-page [data-motion] { animation: none; } }
+
+/* Shortcuts. The desktop app's mute shortcut: the keys as they read, Change (recording the next combination) and Clear;
+   a shortcut another app has, with others to pick; a clash with VoiceOver said under it. The keys the room answers
+   (`shortcut-keys`) wear the same key cap, with nothing to change. */
+.desktop-shortcut { display: grid; gap: var(--sv-space-2); min-width: 0; }
+.desktop-shortcut p { margin: 0; font-size: var(--sv-font-sm); }
+.desktop-shortcut-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-2); }
+/* Each key its own cap, as macOS menus and keyboards draw them: a small raised tile (a thicker bottom edge), the
+   system font, centred; the caps of one shortcut side by side. */
+.shortcut-keys { display: inline-flex; align-items: center; gap: 4px; font: inherit; }
+.shortcut-key { display: inline-grid; place-items: center; min-width: 1.75rem; height: 1.75rem; padding: 0 var(--sv-space-2); border: 1px solid var(--sv-border); border-bottom-width: 2px; border-radius: 6px; background: var(--sv-surface-raised); font: 500 var(--sv-font-sm) / 1 var(--sv-font-sans, inherit); color: var(--sv-text); white-space: nowrap; }
+.shortcut-keys[data-state="refused"] .shortcut-key { border-color: var(--sv-warning); }
+.desktop-shortcut-refused { display: grid; gap: var(--sv-space-2); color: var(--sv-text); }
+.desktop-shortcut-alternatives { display: flex; flex-wrap: wrap; gap: var(--sv-space-2); }
+.desktop-shortcut-note { color: var(--sv-text-muted); }
+.desktop-shortcut-error { color: var(--sv-danger); font-size: var(--sv-font-sm); }
+/* Leaving Settings: the back arrow before the title, at every width (a phone's sizes it above). */
+.settings-page .ui-dialog-head > .settings-back { flex: none; margin-inline-start: calc(-1 * var(--sv-space-2)); }
+.settings-page .settings-back[hidden] { display: none; }
+.settings-back svg:dir(rtl) { transform: scaleX(-1); }
+/* The Danger zone, last in Advanced: its title in red, its rows in a red-bordered group. */
+.danger-zone .ui-group-title { color: var(--sv-danger); }
+.danger-group .ui-group-card { border-color: var(--sv-danger); }
+.ui-dialog .ui-disclosure + p.muted { margin-block-start: var(--sv-space-2); }
+/* The reset's result stays legible after the confirmation closes. */
+.data-reset-note { margin: var(--sv-space-2) 0 0; color: var(--sv-text-muted); font-size: var(--sv-font-sm); }
+.data-reset-note[role="alert"] { color: var(--sv-danger); }
+.data-reset-note ul { margin: var(--sv-space-2) 0 0; padding-inline-start: 1.25em; }
+.data-reset-result { position: fixed; z-index: 100; inset-block-start: var(--sv-space-4); inset-inline: var(--sv-space-4) auto;
+  width: min(34rem, calc(100vw - 2 * var(--sv-space-4))); max-height: min(70vh, 32rem); overflow: auto;
+  padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg);
+  background: var(--sv-surface); box-shadow: var(--sv-shadow-lg); color: var(--sv-text); }
+.data-reset-result[role="alert"] { border-color: var(--sv-danger); }
+.wizard-dialog > .data-reset-result {
+  position: static; order: -1; flex: none; box-sizing: border-box; width: auto;
+  margin: var(--sv-space-3) var(--sv-space-6) 0; max-height: min(28dvh, 14rem);
+  box-shadow: none;
+}
+.data-reset-result p { margin: 0 0 var(--sv-space-2); }
+.data-reset-result ul { margin: 0 0 var(--sv-space-2); padding-inline-start: 1.25em; }
+.data-reset-dismiss { float: right; margin-inline-start: var(--sv-space-2); }
+/* Downloaded models (DownloadedModels.tsx), three fixed columns so nothing shifts from row to row: the name with its
+   tags and, when unused, how long ago it was used; its size, right-aligned; Delete as an icon (an empty slot where the
+   model is in use). Remove all unused: a quiet action under the list, at its end. */
+.downloaded-model-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.downloaded-model-size { margin-inline-start: 0; text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.downloaded-model-used { font-size: var(--sv-font-xs); color: var(--sv-text-muted); }
+.downloaded-model-action { flex: none; display: inline-grid; place-items: center; width: 32px; min-height: 32px; }
+.downloaded-remove-all { justify-items: end; }
+/* The size, then Delete at the far end; every row one line and the same height (the name ends in an ellipsis rather than wrapping). */
+.downloaded-model-copy { grid-template-columns: minmax(0, 1fr) 7ch 32px; }
+.downloaded-model-main { min-height: 40px; }
+.downloaded-model-title { flex-wrap: nowrap; overflow: hidden; }
+.downloaded-model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.downloaded-model-title > .downloaded-model-name { flex: 0 1 auto; min-width: 0; }
+.downloaded-model-title > :not(.downloaded-model-name) { flex: none; }
+/* The (i) right by the model's name: no room of its own either side, it reads as part of the name. */
+.downloaded-model-title > .ui-infotip { width: 18px; margin-inline: -6px -4px; }
+/* A phone has no room for the name and its tags on one line: the tags go under it, the name never cut to nothing. */
+@media (max-width: 559px), (max-width: 899px) and (pointer: coarse) {
+  .downloaded-model-title { flex-wrap: wrap; }
+  .downloaded-model-title > .downloaded-model-name { flex: 1 0 100%; max-width: calc(100% - 22px); }
+  /* and a tag too long for a narrow phone ends in an ellipsis inside the row, never past it. */
+  .downloaded-model-title > :not(.downloaded-model-name):not(.ui-infotip) { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+/* A tooltip that says its shortcut: the label, then its key caps, small, on the tooltip's own ground. */
+.shortcut-tip { display: inline-flex; align-items: center; gap: var(--sv-space-2); }
+.ui-tooltip .shortcut-key { min-width: 1.25rem; height: 1.25rem; padding: 0 var(--sv-space-1); font-size: var(--sv-font-xs, 0.75rem); background: transparent; color: inherit; border-color: currentColor; opacity: 0.85; }

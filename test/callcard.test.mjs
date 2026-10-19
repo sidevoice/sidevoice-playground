@@ -1,25 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { CORNERS, FAMILIES, FORMATS, STATES, cardSettings } from "../web/callcard/formats.mjs";
+import { COPY, FORMATS, PLACEMENT, SETTING_DEFAULTS, cardSettings, dropAt, firstPlace, fit } from "../web/callcard/formats.mjs";
 
-test("every call-card format has a family, the three sizes, and a picture's height where it is one", () => {
+test("the three formats kept, each at medium and large, a picture with its height", () => {
+  assert.deepEqual(FORMATS.map((format) => format.id), ["card", "pip", "mascot"]);
   for (const format of FORMATS) {
-    assert.ok(FAMILIES[format.family], format.id);
-    for (const size of ["s", "m", "l"]) {
+    for (const size of ["m", "l"]) {
       assert.ok(format.sizes[size].w > 0, `${format.id} ${size}`);
-      if (format.family === "pip") assert.ok(format.sizes[size].h > 0, `${format.id} ${size} height`);
+      if (format.id === "pip") assert.ok(format.sizes[size].h > 0, `${format.id} ${size} height`);
     }
   }
-  assert.deepEqual(new Set(FORMATS.map((format) => format.family)), new Set(Object.keys(FAMILIES)));
 });
 
-test("a card setting is filled from its format's defaults, and unknown values fall back", () => {
-  assert.deepEqual(cardSettings({ format: "pip" }), { format: "pip", size: "m", corner: "br", controls: "hover" });
-  assert.deepEqual(cardSettings({ format: "nope", size: "xl", corner: "middle", controls: "always" }),
-    { format: "card", size: "m", corner: "br", controls: "always" });
-  assert.equal(Object.keys(CORNERS).length, 4);
-  for (const state of ["listening", "speaking", "working", "muted"]) assert.ok(STATES[state], state);
+test("settings are filled from the defaults, and unknown values fall back", () => {
+  assert.deepEqual(cardSettings(), SETTING_DEFAULTS);
+  assert.deepEqual(cardSettings({ format: "pip-tall", size: "s", captionPlace: "above", place: { x: "a", y: 1 } }), SETTING_DEFAULTS);
+  assert.deepEqual(cardSettings({ format: "mascot", size: "m", captions: false, place: { x: 10, y: 20 } }).place, { x: 10, y: 20 });
+});
+
+test("the card goes where it was dropped, kept inside, against an edge near one, as the desktop app places it", () => {
+  const work = { width: 1000, height: 800 }, size = { width: 300, height: 100 };
+  assert.deepEqual(firstPlace(work, size), { x: 700, y: 0 });
+  assert.deepEqual(dropAt({ x: 400, y: 300 }, size, work), { x: 400, y: 300 });
+  assert.deepEqual(dropAt({ x: PLACEMENT.magnet - 1, y: 1000 }, size, work), { x: 0, y: 700 });
+  assert.deepEqual(fit({ x: 400, y: 650 }, { width: 300, height: 200 }, work), { x: 400, y: 600 });
+});
+
+test("every setting's words are there in English and Spanish", () => {
+  for (const [key, words] of Object.entries(COPY)) assert.ok(words.en && words.es, key);
 });
 
 test("the creatures are drawn at both sizes, with their scene", async () => {

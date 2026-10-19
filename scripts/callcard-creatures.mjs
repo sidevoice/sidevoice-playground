@@ -5,10 +5,14 @@
 //
 // <sidevoice-web tree> is a checkout (or `git archive` of one) holding apps/web/src; <esbuild package dir> is any
 // node_modules/esbuild (a sidevoice-web checkout's, after `npm ci`), which bundles the engine for Node. It writes
-// web/callcard/creatures.json (each creature's SVG at the stage and sidebar sizes, its backdrop and desk) and copies
-// the engine's generated stylesheet (styles/bichos.css) and the app's avatar rules (styles/call.css) beside it.
+// web/callcard/creatures.json (each creature's SVG at the stage and sidebar sizes, its backdrop and desk) and
+// web/callcard/motion.mjs (the engine's own picks of what a bicho does: its work and idle turns, its startle, its mouth),
+// and copies beside them the web's stylesheets the card is drawn with: the engine's (styles/bichos.css), the avatars'
+// (styles/call.css), the design tokens (styles/tokens.css, styles/theme.css), the call stage's (features/call/
+// call-view.css: the balloons, the name), today's call controls card's (call-controls/call-card.css) and the settings
+// screen's (components/ui/ui.css, features/settings/settings.css).
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -68,9 +72,25 @@ const bundle = join(dir, "bundle.mjs");
 await esbuild.build({ entryPoints: [entry], bundle: true, platform: "node", format: "esm", logLevel: "warning", outfile: bundle, plugins: [glob] });
 const creatures = JSON.parse(execFileSync(process.execPath, [bundle], { encoding: "utf8", maxBuffer: 64 << 20 }));
 
+// What the app's avatar picks, as the browser module the page imports: the engine's functions, bundled, not rewritten.
+const motion = join(dir, "motion.ts");
+writeFileSync(motion, `
+export { nextWork, workTurn } from ${from("bichos/work")};
+export { nextIdle } from ${from("bichos/idle")};
+export { enterFrom, ENTER_MS } from ${from("styles/bichos")};
+export { smoothPlaybackLevel } from ${JSON.stringify(join(src, "features/avatar/playback-mouth"))};
+`);
+await esbuild.build({ entryPoints: [motion], bundle: true, platform: "browser", format: "esm", logLevel: "warning", outfile: join(out, "motion.mjs"), plugins: [glob], minify: true,
+  banner: { js: `// GENERATED from sidevoice-web@${values.sha} by scripts/callcard-creatures.mjs: the bichos engine's own picks.` } });
+
 writeFileSync(join(out, "creatures.json"), JSON.stringify({ source: `sidevoice-web@${values.sha}`, creatures }) + "\n");
-for (const name of ["bichos.css", "call.css"]) {
-  const css = readFileSync(join(src, "styles", name), "utf8");
-  writeFileSync(join(out, name), `/* COPIED from sidevoice-web@${values.sha} apps/web/src/styles/${name} by scripts/callcard-creatures.mjs. */\n${css}`);
+for (const path of ["styles/bichos.css", "styles/call.css", "styles/tokens.css", "styles/theme.css", "features/call/call-view.css",
+  "call-controls/call-card.css", "components/ui/ui.css", "features/settings/settings.css"]) {
+  const css = readFileSync(join(src, path), "utf8");
+  // The brand's typeface is served here from callcard/fonts/, not from the web's /voice/fonts/.
+  writeFileSync(join(out, path.split("/").pop()), `/* COPIED from sidevoice-web@${values.sha} apps/web/src/${path} by scripts/callcard-creatures.mjs. */\n${css.replaceAll("/voice/fonts/", "/callcard/fonts/")}`);
 }
+// DM Sans, as the web bundles it, with its licence.
+mkdirSync(join(out, "fonts"), { recursive: true });
+for (const name of ["DMSans-Variable-latin.woff2", "OFL.txt"]) copyFileSync(resolve(values.web, "apps/web/public/fonts", name), join(out, "fonts", name));
 console.log(`wrote ${creatures.length} creatures from sidevoice-web@${values.sha} to ${out}`);

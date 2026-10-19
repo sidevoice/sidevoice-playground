@@ -1,43 +1,96 @@
-// The call card's formats, as data: what a user setting would pick from if more than one is kept (format, size,
-// corner, controls). The page (callcard.mjs) draws each from these and nothing else, so a format, a size or a corner
-// is one entry here.
+// The call card's formats, its settings and where it sits, as data: what the settings screen offers (format, size,
+// captions), what the app remembers (its place on each screen), and the words for both. The page (callcard.mjs) draws
+// the card and the settings mock from these and nothing else.
 
-/** The families the exploration compares: a titled card like today's, a picture-in-picture of the call, the creature
- *  itself. */
-export const FAMILIES = {
-  card: "Titled card",
-  pip: "Picture-in-picture",
-  mascot: "The creature itself",
-};
-
-/** Each format: its family, its name, one line on it, its sizes (s, m, l: the card's box in CSS pixels, without the
- *  window's shadow margin), and whether its controls show by default or only near the pointer. */
+/** The three formats the operator kept (2026-10-19). Sizes are the card's own box in CSS pixels, without the window's
+ *  shadow margin: a card's width, a picture's width and height, the avatar's square. */
 export const FORMATS = [
-  { id: "today", family: "card", label: "Today (reference)", blurb: "The current card, 320px, for comparison: brand mark, title, your wave; controls near the pointer.",
-    sizes: { s: { w: 320 }, m: { w: 320 }, l: { w: 320 } }, controls: "hover" },
-  { id: "card", family: "card", label: "A1 · Titled card", blurb: "Today's card grown up: the creature replaces the brand mark, the state is a word, the controls always there.",
-    sizes: { s: { w: 340 }, m: { w: 390 }, l: { w: 450 } }, controls: "always" },
-  { id: "card-caption", family: "card", label: "A2 · Card with caption", blurb: "A1 plus what is happening in words: the reply as it sounds, what the agent works on, what it hears.",
-    sizes: { s: { w: 360 }, m: { w: 420 }, l: { w: 480 } }, controls: "always" },
-  { id: "pip", family: "pip", label: "B1 · Picture-in-picture 16:9", blurb: "The call's stage, as in the room: backdrop, the creature, its desk while working, subtitles; controls over it.",
-    sizes: { s: { w: 320, h: 180 }, m: { w: 400, h: 225 }, l: { w: 512, h: 288 } }, controls: "hover" },
-  { id: "pip-tall", family: "pip", label: "B2 · Picture-in-picture, portrait", blurb: "The same stage standing up, like a phone's call: takes a narrow strip of the screen.",
-    sizes: { s: { w: 200, h: 260 }, m: { w: 240, h: 320 }, l: { w: 288, h: 384 } }, controls: "hover" },
-  { id: "mascot", family: "mascot", label: "C1 · Mascot", blurb: "Only the creature, floating on the desktop; a speech bubble while it speaks; controls under its feet near the pointer.",
-    sizes: { s: { w: 120 }, m: { w: 160 }, l: { w: 220 } }, controls: "hover" },
-  { id: "mascot-perch", family: "mascot", label: "C2 · Mascot on a bar", blurb: "The creature sitting on a slim control bar with the title: a mascot that still says where the call is.",
-    sizes: { s: { w: 110 }, m: { w: 140 }, l: { w: 180 } }, controls: "always" },
+  { id: "card", label: "A1 · Title card", sizes: { m: { w: 390 }, l: { w: 450 } },
+    blurb: "Today's card grown up: the avatar in place of the brand mark, the conversation, its machine and its state; today's controls near the pointer." },
+  { id: "pip", label: "B1 · Picture in picture", sizes: { m: { w: 400, h: 225 }, l: { w: 512, h: 288 } },
+    blurb: "The room's stage, small: the same screen, its balloons included; today's controls over it near the pointer." },
+  { id: "mascot", label: "C1 · Just the avatar", sizes: { m: { w: 160 }, l: { w: 220 } },
+    blurb: "Only the avatar, floating on the desktop, on nothing; today's controls under it near the pointer." },
 ];
 
-export const SIZES = { s: "Small", m: "Medium", l: "Large" };
+export const SIZES = { m: "Medium", l: "Large" };
 
-/** Where the card sits, in the screen's work area (clear of the taskbar, the dock, the menu bar). */
-export const CORNERS = { tl: "Top left", tr: "Top right", bl: "Bottom left", br: "Bottom right" };
+/** Where a title card's captions go: beside it, as the avatar's balloons (the default), or inside it. */
+export const CAPTION_PLACES = { beside: "Beside the card", inside: "Inside the card" };
 
-/** The gap between the card and the work area's edges, in CSS pixels. */
-export const CORNER_GAP = 16;
+/** The settings, as the desktop app would store them, and their defaults. `alwaysShown` and `places` exist today
+ *  (sidevoice-desktop: the "Always show the call controls" switch, and the card's place per display); the rest are new. */
+export const SETTING_DEFAULTS = { format: "card", size: "l", captions: true, captionPlace: "beside", alwaysShown: false, place: null };
 
-/** The call's states the card shows. `mood` is what the creature acts out (the app's avatar moods). */
+/** One card's settings, filled from the defaults; unknown values fall back. */
+export function cardSettings(stored = {}) {
+  const s = { ...SETTING_DEFAULTS, ...Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== undefined)) };
+  return {
+    format: FORMATS.some((each) => each.id === s.format) ? s.format : SETTING_DEFAULTS.format,
+    size: SIZES[s.size] ? s.size : SETTING_DEFAULTS.size,
+    captions: !!s.captions,
+    captionPlace: CAPTION_PLACES[s.captionPlace] ? s.captionPlace : SETTING_DEFAULTS.captionPlace,
+    alwaysShown: !!s.alwaysShown,
+    place: s.place && Number.isFinite(s.place.x) && Number.isFinite(s.place.y) ? s.place : null,
+  };
+}
+
+/** The settings section's words: English, and Spanish as sidevoice-web's catalogue writes it (keys in its style; not in
+ *  the catalogue yet). `existing` marks a key the catalogue already has. */
+export const COPY = {
+  "settings.section.call": { en: "Call", es: "Llamada", existing: true },
+  "settings.call.description": { en: "How a call behaves: when your turn ends, the sound while the agent works, and the screen.", es: "Cómo se comporta una llamada: cuándo acaba tu turno, el sonido mientras el agente trabaja y la pantalla.", existing: true },
+  "settings.callCard.title": { en: "Floating call card", es: "Tarjeta flotante" },
+  "settings.callCard.hint": { en: "What Sidevoice shows over your other apps during a call.", es: "Lo que Sidevoice muestra sobre tus otras aplicaciones durante una llamada." },
+  "settings.desktop.alwaysShown": { en: "Always show the call controls", es: "Mostrar siempre los controles de llamada", existing: true },
+  "settings.desktop.alwaysShownHint": { en: "Off: they show only while the Sidevoice window is minimised during a call.", es: "Desactivado: solo se ven mientras la ventana de Sidevoice está minimizada durante una llamada.", existing: true },
+  "settings.callCard.format": { en: "Style", es: "Estilo" },
+  "settings.callCard.format.card": { en: "Card", es: "Tarjeta" },
+  "settings.callCard.format.cardHint": { en: "The conversation, its state and the controls.", es: "La conversación, su estado y los controles." },
+  "settings.callCard.format.pip": { en: "Picture in picture", es: "Imagen en imagen" },
+  "settings.callCard.format.pipHint": { en: "The call's stage, small.", es: "La escena de la llamada, en pequeño." },
+  "settings.callCard.format.mascot": { en: "Just the avatar", es: "Solo el avatar" },
+  "settings.callCard.format.mascotHint": { en: "It floats on your desktop.", es: "Flota sobre tu escritorio." },
+  "settings.callCard.size": { en: "Size", es: "Tamaño" },
+  "settings.callCard.size.m": { en: "Medium", es: "Mediano" },
+  "settings.callCard.size.l": { en: "Large", es: "Grande" },
+  "settings.callCard.captions": { en: "Show captions", es: "Mostrar subtítulos" },
+  "settings.callCard.captionsHint": { en: "What the agent says and what it hears, in speech bubbles. The card's own button turns them on and off.", es: "Lo que dice el agente y lo que te oye, en bocadillos. El botón de la tarjeta los activa y desactiva." },
+  "settings.callCard.captionPlace": { en: "Captions on the card", es: "Subtítulos en la tarjeta" },
+  "settings.callCard.captionPlace.beside": { en: "Beside it", es: "Al lado" },
+  "settings.callCard.captionPlace.inside": { en: "Inside it", es: "Dentro" },
+  "settings.callCard.position": { en: "Position", es: "Posición" },
+  "settings.callCard.positionHint": { en: "Drag it anywhere. It stays where you leave it on each screen.", es: "Arrástrala a donde quieras. Se queda donde la dejes en cada pantalla." },
+  "settings.callCard.positionReset": { en: "Reset position", es: "Restablecer posición" },
+  "card.captions.show": { en: "Show captions", es: "Mostrar subtítulos" },
+  "card.captions.hide": { en: "Hide captions", es: "Ocultar subtítulos" },
+};
+
+/** Where the card goes, as the desktop app places it today (sidevoice-desktop core/src/call_controls.rs): its window
+ *  (the card plus `margin` for its shadow) anywhere in the work area (the screen clear of the taskbar, the dock, the
+ *  menu bar), first at the top right; dropped within `magnet` of an edge, against it. */
+export const PLACEMENT = { margin: 12, magnet: 56 };
+
+/** Where a card never placed goes: the work area's top-right corner. `work` and `size` are { width, height }. */
+export function firstPlace(work, size) {
+  return { x: work.width - size.width, y: 0 };
+}
+
+/** Where the card lands when dropped at `at`: inside the work area, and against an edge or a corner when dropped within
+ *  the magnet of it; otherwise exactly where it was dropped (call_controls.rs `drop_at`). */
+export function dropAt(at, size, work) {
+  const maxX = Math.max(0, work.width - size.width), maxY = Math.max(0, work.height - size.height);
+  const snap = (v, hi) => (v < PLACEMENT.magnet ? 0 : hi - v < PLACEMENT.magnet ? hi : v);
+  return { x: snap(Math.min(Math.max(at.x, 0), maxX), maxX), y: snap(Math.min(Math.max(at.y, 0), maxY), maxY) };
+}
+
+/** Where the card shows while it is `size` (grown with its controls): at its place when it fits there, else moved in
+ *  just enough to fit; the place itself does not change (call_controls.rs `fit`). */
+export function fit(place, size, work) {
+  return { x: Math.max(0, Math.min(place.x, work.width - size.width)), y: Math.max(0, Math.min(place.y, work.height - size.height)) };
+}
+
+/** The call's states the card shows. `mood` is what the avatar acts out (the room's stage moods). */
 export const STATES = {
   listening: { label: "Listening", line: "Listening to you", mood: "listening" },
   speaking: { label: "Speaking", line: "Speaking", mood: "speaking" },
@@ -45,9 +98,3 @@ export const STATES = {
   muted: { label: "Muted", line: "Muted", mood: "idle" },
   idle: { label: "Your turn", line: "Your turn", mood: "idle" },
 };
-
-/** One format's settings, filled with its defaults: what a user setting would store. */
-export function cardSettings({ format = "card", size = "m", corner = "br", controls } = {}) {
-  const spec = FORMATS.find((each) => each.id === format) ?? FORMATS[1];
-  return { format: spec.id, size: SIZES[size] ? size : "m", corner: CORNERS[corner] ? corner : "br", controls: controls ?? spec.controls };
-}

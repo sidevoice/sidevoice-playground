@@ -144,183 +144,109 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .app-stage .stage-tile { position: relative; width: min(100%, 587px); height: 330px; border-radius: 16px; overflow: hidden; }
 .app-stage p { color: #a1acb9; max-width: 480px; text-align: center; }
 
-/* ---------- the card window: where it sits ---------- */
-#card-window { position: absolute; --gap: 16px; cursor: grab; transition: top .25s, left .25s; }
+
+/* The Sidevoice window's Settings mock: the web's settings screen (settings.css, ui.css) in the window. */
+.app-body[data-theme] { background: var(--sv-bg); color: var(--sv-text); font-family: var(--sv-font-sans); }
+.cc-settings { height: 100%; }
+.cc-settings .settings-nav { display: flex; flex-direction: column; gap: 2px; }
+.cc-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sv-space-3); width: 100%; }
+.cc-choice { position: relative; display: grid; gap: 4px; justify-items: start; text-align: start; font: inherit; color: inherit; cursor: pointer; }
+.cc-choice small { color: var(--sv-text-muted); font-size: var(--sv-font-xs); line-height: 1rem; }
+.cc-choice[data-selected] { border-color: var(--sv-accent); box-shadow: 0 0 0 1px var(--sv-accent); }
+.cc-choice .ui-card-check { position: absolute; top: 8px; right: 8px; }
+/* A format's small picture: its shape on a bit of desktop. */
+.cc-preview { display: grid; place-items: center; width: 100%; height: 64px; margin-bottom: 6px; border-radius: var(--sv-radius-md); background: linear-gradient(135deg, #20304f, #3a2a55); }
+.cc-preview > i { position: relative; display: block; }
+.pv-card { width: 72%; height: 26px; border-radius: 8px; background: rgb(22 25 31 / 92%); box-shadow: 0 2px 6px rgb(0 0 0 / 40%); }
+.pv-card b { position: absolute; left: 5px; top: 5px; width: 16px; height: 16px; border-radius: 5px; }
+.pv-card i { position: absolute; left: 26px; top: 7px; width: 48%; height: 4px; border-radius: 2px; background: #e8edf1; }
+.pv-card i + i { top: 15px; width: 30%; background: #8a93a0; }
+.pv-pip { width: 64%; height: 40px; border-radius: 6px; background: linear-gradient(#1d2a4a, #2c2046); box-shadow: 0 2px 6px rgb(0 0 0 / 40%); overflow: hidden; }
+.pv-pip b { position: absolute; left: 50%; bottom: 4px; width: 18px; height: 20px; margin-left: -9px; border-radius: 50% 50% 40% 40%; }
+.pv-mascot { width: 34px; height: 40px; }
+.pv-mascot b { position: absolute; inset: 0; border-radius: 50% 50% 40% 40%; border: 2px solid #1b1428; }
+
+/* ---------- the card window: where it sits (place(): as the desktop app's window, the card and its shadow margin) ---------- */
+#card-window { position: absolute; padding: var(--margin, 12px); cursor: grab; transition: top .25s, left .25s; }
 #card-window.dragging { cursor: grabbing; transition: none; }
-#card-window[data-corner=tl] { top: var(--gap); left: var(--gap); }
-#card-window[data-corner=tr] { top: var(--gap); right: var(--gap); }
-#card-window[data-corner=bl] { bottom: var(--gap); left: var(--gap); }
-#card-window[data-corner=br] { bottom: var(--gap); right: var(--gap); }
-#card-window.dragging { right: auto; bottom: auto; }
 #card-window[hidden] { display: none; }
+.cc { position: relative; }
 
-/* ---------- the card: shared look (today's tokens) ---------- */
-.cc { --fg: #fafafa; --mu: #b0b3bd; --btn: rgb(255 255 255 / 9%); --btn-hover: rgb(255 255 255 / 16%); --line: rgb(255 255 255 / 9%);
-  --accent: #c9b6ec; --voice: #e0a82e; --end: #dc362e; --end-hover: #ef443b; --muted-bg: #f9dedc; --muted-fg: #601410; --cross: #ff8a80;
-  --glass: rgb(22 25 31 / 90%); --face: #2f2741;
-  position: relative; color: var(--fg); font-family: var(--font); font-size: 13px; }
-[data-theme=light] .cc { --fg: #1b1d24; --mu: #5d6470; --btn: rgb(27 29 36 / 7%); --btn-hover: rgb(27 29 36 / 13%); --line: rgb(42 26 64 / 12%);
-  --accent: #4a2f6b; --cross: #d93025; --glass: rgb(255 255 255 / 90%); --face: #ece4f7; }
-.cc button { font: inherit; color: inherit; border: 0; background: none; padding: 0; margin: 0; cursor: pointer; display: grid; place-items: center; }
-.cc button:disabled { opacity: .35; cursor: default; }
-.cc button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.cc svg { display: block; }
-.cc .who { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-.cc-title { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.cc-sub { font-size: 11.5px; color: var(--mu); display: flex; gap: 5px; white-space: nowrap; overflow: hidden; max-width: 100%; }
-.cc-clock { font-variant-numeric: tabular-nums; }
-.cc-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; white-space: nowrap; overflow: hidden; max-width: 100%; }
-.cc-state-text { overflow: hidden; text-overflow: ellipsis; }
-.cc-pip .cc-state-detail { display: none; }
-.cc-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mu); }
-[data-state=listening] .cc-dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
-[data-state=speaking] .cc-dot { background: var(--voice); animation: cc-pulse .7s ease-in-out infinite alternate; }
-[data-state=working] .cc-dot { background: #5bbf8a; animation: cc-blink 1.2s ease-in-out infinite; }
-[data-state=muted] .cc-dot { background: #ef6a5f; }
-[data-state=muted] .cc-state { color: #ef8a80; }
-[data-theme=light] [data-state=muted] .cc-state { color: #b3261e; }
-@keyframes cc-pulse { from { transform: scale(.8) } to { transform: scale(1.25) } }
-@keyframes cc-blink { 50% { opacity: .35 } }
+/* ---------- A1: today's card (call-card.css), grown, with the avatar in place of the brand mark ---------- */
+#card-window .cc-a1 { width: var(--w); }
+[data-size=m] .cc-a1 { --face-size: 64px; } [data-size=l] .cc-a1 { --face-size: 76px; }
+[data-size=l] .cc-a1 .card-title { font-size: 15px; } [data-size=l] .cc-a1 .card-sub { font-size: 12px; }
+/* The avatar's tile: a rounded square on the conversation's colour, its whole small drawing inside with room for what it
+   holds (listening's badge, working's cogs), nothing cut. */
+.cc-face { flex: none; width: var(--face-size); height: var(--face-size); border-radius: 30%; position: relative;
+  background: radial-gradient(circle at 50% 70%, color-mix(in srgb, var(--tone, #c9b6ec) 34%, transparent), #2f2741 72%); }
+#card-window[data-scheme=light] .cc-face { background: radial-gradient(circle at 50% 70%, color-mix(in srgb, var(--tone, #c9b6ec) 34%, transparent), #ece4f7 72%); }
+.cc-face .sv-avatar { position: absolute; inset: 7%; width: 86%; height: 86%; }
+/* Its state, in words (the room's): a dot and the word, with the call's clock. */
+.cc-state { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.cc-state .card-clock { color: var(--mu); font-weight: 400; font-variant-numeric: tabular-nums; }
+.cc-dot { width: 7px; height: 7px; margin-left: 1px; border-radius: 50%; background: var(--mu); }
+[data-state=listening] .cc-dot { background: var(--accent); }
+[data-state=speaking] .cc-dot { background: var(--sv-voice, #e0a82e); }
+[data-state=working] .cc-dot { background: #5bbf8a; animation: card-think 1.4s ease-in-out infinite; }
+[data-state=muted] .cc-dot { background: var(--end); }
+/* Today's controls row shows near the pointer (data-expanded, card-shell.tsx); the captions' button wears skip's look. */
+.call-card:not([data-expanded]) .card-controls { display: none; }
+.call-card .card-captions[aria-pressed=true] { color: var(--accent); }
+/* Inside the card: the room's balloons, the agent's at the left and yours at the right, under the row. */
+.cc-inside { display: grid; margin-top: 10px; padding: 4px 4px 0; }
+.cc-inside:not(:has(.speech-bubble)) { display: none; }
+.cc-inside .cc-agent-slot { justify-self: start; display: grid; }
+.cc-inside .person-turns { position: static; justify-self: end; }
+.cc-inside .speech-bubble { margin: 0 0 var(--tail-h); }
 
-.cc-controls { display: flex; align-items: center; gap: 8px; }
-.cc-controls .grow { flex: 1; }
-.cc-mic { display: inline-flex; align-items: center; height: 34px; border-radius: 17px; background: var(--btn); }
-.cc-mic[data-muted] { background: var(--muted-bg); color: var(--muted-fg); }
-.cc .cc-devices { width: 22px; height: 34px; border-radius: 17px 0 0 17px; color: var(--mu); border-right: 1px solid var(--line); }
-.cc-mic[data-muted] .cc-devices { color: var(--muted-fg); border-right-color: rgb(96 20 16 / 20%); }
-.cc .cc-mute { width: 36px; height: 34px; border-radius: 17px; }
-.cc .cc-devices + .cc-mute { border-radius: 0 17px 17px 0; width: 34px; }
-.cc .cc-mic button:hover:not(:disabled) { background: var(--btn-hover); }
-.cc .cc-btn { width: 34px; height: 34px; border-radius: 50%; color: var(--fg); }
-.cc .cc-btn:hover:not(:disabled) { background: var(--btn); }
-.cc .cc-hangup { width: 46px; border-radius: 17px; background: var(--end); color: #fff; }
-.cc .cc-hangup:hover { background: var(--end-hover); }
-.cc .cc-hangup svg { width: 22px; height: 22px; }
+/* ---------- beside a card or an avatar: the room's balloons, the agent's from the left, yours from the right ---------- */
+/* The balloons' scale is the room's stage at a fixed size (call-view.css's .stage-tile variables, a tile about 330px
+   tall): their words, ink, tail and padding as there. */
+.cc-balloons { --k: .75; --u: calc(var(--k) * 440px / 600); --stage-inset: calc(16 * var(--u)); --peek: 20;
+  --bubble-fs: clamp(18px, calc(25.6 * var(--u)), 34px); --bubble-lh: 1.375; --bubble-pad: 24; --tail-w: calc(72 * var(--u)); --tail-h: calc(40 * var(--u));
+  --person-fs: clamp(16px, calc(22.4 * var(--u)), 28px); --person-lh: 1.4286; --person-pad-b: 12; --person-pad-i: 20; --person-live-w: 272;
+  color: var(--sv-text); font-family: var(--sv-font-sans); }
+.cc-row-win { display: flex; align-items: center; }
+.cc-side { flex: none; width: calc(var(--side-w, 300px)); display: flex; align-self: stretch; padding-bottom: var(--tail-h); pointer-events: none; }
+[data-size=l] .cc-side { --side-w: 330px; }
+.cc-side[data-side=agent] { justify-content: flex-end; align-items: center; }
+.cc-side[data-side=person] { justify-content: flex-start; align-items: center; }
+.cc-side .cc-agent-slot { display: grid; width: 100%; justify-items: end; }
+.cc-side .stage-bubble { margin: 0; max-width: 100%; }
+.cc-side .person-turns { position: static; align-items: flex-start; }
+.cc-body { flex: none; display: flex; flex-direction: column; align-items: center; }
 
-.cc-wave { position: relative; display: inline-flex; align-items: center; gap: 2.6px; height: 24px; flex: none; padding: 0 2px; }
-.cc-wave i { width: 3px; height: 3px; border-radius: 2px; background: var(--accent); transition: height 80ms linear; }
-.cc-wave[data-muted] i { background: var(--mu); opacity: .5; }
-.cc-wave[data-muted]::after { content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 1.8px; border-radius: 1px; background: var(--cross); transform: rotate(-28deg); }
+/* ---------- B1: the room's stage (call-view.css), small ---------- */
+#card-window .cc-pip { width: var(--w); height: var(--h); border-radius: 16px; overflow: hidden; box-shadow: 0 12px 34px rgb(0 0 0 / 45%); }
+/* The tile fills the picture as the room's fills its slot; its words follow it down further than the room lets them (a
+   picture-in-picture is smaller than any room), so it stays the same composition, only smaller. */
+.cc-pip .stage-tile { position: absolute; inset: 0; border-radius: inherit; --stage-avatar-share: .5;
+  --chip-fs: clamp(9px, calc(12 * var(--u)), 15px); --name-fs: clamp(11px, calc(20 * var(--u)), 26px);
+  --bubble-fs: clamp(10px, calc(25.6 * var(--u)), 34px); --person-fs: clamp(9px, calc(22.4 * var(--u)), 28px); }
+[data-captions=off] .cc-pip :is(.stage-top, .person-turns) { display: none; }
+.pip-strip { position: absolute; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); }
 
-/* Controls "near the pointer": hidden at rest, there while the pointer is over the card (or the card has focus). */
-[data-controls=hover] .cc:not(:hover, :focus-within) :is(.cc-controls, .cc-open, .today-open) { opacity: 0; pointer-events: none; }
-.cc :is(.cc-controls, .cc-open, .today-open) { transition: opacity .15s; }
-
-/* ---------- today's card (reference) ---------- */
-.cc-today { width: 320px; padding: 10px 12px; border-radius: 16px; background: var(--glass); border: 1px solid var(--line);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 40%); backdrop-filter: blur(22px) saturate(1.4); }
-.cc-today .row { display: flex; align-items: center; gap: 10px; }
-.today-mark .sv-app-icon { width: 32px; height: 32px; border-radius: 50%; }
-.cc-today .cc-title { font-size: 13px; }
-.cc-today .cc-sub { font-size: 11px; }
-.cc-today .today-open { width: 26px; height: 26px; border-radius: 7px; color: var(--mu); }
-.cc-today .cc-controls { justify-content: space-between; margin-top: 10px; padding: 0 6px; }
-.cc-today .cc-mic, .cc-today .cc-btn { height: 30px; }
-[data-controls=hover] .cc-today:not(:hover) .cc-controls { display: none; }
-
-/* ---------- A1 and A2: the titled card ---------- */
-.cc-card { width: var(--w); padding: 12px 14px 12px; border-radius: 20px; background: var(--glass); border: 1px solid var(--line);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 40%); backdrop-filter: blur(22px) saturate(1.4); }
-[data-theme=light] .cc-card, [data-theme=light] .cc-today { box-shadow: 0 10px 30px rgb(42 26 64 / 22%); }
-.cc-card .row { display: flex; align-items: center; gap: 12px; }
-[data-size=s] .cc-card { --face-size: 52px; } [data-size=m] .cc-card { --face-size: 60px; } [data-size=l] .cc-card { --face-size: 72px; }
-.cc-face { flex: none; width: var(--face-size); height: var(--face-size); border-radius: 50%; background: var(--face); overflow: hidden; position: relative; }
-.cc-face .sv-avatar { position: absolute; left: 4%; top: 8%; width: 92%; height: 92%; }
-[data-size=s] .cc-title { font-size: 14px; } [data-size=m] .cc-title { font-size: 15px; } [data-size=l] .cc-title { font-size: 17px; }
-[data-size=l] .cc-sub { font-size: 12.5px; } [data-size=l] .cc-state { font-size: 13px; }
-.cc-card .cc-state { margin-top: 3px; }
-.cc-card .cc-open { align-self: flex-start; width: 30px; height: 30px; border-radius: 8px; color: var(--mu); }
-.cc-card .cc-controls { margin-top: 12px; }
-/* A2: the creature on its own tile (its stage drawing: what it holds shows), and the words of the moment. */
-.cc-captioned { --face-size: 84px; }
-[data-size=s] .cc-captioned { --face-size: 72px; } [data-size=l] .cc-captioned { --face-size: 100px; }
-.cc-face.tile { border-radius: 18px; background: radial-gradient(circle at 50% 80%, color-mix(in srgb, var(--tone, #c9b6ec) 40%, transparent), var(--face) 70%); }
-.cc-face.tile .sv-avatar { left: 2%; top: 4%; width: 96%; height: 96%; }
-.cc-captions { margin: 12px 0 0; padding: 10px 12px; min-height: 64px; border-radius: 14px; background: var(--btn); display: grid; }
-.cc-captions .cc-caption { grid-area: 1 / 1; }
-.cc-caption { margin: 0; font-size: 14px; line-height: 1.45; display: none; }
-[data-size=l] .cc-caption { font-size: 15px; }
-[data-state=speaking] .cc-caption[data-for=speaking], [data-state=listening] .cc-caption[data-for=listening], [data-state=working] .cc-caption[data-for=working],
-[data-state=muted] .cc-caption[data-for=muted], [data-state=idle] .cc-caption[data-for=idle] { display: block; }
-.cc-caption .w { opacity: .38; transition: opacity .12s; }
-.cc-caption .w.said { opacity: 1; }
-.cc-caption b { color: var(--accent); font-weight: 650; margin-right: 4px; }
-.cc-caption[data-for=working], .cc-caption[data-for=muted], .cc-caption[data-for=idle] { color: var(--mu); }
-.cc-work::before { content: "⚙ "; }
-
-/* ---------- B1 and B2: picture-in-picture ---------- */
-#card-window .cc-pip { width: var(--w); height: var(--h); border-radius: 16px; overflow: hidden; background: #111; box-shadow: 0 12px 34px rgb(0 0 0 / 45%), 0 0 0 1px rgb(255 255 255 / 10%); --fg: #fafafa; --mu: #d7d9df; --btn: rgb(255 255 255 / 14%); --btn-hover: rgb(255 255 255 / 24%); }
-.cc-pip .stage-tile { position: absolute; inset: 0; }
-.pip-top { position: absolute; left: 0; right: 0; top: 0; padding: 10px 12px 26px; display: flex; align-items: flex-start; gap: 10px;
-  background: linear-gradient(rgb(0 0 0 / 55%), transparent); text-shadow: 0 1px 2px rgb(0 0 0 / 50%); }
-.pip-top .who { flex-direction: row; align-items: baseline; gap: 8px; }
-.pip-top .cc-clock { font-size: 11.5px; color: var(--mu); }
-.pip-top .cc-state { padding: 3px 9px 3px 7px; border-radius: 12px; background: rgb(0 0 0 / 45%); font-size: 11.5px; flex: none; }
-.pip-captions { position: absolute; left: 10%; right: 10%; bottom: 56px; display: grid; justify-items: center; pointer-events: none; }
-.pip-captions .cc-caption { grid-area: 1 / 1; padding: 4px 10px; border-radius: 8px; background: rgb(0 0 0 / 62%); font-size: 13px; text-align: center; color: #fff; }
-.pip-captions .cc-caption[data-for=idle], .pip-captions .cc-caption[data-for=working] { display: none; }
-.cc-pip .cc-caption .w:not(.said) { display: none; }
-.cc-pip .cc-caption .w.said { opacity: 1; }
-[data-size=l] .cc-pip .cc-caption { font-size: 14.5px; }
-.pip-bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 54px; padding: 0 10px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(transparent, rgb(0 0 0 / 50%)); }
-.pip-bottom .cc-controls { padding: 4px; border-radius: 22px; background: rgb(20 22 28 / 60%); backdrop-filter: blur(12px); }
-.pip-wave { position: absolute; left: 12px; bottom: 15px; padding: 2px 6px; border-radius: 12px; background: rgb(0 0 0 / 40%); }
-.cc-pip .cc-open { position: absolute; right: 10px; bottom: 12px; width: 32px; height: 32px; border-radius: 10px; background: rgb(0 0 0 / 40%); color: #fff; }
-.cc-pip.tall .pip-top { flex-direction: column; gap: 6px; }
-.cc-pip.tall .pip-top .who { flex-direction: column; gap: 0; }
-.cc-pip.tall .pip-wave { display: none; }
-.cc-pip.tall .pip-captions { left: 6%; right: 6%; }
-.cc-pip.tall .pip-captions .cc-caption { font-size: 12.5px; }
-[data-size=s] .cc-pip .cc-skip { display: none; }
-/* The muted state over the picture: the mic crossed, big, where the stage would show it. */
-[data-state=muted] .cc-pip .stage-tile::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / 22%); }
-
-/* ---------- C1 and C2: the creature itself ---------- */
-.cc-mascot { width: max(var(--w), 210px); padding-top: 18px; display: flex; flex-direction: column; align-items: center; }
-.cc-mascot::before { content: ""; position: absolute; inset: 0 0 -6px; border-radius: 26px; background: var(--glass); opacity: 0; transition: opacity .2s; backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgb(0 0 0 / 35%); }
-.cc-mascot:hover::before { opacity: .78; }
-.m-figure { position: relative; display: block; width: var(--w); height: var(--w); filter: drop-shadow(0 6px 10px rgb(0 0 0 / 35%)); }
+/* ---------- C1: only the avatar, on nothing ---------- */
+.m-figure { display: block; width: var(--w); height: var(--w); }
 .m-figure .sv-avatar { width: 100%; height: 100%; }
-.m-ground { position: relative; width: 58%; height: 10px; margin-top: calc(var(--w) * -0.13); border-radius: 50%; background: radial-gradient(rgb(0 0 0 / 40%), transparent 70%); }
-.m-tag { position: relative; display: flex; gap: 6px; align-items: baseline; padding: 3px 10px; border-radius: 10px; background: var(--glass); font-size: 12px; white-space: nowrap;
-  opacity: 0; transition: opacity .2s; box-shadow: 0 3px 10px rgb(0 0 0 / 25%); }
-.m-tag .cc-clock { color: var(--mu); font-size: 11px; }
-.cc-mascot:hover .m-tag { opacity: 1; }
-.m-badge { position: absolute; right: 8%; bottom: 14%; width: 26px; height: 26px; border-radius: 50%; display: none; place-items: center; background: var(--muted-bg); color: var(--muted-fg); box-shadow: 0 2px 6px rgb(0 0 0 / 30%); }
-[data-state=muted] .m-badge { display: grid; }
-[data-size=l] .m-badge { width: 32px; height: 32px; }
-.cc-mascot .cc-controls { position: relative; margin-top: 6px; padding: 4px; border-radius: 22px; background: var(--glass); box-shadow: 0 6px 16px rgb(0 0 0 / 30%); }
-.cc-mascot .cc-open { width: 30px; height: 30px; }
-.cc-mascot .cc-wave { height: 20px; }
-/* The bubble: beside the head, toward the middle of the screen; only while it speaks (and while it hears, your words). */
-.m-bubble { position: absolute; top: calc(var(--w) * .12); width: max(220px, calc(var(--w) * 1.5)); padding: 9px 12px; border-radius: 16px; background: #fff; color: #1b1d24;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 30%); display: none; font-size: 13.5px; }
-[data-corner$=r] .m-bubble { right: calc(100% - 6px); border-bottom-right-radius: 4px; }
-[data-corner$=l] .m-bubble { left: calc(100% - 6px); border-bottom-left-radius: 4px; }
-[data-state=speaking] .m-bubble, [data-state=listening] .m-bubble { display: block; }
-.m-bubble .cc-caption { color: #1b1d24; }
-.m-bubble .cc-caption b { color: #4a2f6b; }
-[data-state=listening] .m-bubble { background: #ece4f7; }
-.m-bubble .cc-caption .w:not(.said) { display: none; }
-[data-size=l] .m-bubble { font-size: 15px; }
-/* C2: sitting on its bar. */
-.cc-perch { width: max(300px, calc(var(--w) * 2.3)); padding-top: calc(var(--w) * .8); }
-.cc-perch .m-figure { position: absolute; top: 0; left: 50%; margin-left: calc(var(--w) / -2); z-index: 1; filter: drop-shadow(0 4px 6px rgb(0 0 0 / 30%)); }
-.perch-bar { position: relative; display: flex; align-items: center; gap: 8px; padding: calc(var(--w) * .1 + 8px) 8px 8px 14px; border-radius: 22px; background: var(--glass); border: 1px solid var(--line);
-  backdrop-filter: blur(22px) saturate(1.4); box-shadow: 0 10px 28px rgb(0 0 0 / 40%); }
-.perch-bar .who { gap: 0; }
-.perch-bar .cc-title { font-size: 13.5px; }
-[data-size=l] .perch-bar .cc-title { font-size: 15px; }
-.cc-perch .m-bubble { top: 0; }
-.cc-perch .cc-open { width: 30px; height: 30px; }
+
+/* Today's card holding only its controls (and "open Sidevoice"): under the avatar, over the picture, near the pointer. */
+#card-window .cc-strip { display: flex; align-items: center; gap: 6px; width: auto; padding: 6px 8px; }
+.cc-strip .card-controls { display: flex !important; gap: 8px; margin: 0; padding: 0; }
+.cc-strip .card-open { visibility: visible; opacity: 1; }
+#card-window:not([data-expanded]) .cc-strip { visibility: hidden; }
+/* Muted, the microphone stays out even away from the pointer: it says why nothing is heard. */
+#card-window[data-state=muted]:not([data-expanded]) .cc-strip { visibility: visible; }
+#card-window[data-state=muted]:not([data-expanded]) .cc-strip > :not(.card-controls), #card-window[data-state=muted]:not([data-expanded]) .cc-strip .card-controls > :not(.card-mic) { display: none; }
+.cc-mascot .cc-strip { margin-top: 4px; }
 
 /* ---------- after hanging up ---------- */
-.cc-ended { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--glass); box-shadow: 0 8px 22px rgb(0 0 0 / 40%); }
-.cc-ended button { padding: 6px 12px; border-radius: 14px; background: var(--btn); font-weight: 600; }
+#card-window .cc-ended { display: flex; align-items: center; gap: 12px; width: auto; }
+.cc-ended button { padding: 6px 12px !important; border-radius: 14px; background: var(--btn) !important; font-weight: 600; }
 
 /* ---------- reduced motion, as the app's (styles/call.css), for the panel's toggle too ---------- */
-.reduce-motion .sv-avatar, .reduce-motion .sv-avatar *, .reduce-motion .backdrop *, .reduce-motion .stage-scene *, .reduce-motion .cc * { animation: none !important; transition: none !important; }
+.reduce-motion .sv-avatar, .reduce-motion .sv-avatar *, .reduce-motion .backdrop *, .reduce-motion .stage-scene *, .reduce-motion .speech-bubble { animation: none !important; transition: none !important; }
 .reduce-motion .sv-avatar[data-mood=speaking] .m-open { opacity: 1; }
 .reduce-motion .sv-avatar[data-mood=speaking] .m-rest { opacity: 0; }
 
@@ -337,16 +263,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #controls label { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 12px; font-weight: 600; }
 #controls label.check { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; }
 #controls select { font: 13px Inter, system-ui, sans-serif; padding: 4px 6px; border-radius: 6px; border: 1px solid #d8bf6a; background: #fffdf4; color: #2b2410; }
-.cc-state .cc-clock, .cc-clock-sep { color: var(--mu); font-weight: 400; }
-/* The picture-in-picture's creature: a larger share of the tile than the room's stage gives it. */
-.cc-pip .stage-scene { --stage-avatar-share: .66; }
-.cc-pip.tall .stage-scene { --stage-avatar-share: .82; }
-/* Standing up, the subtitles go above the creature, under the title. */
-.cc-pip.tall .pip-captions { bottom: 12px; }
-#card-window[data-controls=hover] .cc-pip.tall:not(:hover, :focus-within) .pip-bottom { display: none; }
-#card-window[data-controls=always] .cc-pip.tall .pip-captions, .cc-pip.tall:is(:hover, :focus-within) .pip-captions { bottom: 58px; }
-/* C2's bar: room for the title and the state beside the controls. */
-.cc-perch { width: calc(var(--w) * 1.6 + 200px); }
-.perch-bar .who { min-width: 120px; }
-.perch-bar .cc-state { font-size: 11.5px; }
-[data-size=s] .perch-bar .cc-wave { display: none; }
+
+.place { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+.panel-settings { display: grid; gap: 6px; margin: 10px 0 8px; padding-top: 10px; border-top: 1px solid #e2c56d; }
+.panel-settings button, .place button { font: 600 12px Inter, system-ui, sans-serif; padding: 5px 10px; border-radius: 6px; border: 1px solid #d8bf6a; background: #fdeeb8; color: #2b2410; cursor: pointer; }
+.panel-map pre { margin: 6px 0; padding: 8px; border-radius: 6px; background: #fffdf4; font-size: 11px; white-space: pre-wrap; }
+.panel-map p { margin: 0; font-size: 11.5px; }

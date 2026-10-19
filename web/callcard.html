@@ -4,10 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidevoice call card exploration</title>
+  <link rel="stylesheet" href="/callcard/tokens.css">
+  <link rel="stylesheet" href="/callcard/theme.css">
   <link rel="stylesheet" href="/callcard/bichos.css">
   <link rel="stylesheet" href="/callcard/call.css">
+  <link rel="stylesheet" href="/callcard/call-view.css">
+  <link rel="stylesheet" href="/callcard/ui.css">
+  <link rel="stylesheet" href="/callcard/settings.css">
   <link rel="stylesheet" href="/callcard.css">
   <script type="module" src="/callcard.mjs"></script>
+  <!-- Live reload, apart from the page's module so that it still works while the page is broken: a saved edit to one of
+       the page's files reloads it. -->
+  <script>
+    (() => {
+      const watched = ["/callcard.html", "/callcard.mjs", "/callcard.css", "/callcard/formats.mjs", "/callcard/desktops.mjs",
+        "/callcard/creatures.json", "/callcard/motion.mjs", "/callcard/tokens.css", "/callcard/theme.css", "/callcard/call-view.css",
+        "/callcard/call-card.css", "/callcard/ui.css", "/callcard/settings.css", "/callcard/bichos.css", "/callcard/call.css"];
+      const seen = new Map();
+      setInterval(async () => {
+        for (const path of watched) {
+          try {
+            const text = await (await fetch(path, { cache: "no-store" })).text();
+            if (seen.has(path) && seen.get(path) !== text) location.reload();
+            seen.set(path, text);
+          } catch { /* the server restarting: next time */ }
+        }
+      }, 1500);
+    })();
+  </script>
 </head>
 <body>
   <!-- The simulated screen: a desktop (callcard/desktops.mjs), its work area, and the floating card in it. -->
@@ -23,7 +47,7 @@
         web's own bichos engine, drawn at <code id="source"></code>.</p>
       <div id="controls"></div>
       <p id="blurb" class="panel-blurb"></p>
-      <p class="panel-note">Drag the card: it snaps to the nearest corner. Its mute, hang up and open buttons work.</p>
+      <p class="panel-note">Drag the card anywhere: it stays where you leave it (against an edge when dropped near one). Its mute, captions, skip, hang up and open buttons work.</p>
     </div>
   </aside>
 </body>

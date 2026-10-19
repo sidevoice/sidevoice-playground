@@ -173,16 +173,20 @@ sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runn
 ## Call card exploration
 
 A design mockup of the desktop app's floating call card, its own page at **`/callcard`** (linked from the header):
-the card over a simulated Windows 11, macOS or GNOME desktop with Sidevoice minimised, in each format the exploration
-compares (today's card for reference; titled cards, picture-in-picture of the call's stage, the creature itself), at
-three sizes, in any corner, in each call state (listening, speaking, the agent working, muted, your turn). The card's
-mute, hang up and open buttons work, and it can be dragged to another corner. Everything picked is in the address.
+the card over a simulated Windows 11, macOS or GNOME desktop with Sidevoice minimised, in the three formats kept (a
+title card, a picture-in-picture of the room's stage, just the avatar), medium or large, wherever it is dragged (kept
+inside the screen, against an edge near one, as the desktop app places it), in each call state, with captions on or
+off. The controls are today's call controls card; mute, captions, skip, hang up and open work. "Open the settings
+mock" shows Settings → Call with the card's settings, in English or Spanish, driving the same settings the card is
+drawn from. Everything picked is in the address.
 
-The formats are data (`web/callcard/formats.mjs`: format, size, corner, controls), so the ones kept can become a user
-setting. The creatures are sidevoice-web's own: `web/callcard/creatures.json` holds drawings made by its bichos engine,
-and `bichos.css` and `call.css` beside it are its stylesheets, copied, so they move as in the app. To draw them again
-from another web commit: `node scripts/callcard-creatures.mjs --web <sidevoice-web tree> --sha <commit> --esbuild
-<node_modules/esbuild>`. The page reloads itself when one of its files is saved.
+The formats, the settings, their words and the placement are data (`web/callcard/formats.mjs`). Nothing of the app is
+redrawn: `scripts/callcard-creatures.mjs` takes from a sidevoice-web commit the avatars' drawings
+(`web/callcard/creatures.json`), the bichos engine's own picks of what an avatar does (`motion.mjs`, bundled), and
+copies of the stylesheets the room, today's card and Settings are drawn with (and DM Sans with its licence); the page
+puts the web's markup on them. To draw them again from another commit: `node scripts/callcard-creatures.mjs --web
+<sidevoice-web tree> --sha <commit> --esbuild <node_modules/esbuild>`. The page reloads itself when one of its files is
+saved.
 
 ## Web preview
 
