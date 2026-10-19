@@ -4,23 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sidevoice call card exploration</title>
-  <link rel="stylesheet" href="/callcard/tokens.css?v=46">
-  <link rel="stylesheet" href="/callcard/theme.css?v=46">
-  <link rel="stylesheet" href="/callcard/bichos.css?v=46">
-  <link rel="stylesheet" href="/callcard/call.css?v=46">
-  <link rel="stylesheet" href="/callcard/call-view.css?v=46">
-  <link rel="stylesheet" href="/callcard/proposed-web.css?v=46">
-  <link rel="stylesheet" href="/callcard/ui.css?v=46">
-  <link rel="stylesheet" href="/callcard/settings.css?v=46">
-  <link rel="stylesheet" href="/callcard.css?v=46">
-  <script type="module" src="/callcard.mjs?v=46"></script>
+  <link rel="stylesheet" href="/callcard/tokens.css?v=47">
+  <link rel="stylesheet" href="/callcard/theme.css?v=47">
+  <link rel="stylesheet" href="/callcard/bichos.css?v=47">
+  <link rel="stylesheet" href="/callcard/call.css?v=47">
+  <link rel="stylesheet" href="/callcard/call-view.css?v=47">
+  <link rel="stylesheet" href="/callcard/proposed-web.css?v=47">
+  <link rel="stylesheet" href="/callcard/ui.css?v=47">
+  <link rel="stylesheet" href="/callcard/transcript.css?v=47">
+  <link rel="stylesheet" href="/callcard/settings.css?v=47">
+  <link rel="stylesheet" href="/callcard.css?v=47">
+  <script type="module" src="/callcard.mjs?v=47"></script>
   <!-- Live reload, apart from the page's module so that it still works while the page is broken: a saved edit to one of
        the page's files reloads it. -->
   <script>
     (() => {
       const watched = ["/callcard.html", "/callcard.mjs", "/callcard.css", "/callcard/formats.mjs", "/callcard/desktops.mjs",
         "/callcard/creatures.json", "/callcard/motion.mjs", "/callcard/tokens.css", "/callcard/theme.css", "/callcard/call-view.css",
-        "/callcard/call-card.css", "/callcard/proposed-web.css", "/callcard/ui.css", "/callcard/settings.css", "/callcard/bichos.css", "/callcard/call.css"];
+        "/callcard/call-card.css", "/callcard/proposed-web.css", "/callcard/ui.css", "/callcard/transcript.css", "/callcard/settings.css", "/callcard/bichos.css", "/callcard/call.css"];
       const seen = new Map();
       setInterval(async () => {
         for (const path of watched) {

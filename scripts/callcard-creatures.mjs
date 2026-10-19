@@ -93,7 +93,7 @@ await esbuild.build({ entryPoints: [motion], bundle: true, platform: "browser", 
 const marks = Object.fromEntries(["claude", "codex"].map((name) => [name, readFileSync(join(src, `assets/logos/${name}.svg`), "utf8").trim()]));
 writeFileSync(join(out, "creatures.json"), JSON.stringify({ source: `sidevoice-web@${values.sha}`, creatures, marks }) + "\n");
 for (const path of ["styles/bichos.css", "styles/call.css", "styles/tokens.css", "styles/theme.css", "features/call/call-view.css",
-  "call-controls/call-card.css", "components/ui/ui.css", "features/settings/settings.css"]) {
+  "call-controls/call-card.css", "components/ui/ui.css", "features/conversation/transcript.css", "features/settings/settings.css"]) {
   const css = readFileSync(join(src, path), "utf8");
   // The brand's typeface is served here from callcard/fonts/, not from the web's /voice/fonts/.
   writeFileSync(join(out, path.split("/").pop()), `/* COPIED from sidevoice-web@${values.sha} apps/web/src/${path} by scripts/callcard-creatures.mjs. */\n${css.replaceAll("/voice/fonts/", "/callcard/fonts/")}`);
