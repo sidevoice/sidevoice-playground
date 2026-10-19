@@ -170,6 +170,20 @@ npm run tauri build -- --bundles app     # src-tauri/target/release/bundle/macos
 sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runner alone, as the app builds it
 ```
 
+## Call card exploration
+
+A design mockup of the desktop app's floating call card, its own page at **`/callcard`** (linked from the header):
+the card over a simulated Windows 11, macOS or GNOME desktop with Sidevoice minimised, in each format the exploration
+compares (today's card for reference; titled cards, picture-in-picture of the call's stage, the creature itself), at
+three sizes, in any corner, in each call state (listening, speaking, the agent working, muted, your turn). The card's
+mute, hang up and open buttons work, and it can be dragged to another corner. Everything picked is in the address.
+
+The formats are data (`web/callcard/formats.mjs`: format, size, corner, controls), so the ones kept can become a user
+setting. The creatures are sidevoice-web's own: `web/callcard/creatures.json` holds drawings made by its bichos engine,
+and `bichos.css` and `call.css` beside it are its stylesheets, copied, so they move as in the app. To draw them again
+from another web commit: `node scripts/callcard-creatures.mjs --web <sidevoice-web tree> --sha <commit> --esbuild
+<node_modules/esbuild>`. The page reloads itself when one of its files is saved.
+
 ## Web preview
 
 ### Turn Lab: real spoken conversation

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sidevoice call card exploration</title>
+  <link rel="stylesheet" href="/callcard/bichos.css">
+  <link rel="stylesheet" href="/callcard/call.css">
+  <link rel="stylesheet" href="/callcard.css">
+  <script type="module" src="/callcard.mjs"></script>
+</head>
+<body>
+  <!-- The simulated screen: a desktop (callcard/desktops.mjs), its work area, and the floating card in it. -->
+  <main id="screen" aria-label="Simulated desktop">
+    <div id="desktop"></div>
+    <div id="work-area"><div id="app-window" hidden></div><div id="card-window"></div></div>
+  </main>
+  <!-- The exploration's own controls: everything they pick is in the address, so a link opens the same screen. -->
+  <aside id="panel" aria-label="Call card exploration">
+    <button type="button" class="panel-header" title="Alt+Shift+C"><strong>CALL CARD</strong><span class="chevron">▾</span></button>
+    <div class="panel-body">
+      <p class="panel-note">A design exploration of the desktop app's floating call card. Mock data; the creatures are the
+        web's own bichos engine, drawn at <code id="source"></code>.</p>
+      <div id="controls"></div>
+      <p id="blurb" class="panel-blurb"></p>
+      <p class="panel-note">Drag the card: it snaps to the nearest corner. Its mute, hang up and open buttons work.</p>
+    </div>
+  </aside>
+</body>
+</html>
