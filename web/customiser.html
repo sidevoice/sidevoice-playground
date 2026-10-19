@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sidevoice avatar customiser exploration</title>
+  <link rel="stylesheet" href="/customiser/bichos.css">
+  <link rel="stylesheet" href="/customiser/call.css">
+  <link rel="stylesheet" href="/customiser.css">
+  <script type="module" src="/customiser.mjs"></script>
+</head>
+<body>
+  <main class="view">
+    <header class="view-head">
+      <a href="/" class="back" aria-label="Back to the playground">←</a>
+      <div>
+        <h1>Avatar customiser</h1>
+        <p>A design exploration. The creature is drawn live by sidevoice-web's bichos engine (<code id="source"></code>);
+          what you pick is a small crew-member object, kept on this device only.</p>
+      </div>
+    </header>
+
+    <!-- The creature's canvas, as the call's stage shows it. The brush opens the customiser. -->
+    <section class="canvas-wrap" aria-label="The creature">
+      <div id="canvas" class="canvas"></div>
+      <button type="button" id="open" class="brush" title="Customise (C)" aria-label="Customise this creature" aria-haspopup="dialog"></button>
+      <div class="canvas-foot">
+        <span><b id="canvas-name"></b> <small id="canvas-traits"></small></span>
+        <span id="canvas-moods" class="seg" role="radiogroup" aria-label="What it is doing"></span>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="customiser" aria-labelledby="cz-title">
+    <form method="dialog" class="cz">
+      <header class="cz-head">
+        <h2 id="cz-title"><span class="cz-icon" data-icon="brush"></span>Customise your crew member</h2>
+        <div class="cz-actions">
+          <button type="button" class="act" data-run="undo" title="Undo (Z)"><span data-icon="undo"></span><span class="lbl">Undo</span><kbd>Z</kbd></button>
+          <button type="button" class="act" data-run="reset" title="Back to how it was when you opened this (Backspace)"><span data-icon="reset"></span><span class="lbl">Reset</span><kbd>⌫</kbd></button>
+          <button type="button" class="act" data-run="shuffle" title="A random choice in this section (Shift+R)"><span data-icon="shuffle"></span><span class="lbl">Shuffle section</span><kbd>⇧R</kbd></button>
+          <button type="button" class="act accent" data-run="random" title="A whole new creature (R)"><span data-icon="dice"></span><span class="lbl">Randomise</span><kbd>R</kbd></button>
+          <button type="button" class="act icon-only" data-run="close" title="Close without saving (Esc)" aria-label="Close without saving"><span data-icon="close"></span></button>
+        </div>
+      </header>
+
+      <div class="cz-body">
+        <!-- Live preview: the stage as in the call, then the small sizes. -->
+        <section class="cz-preview" aria-label="Preview">
+          <div id="preview" class="preview-stage"></div>
+          <div class="preview-moods seg" id="preview-moods" role="radiogroup" aria-label="Preview as"></div>
+          <div class="preview-small">
+            <div class="row-mock"><span id="preview-row"></span><span><b class="pv-name"></b><small>Claude Code · now</small></span></div>
+            <span id="preview-rail" class="rail-mock"></span>
+          </div>
+          <label class="name-field">Name <input id="name" type="text" maxlength="40" autocomplete="off" spellcheck="false"></label>
+          <p id="traits" class="traits"></p>
+        </section>
+
+        <!-- The choices: a tab per category, sections inside, a grid of tiles in each. -->
+        <section class="cz-pick">
+          <nav class="tabs" role="tablist" aria-label="Categories" id="tabs"></nav>
+          <div class="tab-hint"><kbd>Q</kbd><kbd>E</kbd> category · <kbd>[</kbd><kbd>]</kbd> section · arrows to browse, <kbd>Enter</kbd> to pick <span class="legend">proposed addition (not in the app yet)</span></div>
+          <div id="sections" class="sections" role="tablist" aria-label="Sections"></div>
+          <p id="section-note" class="section-note"></p>
+          <div id="grid" class="grid" role="tabpanel"></div>
+        </section>
+      </div>
+
+      <footer class="cz-foot">
+        <details class="config">
+          <summary>Crew member config <small>(what settings would store)</small></summary>
+          <pre id="config"></pre>
+          <button type="button" class="act" data-run="copy"><span data-icon="copy"></span>Copy JSON</button>
+        </details>
+        <span class="grow"></span>
+        <button type="button" class="act" data-run="close">Cancel<kbd>Esc</kbd></button>
+        <button type="button" class="act primary" data-run="save"><span data-icon="check"></span>Save<kbd>Ctrl ↵</kbd></button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>

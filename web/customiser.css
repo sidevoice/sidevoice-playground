@@ -1,0 +1,189 @@
+/* The avatar customiser exploration (customiser.html): the creature's canvas and the character-creator dialog. The
+   tokens are the app's (style.css writes them again for the playground); the stage and the avatars are the web's own
+   CSS, copied beside this page (customiser/call.css, customiser/bichos.css). */
+
+:root {
+  --sv-bg: #14171b; --sv-surface: #1c2128; --sv-surface-raised: #252b33; --sv-border: #303742; --sv-text: #e8edf1;
+  --sv-muted: #a1acb9; --sv-label: #7f8b99; --sv-primary: #c9b6ec; --sv-on-primary: #2a1a40; --sv-primary-muted: #3a2f52;
+  --sv-selected: #2a2438; --sv-selected-border: #8a76b3; --sv-accent: #c9b6ec; --sv-on-accent: #2a1a40; --sv-text-muted: #a1acb9;
+  --sv-voice: #e0a82e; --gold: #f2c94c;
+  font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--sv-text); background: var(--sv-bg); color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; min-height: 100dvh; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+kbd { display: inline-block; min-width: 1.5em; padding: 0 .35em; border: 1px solid #4a5361; border-bottom-width: 2px; border-radius: 5px;
+  font: 600 10.5px/1.5 ui-monospace, "SF Mono", monospace; color: var(--sv-muted); background: #1a1f26; text-align: center; }
+:focus-visible { outline: 2px solid var(--sv-primary); outline-offset: 2px; }
+
+/* ---------- the view ---------- */
+.view { max-width: 1040px; margin: 0 auto; padding: 18px 20px 40px; }
+.view-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.view-head h1 { margin: 0; font-size: 20px; }
+.view-head p { margin: 2px 0 0; color: var(--sv-muted); font-size: 13px; }
+.view-head code { font-size: 11.5px; color: var(--sv-label); }
+.back { text-decoration: none; color: var(--sv-muted); font-size: 20px; padding: 2px 8px; border-radius: 8px; }
+.back:hover { background: var(--sv-surface); }
+
+.canvas-wrap { position: relative; border-radius: 22px; overflow: hidden; background: var(--sv-surface); box-shadow: 0 24px 60px rgb(0 0 0 / 40%); }
+.canvas { aspect-ratio: 16 / 9; position: relative; }
+.canvas .stage-tile, .preview-stage .stage-tile { position: absolute; inset: 0; overflow: hidden; }
+.canvas-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px;
+  border-top: 1px solid var(--sv-border); }
+.canvas-foot small { color: var(--sv-muted); margin-left: 6px; }
+
+/* The brush: small, round, frosted, in the canvas's top-right corner. */
+.brush { position: absolute; top: 14px; right: 14px; z-index: 5; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 1px solid rgb(255 255 255 / 22%); border-radius: 50%; cursor: pointer; color: #fff;
+  background: rgb(20 23 27 / 46%); backdrop-filter: blur(8px); box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
+  transition: transform .18s cubic-bezier(.3,1.6,.5,1), background .18s; }
+.brush:hover { transform: scale(1.08) rotate(-8deg); background: var(--sv-primary); color: var(--sv-on-primary); }
+
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: #12161b; border: 1px solid var(--sv-border); }
+.seg button { border: 0; background: none; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; color: var(--sv-muted); cursor: pointer; }
+.seg button[aria-checked=true] { background: var(--sv-primary-muted); color: var(--sv-text); }
+
+/* ---------- the dialog ---------- */
+dialog#customiser { width: min(1240px, calc(100vw - 32px)); height: min(820px, calc(100dvh - 32px)); max-width: none; max-height: none;
+  padding: 0; border: 1px solid #3a4250; border-radius: 22px; color: var(--sv-text); overflow: hidden;
+  background: radial-gradient(120% 80% at 0% 0%, #241f33 0, transparent 55%), linear-gradient(#1b2027, #15191e);
+  box-shadow: 0 40px 120px rgb(0 0 0 / 60%); }
+dialog#customiser::backdrop { background: rgb(8 9 12 / 62%); backdrop-filter: blur(4px); }
+dialog#customiser[open] { animation: cz-in .28s cubic-bezier(.2,1.2,.4,1); }
+@keyframes cz-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+.cz { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+.cz-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px 12px 20px;
+  border-bottom: 1px solid var(--sv-border); }
+.cz-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 16px; letter-spacing: .02em; }
+.cz-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--sv-primary); color: var(--sv-on-primary); }
+.cz-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.act { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--sv-border); border-radius: 11px;
+  background: var(--sv-surface-raised); cursor: pointer; font-size: 13px; font-weight: 600; transition: transform .12s, background .12s; }
+.act:hover { background: #2e3540; }
+.act:active { transform: translateY(1px); }
+.act [data-icon] { display: inline-flex; }
+.act.accent { background: var(--sv-primary-muted); border-color: var(--sv-selected-border); }
+.act.primary { background: var(--sv-primary); color: var(--sv-on-primary); border-color: transparent; }
+.act.primary kbd { background: rgb(255 255 255 / 35%); color: var(--sv-on-primary); border-color: rgb(42 26 64 / 30%); }
+.act.icon-only { padding: 7px; }
+
+.cz-body { display: grid; grid-template-columns: minmax(300px, 38%) minmax(0, 1fr); min-height: 0; }
+.cz-preview { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-right: 1px solid var(--sv-border); overflow: auto; }
+.preview-stage { position: relative; aspect-ratio: 4 / 3.4; border-radius: 18px; overflow: hidden; background: #0f1216;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 6%), 0 14px 30px rgb(0 0 0 / 35%); }
+.preview-moods { align-self: center; }
+.preview-small { display: flex; align-items: center; gap: 12px; }
+.row-mock { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--sv-surface); border: 1px solid var(--sv-border); }
+.row-mock .sv-avatar { width: 40px; height: 40px; }
+.row-mock > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.row-mock b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-mock small { color: var(--sv-label); font-size: 11.5px; }
+.rail-mock { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--sv-surface); border: 1px solid var(--sv-border); }
+.rail-mock .sv-avatar { width: 28px; height: 28px; }
+.name-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--sv-label); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.name-field input { font: 15px/1.3 inherit; text-transform: none; letter-spacing: 0; padding: 9px 11px; border-radius: 11px;
+  border: 1px solid #526173; background: #141b23; color: var(--sv-text); }
+.traits { margin: 0; font-size: 12.5px; color: var(--sv-muted); }
+
+.cz-pick { display: flex; flex-direction: column; min-height: 0; padding: 14px 18px 0; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
+.tabs [role=tab] { position: relative; flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px;
+  padding: 9px 8px 7px; border: 1px solid transparent; border-radius: 14px; background: #1a1f26; color: var(--sv-muted); cursor: pointer;
+  font-size: 12px; font-weight: 600; transition: background .15s, color .15s, transform .15s; }
+.tabs [role=tab]:hover { color: var(--sv-text); transform: translateY(-1px); }
+.tabs [role=tab][aria-selected=true] { background: var(--sv-selected); border-color: var(--sv-selected-border); color: var(--sv-text);
+  box-shadow: 0 0 0 3px rgb(201 182 236 / 14%), 0 8px 18px rgb(0 0 0 / 30%); }
+.tabs [role=tab][aria-selected=true] svg { color: var(--sv-primary); }
+.proposed-dot { position: absolute; top: 6px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--sv-voice);
+  box-shadow: 0 0 0 3px rgb(224 168 46 / 22%); }
+.tabs [role=tab].proposed { border-style: dashed; border-color: rgb(224 168 46 / 45%); }
+.tabs [role=tab].proposed[aria-selected=true] { border-style: solid; border-color: var(--sv-voice); box-shadow: 0 0 0 3px rgb(224 168 46 / 16%), 0 8px 18px rgb(0 0 0 / 30%); }
+.tabs [role=tab].proposed[aria-selected=true] svg { color: var(--sv-voice); }
+.tab-hint .legend { margin-left: 10px; color: var(--sv-voice); }
+.tab-hint .legend::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: var(--sv-voice); }
+.tab-hint { margin: 8px 2px 0; font-size: 11.5px; color: var(--sv-label); }
+.tab-hint kbd { margin-right: 2px; }
+
+.sections { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+.sections [role=tab] { border: 1px solid var(--sv-border); background: transparent; padding: 5px 12px; border-radius: 999px; font-size: 13px;
+  color: var(--sv-muted); cursor: pointer; }
+.sections [role=tab][aria-selected=true] { background: var(--sv-text); color: #14171b; border-color: transparent; font-weight: 600; }
+.section-note { min-height: 1.4em; margin: 10px 2px 8px; font-size: 12.5px; color: var(--sv-muted); }
+.proposed-note { color: var(--sv-voice); }
+
+/* The tiles: a grid of creatures wearing each option, as a game's character creator shows them. */
+.grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px;
+  grid-auto-rows: max-content; align-content: start; padding: 4px 4px 18px; scrollbar-width: thin; }
+.grid[data-zoom=scene] { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.tile { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; overflow: hidden; cursor: pointer;
+  border: 2px solid #2c333d; border-radius: 16px; background: linear-gradient(#232a33, #1b2027); text-align: center;
+  transition: transform .14s cubic-bezier(.3,1.6,.5,1), border-color .14s, box-shadow .14s; }
+.tile:hover { transform: translateY(-2px); border-color: #4a5361; }
+.tile:focus-visible { outline: 2px dashed #fff; outline-offset: 3px; }
+.tile[aria-checked=true] { border-color: var(--sv-primary); background: linear-gradient(#3a2f52, #241f33);
+  box-shadow: 0 0 0 3px rgb(201 182 236 / 18%), 0 10px 22px rgb(0 0 0 / 35%); }
+.thumb { position: relative; display: block; flex: none; height: 104px; overflow: hidden;
+  background: radial-gradient(60% 55% at 50% 58%, rgb(255 255 255 / 9%), transparent 70%); }
+.grid[data-zoom=scene] .thumb { height: 110px; }
+.thumb .stage-tile { position: absolute; inset: 0; overflow: hidden; }
+.thumb > .sv-avatar { position: absolute; inset: 8% 8% 4%; width: auto; height: auto; transform-origin: 50% 45%; }
+/* Close-ups: the face's parts and the head's are small on the whole figure. */
+.grid[data-zoom=face] .thumb > .sv-avatar { transform: scale(2.05); transform-origin: 50% 54%; }
+.grid[data-zoom=head] .thumb > .sv-avatar { transform: scale(1.3) translateY(14%); }
+/* Tiles hold still (a hundred animated figures would cost the panel), except where the move is the choice. */
+.grid:not([data-live]) .thumb * { animation-play-state: paused !important; }
+.tile-label { display: block; flex: none; padding: 6px 6px 7px; font-size: 12px; font-weight: 600; color: var(--sv-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile[aria-checked=true] .tile-label { color: var(--sv-text); }
+.tick { position: absolute; top: 6px; right: 6px; display: none; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--sv-primary); color: var(--sv-on-primary); }
+.tile[aria-checked=true] .tick { display: grid; }
+.swap, .rarity, .badge { position: absolute; top: 6px; left: 6px; font-style: normal; font-size: 11px; line-height: 20px; height: 20px; min-width: 20px;
+  border-radius: 999px; text-align: center; }
+.swap { background: rgb(20 23 27 / 75%); color: var(--sv-voice); border: 1px solid rgb(224 168 46 / 45%); }
+.rarity { left: auto; right: 30px; color: var(--gold); text-shadow: 0 0 6px rgb(242 201 76 / 70%); }
+.tile:not([aria-checked=true]) .rarity { right: 6px; }
+.badge { left: auto; right: 30px; background: var(--sv-text); color: #14171b; font-weight: 800; }
+.tile.dice .thumb > .sv-avatar { filter: grayscale(.2) brightness(.55) blur(1px); }
+.dice-mark { position: absolute; inset: 0; display: grid; place-items: center; color: var(--sv-primary); }
+.dice-mark svg { width: 38px; height: 38px; filter: drop-shadow(0 4px 8px rgb(0 0 0 / 50%)); }
+.tile.dice:hover .dice-mark svg { transform: rotate(18deg); transition: transform .2s; }
+.prop-thumb { position: absolute; inset: 14%; width: 72%; height: 72%; }
+
+/* Tune: sliders and the shiny switch. */
+.tune { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 140px; gap: 14px 22px; align-items: center; max-width: 640px; }
+.tune-row { grid-column: 1; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--sv-muted); }
+.tune-row span { display: flex; justify-content: space-between; }
+.tune-row output { font-variant-numeric: tabular-nums; color: var(--sv-text); }
+.tune input[type=range] { -webkit-appearance: none; appearance: none; height: 14px; border-radius: 999px; background: var(--track); border: 1px solid #000; }
+.tune input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #1b1428; box-shadow: 0 2px 6px rgb(0 0 0 / 50%); }
+.tune input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #1b1428; }
+.tune .shiny { grid-column: 2; grid-row: 1 / span 4; }
+
+.cz-foot { display: flex; align-items: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--sv-border); background: rgb(0 0 0 / 14%); }
+.cz-foot .grow { flex: 1; }
+.config { max-width: 60%; font-size: 12.5px; color: var(--sv-muted); }
+.config summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.config pre { max-height: 220px; overflow: auto; margin: 6px 0 8px; padding: 10px 12px; border-radius: 10px; background: #0f1216;
+  border: 1px solid var(--sv-border); font: 11.5px/1.45 ui-monospace, "SF Mono", monospace; color: #cfd6de; }
+
+@media (max-width: 860px) {
+  dialog#customiser { width: 100vw; height: 100dvh; border-radius: 0; border: 0; }
+  .cz-head { padding: 10px 12px; }
+  .cz-head h2 { font-size: 15px; }
+  .cz-head .act .lbl, .act kbd, .tab-hint { display: none; }
+  .cz-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; overflow: auto; }
+  .cz-preview { border-right: 0; border-bottom: 1px solid var(--sv-border); padding: 12px; gap: 10px; }
+  .preview-stage { aspect-ratio: 16 / 10; }
+  .preview-small, .traits { display: none; }
+  .cz-pick { padding: 10px 12px 0; }
+  .grid { overflow: visible; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .grid[data-zoom=scene] { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .tune { grid-template-columns: 1fr; }
+  .tune .shiny { grid-column: 1; grid-row: auto; max-width: 140px; }
+  .config { max-width: 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-avatar, .sv-avatar *, .stage-scene *, dialog#customiser { animation: none !important; transition: none !important; }
+}

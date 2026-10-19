@@ -170,6 +170,21 @@ npm run tauri build -- --bundles app     # src-tauri/target/release/bundle/macos
 sh src-tauri/runner/build.sh <engine commit sha> /tmp/runner   # the native runner alone, as the app builds it
 ```
 
+## Avatar customiser exploration
+
+A design mockup of a character creator for the creatures, its own page at **`/customiser`** (linked from the header):
+the creature's canvas as the call's stage shows it, with a brush button in its corner that opens the customiser — a
+live preview, and a tab per category (species, body, face, head, limbs, extras, colour, and two proposed ones: scene
+and moves) with a grid of tiles that each show the creature wearing that option. Randomise, shuffle a section, undo,
+reset, and keyboard play throughout (Q/E categories, [ ] sections, arrows over the tiles, R, Shift+R, Z, Ctrl+Enter).
+`/customiser?open&tab=<id>&section=<id>` opens it there.
+
+What it edits is one crew member (`web/customiser/crew.mjs`): a name, the seed it started from, the engine's own
+figure spec, and the proposed scene and moves. It is kept in this browser's local storage only. The creatures are drawn
+live by sidevoice-web's bichos engine, bundled as `web/customiser/bichos.mjs`, and moved by its stylesheets, copied
+beside it. To bundle them again from another web commit: `node scripts/customiser-engine.mjs --web <sidevoice-web
+tree> --sha <commit> --esbuild <node_modules/esbuild>`. The page reloads itself when one of its files is saved.
+
 ## Web preview
 
 ### Turn Lab: real spoken conversation

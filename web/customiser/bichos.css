@@ -1,0 +1,871 @@
+/* COPIED from sidevoice-web@7a6e128ab5f33981c2674dd242e05313f383530b apps/web/src/styles/bichos.css by scripts/customiser-engine.mjs. */
+/* GENERATED from the bichos engine (src/features/avatar/engine) by scripts/sync-bichos.mjs: do not edit.
+   The figures' moods, sizes and shared groups under .sv-avatar[data-style=bichos], then the stage backdrops. */
+
+.sv-avatar[data-style=bichos] .ground { fill: rgb(0 0 0 / .16) }
+.sv-avatar[data-style=bichos] .shine { fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round; opacity: .7 }
+.sv-avatar[data-style=bichos] .sweat { fill: #8fd3ff; stroke: #1b1428; stroke-width: 2 }
+.sv-avatar[data-style=bichos] .cog path { fill: #ffd23f; stroke: #1b1428; stroke-width: 2; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .cog-small path { fill: #ff9f43 }
+.sv-avatar[data-style=bichos] .cog circle { fill: #fff; stroke: #1b1428; stroke-width: 1.6 }
+.sv-avatar[data-style=bichos] .cog { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos] .puffs circle { fill: #fff; stroke: none; opacity: 0; transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos] .brows { opacity: 0; transition: opacity .2s }
+.sv-avatar[data-style=bichos] .brow { transform-box: fill-box; transform-origin: 50% 50%; transition: transform .25s }
+.sv-avatar[data-style=bichos] .bang rect { fill: #ffd23f; stroke: #1b1428; stroke-width: 2.6 }
+.sv-avatar[data-style=bichos] .bang text { font: 900 18px system-ui; fill: #1b1428 }
+.sv-avatar[data-style=bichos] .zz text { font: 900 12px system-ui; fill: var(--fg-dim) }
+.sv-avatar[data-style=bichos] .zz .z2 { font-size: 9px }
+.sv-avatar[data-style=bichos] .eyes-closed { display: none }
+.sv-avatar[data-style=bichos] .fig,
+.sv-avatar[data-style=bichos] .squash { transform-box: view-box; transform-origin: 60px 106px }
+.sv-avatar[data-style=bichos] .eyes { transform-box: fill-box; transform-origin: 50% 50%; animation: bx-blink 3.8s infinite }
+.sv-avatar[data-style=bichos] .look { transition: transform .25s cubic-bezier(.3,1.6,.5,1) }
+.sv-avatar[data-style=bichos] .m-open { transform-box: fill-box; transform-origin: 50% 0 }
+/* moving parts, pivoted where they join the body */
+.sv-avatar[data-style=bichos] .pg-arm-l { transform-box: fill-box; transform-origin: 100% 20% }
+.sv-avatar[data-style=bichos] .pg-arm-r { transform-box: fill-box; transform-origin: 0 20% }
+.sv-avatar[data-style=bichos] .pg-tail { transform-box: fill-box; transform-origin: 0 100%; animation: bx-wag 2.4s ease-in-out infinite }
+.sv-avatar[data-style=bichos] .pg-ear-l,
+.sv-avatar[data-style=bichos] .pg-ear-r { transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos] .pg-sprout { transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos] .pg-bulb { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos] .pg-leg-a,
+.sv-avatar[data-style=bichos] .pg-leg-b { transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos] .pg-claw-l { transform-box: view-box; transform-origin: 26px 53px }
+.sv-avatar[data-style=bichos] .pg-claw-r { transform-box: view-box; transform-origin: 94px 53px }
+.sv-avatar[data-style=bichos] .pg-ant-l { transform-box: view-box; transform-origin: 45px 15px; animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos] .pg-ant-r { transform-box: view-box; transform-origin: 75px 15px; animation: bx-feel 2s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos] [data-logo] .eyes { animation-duration: 3s }
+/* the Sidevoice mark: every bar scales from its own foot, so any frame without motion is the mark exactly.
+   --sv-amp/--sv-t: its speaking waveform; --sv-lift/--sv-lag: its turn in the working pulse (travelling 1 → 5). */
+.sv-avatar[data-style=bichos] .pg-sv { transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos] .pg-sv-1 { --sv-amp: 1.5; --sv-t: .38s; --sv-lift: 1.28; --sv-lag: 0s }
+.sv-avatar[data-style=bichos] .pg-sv-2 { --sv-amp: 1.3; --sv-t: .3s; --sv-lift: 1.22; --sv-lag: -.48s }
+.sv-avatar[data-style=bichos] .pg-sv-3 { --sv-amp: 1.1; --sv-t: .46s; --sv-lift: 1.1; --sv-lag: -.36s }
+.sv-avatar[data-style=bichos] .pg-sv-4 { --sv-amp: 1.45; --sv-t: .26s; --sv-lift: 1.22; --sv-lag: -.24s }
+.sv-avatar[data-style=bichos] .pg-sv-5 { --sv-amp: 1.5; --sv-t: .34s; --sv-lift: 1.28; --sv-lag: -.12s }
+/* Placa (the tile with the mark for a mouth): the same bars, scaled about their middle, a small hop and a deeper hush */
+.sv-avatar[data-style=bichos][data-size=rail] .sv-brows { display: none }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-sv { animation: sv-doze 4s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .sv-face { animation: sv-face-doze 4s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-sv { animation: sv-eq var(--sv-t) ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .pg-sv-4 { animation: sv-kick-a .34s cubic-bezier(.3,1.5,.5,1) }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .pg-sv-4 { animation: sv-kick-b .34s cubic-bezier(.3,1.5,.5,1) }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-pause] .pg-sv { animation: sv-settle .45s ease-out }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-sv { animation: sv-run .6s cubic-bezier(.4,0,.3,1) infinite var(--sv-lag) }
+/* listening: the agent's bar (and the eye it carries) perks up */
+.sv-avatar[data-style=bichos][data-mood=listening] :is(.pg-sv-4, .sv-ride) { transform: translateY(-3px) }
+/* shared groups added for the catalogue (wing, flick, float, spin): they only reuse the keyframes above */
+.sv-avatar[data-style=bichos][data-mood=speaking] :is(.pg-wing-l, .pg-wing-r) { animation: bx-sway .4s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-wing-l { animation: bx-claw .25s steps(2) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-wing-r { animation: bx-claw-r .25s steps(2) infinite .12s }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-wing-l { transform: rotate(-10deg) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-wing-r { transform: rotate(10deg) }
+.sv-avatar[data-style=bichos][data-mood=speaking] :is(.pg-flick, .pg-flick-l, .pg-flick-r) { animation: bx-twinkle 1.8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.pg-flick, .pg-flick-l, .pg-flick-r) { animation: bx-tick 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking] :is(.pg-float, .pg-float-l, .pg-float-r) { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.pg-spin, .pg-spin-l, .pg-spin-r) { animation: bx-spin 1.2s linear infinite }
+/* spin and flick turn about their own middle, unless the piece sets a pivot */
+.sv-avatar[data-style=bichos] :is(.pg-spin, .pg-spin-l, .pg-spin-r, .pg-flick, .pg-flick-l, .pg-flick-r) { transform-box: fill-box; transform-origin: 50% 50% }
+/* hang (hanging ears, things on a string), from its top unless the piece sets a pivot: asleep a pair relaxes
+   inwards; listening it lifts a little outwards, perked */
+.sv-avatar[data-style=bichos] :is(.pg-hang, .pg-hang-l, .pg-hang-r) { transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-hang-l { transform: rotate(-6deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-hang-r { transform: rotate(6deg) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-hang-l { transform: rotate(8deg) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-hang-r { transform: rotate(-8deg) }
+/* upright (floating held items, inside the arm's group): a counter-turn about the hand that undoes the arm's turn,
+   with the arm's timing and the mirrored keyframes, so the item follows the hand and stays level */
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .pg-upright-l { animation: bx-gest-a .5s ease-out }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-upright-l { animation: bx-crank-r .6s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .pg-upright-r { animation: bx-gest-b .5s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-upright-r { animation: bx-gesture-back 1.8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-upright-r { animation: bx-crank .6s ease-in-out infinite .3s }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .eyes { display: none }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .eyes-closed { display: inline }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .squash { transform: scale(1.04,.95); filter: saturate(.55) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-ear-l { transform: rotate(-28deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-ear-r { transform: rotate(28deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-sprout { transform: rotate(-16deg) scale(.96,.88) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-claw-l { transform: rotate(14deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-claw-r { transform: rotate(-14deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-leg-a,
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-leg-b { transform: scaleY(.55) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-tail { animation-duration: 6s }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .zz text { animation: bx-z 2.4s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .zz .z2 { animation-delay: .6s }
+.sv-avatar[data-style=bichos][data-mood=speaking] .squash { animation: bx-talk .9s cubic-bezier(.3,1.5,.5,1) infinite }
+/* each spoken word: a little pop, the brows lift and an arm gestures, alternating sides; a slow lean underneath */
+.sv-avatar[data-style=bichos][data-mood=speaking] .fig { animation: bx-lean 3.4s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking] .brows { opacity: 1 }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .squash { animation: bx-word-a .34s cubic-bezier(.3,1.6,.5,1) }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .squash { animation: bx-word-b .34s cubic-bezier(.3,1.6,.5,1) }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .brows { animation: bx-brow-a .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .brows { animation: bx-brow-b .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .pg-arm-r { animation: bx-gest-a .5s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .pg-arm-l { animation: bx-gest-b .5s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-pause] .squash { animation: bx-settle .5s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-pause] .brows { animation: none; opacity: .0 }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-claw-l { animation: bx-claw .45s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-claw-r { animation: bx-claw-r .45s ease-in-out infinite alternate .2s }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-arm-r { animation: bx-gesture 1.8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-sprout { animation: bx-sway 1.8s ease-in-out infinite }
+/* working: knitted brows, eyes on the job, the body pumping in rhythm, arms cranking, gears turning, puffs of effort */
+.sv-avatar[data-style=bichos][data-mood=working] .look { transform: translate(2px,1.5px) }
+.sv-avatar[data-style=bichos][data-mood=working] .brows { opacity: 1 }
+.sv-avatar[data-style=bichos][data-mood=working] .brow-l { transform: translateY(2px) rotate(14deg) }
+.sv-avatar[data-style=bichos][data-mood=working] .brow-r { transform: translateY(2px) rotate(-14deg) }
+.sv-avatar[data-style=bichos][data-mood=working] .squash { animation: bx-pump .6s cubic-bezier(.4,0,.3,1) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .cog-big { animation: bx-spin 2.4s linear infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .cog-small { animation: bx-spin-back 1.6s linear infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .puffs circle { animation: bx-puff 1.2s ease-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .puffs circle:nth-child(2) { animation-delay: .2s }
+.sv-avatar[data-style=bichos][data-mood=working] .puffs circle:nth-child(3) { animation-delay: .6s }
+.sv-avatar[data-style=bichos][data-mood=working] .sweat { animation: bx-sweat 1.2s ease-in infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-arm-l { animation: bx-crank .6s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-arm-r { animation: bx-crank-r .6s ease-in-out infinite .3s }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-leg-a { animation: bx-step .4s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-leg-b { animation: bx-step .4s ease-in-out infinite alternate-reverse }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-bulb { animation: bx-bulb .5s steps(1) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-claw-l { animation: bx-claw .25s steps(2) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-claw-r { animation: bx-claw-r .25s steps(2) infinite .12s }
+/* working styles (src/bichos/work.ts). The client sets data-work on the root when the bicho starts working and
+   swaps it for another every 20–30 s; a root without it (the mascots, the frozen v3:/monstruo: figures) keeps the
+   crank above, untouched. Each style keys its own keyframes for the shared groups (squash, arms, .look, brows), so
+   every part that joins them follows. On every change the body hops (bx-bounce), the old props pop out and the new
+   ones pop in; the style's loops start after the hop (.5s). The cog pair keeps turning through every style: it's
+   the "busy" cue. Arm angles that reach a prop come from the renderer: --wk-read-r/-l and --wk-type-r/-l (0 for a
+   hand that holds something). */
+.sv-avatar[data-style=bichos]:not([data-work]) .wk-props { display: none }
+.sv-avatar[data-style=bichos] .wk { opacity: 0; transform: scale(.3); transform-box: fill-box; transform-origin: 50% 50%; transition: opacity .16s ease-in, transform .2s ease-in }
+.sv-avatar[data-style=bichos] .wk-ground { transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos][data-work=hammer] .wk-hammer,
+.sv-avatar[data-style=bichos][data-work=read] .wk-read,
+.sv-avatar[data-style=bichos][data-work=type] .wk-type { opacity: 1; transform: none; transition: none; animation: wk-in .45s cubic-bezier(.3,1.6,.5,1) .12s backwards }
+.sv-avatar[data-style=bichos][data-work]:not([data-work=crank], [data-work=hammer]) .puffs,
+.sv-avatar[data-style=bichos][data-work=read] .sweat { display: none }
+.sv-avatar[data-style=bichos][data-mood=working][data-work] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), bx-pump .6s cubic-bezier(.4,0,.3,1) .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working]:is([data-work=read], [data-work=type]) .pg-claw-l { animation: bx-claw .6s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working]:is([data-work=read], [data-work=type]) .pg-claw-r { animation: bx-claw-r .6s ease-in-out infinite alternate .3s }
+/* hammer: the arm lifts and the wrist cocks the hammer overhead, then both slam down; the body squashes on the hit
+   and a star flashes on the anvil */
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), wk-slam .8s linear .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .pg-arm-r { animation: wk-hammer .8s linear .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .pg-arm-l { animation: wk-jolt .8s ease-out .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .wk-wrist { animation: wk-wrist .8s linear .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .look { transform: translate(2.6px,2.2px) }
+.sv-avatar[data-style=bichos] .wk-tink { transform-box: fill-box; transform-origin: 50% 50%; opacity: 0 }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .wk-tink { animation: wk-tink .8s linear .5s infinite }
+.sv-avatar[data-style=bichos] .wk-spark { opacity: 0 }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .wk-spark { animation: wk-spark .8s ease-out .5s infinite }
+/* the nails: each jumps off on its hit, lands by the anvil and stays, until all three clear together */
+.sv-avatar[data-style=bichos] .wk-nail { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=hammer] .wk-nail { animation-duration: 4.8s; animation-delay: .5s; animation-iteration-count: infinite; animation-timing-function: linear }
+/* read: arms hold the book, eyes run along the lines; every fourth line the right hand turns a page */
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), wk-nod 5.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .pg-arm-r { transform: rotate(var(--wk-read-r)); animation: wk-page-turn 5.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .pg-arm-l { transform: rotate(var(--wk-read-l)); animation: none }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .pg-upright-r { transform: rotate(calc(var(--wk-read-r) * -1)); animation: wk-page-turn-back 5.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .pg-upright-l { transform: rotate(calc(var(--wk-read-l) * -1)); animation: none }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .look { animation: wk-scan 1.3s linear .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .wk-page { animation: wk-flip 5.2s ease-in-out .5s infinite }
+/* the finished pages: one flies over the shoulder every couple of seconds and lands on the pile behind it; the pile
+   of four clears and starts again. Still, they lie in a little pile. */
+.sv-avatar[data-style=bichos] .wk-sheet { transform-box: fill-box; transform-origin: 50% 100%; transform: scale(1,.45) }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=read] .wk-sheet { animation-duration: 10.4s; animation-delay: .5s; animation-iteration-count: infinite; animation-timing-function: linear }
+/* type: hands tap behind the lid, eyes on the screen, bits of code float up, the screen's glow breathes */
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), wk-bob .52s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .pg-arm-r { transform: rotate(var(--wk-type-r)); animation: wk-tap-r .26s ease-in-out .5s infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .pg-arm-l { transform: rotate(var(--wk-type-l)); animation: wk-tap-l .26s ease-in-out .63s infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .pg-upright-r { transform: rotate(calc(var(--wk-type-r) * -1)); animation: wk-tap-r-back .26s ease-in-out .5s infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .pg-upright-l { transform: rotate(calc(var(--wk-type-l) * -1)); animation: wk-tap-l-back .26s ease-in-out .63s infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .look { animation: wk-screen 2.4s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos] .wk-glyph { font: 900 8px system-ui; fill: #7df9ff; stroke: #1b1428; stroke-width: 2.4; stroke-linejoin: round; paint-order: stroke; text-anchor: middle; transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .wk-glyph { animation: wk-glyph 1.8s ease-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working][data-work=type] .wk-glow { animation: wk-glow 1.2s ease-in-out infinite alternate }
+/* listening: the person is talking to it. It leans in towards you (a touch bigger, head cocked), brows up, eyes wide
+   and on you, ears, tops and hanging ears perked, a bulb lit, and now and then a small nod ("mm-hm"). The mouth stays
+   shut: it's your turn to talk. Every pose is a still transform under the motion, so the rail and reduced motion
+   still show it (the rail and reduced motion stop the nod and the twitch, never the pose). */
+.sv-avatar[data-style=bichos][data-mood=listening] .fig { transform: rotate(-4deg) }
+.sv-avatar[data-style=bichos][data-mood=listening] .squash { transform: scale(1.04); animation: bx-nod 3.6s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=listening] .brows { opacity: 1 }
+.sv-avatar[data-style=bichos][data-mood=listening] .brow { transform: translateY(-2.5px) }
+.sv-avatar[data-style=bichos][data-mood=listening] .eyes { transform: scale(1.07); animation-name: bx-blink-wide }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-ear-l { transform: rotate(9deg) scale(1.03,1.1) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-ear-r { transform: rotate(-9deg) scale(1.03,1.1) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-sprout { transform: scale(1.04,1.1) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-bulb { filter: brightness(1.35) }
+.sv-avatar[data-style=bichos][data-mood=listening] :is(.pg-ant-l, .pg-ant-r) { animation-duration: 1.1s }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-claw-l { transform: rotate(-6deg) }
+.sv-avatar[data-style=bichos][data-mood=listening] .pg-claw-r { transform: rotate(6deg) }
+/* its cue, as constant as working's cogs: at the stage, sound waves flowing in towards the head from the corner the
+   cogs use (render.ts places and turns them, clear of the figure); in the sidebar and the rail, a violet bubble with
+   the waves in the "!" corner, pulsing gently in the sidebar, still at the rail */
+.sv-avatar[data-style=bichos] .listen-w { transform-box: fill-box; transform-origin: 0 50% }
+.sv-avatar[data-style=bichos] .listen-w path { fill: none; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .listen-w .ink { stroke: #1b1428; stroke-width: 5.8 }
+.sv-avatar[data-style=bichos] .listen-w .tone { stroke: #b48cff; stroke-width: 2.9 }
+.sv-avatar[data-style=bichos][data-mood=listening] .listen-w { animation: bx-listen 1.8s linear infinite }
+.sv-avatar[data-style=bichos] .listen-badge { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos][data-mood=listening][data-size=sidebar] .listen-badge { animation: bx-ping 1.6s ease-in-out infinite }
+.sv-avatar[data-style=bichos] .listen-badge rect { fill: #b48cff; stroke: #1b1428; stroke-width: 2.6 }
+.sv-avatar[data-style=bichos] .listen-badge path { fill: none; stroke: #1b1428; stroke-width: 2.6; stroke-linecap: round }
+/* unread (data-unread: it said something you haven't seen yet): over idle and working, the "!" pops and the figure
+   gives a small hop with it; never while speaking or listening (the shared contract in lab.css hides the "!" then).
+   The "!" takes the top-right corner (render.ts keeps it clear of the figure, and draws it as a bigger badge in the
+   sidebar and the rail): the zz give way, and the cogs move to the other corner (--cogs-alt, placed the same way).
+   The rail holds the badge still. */
+.sv-avatar[data-style=bichos][data-unread] .bang { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite; transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos][data-size=rail] .bang { animation: none }
+.sv-avatar[data-style=bichos][data-unread]:is(:is([data-mood=idle], [data-mood=waiting]), [data-mood=working]) .fig { animation: bx-hop 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+.sv-avatar[data-style=bichos][data-unread] .zz { display: none }
+.sv-avatar[data-style=bichos][data-unread] .cogs { translate: var(--cogs-alt) }
+/* entering listening (data-enter = the mood it left, idle or working, set by the client for ENTER_MS): a startle.
+   The figure squashes, springs up and lands in the listening lean, the eyes pop wide, the brows jump, a burst
+   flashes over the head, whatever it had going drops away (the work props and the cogs fall; so do the idle
+   pastime's), and the listening waves come in as it lands. */
+.sv-avatar[data-style=bichos] .enter-burst { display: none }
+.sv-avatar[data-style=bichos] .enter-burst path { fill: none; stroke: #1b1428; stroke-width: 3.2; stroke-linecap: round }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter] .enter-burst { display: inline; transform-box: fill-box; transform-origin: 50% 100%; animation: bx-burst .42s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter] .squash { animation: bx-startle .42s cubic-bezier(.3,1.3,.5,1) both }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter] .fig { animation: bx-startle-tilt .42s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter] .eyes { animation: bx-eyes-pop .42s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter] .brows { animation: bx-brows-pop .42s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter] .listen { animation: bx-cue-in .42s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter=working] :is(.wk-props, .cogs, .puffs, .sweat),
+.sv-avatar[data-style=bichos][data-mood=listening][data-enter=idle] :is(.idl-props, .zz) { animation: bx-drop .38s cubic-bezier(.5,0,.9,.6) both }
+/* a desk in front (data-desk: the stage scene's desk covers the figure below y = 93.5, work.ts's DESK_Y): the
+   working props step up onto its top (each prop's --wk-lift, the pile of pages and the nails too), the arms reach
+   the book and the keys up there, the hammer strikes the desk itself (the anvil steps out), and the crank's puffs
+   rise above the edge. */
+.sv-avatar[data-style=bichos][data-desk] .wk-lift { translate: 0 var(--wk-lift, 0) }
+.sv-avatar[data-style=bichos][data-desk] .fig { --wk-read-r: var(--wk-read-rd); --wk-read-l: var(--wk-read-ld); --wk-type-r: var(--wk-type-rd); --wk-type-l: var(--wk-type-ld) }
+.sv-avatar[data-style=bichos][data-desk] .wk-off-desk { display: none }
+.sv-avatar[data-style=bichos][data-desk] .puffs { translate: 0 -9px }
+/* the counter-turns of bx-gesture and bx-wave, for upright held items only */
+/* listening's nod (the lean in, scale 1.04, held between two small dips), wide blink and waves, the unread hop (a
+   smaller bx-bounce, in time with the "!"), and the startle into listening (body, tilt, eyes, brows, burst, the cue
+   coming in, and what it held dropping away) */
+/* the working styles' keyframes (work.ts) */
+/* core-gear */
+.sv-avatar[data-style=bichos] .pin circle { fill: #c9a24a; stroke: #1b1428; stroke-width: 1 }
+.sv-avatar[data-style=bichos] .pin .pin-hi { fill: #f6e3a1; stroke: none }
+.sv-avatar[data-style=bichos] .glasses { fill: rgb(255 255 255 / .12); stroke: #1b1428; stroke-width: 2.6; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .glasses path { fill: none }
+.sv-avatar[data-style=bichos] .glasses .lens-shine { stroke: #fff; stroke-width: 2; opacity: .8 }
+.sv-avatar[data-style=bichos] .knit path { fill: none; stroke: var(--bx-belly); stroke-width: 9; stroke-dasharray: 3 5; stroke-linecap: butt; opacity: .7 }
+.sv-avatar[data-style=bichos] .knit path + path { stroke-width: 6 }
+.sv-avatar[data-style=bichos] .fringe,
+.sv-avatar[data-style=bichos] .ribs { fill: none; stroke: #1b1428; stroke-width: 1.8; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .ribs.soft { stroke-width: 1.4; opacity: .45 }
+.sv-avatar[data-style=bichos] .cushion { fill: var(--bx-dark) }
+.sv-avatar[data-style=bichos] .bowtie path,
+.sv-avatar[data-style=bichos] .bowtie rect { fill: var(--bx-spot); stroke: #1b1428; stroke-width: 2.4; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .bowtie .fold { fill: none; stroke-width: 1.6 }
+/* core-groups */
+.sv-avatar[data-style=bichos] :is(.pg-sprout-l, .pg-sprout-r) { transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-sprout-l { transform: rotate(-14deg) scale(.94) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-sprout-r { transform: rotate(14deg) scale(.94) }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-sprout-l { animation: bx-sway 1.8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-sprout-r { animation: bx-sway 1.8s ease-in-out infinite -.9s }
+.sv-avatar[data-style=bichos]:not(*) :is(.pg-sprout-l, .pg-sprout-r) { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-open-l { animation: bx-claw-r .25s steps(2) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-open-r { animation: bx-claw .25s steps(2) infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-open-l { animation: bx-claw-r .65s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos]:not(*) .pg-open-r { animation: bx-claw .65s ease-in-out infinite alternate }
+/* b03-faces */
+/* sleepy: the heavy lid lifts while talking and sags back on every pause */
+.sv-avatar[data-style=bichos] .b03-lid { transition: opacity .15s }
+.sv-avatar[data-style=bichos][data-mood=speaking] .b03-lid { opacity: 0 }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-pause] .b03-lid { opacity: 1 }
+/* googly: the gaze swings half as far again, and the loose pupils hop on every word */
+.sv-avatar[data-style=bichos][data-mood=working] .b03-googly .look { transform: translate(3px, 2.25px) }
+.sv-avatar[data-style=bichos]:not(*) .b03-googly .look { transform: translate(0, 2.25px) }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .b03-rattle { animation: bx-brow-a .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .b03-rattle { animation: bx-brow-b .34s ease-out }
+/* b09-gear-head */
+/* asleep = idle without a pastime (the mascots', the frozen figures') or the nap: the quiet pose and the pastimes stay awake */
+/* clips: the face of the clip, over the brows */
+.sv-avatar[data-style=bichos] .b09-clip path { stroke: #1b1428; stroke-width: 2.2; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b09-clip .b09-fold { fill: none; stroke: color-mix(in oklab, var(--bx-spot), #1b1428 45%); stroke-width: 1.3; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-seeds circle { fill: #b0751e }
+/* hat decor */
+.sv-avatar[data-style=bichos] .b09-crease,
+.sv-avatar[data-style=bichos] .b09-pleat,
+.sv-avatar[data-style=bichos] .b09-stitch,
+.sv-avatar[data-style=bichos] .b09-weave { fill: none; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-crease { stroke: #1b1428; stroke-width: 1.4; opacity: .4 }
+.sv-avatar[data-style=bichos] .b09-pleat { stroke: #1b1428; stroke-width: 1.2; opacity: .22 }
+.sv-avatar[data-style=bichos] .b09-stitch { stroke: color-mix(in oklab, var(--bx-spot), white 55%); stroke-width: 1.1; stroke-dasharray: 2 1.8 }
+.sv-avatar[data-style=bichos] .b09-weave { stroke: #a8730f; stroke-width: 1.2; stroke-dasharray: 2.4 1.6; opacity: .75 }
+.sv-avatar[data-style=bichos] .b09-fluff { fill: color-mix(in oklab, var(--bx-belly), white 55%); opacity: .55 }
+/* the top hat tips on every word; the propeller spins while working and ticks while waiting (as the shared spin) */
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .pg-b09-tip { animation: bx-brow-a .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .pg-b09-tip { animation: bx-brow-b .34s ease-out }
+.sv-avatar[data-style=bichos] .pg-b09-prop { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b09-prop { animation: bx-spin 1.2s linear infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b09-prop { animation: bx-tick 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+/* sunglasses */
+.sv-avatar[data-style=bichos] .b09-lens { opacity: .9 }
+.sv-avatar[data-style=bichos] .b09-glare { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; opacity: .75 }
+.sv-avatar[data-style=bichos] .b09-frame { fill: none; stroke: #1b1428; stroke-width: 4.6; stroke-linejoin: round; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-frame-c { fill: none; stroke: var(--bx-spot); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-temple { fill: none; stroke: #1b1428; stroke-width: 2.4; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-shades { transition: transform .3s cubic-bezier(.3,1.4,.5,1) }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .b09-shades { animation: bx-brow-a .34s ease-out }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .b09-shades { transform: translateY(var(--b09-up)) }
+.sv-avatar[data-style=bichos]:not(*) .b09-shades { transform: translateY(2.5px) }
+/* monocle and goggles */
+.sv-avatar[data-style=bichos] .b09-glass { fill: rgb(255 255 255 / .16) }
+.sv-avatar[data-style=bichos] .b09-goggle-glass { fill: color-mix(in oklab, #8fe3ff 34%, transparent) }
+.sv-avatar[data-style=bichos] .b09-rim-k { fill: none; stroke: #1b1428; stroke-width: 5.2 }
+.sv-avatar[data-style=bichos] .b09-rim { fill: none; stroke: var(--bx-gold); stroke-width: 2.6 }
+.sv-avatar[data-style=bichos] .b09-shine { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; opacity: .8 }
+.sv-avatar[data-style=bichos] .b09-chain-k,
+.sv-avatar[data-style=bichos] .b09-chain { fill: none; stroke-linecap: round; stroke-dasharray: 0 3.2 }
+.sv-avatar[data-style=bichos] .b09-chain-k { stroke: #1b1428; stroke-width: 3.4 }
+.sv-avatar[data-style=bichos] .b09-chain { stroke: var(--bx-gold); stroke-width: 1.9 }
+.sv-avatar[data-style=bichos] .b09-rivet { fill: #fff6c8 }
+.sv-avatar[data-style=bichos] .b09-strap { fill: var(--bx-spot); stroke: #1b1428; stroke-width: 2.2; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b09-bridge-k { fill: none; stroke: #1b1428; stroke-width: 5; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-bridge { fill: none; stroke: var(--bx-gold); stroke-width: 2.2; stroke-linecap: round }
+/* party star glasses */
+.sv-avatar[data-style=bichos] .b09-plate { stroke: #1b1428; stroke-width: 2.4; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b09-glitter { stroke: #fff; stroke-width: 2.2; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b09-star { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos][data-mood=speaking] .b09-star { animation: bx-twinkle 1.8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b09-star { animation: bx-tick 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+/* mustache: it hops with every word */
+.sv-avatar[data-style=bichos] .b09-stache-k { fill: none; stroke: #1b1428; stroke-width: 4.6; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b09-stache-hi { fill: none; stroke: #fff; stroke-width: 1.3; stroke-linecap: round; opacity: .35 }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .b09-stache { animation: bx-brow-a .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .b09-stache { animation: bx-brow-b .34s ease-out }
+/* b10-gear-body */
+/* the bell swings from its ring with the tail's timing; the tie's blade flaps from its knot while waiting */
+.sv-avatar[data-style=bichos] .pg-b10-bell { transform-box: fill-box; transform-origin: 50% 0; animation: bx-sway 2.4s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]) .pg-b10-bell { animation-duration: 6s }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b10-bell { animation-duration: 1.2s }
+.sv-avatar[data-style=bichos]:not(*) .pg-b10-bell { animation-duration: .8s }
+.sv-avatar[data-style=bichos] .pg-b10-tie { transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos]:not(*) .pg-b10-tie { animation: bx-feel 1.3s ease-in-out infinite }
+/* the cape sways from its collar; the jetpack's flames burn while working and waiting, flickering from the nozzle */
+.sv-avatar[data-style=bichos] .pg-b10-cape { transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b10-cape { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b10-cape { animation: bx-feel 1.3s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b10-cape { animation: bx-feel .6s ease-in-out infinite }
+.sv-avatar[data-style=bichos] .pg-b10-flame { display: none; transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos]:is([data-mood=working], :not(*)) .pg-b10-flame { display: inline; animation: bx-pulse .3s ease-in-out infinite }
+/* the microphone's sound arcs: only while talking (stage only, by lod), popping on every word, gone on a pause */
+.sv-avatar[data-style=bichos] .pg-b10-waves { display: none; transform-box: fill-box; transform-origin: 0 100% }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b10-waves { display: inline }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .pg-b10-waves { animation: bx-pop .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .pg-b10-waves { animation: bx-pop .34s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-pause] .pg-b10-waves { display: none }
+/* the mug's steam, only while working (stage only, by lod) */
+.sv-avatar[data-style=bichos] .pg-b10-steam { display: none }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b10-steam { display: inline }
+.sv-avatar[data-style=bichos] .pg-b10-steam path { opacity: 0; transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b10-steam path { animation: bx-puff 1.2s ease-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b10-steam path + path { animation-delay: .5s }
+/* b11-pond-sea */
+/* asleep = idle without a pastime (the mascots', the frozen figures') or the nap: the quiet pose and the pastimes stay awake */
+/* the spout bobs while talking and waiting, spurts while working, and settles low asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b11-spout { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b11-spout { animation: bx-pulse .45s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b11-spout { transform: scale(.72) }
+/* jellyfish ribbons drift from the bell, faster while working */
+.sv-avatar[data-style=bichos] .pg-b11-ribbon { transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b11-ribbon { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b11-ribbon { animation: bx-feel .7s ease-in-out infinite }
+/* bubbles, blown while working (they rise and pop like the shared puffs) */
+.sv-avatar[data-style=bichos] .b11-bub { opacity: 0; transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos] .b11-bub circle { fill: rgb(143 211 255 / .32); stroke: #3f9fd8; stroke-width: 1.3 }
+.sv-avatar[data-style=bichos] .b11-bub .b11-glint { fill: #fff; stroke: none }
+.sv-avatar[data-style=bichos][data-mood=working] .b11-bub { animation: bx-puff 1.5s ease-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b11-bub:nth-child(2) { animation-delay: .5s }
+.sv-avatar[data-style=bichos][data-mood=working] .b11-bub:nth-child(3) { animation-delay: 1s }
+/* b12-bugs-spirits */
+/* asleep = idle without a pastime (the mascots', the frozen figures') or the nap: the quiet pose and the pastimes stay awake */
+/* the flame flickers from its base: a quick twinkle while talking, a pulse while working, a pop while waiting, and
+   it burns low asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b12-flame { transform: scale(.86,.74) }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b12-flame { animation: bx-twinkle 1.1s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b12-flame { animation: bx-pulse .45s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b12-flame { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+/* butterfly wings: the shared wing's moves, beating slower */
+.sv-avatar[data-style=bichos][data-mood=speaking] :is(.pg-b12-bfly-l, .pg-b12-bfly-r) { animation: bx-sway 1.1s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b12-bfly-l { animation: bx-claw .5s steps(2) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b12-bfly-r { animation: bx-claw-r .5s steps(2) infinite .25s }
+.sv-avatar[data-style=bichos]:not(*) .pg-b12-bfly-l { animation: bx-crank 1.2s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b12-bfly-r { animation: bx-crank-r 1.2s ease-in-out infinite }
+/* the ghost's hem ripples: each scallop sways on its own pivot, alternate ones the other way */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b12-hem-a { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b12-hem-b { animation: bx-feel 2s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b12-hem-a { animation: bx-feel .7s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b12-hem-b { animation: bx-feel .7s ease-in-out infinite reverse }
+/* the wisp sways from under the body, faster while working, and curls in asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b12-wisp { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b12-wisp { animation: bx-feel .7s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b12-wisp { transform: rotate(-5deg) scale(.94) }
+/* b13-bots */
+/* asleep = idle without a pastime (the mascots', the frozen figures') or the nap: the quiet pose and the pastimes stay awake */
+/* LED faces: one expression per mood (normal, busy while working, happy while waiting), dimmed when powered down */
+.sv-avatar[data-style=bichos] .b13-x-work,
+.sv-avatar[data-style=bichos] .b13-x-wait,
+.sv-avatar[data-style=bichos] .b13-m-wait { display: none }
+.sv-avatar[data-style=bichos]:is([data-mood=working], :not(*)) .b13-x-norm { display: none }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-x-work { display: inline }
+.sv-avatar[data-style=bichos]:not(*) .b13-x-wait { display: inline }
+.sv-avatar[data-style=bichos]:not(*) .b13-m-norm { display: none }
+.sv-avatar[data-style=bichos]:not(*) .b13-m-wait { display: inline }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .b13-glow { opacity: .4 }
+.sv-avatar[data-style=bichos] .b13-spin,
+.sv-avatar[data-style=bichos] .b13-step4,
+.sv-avatar[data-style=bichos] .b13-beat { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-spin { animation: bx-spin 1s linear infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-step4 { animation: bx-spin 1.2s steps(4) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-dart { animation: bx-step .45s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-scan { animation: bx-sway .9s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-beat { animation: bx-pulse .5s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .b13-beat { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+/* a different row of equaliser bars on every word */
+.sv-avatar[data-style=bichos] .b13-eq-b { display: none }
+.sv-avatar[data-style=bichos][data-beat=b] .b13-eq-a { display: none }
+.sv-avatar[data-style=bichos][data-beat=b] .b13-eq-b { display: inline }
+/* the V antenna feels about; it droops when powered down */
+.sv-avatar[data-style=bichos]:not(:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap])) .pg-b13-rod-l { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap])) .pg-b13-rod-r { animation: bx-feel 2s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.pg-b13-rod-l, .pg-b13-rod-r) { animation-duration: .5s }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-rod-l { transform: rotate(-14deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-rod-r { transform: rotate(14deg) }
+/* the dish scans while working, ticks while waiting, nods while talking, droops when powered down */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-dish { animation: bx-feel 2.4s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-dish { animation: bx-sway 1.2s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b13-dish { animation: bx-tick 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-dish { transform: rotate(-24deg) }
+/* the rotor */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-rotor { animation: bx-spin 1.4s linear infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-rotor { animation: bx-spin .35s linear infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b13-rotor { animation: bx-spin .8s linear infinite }
+/* the spring antenna */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-boing { animation: bx-sway 1.8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-boing { animation: bx-jitter .08s linear infinite alternate }
+.sv-avatar[data-style=bichos]:not(*) .pg-b13-boing { animation: bx-bounce 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-boing { transform: rotate(-20deg) scale(.96,.86) }
+/* the beacon: a quick cheerful flash with rays while waiting, a slow blink while working, dim when powered down */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-lamp { animation: bx-bulb 1s steps(1) infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b13-lamp { animation: bx-bulb .4s steps(1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .fills .pg-b13-lamp { opacity: .55 }
+.sv-avatar[data-style=bichos] .b13-rays { display: none; transform-box: fill-box; transform-origin: 50% 70% }
+.sv-avatar[data-style=bichos]:not(*) .b13-rays { display: inline; animation: bx-pulse .4s ease-in-out infinite }
+/* robot ears */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-ear-l { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-ear-r { animation: bx-feel 2s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos]:not(*) :is(.pg-b13-ear-l, .pg-b13-ear-r) { animation: bx-tick 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-ear-l { transform: rotate(-20deg) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-ear-r { transform: rotate(20deg) }
+/* chimney smoke: puffs rise while working; one puff pops on each word (a different circle per beat, so it restarts) */
+.sv-avatar[data-style=bichos] .b13-smoke circle { fill: #fff; stroke: #1b1428; stroke-width: 1.6; opacity: 0; transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-smoke circle { animation: bx-puff 1.4s ease-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-smoke circle:nth-child(2) { animation-delay: .45s }
+.sv-avatar[data-style=bichos][data-mood=working] .b13-smoke circle:nth-child(3) { animation-delay: .9s }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .b13-smoke circle:nth-child(1) { animation: bx-puff .7s ease-out }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .b13-smoke circle:nth-child(4) { animation: bx-puff .7s ease-out }
+/* the jet flame flickers; off when powered down */
+.sv-avatar[data-style=bichos] .pg-b13-flame { transform-box: fill-box; transform-origin: 50% 0 }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-flame,
+.sv-avatar[data-style=bichos]:not(*) .pg-b13-flame { animation: bx-pulse .3s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-flame { animation: bx-pulse .16s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b13-flame { display: none }
+/* spring legs */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-spring-l { animation: bx-step .3s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-spring-r { animation: bx-step .3s ease-in-out infinite alternate-reverse }
+.sv-avatar[data-style=bichos]:not(*) :is(.pg-b13-spring-l, .pg-b13-spring-r) { animation: bx-bounce 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) :is(.pg-b13-spring-l, .pg-b13-spring-r) { transform: scaleY(.72) }
+/* panel lamps blink in turn while working, slowly while waiting, and go dark when powered down */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-lamp-1 { animation: bx-bulb .6s steps(1) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-lamp-2 { animation: bx-bulb .6s steps(1) infinite .2s }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-lamp-3 { animation: bx-bulb .6s steps(1) infinite .4s }
+.sv-avatar[data-style=bichos]:not(*) :is(.pg-b13-lamp-1, .pg-b13-lamp-3) { animation: bx-bulb 1.3s steps(1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) :is(.pg-b13-lamp-1, .pg-b13-lamp-2, .pg-b13-lamp-3) { opacity: .3 }
+/* the wind-up key */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b13-key { animation: bx-spin 4s linear infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b13-key { animation: bx-spin 1.2s linear infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b13-key { animation: bx-tick 1.3s cubic-bezier(.3,1.6,.5,1) infinite }
+/* b15-elementals */
+/* asleep = idle without a pastime (the mascots', the frozen figures') or the nap: the quiet pose and the pastimes stay awake */
+/* sheens on ice and crystal faces, translucent; the rime only shows asleep (frosting over) */
+.sv-avatar[data-style=bichos] .pg-b15-sheen { opacity: .38 }
+.sv-avatar[data-style=bichos] .pg-b15-rime { opacity: 0 }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-rime { opacity: .92 }
+/* glows (the lava cracks, the crater's pool and drip): they flicker while working, blink slowly while waiting and
+   burn low asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-glow { opacity: .42 }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-glow { animation: bx-bulb .5s steps(1) infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-glow { animation: bx-bulb 1s steps(1) infinite }
+/* the wave laps while talking, churns while working, pops while waiting and lies down asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-wave { transform: rotate(-7deg) scale(.94,.8) }
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b15-wave { animation: bx-feel 2.2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-wave { animation: bx-feel .5s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-wave { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+/* the rocks grind against each other while working, hop while waiting and settle asleep */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-grind-a { animation: bx-jitter .09s linear infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-grind-b { animation: bx-jitter .09s linear infinite alternate-reverse }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-grind-a { animation: bx-step .325s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-grind-b { animation: bx-step .325s ease-in-out infinite alternate-reverse }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) :is(.pg-b15-grind-a, .pg-b15-grind-b) { transform: translateY(1px) }
+/* crystals shimmer while working, twinkle while talking, pop while waiting */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b15-gem { animation: bx-twinkle 1.6s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-gem { animation: bx-bulb .6s steps(1) infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-gem { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+/* the swirl: it bobs while talking and waiting (it spins while working, the shared spin), and settles asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-swirl { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-swirl { transform: translateY(4px) scale(.82) }
+/* the bolt crackles while working (a flicker and a shiver), twinkles while talking, pops while waiting, droops asleep */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b15-bolt { animation: bx-twinkle 1.1s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-bolt { animation: bx-bulb .3s steps(1) infinite, bx-jitter .08s linear infinite alternate }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-bolt { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-bolt { transform: rotate(16deg) scale(.88) }
+/* ice: it shivers while working and pops while waiting */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-ice { animation: bx-jitter .1s linear infinite alternate }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-ice { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+/* the crater's bubble pops while working, bobs while waiting and is gone asleep */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-bubble { animation: bx-pop .6s cubic-bezier(.3,1.8,.5,1) infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-bubble { animation: bx-feel 1.3s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-bubble { opacity: 0 }
+/* the puddle's ripples breathe; the tornado's bands sway against each other, faster while working */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-ripple { animation: bx-breathe 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-ripple { animation: bx-breathe .6s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-twist-a { animation: bx-feel 1.6s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-twist-b { animation: bx-feel 1.6s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-twist-a { animation: bx-feel .4s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-twist-b { animation: bx-feel .4s ease-in-out infinite reverse }
+/* its gusts sway with it, and die down asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-gust-a { animation: bx-feel 1.6s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-gust-b { animation: bx-feel 1.6s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-gust-a { animation: bx-feel .4s ease-in-out infinite reverse }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-gust-b { animation: bx-feel .4s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) :is(.pg-b15-gust-a, .pg-b15-gust-b) { opacity: 0 }
+/* the ember on the tail's tip flickers while talking and working, pops while waiting and burns low asleep */
+.sv-avatar[data-style=bichos][data-mood=speaking] .pg-b15-ember { animation: bx-twinkle 1.1s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-ember { animation: bx-pulse .45s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-ember { animation: bx-pop 1.3s cubic-bezier(.3,1.8,.5,1) infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-ember { transform: scale(.7) }
+/* crystals lose their shine asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-gem .pg-b15-sheen { opacity: .14 }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-gem .pg-flick { opacity: 0 }
+/* the cloud bobs while talking and waiting and shivers while working */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-cloud { animation: bx-feel 2.4s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-cloud { animation: bx-jitter .12s linear infinite alternate }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-cloud { transform: translateY(1.5px) scale(1,.92) }
+/* soot fuzz buzzes while working, puffs up while waiting and breathes asleep */
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-fuzz { animation: bx-jitter .07s linear infinite alternate }
+.sv-avatar[data-style=bichos]:not(*) .pg-b15-fuzz { animation: bx-pulse .65s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-fuzz { animation: bx-breathe 4s ease-in-out infinite }
+/* the will-o'-the-wisp bobs, flickers while working and burns low asleep */
+.sv-avatar[data-style=bichos]:is([data-mood=speaking], :not(*)) .pg-b15-wisp { animation: bx-feel 2s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .pg-b15-wisp { animation: bx-pulse .45s ease-in-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting]):is(:not([data-idle]), [data-idle=nap]) .pg-b15-wisp { transform: scale(.7) translateY(3px); opacity: .7 }
+/* particles (stage-only props, drawn by the parts): sparks crackle, chips and smoke and bubbles puff away, snow and
+   leaves fall, sparkles twinkle, gusts blow */
+.sv-avatar[data-style=bichos] :is(.b15-sparks, .b15-chips, .b15-smoke, .b15-bubbles, .b15-snow, .b15-leaves, .b15-twinkles, .b15-gusts) > * { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos] .b15-sparks path { fill: none; stroke: var(--bx-gold); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b15-chips path { fill: var(--bx-body); stroke: #1b1428; stroke-width: 1.3; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b15-chips circle { fill: var(--bx-belly); stroke: #1b1428; stroke-width: 1.2 }
+.sv-avatar[data-style=bichos] .b15-smoke circle { fill: #c9c3d3; stroke: #1b1428; stroke-width: 1.4 }
+.sv-avatar[data-style=bichos] .b15-bubbles circle { fill: rgb(255 255 255 / .55); stroke: #1b1428; stroke-width: 1.3 }
+.sv-avatar[data-style=bichos] .b15-snow path { fill: none; stroke: #fff; stroke-width: 1.4; stroke-linecap: round }
+.sv-avatar[data-style=bichos] .b15-leaves path { fill: var(--bx-spot); stroke: #1b1428; stroke-width: 1.2; stroke-linejoin: round }
+.sv-avatar[data-style=bichos] .b15-twinkles path { fill: #fff; stroke: #1b1428; stroke-width: 1 }
+.sv-avatar[data-style=bichos] .b15-gusts path { fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; opacity: .85 }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-sparks path { animation: bx-puff .5s steps(3) infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-sparks path:nth-child(2n) { animation-delay: .25s }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-sparks path:nth-child(3) { animation-delay: .12s }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.b15-chips, .b15-smoke, .b15-bubbles) > * { animation: bx-puff 1.2s ease-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-chips > *:nth-child(2) { animation-delay: .4s }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-chips > *:nth-child(3) { animation-delay: .8s }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.b15-smoke, .b15-bubbles) > *:nth-child(2) { animation-delay: .4s }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.b15-smoke, .b15-bubbles) > *:nth-child(3) { animation-delay: .8s }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.b15-snow, .b15-leaves) > * { animation: bx-sweat 1.4s ease-in infinite }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.b15-snow, .b15-leaves) > *:nth-child(2) { animation-delay: .5s }
+.sv-avatar[data-style=bichos][data-mood=working] :is(.b15-snow, .b15-leaves) > *:nth-child(3) { animation-delay: .9s }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-snow > *:nth-child(4) { animation-delay: .25s }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-twinkles > * { animation: bx-twinkle .8s ease-in-out infinite }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-twinkles > *:nth-child(2) { animation-delay: .3s }
+.sv-avatar[data-style=bichos][data-mood=working] .b15-gusts > * { animation: bx-puff 1s ease-out infinite }
+/* idle (src/bichos/idle.ts). The client sets data-idle on the root while the bicho is idle: quiet, then now and then
+   one pastime for its own while, then quiet again. A root without it (the mascots, the frozen v3:/monstruo: figures)
+   keeps the old sleep, untouched. On every change the old props pop out and the new ones pop in. Arm angles come
+   from the renderer (--idl-*), and the rail gets none, so its arms stay at rest. */
+.sv-avatar[data-style=bichos]:not([data-idle]) .idl-props { display: none }
+.sv-avatar[data-style=bichos] .idl { opacity: 0; transform: scale(.3); transform-box: fill-box; transform-origin: 50% 50%; transition: opacity .16s ease-in, transform .2s ease-in }
+.sv-avatar[data-style=bichos] .idl-ground { transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos][data-idle=juggle] .idl-juggle,
+.sv-avatar[data-style=bichos][data-idle=soup] .idl-soup,
+.sv-avatar[data-style=bichos][data-idle=water] .idl-water,
+.sv-avatar[data-style=bichos][data-idle=fish] .idl-fish,
+.sv-avatar[data-style=bichos][data-idle=bubbles] .idl-bubbles,
+.sv-avatar[data-style=bichos][data-idle=music] .idl-music { opacity: 1; transform: none; transition: none; animation: idl-in .45s cubic-bezier(.3,1.6,.5,1) .12s backwards }
+/* awake: eyes open, full colour, ears and tops up, legs straight, no zz */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle]:where(:not([data-idle=nap])) .eyes { display: inline }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle]:where(:not([data-idle=nap])) :is(.eyes-closed, .zz) { display: none }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle]:where(:not([data-idle=nap])) .squash { transform: none; filter: none; animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle]:where(:not([data-idle=nap])) :is(.pg-ear-l, .pg-ear-r, .pg-sprout, .pg-sprout-l, .pg-sprout-r, .pg-hang-l, .pg-hang-r, .pg-leg-a, .pg-leg-b) { transform: none }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle]:where(:not([data-idle=nap])) .pg-tail { animation-duration: 3s }
+/* quiet (the default): it settles, then stands breathing slowly, blinks, and now and then looks around */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=quiet] .squash { animation: bx-settle .5s ease-out, idl-breathe 3.6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=quiet] .look { animation: idl-look 9s ease-in-out 1.5s infinite }
+/* juggle: each ball goes round on its circle (its delay inline) and is passed back hand to hand; the hands toss in
+   turn, the eyes follow */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=juggle] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), idl-bob .7s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=juggle] .pg-arm-l { animation: idl-toss-l .7s ease-out -.1s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=juggle] .pg-arm-r { animation: idl-toss-r .7s ease-out .02s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=juggle] .look { animation: idl-follow 1.4s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos] .idl-ball { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=juggle] .idl-orbit { animation: idl-orbit 2.1s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=juggle] .idl-ball { animation: idl-ball 2.1s linear infinite }
+/* soup: the arm goes round with the ladle (which bobs a quarter turn ahead), eyes in the pot, bubbles and steam */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), idl-sway 1.8s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .pg-arm-r { transform: rotate(var(--idl-stir)); animation: idl-stir 1.8s ease-in-out .5s infinite backwards }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .pg-arm-l { animation: bx-feel 1.8s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .idl-ladle { animation: idl-churn 1.8s ease-in-out .05s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .look { transform: translate(1.4px,2.4px) }
+.sv-avatar[data-style=bichos] .idl-pop,
+.sv-avatar[data-style=bichos] .idl-steam { transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .idl-pop { animation: idl-pop 1.8s ease-out infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=soup] .idl-steam { animation: idl-steam 2.6s ease-out infinite }
+/* water (once): the can tips and pours, drops fall, the sprout perks up and a heart rises; a lean towards it, eyes
+   on it. One pass, holding its last frame (the can upright) until the spell ends */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), idl-lean 3.6s ease-in-out .5s 1 forwards }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .pg-arm-r { transform: rotate(var(--idl-water)) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .idl-tilt { transform: rotate(var(--idl-tip)); animation: idl-pour 3.6s ease-in-out .5s 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .look { transform: translate(2.2px,2px) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .idl-rain { animation: idl-rain 3.6s linear .5s 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .idl-drop { animation: idl-drop .66s ease-in infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .idl-grow { animation: idl-grow 3.6s ease-in-out .5s 1 both }
+.sv-avatar[data-style=bichos] .idl-heart { opacity: 0; transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=water] .idl-heart { animation: idl-heart 3.6s ease-out .5s 1 both }
+/* fish: patient, eyes on the float; it bobs and dips, rings spread, a fish leaps (the eyes jump to it) */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), idl-breathe 3.4s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .pg-arm-r { transform: rotate(var(--idl-fish)) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .look { transform: translate(2.2px,2.4px); animation: idl-watch 6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .idl-bob { animation: idl-bobber 6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .idl-line { animation: idl-line 6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos] .idl-ripple { opacity: 0; transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .idl-ripple { animation: idl-ripple 6s ease-out .5s infinite }
+.sv-avatar[data-style=bichos] .idl-fishy { opacity: 0; transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=fish] .idl-fishy { animation: idl-leap 6s ease-in-out .5s infinite }
+/* bubbles: purse and blow, bubbles drift off and pop; eyes on them */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=bubbles] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), idl-puff 3s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=bubbles] .pg-arm-r { transform: rotate(var(--idl-blow)) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=bubbles] .look { transform: translate(2.2px,-.4px) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=bubbles] .m-open { animation: idl-o 3s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=bubbles] .m-rest { animation: idl-o-rest 3s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos] .idl-bubble { transform-box: fill-box; transform-origin: 50% 50% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=bubbles] .idl-bubble { animation: idl-float 3s ease-in-out infinite }
+/* music: groove on the beat (two beats a bar): sway and dip, arms swing, feet tap, ears bop, tops sway, the tail and
+   claws keep time; the speakers thump and notes float off */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .squash { animation: bx-bounce .5s cubic-bezier(.3,1.6,.5,1), idl-groove 1.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-arm-l { animation: idl-swing-l 1.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-arm-r { animation: idl-swing-r 1.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-leg-a { animation: bx-step .6s ease-in-out .5s infinite alternate }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-leg-b { animation: bx-step .6s ease-in-out .5s infinite alternate-reverse }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-ear-l { animation: idl-bop-l .6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-ear-r { animation: idl-bop-r .6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] :is(.pg-sprout, .pg-sprout-l, .pg-sprout-r) { animation: bx-sway 1.2s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-tail { animation: bx-wag .6s ease-in-out .5s infinite }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-claw-l { animation: bx-claw .3s ease-in-out .5s infinite alternate }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .pg-claw-r { animation: bx-claw-r .3s ease-in-out .8s infinite alternate }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .look { transform: translate(-2px,.6px) }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .idl-cone { animation: idl-thump .6s ease-out .5s infinite }
+.sv-avatar[data-style=bichos] .idl-note { transform-box: fill-box; transform-origin: 50% 100% }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=music] .idl-note { animation: idl-note 2.4s ease-out infinite }
+/* stretch (once, 3 s): arms up, tall, a yawn (eyes squint, never shut), then a wiggle, back to rest and holding it
+   (forwards: the still pose underneath, for reduced motion, is the stretch itself) */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .squash { transform: scale(.97,1.05); animation: idl-stretch 3s ease-in-out 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .pg-arm-r { transform: rotate(var(--idl-up-r)); animation: idl-reach-r 3s ease-in-out 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .pg-arm-l { transform: rotate(var(--idl-up-l)); animation: idl-reach-l 3s ease-in-out 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .pg-claw-l { animation: idl-reach-l 3s ease-in-out 1 both; --idl-up-l: 18deg }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .pg-claw-r { animation: idl-reach-r 3s ease-in-out 1 both; --idl-up-r: -18deg }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .eyes { animation: idl-squint 3s ease-in-out 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .brows { animation: idl-brows 3s ease-in-out 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .m-open { animation: idl-yawn 3s ease-in-out 1 both }
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=stretch] .m-rest { animation: idl-yawn-rest 3s ease-in-out 1 both }
+/* nap: the old sleep (base idle: eyes shut, grey, drooping, zz), breathing slowly */
+.sv-avatar[data-style=bichos]:is([data-mood=idle], [data-mood=waiting])[data-idle=nap] .squash { animation: idl-snooze 4.4s ease-in-out infinite }
+@keyframes sv-doze { 0%,100% { transform: scaleY(var(--sv-doze, .7)) } 50% { transform: scaleY(calc(var(--sv-doze, .7) + .05)) } }
+@keyframes sv-face-doze { 0%,100% { transform: translateY(8.8px) } 50% { transform: translateY(7.3px) } }
+@keyframes sv-eq { 0%,100% { transform: scaleY(1) } 40% { transform: scaleY(var(--sv-amp)) } 70% { transform: scaleY(.92) } }
+@keyframes sv-kick-a { 0% { transform: scaleY(1) } 30% { transform: scaleY(1.6) } 100% { transform: scaleY(1) } }
+@keyframes sv-kick-b { 0% { transform: scaleY(1) } 30% { transform: scaleY(1.6) } 100% { transform: scaleY(1) } }
+@keyframes sv-settle { 0% { transform: scaleY(1.08) } 100% { transform: scaleY(1) } }
+@keyframes sv-run { 0%,55%,100% { transform: scaleY(1) } 22% { transform: scaleY(var(--sv-lift)) } 38% { transform: scaleY(.95) } }
+@keyframes bx-word-a { 0% { transform: scale(1.05,.94) } 45% { transform: scale(.97,1.05) translateY(-2.5px) } 100% { transform: scale(1) } }
+@keyframes bx-word-b { 0% { transform: scale(1.05,.94) } 45% { transform: scale(.97,1.05) translateY(-2.5px) } 100% { transform: scale(1) } }
+@keyframes bx-settle { 0% { transform: scale(1.03,.97) } 100% { transform: scale(1) } }
+@keyframes bx-brow-a { 0% { transform: translateY(0) } 35% { transform: translateY(-3px) } 100% { transform: translateY(0) } }
+@keyframes bx-brow-b { 0% { transform: translateY(0) } 35% { transform: translateY(-3px) } 100% { transform: translateY(0) } }
+@keyframes bx-gest-a { 0% { transform: rotate(0) } 40% { transform: rotate(-38deg) } 100% { transform: rotate(0) } }
+@keyframes bx-gest-b { 0% { transform: rotate(0) } 40% { transform: rotate(38deg) } 100% { transform: rotate(0) } }
+@keyframes bx-lean { 0%,100% { transform: rotate(-2deg) } 50% { transform: rotate(2deg) } }
+@keyframes bx-pump { 0%,100% { transform: scale(1,1) } 30% { transform: scale(1.04,.95) } 60% { transform: scale(.98,1.03) translateY(-1px) } }
+@keyframes bx-crank { 0%,100% { transform: rotate(0) } 50% { transform: rotate(32deg) } }
+@keyframes bx-crank-r { 0%,100% { transform: rotate(0) } 50% { transform: rotate(-32deg) } }
+@keyframes bx-spin-back { to { transform: rotate(-360deg) } }
+@keyframes bx-puff { 0% { opacity: 0; transform: scale(.4) translate(0,0) } 25% { opacity: .9 } 100% { opacity: 0; transform: scale(1.4) translate(0,-8px) } }
+@keyframes bx-blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.08) } }
+@keyframes bx-talk { 0%,100% { transform: scale(1,1) } 40% { transform: scale(.96,1.05) } 70% { transform: scale(1.03,.97) } }
+@keyframes bx-pulse { 0%,100% { transform: scale(1) rotate(0) } 50% { transform: scale(1.06) rotate(4deg) } }
+@keyframes bx-twinkle { 0%,100% { transform: scale(1) rotate(0) } 50% { transform: scale(1.05,.96) rotate(-4deg) } }
+@keyframes bx-claw { from { transform: rotate(0) } to { transform: rotate(-14deg) } }
+@keyframes bx-claw-r { from { transform: rotate(0) } to { transform: rotate(14deg) } }
+@keyframes bx-gesture { 0%,60%,100% { transform: rotate(0) } 75% { transform: rotate(-30deg) } }
+@keyframes bx-sway { 0%,100% { transform: rotate(-8deg) } 50% { transform: rotate(8deg) } }
+@keyframes bx-jitter { 0% { transform: translate(-.6px,0) } 100% { transform: translate(.6px,0) } }
+@keyframes bx-spin { to { transform: rotate(360deg) } }
+@keyframes bx-spin-star { 0% { transform: rotate(0) scale(1) } 50% { transform: rotate(45deg) scale(.92) } 100% { transform: rotate(90deg) scale(1) } }
+@keyframes bx-sweat { 0% { transform: translate(0,0); opacity: 0 } 20% { opacity: 1 } 100% { transform: translate(3px,14px); opacity: 0 } }
+@keyframes bx-type { from { transform: rotate(0) } to { transform: rotate(18deg) } }
+@keyframes bx-type-r { from { transform: rotate(0) } to { transform: rotate(-18deg) } }
+@keyframes bx-step { from { transform: translateY(0) } to { transform: translateY(-4px) } }
+@keyframes bx-bulb { 0% { filter: brightness(1.5) } 50% { filter: brightness(.7) } }
+@keyframes bx-bounce { 0%,100% { transform: scale(1,1) translateY(0) } 30% { transform: scale(1.06,.92) translateY(0) } 55% { transform: scale(.95,1.06) translateY(-5px) } }
+@keyframes bx-wave { from { transform: rotate(0) } to { transform: rotate(-35deg) } }
+@keyframes bx-gesture-back { 0%,60%,100% { transform: rotate(0) } 75% { transform: rotate(30deg) } }
+@keyframes bx-wave-back { from { transform: rotate(0) } to { transform: rotate(35deg) } }
+@keyframes bx-ear { 0%,100% { transform: rotate(0) } 50% { transform: rotate(-22deg) } }
+@keyframes bx-wag { 0%,100% { transform: rotate(0) } 50% { transform: rotate(-12deg) } }
+@keyframes bx-feel { 0%,100% { transform: rotate(-6deg) } 50% { transform: rotate(6deg) } }
+@keyframes bx-tick { 0%,100% { transform: rotate(0) } 30% { transform: rotate(18deg) } 45% { transform: rotate(12deg) } }
+@keyframes bx-breathe { 0%,100% { transform: scale(.97) } 50% { transform: scale(1.02) } }
+@keyframes bx-pop { 0%,100% { transform: scale(1) rotate(6deg) } 50% { transform: scale(1.15) rotate(-6deg) } }
+@keyframes bx-z { 0%,100% { opacity: .2; transform: translateY(0) } 50% { opacity: 1; transform: translateY(-3px) } }
+@keyframes bx-nod { 0%,58%,100% { transform: scale(1.04) } 67% { transform: scale(1.05,1.005) } 76% { transform: scale(1.04) } 83% { transform: scale(1.045,1.02) } 90% { transform: scale(1.04) } }
+@keyframes bx-blink-wide { 0%,92%,100% { transform: scale(1.07) } 95% { transform: scale(1.07,.08) } }
+@keyframes bx-hop { 0%,62%,100% { transform: scale(1,1) translateY(0) } 20% { transform: scale(1.035,.955) translateY(0) } 40% { transform: scale(.975,1.035) translateY(-3px) } }
+@keyframes bx-listen { 0% { opacity: 0; transform: translateX(17px) scale(1.25) } 22%,72% { opacity: 1 } 100% { opacity: 0; transform: translateX(-7px) scale(.65) } }
+@keyframes bx-ping { 0%,100% { transform: scale(1) } 50% { transform: scale(1.12) } }
+@keyframes bx-startle { 0% { transform: scale(1.14,.82) } 28% { transform: scale(.9,1.16) translateY(-7px) } 55% { transform: scale(1.08,.94) } 78% { transform: scale(1.02,1.06) } 100% { transform: scale(1.04) } }
+@keyframes bx-startle-tilt { 0% { transform: rotate(0) } 40% { transform: rotate(3deg) } 100% { transform: rotate(-4deg) } }
+@keyframes bx-eyes-pop { 0% { transform: scale(.7,.25) } 35% { transform: scale(1.3) } 100% { transform: scale(1.07) } }
+@keyframes bx-brows-pop { 0% { opacity: 0; transform: translateY(2px) } 30% { opacity: 1; transform: translateY(-6px) } 100% { opacity: 1; transform: translateY(0) } }
+@keyframes bx-burst { 0% { opacity: 0; transform: scale(.5) } 25% { opacity: 1 } 100% { opacity: 0; transform: scale(1.35) } }
+@keyframes bx-cue-in { 0%,55% { opacity: 0 } 100% { opacity: 1 } }
+@keyframes bx-drop { 0% { opacity: 1; transform: translateY(0) } 100% { opacity: 0; transform: translateY(18px) } }
+@keyframes wk-in { 0% { opacity: 0; transform: scale(.3) } 50% { opacity: 1 } 100% { opacity: 1; transform: scale(1) } }
+@keyframes wk-hammer { 0% { transform: rotate(0); animation-timing-function: cubic-bezier(.2,.8,.4,1) } 12% { transform: rotate(-6deg); animation-timing-function: ease-in-out } 24% { transform: rotate(-2deg); animation-timing-function: cubic-bezier(.45,0,.4,1) } 70% { transform: rotate(-42deg); animation-timing-function: ease-in-out } 82% { transform: rotate(-46deg); animation-timing-function: cubic-bezier(.75,0,1,.7) } 100% { transform: rotate(0) } }
+@keyframes wk-wrist { 0% { transform: rotate(0); animation-timing-function: cubic-bezier(.2,.8,.4,1) } 12% { transform: rotate(14deg); animation-timing-function: ease-in-out } 24% { transform: rotate(5deg); animation-timing-function: cubic-bezier(.45,0,.4,1) } 70% { transform: rotate(128deg); animation-timing-function: ease-in-out } 82% { transform: rotate(140deg); animation-timing-function: cubic-bezier(.75,0,1,.7) } 100% { transform: rotate(0) } }
+@keyframes wk-slam { 0% { transform: scale(1.06,.93) } 14% { transform: scale(.98,1.025) } 28% { transform: scale(1) } 82% { transform: scale(.98,1.03) translateY(-1px) } 100% { transform: scale(1.06,.93) } }
+@keyframes wk-jolt { 0% { transform: rotate(10deg) } 25%,100% { transform: rotate(0) } }
+@keyframes wk-tink { 0% { opacity: 1; transform: scale(.5) } 10% { opacity: 1; transform: scale(1.15) } 24%,100% { opacity: 0; transform: scale(1.35) } }
+@keyframes wk-bob { 0%,100% { transform: scale(1.012,.988) } 50% { transform: scale(.996,1.01) translateY(-.6px) } }
+@keyframes wk-nod { 0%,72%,100% { transform: scale(1) } 84% { transform: scale(.99,1.015) translateY(-.8px) } }
+@keyframes wk-page-turn { 0%,76%,94%,100% { transform: rotate(var(--wk-read-r)) } 85% { transform: rotate(calc(var(--wk-read-r) - 26deg)) } }
+@keyframes wk-page-turn-back { 0%,76%,94%,100% { transform: rotate(calc(var(--wk-read-r) * -1)) } 85% { transform: rotate(calc(26deg - var(--wk-read-r))) } }
+@keyframes wk-flip { 0%,78% { transform: scaleX(1) } 88% { transform: scaleX(0) translateY(-2px) } 97%,100% { transform: scaleX(-1) } }
+@keyframes wk-scan { 0% { transform: translate(-2.6px,2.3px) } 74% { transform: translate(2.6px,2.3px) } 84% { transform: translate(2.6px,2.7px) } 100% { transform: translate(-2.6px,2.5px) } }
+@keyframes wk-tap-r { from { transform: rotate(var(--wk-type-r)) } to { transform: rotate(calc(var(--wk-type-r) + 7deg)) } }
+@keyframes wk-tap-l { from { transform: rotate(var(--wk-type-l)) } to { transform: rotate(calc(var(--wk-type-l) - 7deg)) } }
+@keyframes wk-tap-r-back { from { transform: rotate(calc(var(--wk-type-r) * -1)) } to { transform: rotate(calc(-7deg - var(--wk-type-r))) } }
+@keyframes wk-tap-l-back { from { transform: rotate(calc(var(--wk-type-l) * -1)) } to { transform: rotate(calc(7deg - var(--wk-type-l))) } }
+@keyframes wk-screen { 0%,100% { transform: translate(-1.4px,2.6px) } 50% { transform: translate(1.4px,2.6px) } }
+@keyframes wk-glyph { 0% { opacity: 0; transform: translate(0,2px) scale(.6) } 18%,70% { opacity: 1 } 100% { opacity: 0; transform: translate(var(--wk-gx),-7px) scale(1.05) } }
+@keyframes wk-glow { from { opacity: .22 } to { opacity: .4 } }
+@keyframes wk-spark { 0% { opacity: 1; transform: translate(0,0) } 30% { opacity: 0; transform: translate(var(--wk-sx), var(--wk-sy)) } 100% { opacity: 0 } }
+@keyframes wk-nail-0 { 0%, 0% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) } 0.5% { opacity: 1 } 5% { transform: translate(calc(var(--wk-fx) * .5), calc(var(--wk-fy) - 12px)) rotate(-300deg) } 10%, 88% { opacity: 1; transform: translate(0,0) rotate(-720deg) } 96%, 100% { opacity: 0; transform: translate(0,2px) rotate(-720deg) } }
+@keyframes wk-nail-1 { 0%, 33.33% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) } 33.83% { opacity: 1 } 38.33% { transform: translate(calc(var(--wk-fx) * .5), calc(var(--wk-fy) - 12px)) rotate(-300deg) } 43.33%, 88% { opacity: 1; transform: translate(0,0) rotate(-720deg) } 96%, 100% { opacity: 0; transform: translate(0,2px) rotate(-720deg) } }
+@keyframes wk-nail-2 { 0%, 66.67% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) } 67.17% { opacity: 1 } 71.67% { transform: translate(calc(var(--wk-fx) * .5), calc(var(--wk-fy) - 12px)) rotate(-300deg) } 76.67%, 88% { opacity: 1; transform: translate(0,0) rotate(-720deg) } 96%, 100% { opacity: 0; transform: translate(0,2px) rotate(-720deg) } }
+@keyframes wk-sheet-0 { 0%, 4% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) scale(.7) } 5% { opacity: 1 } 8% { transform: translate(calc(var(--wk-fx) * .55), calc(var(--wk-fy) - 14px)) rotate(-200deg) scale(1) } 12%, 90% { opacity: 1; transform: translate(0,0) rotate(-360deg) scale(1,.45) } 97%, 100% { opacity: 0; transform: translate(-7px,1px) rotate(-360deg) scale(1,.45) } }
+@keyframes wk-sheet-1 { 0%, 24% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) scale(.7) } 25% { opacity: 1 } 28% { transform: translate(calc(var(--wk-fx) * .55), calc(var(--wk-fy) - 14px)) rotate(-200deg) scale(1) } 32%, 90% { opacity: 1; transform: translate(0,0) rotate(-360deg) scale(1,.45) } 97%, 100% { opacity: 0; transform: translate(-7px,1px) rotate(-360deg) scale(1,.45) } }
+@keyframes wk-sheet-2 { 0%, 44% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) scale(.7) } 45% { opacity: 1 } 48% { transform: translate(calc(var(--wk-fx) * .55), calc(var(--wk-fy) - 14px)) rotate(-200deg) scale(1) } 52%, 90% { opacity: 1; transform: translate(0,0) rotate(-360deg) scale(1,.45) } 97%, 100% { opacity: 0; transform: translate(-7px,1px) rotate(-360deg) scale(1,.45) } }
+@keyframes wk-sheet-3 { 0%, 64% { opacity: 0; transform: translate(var(--wk-fx), var(--wk-fy)) rotate(0) scale(.7) } 65% { opacity: 1 } 68% { transform: translate(calc(var(--wk-fx) * .55), calc(var(--wk-fy) - 14px)) rotate(-200deg) scale(1) } 72%, 90% { opacity: 1; transform: translate(0,0) rotate(-360deg) scale(1,.45) } 97%, 100% { opacity: 0; transform: translate(-7px,1px) rotate(-360deg) scale(1,.45) } }
+@keyframes idl-in { 0% { opacity: 0; transform: scale(.3) } 50% { opacity: 1 } 100% { opacity: 1; transform: scale(1) } }
+@keyframes idl-bob { 0%,100% { transform: scale(1.012,.988) } 50% { transform: scale(.996,1.012) translateY(-.8px) } }
+@keyframes idl-toss-l { 0%,100% { transform: rotate(0) } 16% { transform: rotate(14deg) } 46% { transform: rotate(-4deg) } }
+@keyframes idl-toss-r { 0%,100% { transform: rotate(0) } 16% { transform: rotate(-14deg) } 46% { transform: rotate(4deg) } }
+@keyframes idl-follow { from { transform: translate(-2.2px,-2.8px) } to { transform: translate(2.2px,-2.8px) } }
+@keyframes idl-orbit { 0% { transform: rotate(0); animation-timing-function: cubic-bezier(.3,.62,.7,.38) } 74%,100% { transform: rotate(var(--idl-sweep)) } }
+@keyframes idl-ball { 0% { opacity: 0; transform: scale(.4) } 5%,70% { opacity: 1; transform: scale(1) } 74%,100% { opacity: 0; transform: scale(.4) } }
+@keyframes idl-sway { 0%,100% { transform: rotate(-1.4deg) } 50% { transform: rotate(1.4deg) } }
+@keyframes idl-stir { 0%,100% { transform: rotate(calc(var(--idl-stir) - 7deg)) } 50% { transform: rotate(calc(var(--idl-stir) + 7deg)) } }
+@keyframes idl-churn { 0%,100% { transform: translateY(-1.4px) } 50% { transform: translateY(1.4px) } }
+@keyframes idl-pop { 0% { opacity: 0; transform: scale(.3) } 30% { opacity: 1; transform: scale(1) } 55%,100% { opacity: 0; transform: scale(1.5) } }
+@keyframes idl-steam { 0% { opacity: 0; transform: translateY(2px) scale(.7) } 30% { opacity: .85 } 100% { opacity: 0; transform: translate(2.5px,var(--idl-rise, -6px)) scale(1.1) } }
+@keyframes idl-lean { 0%,100% { transform: rotate(0) } 30%,72% { transform: rotate(1.8deg) } }
+@keyframes idl-pour { 0%,12% { transform: rotate(0) } 26%,70% { transform: rotate(var(--idl-tip)) } 82%,100% { transform: rotate(0) } }
+@keyframes idl-rain { 0%,27% { opacity: 0 } 31%,68% { opacity: 1 } 72%,100% { opacity: 0 } }
+@keyframes idl-drop { 0% { transform: translateY(0); opacity: 1 } 80% { opacity: 1 } 100% { transform: translateY(var(--idl-fall)); opacity: 0 } }
+@keyframes idl-grow { 0%,66% { transform: scale(1) } 76% { transform: scale(1.1,1.16) } 88%,100% { transform: scale(1) } }
+@keyframes idl-heart { 0%,70% { opacity: 0; transform: translateY(0) scale(.4) } 78% { opacity: 1; transform: translateY(-3px) scale(1) } 100% { opacity: 0; transform: translateY(-12px) scale(1) } }
+@keyframes idl-breathe { 0%,100% { transform: scale(1,1) } 50% { transform: scale(1.01,1.02) } }
+@keyframes idl-watch { 0%,74%,96%,100% { transform: translate(2.2px,2.4px) } 80%,90% { transform: translate(2.6px,-1.8px) } }
+@keyframes idl-bobber { 0%,100% { transform: translateY(0) } 15% { transform: translateY(.8px) } 30% { transform: translateY(-.3px) } 50% { transform: translateY(.8px) } 58% { transform: translateY(2.6px) } 64% { transform: translateY(0) } }
+@keyframes idl-line { 0%,30%,64%,100% { transform: scaleY(1) } 15%,50% { transform: scaleY(calc(1 + (var(--idl-ls) - 1) * .3)) } 58% { transform: scaleY(var(--idl-ls)) } }
+@keyframes idl-ripple { 0%,56% { opacity: 0; transform: scale(.4) } 60% { opacity: .9 } 76%,100% { opacity: 0; transform: scale(1.7) } }
+@keyframes idl-leap { 0%,78% { opacity: 0; transform: translate(0,0) rotate(-70deg) } 80% { opacity: 1; transform: translate(0,0) rotate(-70deg) } 83.5% { transform: translate(calc(var(--idl-lx) * .5),calc(var(--idl-ly) * .75)) rotate(-40deg) } 87% { transform: translate(var(--idl-lx),var(--idl-ly)) rotate(0) } 90.5% { transform: translate(calc(var(--idl-lx) * 1.5),calc(var(--idl-ly) * .75)) rotate(40deg) } 93.5% { opacity: 1; transform: translate(calc(var(--idl-lx) * 2),0) rotate(70deg) } 95%,100% { opacity: 0; transform: translate(calc(var(--idl-lx) * 2),0) rotate(70deg) } }
+@keyframes idl-puff { 0%,46%,100% { transform: scale(1) } 12%,32% { transform: scale(1.025,.985) } }
+@keyframes idl-o { 0%,6% { opacity: 0; transform: scale(.25,.3) } 12%,34% { opacity: 1; transform: scale(.36,.42) } 42%,100% { opacity: 0; transform: scale(.25,.3) } }
+@keyframes idl-o-rest { 0%,6% { opacity: 1 } 12%,34% { opacity: 0 } 42%,100% { opacity: 1 } }
+@keyframes idl-float { 0% { opacity: 0; transform: translate(0,0) scale(.2) } 8% { opacity: 1; transform: translate(calc(var(--idl-bx) * .12),calc(var(--idl-by) * .04)) scale(.7) } 30% { transform: translate(calc(var(--idl-bx) * .45),calc(var(--idl-by) * .28)) scale(1.06,.94) } 55% { transform: translate(calc(var(--idl-bx) * .75),calc(var(--idl-by) * .6)) scale(.95,1.05) } 86% { opacity: 1; transform: translate(var(--idl-bx),var(--idl-by)) scale(1) } 92%,100% { opacity: 0; transform: translate(var(--idl-bx),var(--idl-by)) scale(1.45) } }
+@keyframes idl-groove { 0%,50%,100% { transform: rotate(0) scale(1,1) } 10% { transform: rotate(-2.4deg) scale(1.035,.955) } 30% { transform: rotate(-1.4deg) scale(.99,1.02) translateY(-1px) } 60% { transform: rotate(2.4deg) scale(1.035,.955) } 80% { transform: rotate(1.4deg) scale(.99,1.02) translateY(-1px) } }
+@keyframes idl-swing-l { 0%,50%,100% { transform: rotate(0) } 12% { transform: rotate(var(--idl-sw-l)) } 62% { transform: rotate(calc(var(--idl-sw-l) * -.4)) } }
+@keyframes idl-swing-r { 0%,50%,100% { transform: rotate(0) } 12% { transform: rotate(calc(var(--idl-sw-r) * -.4)) } 62% { transform: rotate(var(--idl-sw-r)) } }
+@keyframes idl-bop-l { 0%,100% { transform: rotate(0) } 20% { transform: rotate(-8deg) } }
+@keyframes idl-bop-r { 0%,100% { transform: rotate(0) } 20% { transform: rotate(8deg) } }
+@keyframes idl-thump { 0% { transform: scale(1.16) } 40%,100% { transform: scale(1) } }
+@keyframes idl-note { 0% { opacity: 0; transform: translate(0,0) rotate(0) scale(.5) } 15% { opacity: 1 } 50% { transform: translate(calc(var(--idl-nx) * .5),-12px) rotate(-12deg) scale(1) } 85% { opacity: 1 } 100% { opacity: 0; transform: translate(var(--idl-nx),-24px) rotate(10deg) scale(1) } }
+@keyframes idl-stretch { 0%,8%,100% { transform: scale(1,1) } 26%,46% { transform: scale(.95,1.09) translateY(-1.5px) } 36% { transform: scale(.955,1.1) translateY(-2px) } 55% { transform: scale(1.06,.93) } 63% { transform: scale(.99,1.01) } 70% { transform: rotate(-2deg) } 76% { transform: rotate(2deg) } 82% { transform: rotate(0) } }
+@keyframes idl-reach-r { 0%,8%,58%,100% { transform: rotate(0) } 26%,46% { transform: rotate(var(--idl-up-r)) } 36% { transform: rotate(calc(var(--idl-up-r) - 6deg)) } }
+@keyframes idl-reach-l { 0%,8%,58%,100% { transform: rotate(0) } 26%,46% { transform: rotate(var(--idl-up-l)) } 36% { transform: rotate(calc(var(--idl-up-l) + 6deg)) } }
+@keyframes idl-squint { 0%,28%,52%,100% { transform: scaleY(1) } 34%,46% { transform: scaleY(.55) } 84% { transform: scaleY(1) } 86% { transform: scaleY(.1) } 88% { transform: scaleY(1) } }
+@keyframes idl-brows { 0%,28%,52%,100% { opacity: 0; transform: translateY(0) } 34%,46% { opacity: 1; transform: translateY(-2px) } }
+@keyframes idl-yawn { 0%,30% { opacity: 0; transform: scale(.4,.3) } 34% { opacity: 1; transform: scale(.7,.6) } 41% { opacity: 1; transform: scale(1,1.08) } 47% { opacity: 1; transform: scale(.6,.5) } 50%,100% { opacity: 0; transform: scale(.4,.3) } }
+@keyframes idl-yawn-rest { 0%,30% { opacity: 1 } 34%,47% { opacity: 0 } 50%,100% { opacity: 1 } }
+@keyframes idl-look { 0%,30%,52%,72%,100% { transform: translate(0,0) } 36%,46% { transform: translate(-2.4px,.4px) } 78%,88% { transform: translate(2.2px,-1px) } }
+@keyframes idl-snooze { 0%,100% { transform: scale(1.04,.95) } 50% { transform: scale(1.06,.935) } }
+
+/* the stage backdrops (engine/backdrop.ts) */
+.backdrop { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; overflow: hidden }
+.backdrop .bd-mount { display: none }
+.backdrop :is(.bd-drift, .bd-tw, .bd-sway, .bd-wave, .bd-rise, .bd-glow, .bd-band, .bd-swim, .bd-float, .bd-spin) { transform-box: fill-box; transform-origin: 50% 50% }
+.backdrop .bd-drift { animation: bd-drift 38s ease-in-out infinite alternate }
+.backdrop .bd-drift.slow { animation-duration: 56s; animation-delay: -20s }
+.backdrop .bd-drift.b { animation-direction: alternate-reverse }
+.backdrop .bd-tw { animation: bd-tw 3.4s ease-in-out infinite }
+.backdrop .bd-tw.b { animation-duration: 4.7s; animation-delay: -1.6s }
+.backdrop .bd-tw.c { animation-duration: 2.7s; animation-delay: -.8s }
+.backdrop .bd-sway { transform-origin: 50% 100%; animation: bd-sway 5s ease-in-out infinite alternate }
+.backdrop .bd-sway.b { animation-duration: 6.2s; animation-delay: -2s }
+.backdrop .bd-sway.c { animation-duration: 4.4s; animation-delay: -1s }
+.backdrop .bd-sway.slow { animation: bd-sway-slow 9s ease-in-out infinite alternate }
+.backdrop .bd-sway.slow.b { animation-delay: -4s }
+.backdrop .bd-sway.palm { transform-origin: 50% 30% }
+.backdrop .bd-wave { animation: bd-wave 6s ease-in-out infinite alternate }
+.backdrop .bd-wave.b { animation-duration: 7.5s; animation-direction: alternate-reverse }
+.backdrop .bd-rise { animation: bd-rise 10.4s linear infinite }
+.backdrop .bd-glow { animation: bd-glow 7s ease-in-out infinite alternate }
+.backdrop .bd-glow.b { animation-delay: -3s }
+.backdrop .bd-glow.c { animation-delay: -5s }
+.backdrop .bd-band { animation: bd-band 14s ease-in-out infinite alternate }
+.backdrop .bd-band.b { animation-duration: 18s; animation-direction: alternate-reverse }
+.backdrop .bd-band.c { animation-duration: 11s; animation-delay: -4s }
+.backdrop .bd-swim { animation: bd-swim 26s ease-in-out infinite alternate }
+.backdrop .bd-swim.b { animation-duration: 34s; animation-direction: alternate-reverse }
+.backdrop .bd-float { animation: bd-float 9s ease-in-out infinite alternate }
+.backdrop .bd-float.b { animation-duration: 7s; animation-delay: -3s }
+.backdrop .bd-spin { animation: bd-spin 30s linear infinite }
+.backdrop .bd-spin.b { animation-direction: reverse }
+@keyframes bd-drift { from { transform: translateX(-22px) } to { transform: translateX(22px) } }
+@keyframes bd-tw { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes bd-sway { from { transform: rotate(-3deg) } to { transform: rotate(3deg) } }
+@keyframes bd-sway-slow { from { transform: rotate(-1.2deg) } to { transform: rotate(1.2deg) } }
+@keyframes bd-wave { from { transform: translateX(-10px) } to { transform: translateX(10px) } }
+@keyframes bd-rise { 0% { transform: translateY(0); opacity: 0 } 10% { opacity: 1 } 85% { opacity: 1 } 100% { transform: translateY(-260px); opacity: 0 } }
+@keyframes bd-glow { from { opacity: .55 } to { opacity: 1 } }
+@keyframes bd-band { from { transform: translateX(-30px) skewX(-4deg); opacity: .75 } to { transform: translateX(30px) skewX(4deg); opacity: 1 } }
+@keyframes bd-swim { from { transform: translateX(-40px) } to { transform: translateX(40px) } }
+@keyframes bd-float { from { transform: translateY(-4px) } to { transform: translateY(4px) } }
+@keyframes bd-spin { to { transform: rotate(360deg) } }
+@media (prefers-reduced-motion: reduce) { .backdrop * { animation: none !important } }
