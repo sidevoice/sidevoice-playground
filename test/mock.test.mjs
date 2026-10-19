@@ -20,8 +20,10 @@ const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
-test("no choice is open; every decided one stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS, []);
+test("only the keyless provider's look is open; every decided one stored goes; scenario seeding leaves choices alone", () => {
+  assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]), [["keylessProvider", ["model", "key"]]]);
+  assert.deepEqual(prunedVariantChoices({ keylessProvider: "key", onboardingFlow: "d" }), { keylessProvider: "key" }, "the open look is kept, a decided one goes");
+  assert.deepEqual(prunedVariantChoices({ keylessProvider: "other" }), {}, "a value the look no longer offers goes");
   assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d", titleDetail: "popover" }), {}, "the decided onboarding flow and call details are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
