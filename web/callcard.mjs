@@ -263,7 +263,7 @@ ${yourWave()}</div>${controls().replace(/<\/div>$/, `${actions()}</div>`)}</div>
 /** The picture's three actions: back to the call, its settings, and hiding it for this call. */
 const frameActions = () => `<button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button>`;
 /** The picture's header, on two lines: the name ▾ (and the three actions), then its machine, never cut, and the row. */
-const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="pip-title">${call.title()}</span></h2>${conversationsButton()}<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${withActions ? `<span class="pip-head-actions">${frameActions()}</span>` : ""}</header>`;
+const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="pip-title">${call.title()}</span></h2>${conversationsButton()}<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${withActions ? (pick.pipIcons === "always" ? `<span class="pip-head-actions">${frameActions()}</span>` : `<span class="pip-hover-icons">${frameActions().replace(/<button[^>]*pip-close[\s\S]*$/, "")}</span><span class="pip-head-x">${frameActions().match(/<button[^>]*pip-close[\s\S]*$/)[0]}</span>`) : ""}</header>`;
 /** The picture's way to the other conversations: one small button, the web's conversations mark and how many there
  *  are; it drops the list. No faces: in a small picture they were noise. */
 const conversationsButton = () => `<button type="button" class="cc-convs" ${switchAttrs()} aria-label="Conversations (${CREATURES.length})" title="Conversations">${svg("conversations", 15)}<span>${CREATURES.length}</span>${svg("chevron", 12).replace("<svg ", '<svg class="cc-convs-chevron" ')}</button>`;
@@ -384,14 +384,31 @@ function fitPip() {
   }
   noStubs();
 }
+/** The picture's open and settings, near the pointer, lie over the title line without moving it: just left of × where the
+ *  line has room clear of the conversations control, else over the title's end, right before that control (the title
+ *  fading under them). */
+function placeHoverIcons() {
+  for (const head of document.querySelectorAll("#card-window .pip-head-1")) {
+    const icons = head.querySelector(".pip-hover-icons"), x = head.querySelector(".pip-head-x"), control = head.querySelector(".cc-convs"), title = head.querySelector("h2");
+    if (!icons || !x || !control) continue;
+    const h = head.getBoundingClientRect(), need = icons.offsetWidth;
+    const free = x.getBoundingClientRect().left - control.getBoundingClientRect().right;
+    const overTitle = free < need + 4;
+    icons.dataset.over = overTitle ? "title" : "line";
+    icons.style.right = overTitle ? h.right - control.getBoundingClientRect().left + 4 + "px" : h.right - x.getBoundingClientRect().left + "px";
+    title.toggleAttribute("data-under-icons", overTitle);
+  }
+}
 /** A label of an icon and words never shows as its icon alone: with fewer than about three characters of its words in
  *  view, it goes whole (the stage's model badge, the header's machine). */
 function noStubs() {
+  queueMicrotask(placeHoverIcons);
   // The picture's machine shows whole beside the title, or not at all (never cut, never on a line of its own).
   for (const machine of document.querySelectorAll("#card-window .pip-head-1 .stage-machine")) {
-    machine.style.visibility = "";
-    if (getComputedStyle(machine).display !== "none" && machine.scrollWidth > machine.clientWidth + 1) machine.style.visibility = "hidden";
-    const shown = [...machine.closest(".pip-head-1").querySelectorAll(".pip-head-actions .cc-action")].filter((b) => getComputedStyle(b).visibility === "visible");
+    // Measured in place; when it does not fit whole it leaves the line altogether, so the title has all of it.
+    machine.style.visibility = ""; machine.style.display = "";
+    if (getComputedStyle(machine).display !== "none" && machine.scrollWidth > machine.clientWidth + 1) machine.style.display = "none";
+    const shown = [...machine.closest(".pip-head-1").querySelectorAll(":is(.pip-head-actions, .pip-hover-icons) .cc-action:not(.pip-close)")].filter((b) => getComputedStyle(b).visibility === "visible");
     if (shown.length && machine.getBoundingClientRect().right > shown[0].getBoundingClientRect().left - 18) machine.style.visibility = "hidden";
   }
   for (const label of document.querySelectorAll("#card-window .stage-badge")) {

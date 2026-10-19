@@ -799,3 +799,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .call-card .cc-convs, .c1 .cc-convs { display: inline-flex; padding: 0 7px; place-items: normal; }
 .c1 .c1-title .cc-convs { padding: 0 6px; }
 .cc-pip-meet[data-icons=hover] .pip-head-1 { padding-right: 94px; }
+
+/* ---------- B1: the title gets the line; open and settings lie over it near the pointer ---------- */
+.cc-pip-meet[data-icons=hover] .pip-head-1 { position: relative; padding-right: 34px; }
+.pip-head-1 .pip-head-x { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: flex; }
+.pip-head-1 .pip-head-x .cc-action { width: 28px; height: 28px; color: var(--sv-text-muted); }
+.pip-head-1 .pip-head-x .cc-action:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text); }
+.pip-head-1 .pip-hover-icons { position: absolute; top: 50%; transform: translateY(-50%); display: flex; gap: 2px; padding-left: 20px;
+  background: linear-gradient(90deg, transparent, var(--sv-bg) 18px); visibility: hidden; }
+.pip-head-1 .pip-hover-icons .cc-action { width: 28px; height: 28px; color: var(--sv-text-muted); }
+.pip-head-1 .pip-hover-icons .cc-action:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text); }
+#card-window[data-expanded] .pip-head-1 .pip-hover-icons, .cc-pip-meet:focus-within .pip-head-1 .pip-hover-icons { visibility: visible; }
+@container pip (max-width: 300px) { .pip-head-1 .pip-hover-icons .cc-action, .pip-head-1 .pip-head-x .cc-action { width: 24px; height: 24px; } }
