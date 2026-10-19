@@ -1,0 +1,7 @@
+/* PROPOSED WEB STYLE OPTION, to upstream to sidevoice-web (features/call/call-view.css, beside .balloon-tail): not a copy
+ * of the web's CSS but an addition to it, written as a web pull request would add it.
+ *
+ * A balloon whose tail leaves its top edge and points up, for a balloon drawn under whoever speaks (the floating
+ * avatar's, opening below it). The same tail (BalloonTail), turned over: its ink and fill as they are. */
+.balloon--tail-up .balloon-tail { top: auto; bottom: calc(100% - var(--balloon-line) - 1px); transform: scaleY(-1); }
+.stage-bubble.balloon--tail-up .balloon-tail { transform: scale(-1, -1); }

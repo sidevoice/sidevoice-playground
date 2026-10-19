@@ -211,7 +211,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-captions .person-turns { position: static; justify-self: end; }
 .cc-captions .stage-bubble { margin: 0; max-width: 100%; justify-self: start; }
 [data-open=up] .cc-captions .speech-bubble { margin-bottom: var(--tail-h); }
-[data-open=down] .cc-captions .speech-bubble { margin-bottom: var(--tail-h); }
+[data-open=down] .cc-captions .speech-bubble { margin-top: var(--tail-h); }
 /* The mascot's controls hang under it (over it where the screen ends below), and the balloons make room for them. */
 /* The title card's: plain lines as a transcript reads, each speaker's name over what they say, on the card's own glass. */
 #card-window .cc-lines { padding: 10px 14px; }

@@ -181,6 +181,12 @@ function preview() {
   previewTimer = setTimeout(() => drawCard(), PREVIEW_MS + 20);
 }
 
+/** Balloons that open below the avatar point their tails up at it (proposed-web.css: .balloon--tail-up). */
+function tailsToward() {
+  const up = $("card-window").dataset.open === "down";
+  for (const balloon of $("card-window").querySelectorAll(".cc-mascot .cc-captions .speech-bubble")) balloon.classList.toggle("balloon--tail-up", up);
+}
+
 /** The work area's size, and the card window's (the card and its shadow margin). */
 const workSize = () => { const r = $("work-area").getBoundingClientRect(); return { width: r.width, height: r.height }; };
 const cardSize = () => { const w = $("card-window"); return { width: w.offsetWidth, height: w.offsetHeight }; };
@@ -196,6 +202,7 @@ function place() {
   win.style.left = at.x + "px";
   win.style.top = at.y + "px";
   win.dataset.open = opensDown(at, size, work) ? "down" : "up";
+  tailsToward();
   win.dataset.side = at.x + size.width / 2 > work.width / 2 ? "right" : "left";
 }
 addEventListener("resize", () => place());
@@ -434,6 +441,7 @@ const animator = (() => {
       turns.innerHTML = call.state !== "listening" ? "" : personStep === 0 ? liveBalloon("listening") : personStep === 1 ? liveBalloon("transcribing") : sentBalloon();
     }
     for (const lines of all(".cc-lines")) lines.innerHTML = transcriptLines();
+    tailsToward();
     if (call.state === "speaking") karaoke(SAYS.split(" ").slice(0, word).join(" "));
   }
   /** The title card's captions: what is being said as a transcript reads, a line per speaker, its name over it. */
