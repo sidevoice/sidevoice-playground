@@ -204,16 +204,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 [data-side=left] .cc-captions { left: 0; }
 [data-side=right] .cc-captions { right: 0; }
 .cc-captions:empty, .cc-captions:not(:has(.speech-bubble, .cc-line)) { display: none; }
-/* The avatar's: the room's balloons, the agent's at the left and yours at the right; opening below it, their tails turn
-   up toward it. */
+/* The avatar's: the room's balloons as they are (their tails too), the agent's and yours, as wide as the avatar.
+ */
 .cc-balloons.cc-captions { display: grid; gap: 6px; }
 .cc-captions .cc-agent-slot { display: grid; justify-self: start; max-width: 100%; }
 .cc-captions .person-turns { position: static; justify-self: end; }
 .cc-captions .stage-bubble { margin: 0; max-width: 100%; justify-self: start; }
 [data-open=up] .cc-captions .speech-bubble { margin-bottom: var(--tail-h); }
-[data-open=down] .cc-captions .speech-bubble { margin-top: var(--tail-h); }
-[data-open=down] .cc-captions .balloon-tail { top: auto; bottom: calc(100% - var(--balloon-line) - 1px); transform: scaleY(-1); }
-[data-open=down] .cc-captions .stage-bubble .balloon-tail { transform: scale(-1, -1); }
+[data-open=down] .cc-captions .speech-bubble { margin-bottom: var(--tail-h); }
 /* The mascot's controls hang under it (over it where the screen ends below), and the balloons make room for them. */
 /* The title card's: plain lines as a transcript reads, each speaker's name over what they say, on the card's own glass. */
 #card-window .cc-lines { padding: 10px 14px; }
@@ -335,3 +333,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 [data-side=left] .cc-mascot > .cc-strip { left: 0; }
 [data-side=right] .cc-mascot > .cc-strip { right: 0; }
 #card-window[data-expanded][data-open=down] .cc-mascot .cc-captions { top: calc(var(--w) * .9 + 54px); }
+/* The avatar's balloons, both of them: exactly the avatar's own frame wide (its drawing's box), their words wrapping
+   inside it, at the size's scale. */
+#card-window .cc-mascot .cc-captions, #card-window[data-size=l] .cc-mascot .cc-captions { width: var(--w); left: 0; right: auto; }
+.cc-mascot .cc-captions .cc-agent-slot, .cc-mascot .cc-captions .person-turns { justify-self: stretch; width: 100%; }
+.cc-mascot .cc-captions .person-turns { align-items: stretch; }
+.cc-mascot .cc-captions .speech-bubble { width: 100%; max-width: 100%; box-sizing: border-box; }
