@@ -740,10 +740,62 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
    three rows, so the band took the room and the stage got none: no avatar, an empty band.) */
 .cc-pip-meet .pip-switch-band { display: flex; align-items: center; min-height: 28px; padding: 0 2px; }
 .cc-pip-meet .pip-switch-band .cc-switcher { margin: 0; }
-.cc-pip-meet[data-sized] { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.cc-pip-meet[data-sized] { grid-template-rows: auto minmax(0, 1fr) auto; }
 .pip-head-1 .stage-machine { margin-left: 4px; }
 /* At a preset the stage fills its area exactly: one frame, the room's tile's own. */
 .cc-pip-meet:not([data-sized]) .pip-canvas { background: none; border-radius: 0; overflow: visible; }
 /* The icons' backing covers whatever of the title line runs under them (no sliver of the machine left beside them). */
 .cc-pip-meet[data-icons=hover] .pip-head-1 .pip-head-actions { padding-left: 28px; background: linear-gradient(90deg, transparent, var(--sv-bg) 22px); }
-#card-window[data-expanded] .cc-pip-meet[data-icons=hover] .pip-head-1 .stage-machine, .cc-pip-meet[data-icons=hover]:focus-within .pip-head-1 .stage-machine { visibility: hidden; }
+
+/* ---------- B1: the machine whole or not at all; only × at rest ---------- */
+.cc-pip-meet .pip-head-1 { flex-wrap: nowrap; padding-right: 30px; }
+.pip-head-1 .stage-machine > span { text-overflow: clip; }
+/* At rest only × shows; open and settings come near the pointer or with focus, over the line's end. */
+#card-window:not([data-expanded]) .cc-pip-meet[data-icons=hover]:not(:focus-within) .pip-head-actions { visibility: visible; background: none; }
+#card-window:not([data-expanded]) .cc-pip-meet[data-icons=hover]:not(:focus-within) .pip-head-actions .cc-action:not(.pip-close) { visibility: hidden; }
+/* No shift near the pointer: the icons lie over the line's end; the machine hides where they would cover it (noStubs). */
+/* A1: settings and open at the end of its controls row, which comes near the pointer: the switcher never moves. */
+.cc-a1 .card-controls > .cc-actions { display: inline-flex !important; visibility: visible; opacity: 1; position: static; margin-left: 2px; }
+.cc-a1 .a1-top .cc-actions { display: none !important; }
+/* B1 in the light theme: the room's light tokens on its header, band and bar (its stage keeps its drawn night). */
+.cc-pip-meet[data-theme=light] { border-color: var(--sv-border); box-shadow: 0 12px 34px rgb(42 26 64 / 22%); }
+.cc-pip-meet[data-theme=light] .pip-head-actions { background: linear-gradient(90deg, transparent, var(--sv-bg) 22px); }
+
+/* ---------- B1: one conversations button, × inside the frame ---------- */
+.pip-head-1 .cc-convs { display: inline-flex; align-items: center; gap: 4px; flex: none; height: 26px; padding: 0 7px; border: 0; border-radius: 8px; margin-right: 2px;
+  background: color-mix(in srgb, var(--sv-text) 7%, transparent); color: var(--sv-text-muted); font: 600 12px var(--sv-font-sans); font-variant-numeric: tabular-nums; cursor: pointer; }
+.pip-head-1 .cc-convs:hover, .pip-head-1 .cc-convs[aria-expanded=true] { background: color-mix(in srgb, var(--sv-text) 13%, transparent); color: var(--sv-text); }
+.pip-head-1 .cc-convs:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 1px; }
+.cc-pip-meet .pip-head-1 { padding-left: 0; padding-right: 32px; }
+.cc-pip-meet[data-icons=hover] .pip-head-1 .pip-head-actions { right: 2px; }
+.cc-pip-meet .pip-head-1 { justify-content: flex-start !important; gap: 6px; }
+/* Switching conversations, the same in A1 and B1: (a) the conversations mark and count, (b) a small switch beside the
+   name. Both drop the list; the name itself opens nothing. */
+.cc-a1 .a1-top .cc-convs, .pip-head-1 .cc-convs { display: inline-flex; align-items: center; gap: 4px; flex: none; height: 26px; padding: 0 7px; border: 0; border-radius: 8px;
+  background: color-mix(in srgb, var(--fg, var(--sv-text)) 8%, transparent); color: var(--mu, var(--sv-text-muted)); font: 600 12px var(--sv-font-sans, inherit); font-variant-numeric: tabular-nums; cursor: pointer; }
+.cc-a1 .a1-top .cc-convs:hover, .cc-a1 .a1-top .cc-convs[aria-expanded=true] { background: color-mix(in srgb, var(--fg) 14%, transparent); color: var(--fg); }
+.cc-switch-beside { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; margin-left: 2px; padding: 0; border: 0; border-radius: 6px; background: none;
+  color: var(--mu, var(--sv-text-muted)); cursor: pointer; }
+.cc-switch-beside:hover, .cc-switch-beside[aria-expanded=true] { background: color-mix(in srgb, var(--fg, var(--sv-text)) 10%, transparent); color: var(--fg, var(--sv-text)); }
+.cc-switch-beside:focus-visible, .cc-a1 .cc-convs:focus-visible { outline: 2px solid var(--accent, var(--sv-focus)); outline-offset: 1px; }
+.cc-a1 .card-title { align-items: center; }
+.pip-head-1 .cc-switch-beside { margin-left: -2px; }
+/* The conversations mark and count, right after the title, in every format: the title shortens before it goes. */
+.cc-convs { display: inline-flex; align-items: center; gap: 4px; flex: none; height: 24px; padding: 0 7px; margin-left: 6px; border: 0; border-radius: 8px;
+  background: color-mix(in srgb, var(--fg, var(--sv-text)) 8%, transparent); color: var(--mu, var(--sv-text-muted)); font: 600 12px var(--sv-font-sans, inherit); font-variant-numeric: tabular-nums; cursor: pointer; }
+.cc-convs:hover, .cc-convs[aria-expanded=true] { background: color-mix(in srgb, var(--fg, var(--sv-text)) 14%, transparent); color: var(--fg, var(--sv-text)); }
+.cc-convs:focus-visible { outline: 2px solid var(--accent, var(--sv-focus)); outline-offset: 1px; }
+.cc-a1 .card-who { padding-right: 0 !important; }
+.cc-a1 .card-title { display: flex; align-items: center; min-width: 0; max-width: 100%; }
+.cc-a1 .card-title-text { min-width: 0; }
+.pip-head-1 .cc-convs { margin-left: 0; }
+.c1 .c1-title { display: inline-flex !important; align-items: center; min-width: 0; }
+.c1 .c1-title .cc-convs { height: 22px; padding: 0 6px; font-size: 11.5px; }
+/* One control: the mark, the count and a chevron that turns up while the list is down. */
+.cc-convs .cc-convs-chevron { margin-left: -1px; transition: transform .15s; }
+.cc-convs[aria-expanded=true] .cc-convs-chevron { transform: rotate(180deg); }
+/* The switcher is never under anything: the card's own button reset does not flatten it, and the picture's header keeps
+   room for its three icons at rest too, so nothing moves when they come. */
+.call-card .cc-convs, .c1 .cc-convs { display: inline-flex; padding: 0 7px; place-items: normal; }
+.c1 .c1-title .cc-convs { padding: 0 6px; }
+.cc-pip-meet[data-icons=hover] .pip-head-1 { padding-right: 94px; }

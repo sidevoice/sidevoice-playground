@@ -92,6 +92,8 @@ const ICONS = {
   machine: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  conversations: '<path d="M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><path d="M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1"/>',
+  chevronsUpDown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
   moreH: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   more: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
@@ -224,13 +226,15 @@ function switchRow(slots = 3) {
 
 /** How many avatars A1's switcher shows by its size: the chevron alone at Small (its face shows the one on the call). */
 const A1_AVATARS = { s: 0, m: 2, l: 3 };
+/** The system's theme as the card sees it (the desktop's, or the panel's pick): the room's tokens follow it. */
+const scheme = () => (pick.theme || env().theme) === "light" ? "light" : "dark";
 const DRAW = {
   // A1: the row and the two actions on a top line, near the pointer; the title's ▾ opens the call's details.
   card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
-<div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span></span>
+<div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span>${conversationsButton()}</span>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
-<span class="a1-top">${switcher(A1_AVATARS[settings().size] ?? 3)}${actions()}</span>${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
+${yourWave()}</div>${controls().replace(/<\/div>$/, `${actions()}</div>`)}</div>${settings().captions ? lineCaptions() : ""}</div>`,
   pip: (box) => pick.pipLayout === "stacked" ? DRAW.pipStacked(box) : DRAW.pipMeet(box),
   // B1, stacked: the room's header (the name ▾, the row, the two actions), the stage, the room's call bar.
   pipStacked: (box) => {
@@ -242,7 +246,7 @@ const DRAW = {
   // room's call bar over the picture's foot, see-through, near the pointer.
   pipMeet: (box) => {
     const canvas = Math.round((box.w - 12) * 9 / 16), corner = pick.pipActions === "corner", sized = customHeight();
-    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="dark" data-icons="${pick.pipIcons === "always" ? "always" : "hover"}" data-bar="${pick.pipBar === "hover" ? "hover" : "always"}"${sized ? ` data-sized style="height:${sized}px"` : ""}>${pipHead2(!corner)}<div class="pip-switch-band">${switcher(3)}</div><div class="pip-canvas"${sized ? "" : ` style="height:${canvas}px"`}>${stage(canvas, { name: false })}${corner ? `<span class="pip-frame-actions stage-tag">${frameActions()}</span>` : ""}</div><div class="pip-bar-below">${roomBar()}</div></div>`;
+    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="${scheme()}" data-icons="${pick.pipIcons === "always" ? "always" : "hover"}" data-bar="${pick.pipBar === "hover" ? "hover" : "always"}"${sized ? ` data-sized style="height:${sized}px"` : ""}>${pipHead2(!corner)}<div class="pip-canvas"${sized ? "" : ` style="height:${canvas}px"`}>${stage(canvas, { name: false })}${corner ? `<span class="pip-frame-actions stage-tag">${frameActions()}</span>` : ""}</div><div class="pip-bar-below">${roomBar()}</div></div>`;
   },
   // C1: on nothing; near the pointer, its name (a pill of the controls' width, or none), its controls and its row.
   // C1 (a) minimal: at rest the avatar alone; near the pointer, a slim pill over it (its name, which shows the row of
@@ -250,16 +254,19 @@ const DRAW = {
   // plinth with its name and machine; the call bar comes out of it near the pointer.
   mascot: () => {
     const plinth = pick.c1Style === "plinth";
-    const name = `<span class="c1-name"><span class="c1-title">${call.title()}</span>${plinth ? `<span class="c1-machine">${svg("machine", 11)} ${call.machine}</span>` : ""}</span>`;
-    const top = plinth ? "" : `<div class="call-card c1-pill">${name}${switcher(2)}${actions()}</div>`;
-    const base = plinth ? `<div class="call-card c1-base">${name}${switcher(2)}${actions()}</div>` : "";
+    const name = `<span class="c1-name"><span class="c1-title">${call.title()}${conversationsButton()}</span>${plinth ? `<span class="c1-machine">${svg("machine", 11)} ${call.machine}</span>` : ""}</span>`;
+    const top = plinth ? "" : `<div class="call-card c1-pill">${name}${actions()}</div>`;
+    const base = plinth ? `<div class="call-card c1-base">${name}${actions()}</div>` : "";
     return `<div class="cc cc-mascot c1" data-style="${plinth ? "plinth" : "minimal"}">${top}<span class="m-figure">${avatar("stage")}</span>${base}<div class="c1-bar">${roomBar()}</div>${settings().captions ? balloonCaptions() : ""}</div>`;
   },
 };
 /** The picture's three actions: back to the call, its settings, and hiding it for this call. */
 const frameActions = () => `<button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button>`;
 /** The picture's header, on two lines: the name ▾ (and the three actions), then its machine, never cut, and the row. */
-const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="pip-title">${call.title()}</span></h2><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${withActions ? `<span class="pip-head-actions">${frameActions()}</span>` : ""}</header>`;
+const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="pip-title">${call.title()}</span></h2>${conversationsButton()}<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${withActions ? `<span class="pip-head-actions">${frameActions()}</span>` : ""}</header>`;
+/** The picture's way to the other conversations: one small button, the web's conversations mark and how many there
+ *  are; it drops the list. No faces: in a small picture they were noise. */
+const conversationsButton = () => `<button type="button" class="cc-convs" ${switchAttrs()} aria-label="Conversations (${CREATURES.length})" title="Conversations">${svg("conversations", 15)}<span>${CREATURES.length}</span>${svg("chevron", 12).replace("<svg ", '<svg class="cc-convs-chevron" ')}</button>`;
 /** The picture's header: the name with its ▾ (and its machine), the row, and, stacked, the two actions. */
 const pipHead = (withActions) => `<header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${switcher(3)}${withActions ? actions() : ""}</header>`;
 
@@ -312,7 +319,7 @@ function drawCard() {
 const RANGE = { pip: [260, Infinity] };
 const widthKey = (format) => "sidevoice.callcard.width." + format;
 const customWidth = (format) => { const w = Number(localStorage.getItem(widthKey(format))), [lo, hi] = RANGE[format] ?? [0, 0]; return w >= lo && w <= hi ? w : 0; };
-const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [260, Infinity]; // with the switcher's band, the smallest that still shows the avatar on its stage
+const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [230, Infinity]; // with the switcher's band, the smallest that still shows the avatar on its stage
 /** The picture's height as the person left it: the window is sized freely, its stage keeps 16:9 inside (fitPip). */
 let previewing = false;
 const customHeight = () => { const h = Number(localStorage.getItem(HEIGHT_KEY)); return !previewing && format().id === "pip" && pick.pipLayout !== "stacked" && h >= HEIGHT_RANGE[0] && h <= HEIGHT_RANGE[1] ? h : 0; };
@@ -380,7 +387,14 @@ function fitPip() {
 /** A label of an icon and words never shows as its icon alone: with fewer than about three characters of its words in
  *  view, it goes whole (the stage's model badge, the header's machine). */
 function noStubs() {
-  for (const label of document.querySelectorAll("#card-window :is(.stage-badge, .pip-head-1 .stage-machine)")) {
+  // The picture's machine shows whole beside the title, or not at all (never cut, never on a line of its own).
+  for (const machine of document.querySelectorAll("#card-window .pip-head-1 .stage-machine")) {
+    machine.style.visibility = "";
+    if (getComputedStyle(machine).display !== "none" && machine.scrollWidth > machine.clientWidth + 1) machine.style.visibility = "hidden";
+    const shown = [...machine.closest(".pip-head-1").querySelectorAll(".pip-head-actions .cc-action")].filter((b) => getComputedStyle(b).visibility === "visible");
+    if (shown.length && machine.getBoundingClientRect().right > shown[0].getBoundingClientRect().left - 18) machine.style.visibility = "hidden";
+  }
+  for (const label of document.querySelectorAll("#card-window .stage-badge")) {
     label.style.visibility = "";
     const text = label.querySelector(":scope > span:last-child");
     if (!text || getComputedStyle(label).display === "none") continue;
@@ -473,9 +487,6 @@ function place() {
   if (grip) grip.dataset.edge = (opensDown(at, size, work) ? "s" : "n") + (win.dataset.side === "right" ? "w" : "e");
   // The avatar's name pill and controls centre under it, or keep to the screen's edge when it is against one.
   win.toggleAttribute("data-flush", at.x <= 0 || at.x + size.width >= work.width - 1);
-  // A1: the title keeps clear of the switcher (and, near the pointer, the two actions) in the corner, and no more.
-  const top = win.querySelector(".cc-a1 .a1-top"), who = win.querySelector(".cc-a1 .card-who");
-  if (top && who) who.style.paddingRight = top.offsetWidth + 6 + "px";
   dropFrom();
   // The avatar's name pill is as wide as its controls, whatever the name.
   const pill = win.querySelector(".cc-name-pill"), strip = win.querySelector(".cc-mascot > .cc-strip");
@@ -503,6 +514,7 @@ function expand(on) {
   if (on) guardUntil = Date.now() + CLICK_GUARD_MS;
   for (const el of win.querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", on);
   if (!drag) place();
+  noStubs();
 }
 
 // ---------- the Sidevoice window: the room, or Settings ----------
@@ -690,6 +702,8 @@ let drag = null;
 /** As today's card (card-shell.tsx): a press moves the card only past DRAG_THRESHOLD_PX, and only then is the pointer
  *  captured, so a click (a little jitter included) never moves it and never holds the pointer; the title counts as card. */
 const DRAG_THRESHOLD_PX = 4;
+$("card-window").addEventListener("focusin", () => noStubs());
+$("card-window").addEventListener("focusout", () => setTimeout(noStubs));
 $("card-window").addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || event.target.closest("button:not(.card-title)")) return;
   const win = $("card-window");
