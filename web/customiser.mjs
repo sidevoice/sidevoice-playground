@@ -2,9 +2,8 @@
 // character-creator panel behind its brush button. Everything is drawn by sidevoice-web's bichos engine, bundled as
 // customiser/bichos.mjs (scripts/customiser-engine.mjs), and moved by the web's own CSS (customiser/bichos.css,
 // customiser/call.css). What the person picks is one crew member (customiser/crew.mjs), kept in local storage.
-// Three layouts of the same choices, switched by ?layout= (or L): "tabs" (a tab per category), "overview" (every slot
-// as a row around the preview, each opening a strip of tiles) and "loadout" (an equipment screen: slot cards around
-// the creature, its parts clickable, one picker under it).
+// Two layouts of the same choices, switched by ?layout= (or L): "tabs" (a tab per category) and "overview" (every slot
+// as a row around the preview, each opening a strip of tiles).
 import {
   BACKDROPS, BODIES, DESK_PROPS, DESK_TOPS, FAMILIES, MEMBERS, SLOTS, SOURCE, SWATCHES, backdropSvg, deskSvg, idlesFor, idsIn,
   partsIn, renderSpec, withBody, withPart, worksFor,
@@ -42,7 +41,6 @@ const ICONS = {
   redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   tabs: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v6"/>',
   rows: '<path d="M3 5h18M3 12h18M3 19h18"/>',
-  loadout: '<rect x="8" y="6" width="8" height="12" rx="3"/><path d="M3 6h2M3 12h2M3 18h2M19 6h2M19 12h2M19 18h2"/>',
 };
 const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] ?? ""}</svg>`;
 const fillIcons = (root) => { for (const el of root.querySelectorAll("[data-icon]")) el.innerHTML = icon(el.dataset.icon); };
@@ -61,8 +59,10 @@ const IDLE_NAMES = { quiet: "Quiet", juggle: "Juggling", soup: "Soup", water: "W
 const slotName = (id) => SLOT_NAMES[id] ?? human(id);
 const BACKDROP_NAMES = { tone: "Its colour", flat: "Flat", fade: "Fade", duo: "Duo" };
 /** The customise button's mark: a painter's palette with its blobs of paint. */
-const PALETTE = `<svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path d="M16 3C8.3 3 3 8.6 3 15.2 3 22.4 8.6 29 15.3 29c2.2 0 3.2-1.3 3.2-2.8 0-1.9-1.6-2.4-1.6-4 0-1.4 1.1-2.3 2.6-2.3h3.3C26.5 19.9 29 17 29 13.6 29 7.8 23.4 3 16 3Z" fill="#e9c58f" stroke="#1b1428" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="9.5" cy="15" r="2.6" fill="#e5483a"/><circle cx="12" cy="9" r="2.6" fill="#ffd23f"/><circle cx="18.5" cy="7.6" r="2.6" fill="#4fa3ff"/><circle cx="24" cy="12" r="2.6" fill="#58b368"/><circle cx="11" cy="22" r="2.3" fill="#c9b6ec"/></svg>`;
+const PALETTE = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 3C6.9 3 3 6.8 3 11.5 3 16.6 7 21 11.6 21c1.5 0 2.2-.9 2.2-1.9 0-1.3-1.1-1.7-1.1-2.8 0-1 .8-1.6 1.8-1.6h2.3c2.6 0 4.2-2 4.2-4.4C21 6.3 17 3 12 3Z"/>
+<circle cx="7.6" cy="11.3" r="1.3" fill="currentColor" stroke="none"/><circle cx="9.6" cy="7.4" r="1.3" fill="currentColor" stroke="none"/>
+<circle cx="14.2" cy="6.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="17.5" cy="9.6" r="1.3" fill="currentColor" stroke="none"/></svg>`;
 
 // ---------- drawing ----------
 
@@ -291,7 +291,7 @@ const tabSections = (g) => (g.tabs ?? g.rows).map((id) => S[id]);
 
 // ---------- the customiser's state ----------
 
-const LAYOUTS = [["tabs", "Tabs", "tabs"], ["overview", "Overview", "rows"], ["loadout", "Loadout", "loadout"]];
+const LAYOUTS = [["tabs", "Tabs", "tabs"], ["overview", "Overview", "rows"]];
 const ui = { member: saved, opened: saved, history: [], future: [], layout: "tabs", tab: 0, section: Object.fromEntries(GROUPS.map((g) => [g.id, 0])),
   previewMood: "idle", colourMode: "hsl", colourBase: null, active: null };
 const group = () => GROUPS[ui.tab];
@@ -312,6 +312,7 @@ function open() {
   ui.history = [];
   ui.future = [];
   $("customiser").showModal();
+  $("open").setAttribute("aria-expanded", "true");
   draw();
   focusFirst();
 }
@@ -335,7 +336,7 @@ function draw({ keepTiles = false } = {}) {
   $("layouts").innerHTML = LAYOUTS.map(([id, label, ic]) => `<button type="button" role="radio" aria-checked="${id === ui.layout}" tabindex="${id === ui.layout ? 0 : -1}" data-set-layout="${id}" title="${label} layout (L)">${icon(ic, 15)}<span>${label}</span></button>`).join("");
   $("tabs-layout").hidden = ui.layout !== "tabs";
   $("alt").hidden = ui.layout === "tabs";
-  if (ui.layout === "tabs") drawTabsLayout(keepTiles); else if (ui.layout === "overview") drawOverview(keepTiles); else drawLoadout(keepTiles);
+  if (ui.layout === "tabs") drawTabsLayout(keepTiles); else drawOverview(keepTiles);
   syncActions();
   if (document.activeElement === had && had?.isConnected) return;
   restoreFocus(memo);
@@ -391,7 +392,7 @@ function tileHtml(o, s, focusable) {
 <span class="tile-label">${o.label}</span>${swaps}${o.rarity ? `<i class="rarity">${o.rarity === "rare" ? "★" : "◆"}</i>` : ""}${o.badge ? `<i class="badge">${o.badge}</i>` : ""}<i class="tick">${icon("check", 14)}</i></button>`;
 }
 
-/** A box of tiles for section `s`: the grid of the tabbed layout, a row's strip, the loadout's picker. */
+/** A box of tiles for section `s`: the grid of the tabbed layout, or a row's strip. */
 function tilesInto(box, s, { focusKey } = {}) {
   box.dataset.tiles = s.id;
   box.dataset.zoom = zoomOf(s);
@@ -519,7 +520,7 @@ function colourInput(input, committed) {
 /** The stage and the small views, while a slider moves. */
 function previewOnly() {
   const stage = document.querySelector(ui.layout === "tabs" ? "#preview" : "#alt-stage");
-  if (stage) stageInto(stage, { over: ui.layout === "loadout" ? hotspotsHtml() : "" });
+  if (stage) stageInto(stage);
   if (ui.layout === "tabs") drawSmallPreviews();
   syncActions();
 }
@@ -551,7 +552,7 @@ function drawSmallPreviews() {
 function setTab(i) { ui.tab = (i + GROUPS.length) % GROUPS.length; draw(); $(`tab-${group().id}`).focus(); }
 function setSection(i) { const n = tabSections(group()).length; ui.section[group().id] = (i + n) % n; draw(); focusTiles($("grid")); }
 
-// ---------- the slots' current values (overview rows and loadout cards) ----------
+// ---------- the slots' current values (overview rows) ----------
 
 /** What a slot holds now: its label, and a picture of it. */
 function slotNow(s, m, figureHtml) {
@@ -624,59 +625,6 @@ function openSlot(id, { focus = true } = {}) {
   else document.querySelector(`.slot[data-slot="${id}"]`)?.focus();
 }
 
-// ---------- layout 3: loadout (an equipment screen: cards around the creature, its parts clickable) ----------
-
-const LOADOUT = {
-  left: ["top", "headgear", "earwear", "eyewear", "eyes", "mouth", "nose", "cheeks", "marks"],
-  right: ["species", "body", "arms", "legs", "tail", "back", "neckwear", "held", "pattern", "pins"],
-  bottom: ["swatch", "backdrop", "desk", "props", "work", "idle"],
-};
-{
-  const placed = new Set(Object.values(LOADOUT).flat());
-  for (const s of SLOTS) if (!placed.has(s.id)) LOADOUT.right.push(s.id);
-}
-/** The parts of the creature a click opens, where they sit on it. */
-const HOTSPOTS = ["top", "headgear", "eyes", "mouth", "neckwear", "arms", "held", "legs", "tail", "pattern"];
-function hotspotsHtml() {
-  const fig = ui.member.figure;
-  const spots = HOTSPOTS.map((slot) => {
-    let [x, y] = regionOf(slot, fig);
-    const half = BODIES.find((b) => b.id === fig.body)?.frame.half ?? 31;
-    if (slot === "headgear") x += 16;
-    if (slot === "arms") x = 60 - half - 2;
-    if (slot === "pattern") y = (regionOf("arms", fig)[1] + regionOf("legs", fig)[1]) / 2;
-    return `<button type="button" class="hotspot${ui.active === slot ? " on" : ""}" tabindex="-1" data-hot="${slot}" style="left:${(x / 120) * 100}%;top:${(y / 120) * 100}%"
-aria-label="Edit ${S[slot].label}"><span>${S[slot].label}</span></button>`;
-  }).join("");
-  return `<div class="hotspots">${spots}</div>`;
-}
-
-function drawLoadout(keepTiles) {
-  const m = ui.member;
-  const alt = $("alt");
-  const picker = alt.querySelector(".picker [data-tiles]");
-  if (keepTiles && picker && picker.dataset.tiles === ui.active && alt.dataset.layout === "loadout") {
-    refreshTiles(picker, S[ui.active]);
-    fillRows(alt, m);
-    stageInto($("alt-stage"), { over: hotspotsHtml() });
-    return;
-  }
-  alt.dataset.layout = "loadout";
-  const cards = (ids) => ids.map((id) => `<div class="slot card" tabindex="-1" data-slot="${id}" role="group" aria-label="${S[id].label}"></div>`).join("");
-  const s = ui.active && S[ui.active];
-  alt.innerHTML = `<section class="lo-col lo-left" aria-label="Head and face">${cards(LOADOUT.left)}</section>
-<section class="lo-centre"><div class="lo-stage-wrap"><div id="alt-stage" class="preview-stage"></div><div class="seg lo-moods" id="alt-moods" role="radiogroup" aria-label="Preview as"></div>
-<p class="lo-hint">Click a part of the creature, or a card. <kbd>↑</kbd><kbd>↓</kbd> card · <kbd>←</kbd><kbd>→</kbd> cycle · <kbd>Enter</kbd> all options</p></div>
-${s ? `<div class="picker"><header><b>${S[ui.active].label}</b><small>${s.note ?? ""}</small>${diceButton(s)}${ui.active === "species" ? "" : ""}<button type="button" class="act icon-only" data-close-picker aria-label="Close the options">${icon("close", 16)}</button></header><div class="strip" data-tiles></div></div>` : ""}</section>
-<section class="lo-col lo-right" aria-label="Body and gear">${cards(LOADOUT.right)}</section>
-<section class="lo-bottom" aria-label="Colour, scene and moves">${cards(LOADOUT.bottom)}</section>`;
-  fillRows(alt, m);
-  if (s) tilesInto(alt.querySelector(".picker [data-tiles]"), s);
-  stageInto($("alt-stage"), { over: hotspotsHtml() });
-  moodsInto($("alt-moods"));
-  rove(alt);
-}
-
 // ---------- keyboard: grids of tiles ----------
 
 /** Arrow keys over tiles: a 2-D roving focus (a strip is one row); in a radio box the selection follows. */
@@ -718,7 +666,7 @@ function slotKeys(event, el) {
   return true;
 }
 
-/** Q / E in the overview and the loadout: the first slot of the previous or next group. */
+/** Q / E in the overview: the first slot of the previous or next group. */
 function jumpGroup(step) {
   const slots = [...document.querySelectorAll("#alt .slot[data-slot]")];
   const here = document.activeElement?.closest(".slot, [data-tiles]");
@@ -790,6 +738,8 @@ function bind() {
   fillIcons(document);
   $("source").textContent = SOURCE;
   $("open").innerHTML = PALETTE;
+  $("open").setAttribute("aria-expanded", "false");
+  $("customiser").addEventListener("close", () => $("open").setAttribute("aria-expanded", "false"));
   $("open").onclick = open;
   const dialog = $("customiser");
   dialog.addEventListener("click", (event) => {
@@ -810,16 +760,13 @@ function bind() {
     if (tile) return pickIn(S[tile.closest("[data-tiles]").dataset.tiles], tile.dataset.key);
     const cyc = t.closest("[data-cycle]");
     if (cyc) { const slot = cyc.closest(".slot").dataset.slot; cycle(S[slot], Number(cyc.dataset.cycle)); return document.querySelector(`.slot[data-slot="${slot}"]`)?.focus(); }
-    const hot = t.closest("[data-hot]");
-    if (hot) return openSlot(hot.dataset.hot);
-    if (t.closest("[data-close-picker]")) { const id = ui.active; ui.active = null; draw(); return document.querySelector(`.slot[data-slot="${id}"]`)?.focus(); }
     const slot = t.closest(".slot[data-slot]");
     if (slot) return openSlot(slot.dataset.slot);
   });
   dialog.addEventListener("input", (event) => { if (event.target.matches("[data-col]") && event.target.dataset.col !== "hex") colourInput(event.target, false); });
   dialog.addEventListener("change", (event) => { if (event.target.matches("[data-col]")) colourInput(event.target, true); });
   $("name").addEventListener("input", (e) => { ui.member = { ...ui.member, name: e.target.value || ui.member.seed }; syncActions(); if (ui.layout === "tabs") drawSmallPreviews(); });
-  // Esc inside a strip or the picker goes back to its slot; only from elsewhere does it close the customiser.
+  // Esc inside a strip goes back to its slot; only from elsewhere does it close the customiser.
   dialog.addEventListener("cancel", (event) => { if (ui.escapeHandled) { event.preventDefault(); ui.escapeHandled = false; } });
   document.addEventListener("keydown", (event) => {
     if (!dialog.open) return;
@@ -831,7 +778,7 @@ function bind() {
     if (!inText && mod && event.key.toLowerCase() === "z") { event.preventDefault(); return undo(); }
     if (event.key === "Escape" && ui.layout !== "tabs") {
       const box = target.closest("#alt [data-tiles]");
-      if (box || (ui.layout === "loadout" && ui.active)) {
+      if (box) {
         event.preventDefault(); ui.escapeHandled = true;
         const id = ui.active; ui.active = null; draw();
         return document.querySelector(`.slot[data-slot="${id}"]`)?.focus();
@@ -878,7 +825,7 @@ function bind() {
     if (canvasMood === "working" || canvasMood === "idle") drawCanvas();
     if (dialog.open && (ui.previewMood === "working" || ui.previewMood === "idle") && !ui.colourBase) previewOnly();
   }, 6000);
-  // ?layout=tabs|overview|loadout; ?open[&tab=<group>][&section=<id>][&slot=<id>][&mood=…][&colour=hsl|rgb|hex] opens it there.
+  // ?layout=tabs|overview; ?open[&tab=<group>][&section=<id>][&slot=<id>][&mood=…][&colour=hsl|rgb|hex] opens it there.
   const query = new URLSearchParams(location.search);
   ui.layout = LAYOUTS.some(([l]) => l === query.get("layout")) ? query.get("layout") : "tabs";
   if (query.get("colour")) ui.colourMode = query.get("colour");

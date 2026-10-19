@@ -35,12 +35,14 @@ kbd { display: inline-block; min-width: 1.5em; padding: 0 .35em; border: 1px sol
 .canvas-foot small { color: var(--sv-muted); margin-left: 6px; }
 
 /* The brush: small, round, frosted, in the canvas's top-right corner. */
-.brush svg { width: 26px; height: 26px; }
+.brush svg { width: 22px; height: 22px; }
 .brush { position: absolute; top: 14px; right: 14px; z-index: 5; width: 44px; height: 44px; display: grid; place-items: center;
   border: 1px solid rgb(255 255 255 / 22%); border-radius: 50%; cursor: pointer; color: #fff;
   background: rgb(20 23 27 / 46%); backdrop-filter: blur(8px); box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
-  transition: transform .18s cubic-bezier(.3,1.6,.5,1), background .18s; }
-.brush:hover { transform: scale(1.1) rotate(-10deg); background: rgb(20 23 27 / 70%); }
+  opacity: .55; transition: opacity .18s ease, transform .18s cubic-bezier(.3,1.6,.5,1), background .18s; }
+/* Quiet at rest; fully there when pointed at, focused from the keyboard, or while the customiser it opened is up. */
+.brush:hover, .brush:focus-visible, .brush[aria-expanded=true] { opacity: 1; }
+.brush:hover { transform: scale(1.08) rotate(-8deg); background: rgb(20 23 27 / 70%); }
 
 .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: #12161b; border: 1px solid var(--sv-border); }
 .seg button { border: 0; background: none; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; color: var(--sv-muted); cursor: pointer; }
@@ -196,7 +198,7 @@ dialog#customiser[open] { animation: cz-in .28s cubic-bezier(.2,1.2,.4,1); }
 .dot { display: block; width: 100%; height: 100%; border-radius: 10px; border: 2px solid #1b1428; box-shadow: inset 0 -6px 10px rgb(0 0 0 / 25%); }
 .dot.glyph { display: grid; place-items: center; background: #232a33; color: var(--sv-voice); }
 
-/* ---------- a slot: an overview row or a loadout card ---------- */
+/* ---------- a slot: an overview row ---------- */
 .slot { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 6px; border: 1px solid #2c333d; border-radius: 14px; cursor: pointer;
   background: linear-gradient(#20262e, #1a1f26); transition: border-color .12s, background .12s, transform .12s; min-width: 0; }
 .slot:hover { border-color: #4a5361; }
@@ -237,49 +239,11 @@ dialog#customiser[open] { animation: cz-in .28s cubic-bezier(.2,1.2,.4,1); }
 .ov-list h3 { position: static; }
 .ov-group:has(.open) { grid-column: 1 / -1; }
 
-/* ---------- layout 3: loadout ---------- */
-.cz-alt[data-layout=loadout] { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; grid-template-rows: minmax(0, 1fr) auto; gap: 10px 14px;
-  padding: 14px 16px; min-height: 0; }
-.lo-col { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; scrollbar-width: thin; padding: 2px; }
-.lo-col .slot { padding: 4px 6px 4px 4px; gap: 8px; }
-.lo-col .slot-pic, .lo-bottom .slot-pic { width: 40px; height: 40px; }
-.lo-col .more, .lo-bottom .more { display: none; }
-.lo-centre { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-.lo-stage-wrap { position: relative; flex: 1; min-height: 220px; display: flex; flex-direction: column; gap: 8px; }
-.lo-stage-wrap .preview-stage { flex: 1; aspect-ratio: auto; }
-.lo-moods { position: absolute; top: 10px; left: 10px; z-index: 4; background: rgb(18 22 27 / 75%); }
-.lo-hint { margin: 0; text-align: center; font-size: 11.5px; color: var(--sv-label); }
-.lo-bottom { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-.lo-bottom .slot { padding: 4px 6px 4px 4px; gap: 8px; }
-.lo-bottom .cyc button { width: 22px; }
-.picker { flex: none; max-height: 46%; display: flex; flex-direction: column; border: 1px solid var(--sv-selected-border); border-radius: 16px;
-  background: rgb(0 0 0 / 22%); overflow: hidden; }
-.picker header { display: flex; align-items: center; gap: 10px; padding: 8px 10px 0 14px; }
-.picker header small { flex: 1; color: var(--sv-muted); font-size: 11.5px; }
-.picker .strip { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); grid-auto-columns: auto; grid-auto-rows: max-content;
-  overflow-y: auto; overflow-x: hidden; padding: 8px 10px 12px; }
-.picker .strip[data-zoom=scene] { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-.hotspots { position: absolute; inset: 0; z-index: 3; }
-.hotspot { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; padding: 0; border: 2px solid #fff; border-radius: 50%; cursor: pointer;
-  background: rgb(201 182 236 / 55%); box-shadow: 0 0 0 4px rgb(201 182 236 / 18%), 0 2px 6px rgb(0 0 0 / 50%); opacity: .0; transition: opacity .15s, transform .15s; }
-.hotspot span { position: absolute; left: 50%; bottom: 130%; transform: translateX(-50%); padding: 1px 7px; border-radius: 999px; white-space: nowrap;
-  font: 700 10px/1.6 Inter, system-ui, sans-serif; background: #14171b; color: var(--sv-text); opacity: 0; pointer-events: none; }
-.lo-stage-wrap:hover .hotspot, .hotspot.on { opacity: 1; }
-.hotspot:hover { transform: scale(1.25); background: var(--sv-primary); }
-.hotspot:hover span, .hotspot.on span { opacity: 1; }
-.hotspot.on { background: var(--sv-primary); animation: hot-pulse 1.4s ease-in-out infinite; }
-@keyframes hot-pulse { 50% { box-shadow: 0 0 0 9px rgb(201 182 236 / 10%), 0 2px 6px rgb(0 0 0 / 50%); } }
-
 @media (max-width: 860px) {
   .cz-alt[data-layout] { display: flex; flex-direction: column; overflow: auto; }
   .ov-preview { border-right: 0; }
   .ov-list { columns: 1; overflow: visible; }
   .cz-alt[data-layout] > * { flex: none; }
-  .lo-centre { order: -1; }
-  .lo-stage-wrap { flex: none; }
-  .lo-stage-wrap .preview-stage { flex: none; aspect-ratio: 16 / 11; }
-  .lo-col, .lo-bottom { display: grid; grid-template-columns: 1fr; gap: 6px; overflow: visible; }
-  .picker { max-height: none; }
   .config { display: none; }
   .layouts span { display: none; }
 
@@ -299,5 +263,5 @@ dialog#customiser[open] { animation: cz-in .28s cubic-bezier(.2,1.2,.4,1); }
   .config { max-width: 50%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sv-avatar, .sv-avatar *, .stage-scene *, dialog#customiser { animation: none !important; transition: none !important; }
+  .sv-avatar, .sv-avatar *, .stage-scene *, dialog#customiser, .brush { animation: none !important; transition: none !important; }
 }
