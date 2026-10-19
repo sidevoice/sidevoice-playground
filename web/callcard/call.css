@@ -1,0 +1,132 @@
+/* COPIED from sidevoice-web@32e266d64adc873fc7b9223824d1f6ab871a975e apps/web/src/styles/call.css by scripts/callcard-creatures.mjs. */
+/* The avatars (features/avatar): their drawing and how each state moves it. The rest of the call styles itself in its
+ * feature folders. */
+
+/* ---------- avatars (features/avatar): the bichos engine's drawings ---------- */
+/* Where an avatar sits sizes it; the drawing fills its box. How a figure moves is the engine's (styles/bichos.css,
+   generated); what follows is the app's side of it: the shared contract the avatar lab keeps in lab.css, the dark
+   theme pinned, the person's microphone mouth, and the stage scene. */
+.ui-avatar.chat-character { overflow:hidden;background:var(--sv-surface-raised) }
+.chat-character .sv-avatar { width:100%;height:100%;background:var(--av-bg) }
+.sv-avatar { position:relative;display:inline-block;flex:none;line-height:0 }
+.sv-avatar svg { display:block;width:100%;height:100%;overflow:visible }
+/* The engine's theme inks are the design tokens' (styles/theme.css): the Sidevoice mascot's accent and the ink on it, in
+   the light theme and the dark one alike. */
+.sv-avatar[data-style=bichos] { --bx-sv:var(--sv-accent);--bx-sv-face:var(--sv-on-accent);--fg-dim:var(--sv-text-muted) }
+/* Props only in their mood (and through the entrance out of it, data-enter, so they can drop away), and on a small
+   avatar only the big cue of each (.keep-small: the cogs, the listening waves) or a badge (listening's). "waiting" is
+   the engine's older name for idle. */
+.sv-avatar[data-style=bichos]:not([data-mood=working],[data-enter=working]) .prop-work,
+.sv-avatar[data-style=bichos]:not([data-mood=listening]) .prop-listen,
+.sv-avatar[data-style=bichos]:not([data-mood=idle],[data-mood=waiting],[data-enter=idle]) .prop-idle,
+.sv-avatar[data-style=bichos][data-size=sidebar] :is(.prop-work,.prop-listen,.prop-idle):not(.keep-small,.badge) { display:none }
+/* The unread cue (data-unread): the "!" (.prop-wait, its old name) over idle and working, never while it speaks or
+   listens; the engine turns it into a badge on a small avatar. */
+.sv-avatar[data-style=bichos]:not([data-unread]) .prop-wait,
+.sv-avatar[data-style=bichos]:is([data-mood=speaking],[data-mood=listening]) .prop-wait { display:none }
+/* The mouth: shut unless it speaks; each spoken word (data-beat a/b) restarts the word's keyframes. */
+.sv-avatar[data-style=bichos] .m-open { opacity:0 }
+.sv-avatar[data-style=bichos][data-mood=speaking] .m-open { animation:av-talk .34s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=speaking] .m-rest { animation:av-talk-rest .34s ease-in-out infinite alternate }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .m-open { animation:av-word-a .26s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .m-open { animation:av-word-b .26s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=a] .m-rest { animation:av-rest-a .26s ease-out both }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-beat=b] .m-rest { animation:av-rest-b .26s ease-out both }
+/* The person's mouth follows the microphone's level, written as --mouth (0–1) on the root. */
+.sv-avatar[data-style=bichos][data-mood=speaking][data-mouth=level] .m-open { animation:none;opacity:1;transform:scaleY(calc(.2 + var(--mouth, .3) * .8));transition:transform 80ms linear }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-mouth=level] .m-rest { animation:none;opacity:0 }
+/* The stage agent rests in every output gap, including gaps inside an otherwise playing reply. */
+.sv-avatar[data-style=bichos][data-mouth=playback] .m-open { animation:none;opacity:0;transform:scaleY(1);transition:none }
+.sv-avatar[data-style=bichos][data-mouth=playback] .m-rest { animation:none;opacity:1 }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-mouth=playback][data-mouth-active] .m-open { opacity:1;transform:scaleY(calc(.2 + var(--mouth, 0) * .8));transition:transform 80ms linear }
+.sv-avatar[data-style=bichos][data-mood=speaking][data-mouth=playback][data-mouth-active] .m-rest { opacity:0 }
+@keyframes av-talk { from { opacity:0;transform:scaleY(.3) } to { opacity:1;transform:scaleY(1) } }
+@keyframes av-talk-rest { from { opacity:1 } to { opacity:0 } }
+@keyframes av-word-a { 0% { opacity:1;transform:scaleY(1) } 55% { opacity:1;transform:scaleY(.75) } 100% { opacity:0;transform:scaleY(.3) } }
+@keyframes av-word-b { 0% { opacity:1;transform:scaleY(1) } 55% { opacity:1;transform:scaleY(.75) } 100% { opacity:0;transform:scaleY(.3) } }
+@keyframes av-rest-a { 0%,55% { opacity:0 } 100% { opacity:1 } }
+@keyframes av-rest-b { 0%,55% { opacity:0 } 100% { opacity:1 } }
+
+/* ---------- the stage scene (features/avatar/StageScene.tsx) ---------- */
+/* The avatar lab lays its stage out on a tile 440px tall, and its backdrops' mounts are drawn in those pixels. The
+   scene keeps that frame — 440px tall, as wide as the tile at that height, pinned to the tile's bottom centre — and
+   scales it to the tile by --k (the tile's height over 440, kept by useSceneScale), so the agent stands on the
+   backdrop's ground, the poster hangs from its mount and the desk meets the agent where the lab put them. */
+.stage-scene { position:absolute;left:50%;bottom:0;width:calc(100% / var(--k, 1));height:440px;transform:translateX(-50%) scale(var(--k, 1));transform-origin:50% 100%;container-type:size;
+  /* The agent at a video call's size: a share of the tile's shorter side (--stage-avatar-share), up to a most on large
+     screens (--stage-avatar-max, on screen). The scene is drawn 440px tall and scaled to the tile (--k), so both are
+     taken back into its own units. */
+  --fig:min(calc(var(--stage-avatar-share, .56) * min(100cqw, 440px)), calc(var(--stage-avatar-max, 420px) / var(--k, 1))) }
+.stage-backdrop { position:absolute;inset:0;transition:opacity .5s }
+/* Resting, the scene dims a little and holds still; offline it holds still and brings out what the poster hangs from. */
+.stage-tile[data-mood=idle] .stage-backdrop { opacity:.72 }
+.stage-tile:is([data-mood=idle],[data-mood=offline]) .backdrop * { animation-play-state:paused }
+.stage-tile[data-mood=offline] .backdrop .bd-mount { display:inline }
+/* The agent stands on the ground (its feet, y 106 of its 120 box, on y 357 of the frame), 300px tall as in the lab
+   unless the tile is too narrow for it. */
+.stage-agent { position:absolute;left:50%;top:calc(357px - var(--fig) * 106 / 120);width:var(--fig);height:var(--fig);margin-left:calc(var(--fig) / -2);
+  transform-origin:50% 77.92%;transition:transform .45s cubic-bezier(.3,1.4,.5,1),opacity .3s }
+/* Working, the desk slides up from below and the agent steps up behind it, a little larger, cut at the belly: its
+   y 93.5 (work.ts DESK_Y, where its props rest) meets the desk's top edge at y 306.65 of the frame. */
+.stage-tile[data-mood=working] .stage-agent { transform:translateY(calc(var(--fig) * .1042 - 50.35px)) scale(1.133) }
+.stage-tile[data-mood=offline] .stage-agent { opacity:0 }
+/* Idle, the agent a touch larger (--stage-avatar-idle), from its feet: still on the ground. */
+.stage-tile[data-mood=idle] .stage-agent { transform:scale(var(--stage-avatar-idle, 1.1)) }
+/* The desk drawing is 420 × 150 at the frame's foot (scale 1.05, its top edge 133.35 above the foot); beside it the
+   desk's top and front run on to the edges in the drawing's own colours, at the same heights (its gradients'
+   colours where the drawing ends). */
+.stage-desk { position:absolute;left:0;right:0;bottom:0;height:150px;transform:translateY(170%);transition:transform .45s cubic-bezier(.3,1.4,.5,1);
+  background:linear-gradient(to bottom,transparent 18.3px,#1b1428 0 24.6px,color-mix(in srgb, var(--desk-top-deep) 35%, var(--desk-top)) 0,
+    color-mix(in srgb, var(--desk-top-deep) 87%, var(--desk-top)) 37.65px,#1b1428 0 43.95px,color-mix(in srgb, var(--desk-front-deep) 4%, var(--desk-front)) 0,var(--desk-front-deep) 171px) }
+.stage-desk .desk { position:absolute;left:50%;bottom:0;width:420px;height:150px;margin-left:-210px;overflow:visible;clip-path:inset(-100% 0 0 0) }
+.stage-tile[data-mood=working] .stage-desk { transform:none }
+.stage-desk :is(.desk-steam,.desk-glow) { opacity:0 }
+.stage-desk :is(.desk-sway,.desk-bob,.desk-hand) { transform-box:fill-box;transform-origin:50% 100% }
+.stage-tile[data-mood=working] .desk-steam { animation:desk-steam 1.6s ease-in-out infinite }
+.stage-tile[data-mood=working] .desk-glow { opacity:.35 }
+.stage-tile[data-mood=working] .desk-bob { animation:desk-bob .6s ease-in-out infinite }
+.stage-tile[data-mood=working] .desk-hand { animation:desk-tick 2s steps(8) infinite }
+@keyframes desk-steam { 0% { opacity:0;transform:translateY(4px) } 40% { opacity:.9 } 100% { opacity:0;transform:translateY(-8px) } }
+@keyframes desk-bob { 0%,100% { transform:rotate(-6deg) } 50% { transform:rotate(6deg) } }
+@keyframes desk-tick { to { transform:rotate(360deg) } }
+/* The wanted poster (offline), after One Piece's bounty posters: near the frame's top, where the backdrops hang it. */
+.wanted { --w-ink:#4a3a31;position:absolute;left:50%;top:40px;width:214px;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:4px;overflow:hidden;
+  padding:6px 9px;transform:translateX(-50%) scale(.84) rotate(-2deg);transform-origin:50% 0;color:var(--w-ink);
+  background:radial-gradient(40% 30% at 22% 30%, rgb(140 110 80 / .10), transparent 70%),radial-gradient(35% 25% at 78% 70%, rgb(140 110 80 / .12), transparent 70%),radial-gradient(120% 100% at 50% 45%, #eee3cf, #d9c8aa 75%, #c9b48f);
+  border:9px solid #4a3a31;outline:2px solid #1b1428;box-shadow:0 8px 16px rgb(0 0 0 / .4);animation:wanted-sway 5s ease-in-out infinite }
+.wanted svg { display:block;width:100%;height:auto;color:var(--w-ink);fill:var(--w-ink);overflow:visible }
+.wanted text { fill:var(--w-ink) }
+.w-title text { font:900 46px "Bodoni 72",Didot,"Playfair Display","Times New Roman",serif }
+.w-name { font:900 22px "Bodoni 72",Didot,"Times New Roman",serif }
+.w-bounty { font:700 15px "Courier New",ui-monospace,monospace }
+.w-fine { font:700 3.6px Arial,sans-serif;opacity:.85 }
+.w-brand { font:900 13px "Bodoni 72",Didot,"Times New Roman",serif }
+.w-photo { height:110px;min-height:0;display:block;border:1.5px solid #3b2f28;background:radial-gradient(90% 90% at 50% 40%, #fbf6ea, #e8dcc3);overflow:hidden;filter:sepia(.25) saturate(.95) }
+.w-photo .sv-avatar { left:50%;top:-34px;width:172px;height:172px;transform:translateX(-50%) }
+/* The portrait is a still: laughing, mouth open, nothing in hand. */
+.w-photo .sv-avatar * { animation:none !important;transition:none !important }
+.w-photo .sv-avatar .m-open { opacity:1 !important }
+.w-photo .sv-avatar .m-rest { opacity:0 !important }
+.w-photo .sv-avatar :is(.prop-work,.prop-wait,.prop-idle,.bang,.zz,.cogs,.sweat) { display:none !important }
+@keyframes wanted-sway { 0%,100% { transform:translateX(-50%) scale(.84) rotate(-2deg) } 50% { transform:translateX(-50%) scale(.84) rotate(-.8deg) } }
+/* On a backdrop with no mount (a wall: data-hang=pin) the poster hangs from one tack in its top-left corner and droops
+   to the right around it. The tack is at (14px, 10px) in the poster; scaling about it instead of the top centre would
+   shift the poster, so the translate gives back (107 − 14, 0 − 10) × .16 and the poster stays where it was. */
+.stage-scene:has(.backdrop[data-hang=pin]) .wanted { transform-origin:14px 10px;transform:translate(calc(-50% + 14.88px),-1.6px) scale(.84) rotate(2deg);animation:wanted-sway-pin 5s ease-in-out infinite }
+@keyframes wanted-sway-pin { 0%,100% { transform:translate(calc(-50% + 14.88px),-1.6px) scale(.84) rotate(2deg) } 50% { transform:translate(calc(-50% + 14.88px),-1.6px) scale(.84) rotate(.8deg) } }
+.stage-tile[data-mood=offline] .stage-scene:has(.backdrop[data-hang=pin])::before { content:"";position:absolute;z-index:1;left:calc(50% - 78.1px);top:48.4px;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:50%;
+  background:radial-gradient(circle at 36% 32%, #fff4ee 0 14%, #f0675a 32%, #a8291f);box-shadow:0 0 0 2.5px #1b1428,2px 4px 4px rgb(0 0 0 / .35) }
+
+/* Under reduced motion nothing here moves: the state stays readable from the still drawing (its pose, its eyes, what it
+   holds), from the scene, and from the dot and the words beside it. Speaking shows a still, open mouth. */
+@media (prefers-reduced-motion:reduce) {
+  .sv-avatar,.sv-avatar *,.stage-spinner { animation:none !important;transition:none !important }
+  .sv-avatar[data-style=bichos][data-mood=speaking]:not([data-mouth=level]):not([data-mouth=playback]) .m-open { opacity:1 }
+  .sv-avatar[data-style=bichos][data-mood=speaking]:not([data-mouth=level]):not([data-mouth=playback]) .m-rest { opacity:0 }
+  .sv-avatar[data-style=bichos][data-mouth=playback] .m-open { opacity:0;transform:none !important }
+  .sv-avatar[data-style=bichos][data-mouth=playback] .m-rest { opacity:1 }
+  .sv-avatar[data-style=bichos][data-mood=speaking][data-mouth=playback][data-mouth-active] .m-open { opacity:1;transform:scaleY(.55) !important }
+  .sv-avatar[data-style=bichos][data-mood=speaking][data-mouth=playback][data-mouth-active] .m-rest { opacity:0 }
+  .stage-scene *,.stage-desk,.wanted { animation:none !important;transition:none !important }
+  .stage-spinner { border-right-color:currentColor;opacity:.7 }
+}

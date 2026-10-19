@@ -1,0 +1,180 @@
+/* COPIED from sidevoice-web@32e266d64adc873fc7b9223824d1f6ab871a975e apps/web/src/styles/theme.css by scripts/callcard-creatures.mjs. */
+/* Sidevoice's design tokens: the landing's brand (sidevoice/landing, public/assets/site.css) at an app's density.
+ * Light is the default; `data-theme="dark"` on any element turns it and everything in it dark, and `data-theme="light"`
+ * back. Which one the page wears is lib/theme.ts's: the person's choice, else the system's. Components use these
+ * tokens only — never a raw colour, radius or spacing of their own. Contrast measured for WCAG AA in both themes. */
+
+/* The brand's typeface, bundled with its licence (public/fonts/OFL.txt). */
+@font-face { font-family: "DM Sans"; src: url("/callcard/fonts/DMSans-Variable-latin.woff2") format("woff2"); font-weight: 100 1000; font-display: swap; }
+
+:root {
+  /* Type: DM Sans, as the landing; a 15px body, a tool's density. 12px is the floor. */
+  --sv-font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, var(--sv-font-cjk), sans-serif;
+  /* DM Sans has no Chinese or Japanese: the system's own faces, never a webfont, in the page language's order (below)
+   * so Han characters take that language's forms; after the Latin ones, which keep Latin text in them. */
+  --sv-font-cjk: "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", "Noto Sans CJK JP", "Microsoft YaHei", "Yu Gothic", "Meiryo";
+  --sv-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace, var(--sv-font-cjk);
+  --sv-font-xs: .75rem;      /* 12/16 — badges, timestamps */
+  --sv-font-sm: .8125rem;    /* 13/20 — hints, descriptions, labels */
+  --sv-font-md: .9375rem;    /* 15/22 — body, controls, rows */
+  --sv-font-lg: 1.0625rem;   /* 17/24 — card and dialog titles */
+  --sv-font-xl: 1.25rem;     /* 20/26 — page and section titles */
+  --sv-font-2xl: 1.625rem;   /* 26/32 — onboarding headline, empty states */
+  --sv-weight-regular: 400;
+  --sv-weight-medium: 550;
+  --sv-weight-semibold: 650;
+  --sv-weight-bold: 700;
+  --sv-weight-heavy: 750;
+
+  /* Space: these and no other. */
+  --sv-space-0-5: 2px;
+  --sv-space-1: 4px;
+  --sv-space-1-5: 6px;
+  --sv-space-2: 8px;
+  --sv-space-3: 12px;
+  --sv-space-4: 16px;
+  --sv-space-5: 20px;
+  --sv-space-6: 24px;
+  --sv-space-8: 32px;
+  --sv-space-10: 40px;
+  --sv-space-12: 48px;
+  --sv-space-16: 64px;
+
+  /* Shape: an inner radius is the outer one less its inset. */
+  --sv-radius-xs: 6px;
+  --sv-radius-sm: 8px;
+  --sv-radius-md: 10px;
+  --sv-radius-lg: 14px;
+  --sv-radius-xl: 18px;
+  --sv-radius-2xl: 24px;
+  --sv-radius-pill: 999px;
+
+  /* Sizes. */
+  --sv-control-sm: 32px;
+  --sv-control-md: 40px;
+  --sv-control-lg: 48px;
+  --sv-call-button: 48px;
+  --sv-header-height: 64px;
+
+  /* Motion. Closing takes 70% of opening. */
+  --sv-dur-fast: 120ms;
+  --sv-dur-base: 180ms;
+  --sv-dur-slow: 260ms;
+  --sv-ease: cubic-bezier(.2, 0, 0, 1);
+}
+:root:lang(ja) { --sv-font-cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Yu Gothic", "Meiryo", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei"; }
+:root:lang(zh) { --sv-font-cjk: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Hiragino Sans", "Noto Sans CJK JP", "Yu Gothic", "Meiryo"; }
+@media (pointer: coarse) { :root { --sv-control-sm: 36px; --sv-control-md: 44px; --sv-call-button: 56px; } }
+@media (max-width: 767px) { :root { --sv-header-height: 56px; } }
+@media (prefers-reduced-motion: reduce) { :root { --sv-dur-base: var(--sv-dur-fast); --sv-dur-slow: var(--sv-dur-fast); } }
+
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --sv-bg: #ffffff;
+  --sv-bg-subtle: #f7f4fb;
+  --sv-bg-sunken: #f3eefa;
+  --sv-surface: #ffffff;
+  --sv-surface-raised: #ffffff;
+  --sv-input-bg: #ffffff;
+  --sv-hover: rgb(74 47 107 / 6%);
+  --sv-pressed: rgb(74 47 107 / 10%);
+  --sv-border: #e4dcef;
+  --sv-border-strong: #8c7fa3;
+  --sv-text: #1b1d24;
+  --sv-text-muted: #545766;
+  --sv-text-subtle: #686b7a;
+  --sv-accent: #4a2f6b;
+  --sv-on-accent: #ffffff;
+  --sv-accent-hover: #3b2456;
+  --sv-accent-active: #2f1c46;
+  --sv-accent-soft: #ece4f7;
+  --sv-accent-soft-hover: #e2d6f2;
+  --sv-accent-text: #4a2f6b;
+  --sv-focus: #6d4f96;
+  --sv-positive: #1d6b45;
+  --sv-positive-soft: #e2f3e9;
+  --sv-warning: #9a4a00;
+  --sv-warning-soft: #fdeedd;
+  --sv-danger: #b3261e;
+  --sv-danger-soft: #fbe8e6;
+  --sv-danger-fill: #b3261e;
+  --sv-danger-fill-hover: #8f1d17;
+  --sv-on-danger-fill: #ffffff;
+  /* The other voice: fills only, never text on white. */
+  --sv-voice: #e0a82e;
+  --sv-on-voice: #2a1a40;
+  --sv-voice-soft: #fbf0d4;
+  --sv-voice-text: #7d5300;
+  --sv-disabled-bg: #efebf4;
+  /* 3:1 on the disabled fill, as the dark theme's: what a disabled control draws still reads as a shape. */
+  --sv-disabled-text: #85818f;
+  --sv-scrim: rgb(27 18 40 / 45%);
+  --sv-tooltip-bg: #2a1a40;
+  --sv-tooltip-text: #ffffff;
+  /* The chat's bubbles, the agent's and the person's, in the transcript and on the stage: a fill, its text and its
+   * quieter text (the time, the marks, what is not said yet), 4.5:1 and more on the fill (16.8 and 5.3; 11.0 and 7.4).
+   * The agent a white card; the person the brand's lila itself, with white text and its own inks for what sits on it
+   * (transcript.css): white marks, a failure in pink (6.5), an unconfirmed mark a quieter lila (4.3).
+   * Soft cards (decided 2026-10-14), on the stage and in the transcript alike: an edge in a touch of the brand's lila,
+   * and a low, wide shadow that lifts them off any scene. */
+  --sv-bubble-edge: #c5b9d5; --sv-bubble-shadow: 0 3px 8px rgb(42 26 64 / 10%), 0 16px 36px -18px rgb(74 47 107 / 45%);
+  --sv-chat-agent-bg: #ffffff; --sv-chat-agent-fg: #1b1d24; --sv-chat-agent-subtle: #686b7a;
+  --sv-chat-person-bg: #4a2f6b; --sv-chat-person-fg: #ffffff; --sv-chat-person-subtle: #d9cfe8;
+  --sv-chat-person-mark: #ffffff; --sv-chat-person-quiet: #ab9bc8; --sv-chat-person-danger: #ffb4ab; --sv-chat-person-wash: rgb(255 255 255 / 14%);
+  --sv-stage-bg: radial-gradient(ellipse at 12% 0%, #eee4fa 0, transparent 50%), linear-gradient(145deg, #faf8fd, #f7f2e9);
+  --sv-shadow-xs: 0 1px 2px rgb(42 26 64 / 8%);
+  --sv-shadow-sm: 0 1px 2px rgb(42 26 64 / 5%), 0 8px 20px -14px rgb(42 26 64 / 22%);
+  --sv-shadow-md: 0 2px 6px rgb(42 26 64 / 6%), 0 16px 34px rgb(42 26 64 / 14%);
+  --sv-shadow-lg: 0 8px 24px rgb(42 26 64 / 10%), 0 30px 70px -30px rgb(42 26 64 / 50%);
+  /* Buttons: a 1px inner highlight on fills, a hairline raise, and the secondary's own fill. */
+  --sv-button-highlight: rgb(255 255 255 / 16%);
+  --sv-button-raise: 0 1px 2px rgb(42 26 64 / 10%);
+  --sv-button-secondary-bg: #ffffff; --sv-button-secondary-hover: #f7f4fb; --sv-button-secondary-active: #efe9f6; --sv-button-border: #d6cce3;
+}
+
+/* Dark (Grafito): untinted greys and near-white text, so the brand's lila and mostaza are the only colours on screen.
+ * Elevation is lighter surfaces and borders; shadows only lift what floats. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --sv-bg: #0f0f11; --sv-bg-subtle: #141416; --sv-bg-sunken: #0a0a0b; --sv-surface: #18181b; --sv-surface-raised: #212125; --sv-input-bg: #131315;
+  --sv-hover: rgb(255 255 255 / 6%); --sv-pressed: rgb(255 255 255 / 10%); --sv-border: #2b2b30; --sv-border-strong: #77777f;
+  --sv-text: #fafafa; --sv-text-muted: #b8b8c0; --sv-text-subtle: #93939c;
+  --sv-accent: #c9b6ec; --sv-on-accent: #2a1a40; --sv-accent-hover: #d7c8f3; --sv-accent-active: #e3d9f7;
+  --sv-accent-soft: #2f2741; --sv-accent-soft-hover: #3a3050; --sv-accent-text: #cdbbf0; --sv-focus: #c9b6ec;
+  --sv-positive: #74d3a6; --sv-positive-soft: #14271e; --sv-warning: #f5a35c; --sv-warning-soft: #2e1f10;
+  --sv-danger: #ffb4ab; --sv-danger-soft: #3a1a18; --sv-danger-fill: #d0382d; --sv-danger-fill-hover: #b52e25; --sv-on-danger-fill: #ffffff;
+  --sv-voice: #e0a82e; --sv-on-voice: #2a1a40; --sv-voice-soft: #2d2412; --sv-voice-text: #ecbe5c;
+  --sv-disabled-bg: #26262b; --sv-disabled-text: #73737c;
+  --sv-scrim: rgb(0 0 0 / 70%); --sv-tooltip-bg: #fafafa; --sv-tooltip-text: #18181b;
+  /* 15.4 and 5.3 on the agent's fill; 10.5 and 7.0 on the person's (a failure 6.2, an unconfirmed mark 4.6). */
+  --sv-bubble-edge: #4b4756; --sv-bubble-shadow: 0 12px 32px rgb(0 0 0 / 60%);
+  --sv-chat-agent-bg: #212125; --sv-chat-agent-fg: #fafafa; --sv-chat-agent-subtle: #93939c;
+  --sv-chat-person-bg: #46366a; --sv-chat-person-fg: #ffffff; --sv-chat-person-subtle: #d9cfe8;
+  --sv-chat-person-mark: #ffffff; --sv-chat-person-quiet: #b3a4ce; --sv-chat-person-danger: #ffb4ab; --sv-chat-person-wash: rgb(255 255 255 / 14%);
+  --sv-stage-bg: radial-gradient(ellipse at 12% 0%, rgb(201 182 236 / 14%) 0, transparent 50%), linear-gradient(145deg, #161518, #111113);
+  --sv-shadow-xs: 0 1px 2px rgb(0 0 0 / 60%); --sv-shadow-sm: none; --sv-shadow-md: 0 16px 34px rgb(0 0 0 / 55%); --sv-shadow-lg: 0 30px 80px rgb(0 0 0 / 70%);
+  /* Buttons: a 1px inner highlight on fills, a hairline raise, and the secondary's own fill. */
+  --sv-button-highlight: rgb(255 255 255 / 12%);
+  --sv-button-raise: 0 1px 2px rgb(0 0 0 / 45%);
+  --sv-button-secondary-bg: rgb(255 255 255 / 6%); --sv-button-secondary-hover: rgb(255 255 255 / 10%);
+  --sv-button-secondary-active: rgb(255 255 255 / 14%); --sv-button-border: rgb(255 255 255 / 14%);
+}
+
+/* What every themed box inherits: the theme's text, in the brand's type. */
+:root, [data-theme] {
+  color: var(--sv-text);
+  font-family: var(--sv-font-sans);
+  font-size: var(--sv-font-md);
+  line-height: 1.4667;
+  -webkit-font-smoothing: antialiased;
+  font-optical-sizing: auto;
+  scrollbar-color: var(--sv-border-strong) transparent;
+}
+
+/* The type scale, for text that is not inside a component. Sentence case throughout. */
+.sv-text-2xl { margin: 0; font-size: var(--sv-font-2xl); line-height: 2rem; font-weight: var(--sv-weight-heavy); letter-spacing: -.02em; }
+.sv-text-xl { margin: 0; font-size: var(--sv-font-xl); line-height: 1.625rem; font-weight: var(--sv-weight-bold); letter-spacing: -.015em; }
+.sv-text-lg { margin: 0; font-size: var(--sv-font-lg); line-height: 1.5rem; font-weight: var(--sv-weight-bold); letter-spacing: -.01em; }
+.sv-text-md { margin: 0; font-size: var(--sv-font-md); line-height: 1.375rem; }
+.sv-text-sm { margin: 0; font-size: var(--sv-font-sm); line-height: 1.25rem; color: var(--sv-text-muted); }
+.sv-text-xs { margin: 0; font-size: var(--sv-font-xs); line-height: 1rem; font-weight: 600; color: var(--sv-text-subtle); }

@@ -176,15 +176,18 @@ async function handle(req, res) {
     return res.end(withImportMap(html, importMapFor(local, served())));
   }
   if (url.pathname === "/turn-lab") return serveFile(res, ROOT, "turn-lab.html");
+  // The call-card exploration is a design mockup edited live: never cached, so its own reload shows each save.
+  if (url.pathname === "/callcard") return serveFile(res, ROOT, "callcard.html", { fresh: true });
+  if (url.pathname.startsWith("/callcard")) return serveFile(res, ROOT, url.pathname, { fresh: true });
   return serveFile(res, ROOT, url.pathname);
 }
 
-async function serveFile(res, root, pathname) {
+async function serveFile(res, root, pathname, { fresh = false } = {}) {
   const path = normalize(join(root, pathname));
   if (!path.startsWith(root)) return send(res, 403, "outside the served directory");
   try {
     const body = await readFile(path);
-    res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" });
+    res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream", ...(fresh ? { "cache-control": "no-store" } : {}) });
     res.end(body);
   } catch {
     send(res, 404, "not found");
