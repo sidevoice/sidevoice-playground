@@ -707,7 +707,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-a1 .a1-top { position: absolute; z-index: 2; top: 6px; right: 8px; display: flex; align-items: center; gap: 4px; }
 .cc-a1 .a1-top .cc-actions { position: static !important; }
 .cc-a1 .card-who { padding-right: 132px; }
-@container a1 (max-width: 400px) { .cc-a1 .cc-switcher .header-avatar:not([aria-pressed=true]) { display: none; } .cc-a1 .card-who { padding-right: 92px; } }
 /* B1: the title first, whole while it can be; the machine shortens and goes before it; the switcher's avatars go
    before the title shortens; its chevron always stays. */
 .pip-head-1 h2 { flex: 0 1 auto !important; min-width: 56px; }
@@ -726,4 +725,3 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-a1[data-expanded] .a1-top .cc-actions { display: inline-flex; }
 .cc-a1 .card-who { padding-right: 60px; }
 @container a1 (max-width: 400px) { .cc-a1 .card-who { padding-right: 40px; } }
-@container a1 (max-width: 400px) { .cc-a1 .cc-switcher .header-avatar { display: none !important; } }

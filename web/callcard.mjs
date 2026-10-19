@@ -195,6 +195,7 @@ function details() {
  *  title, which opens nothing. As the room narrows the avatars go first; the chevron always stays. */
 function switcher(slots = 3) {
   const current = creature();
+  if (slots <= 0) return `<div class="cc-switcher header-conversations"><button type="button" class="conversations-toggle" ${switchAttrs()} aria-label="All conversations (${CREATURES.length})" title="All conversations">${svg("chevron", 16)}</button></div>`;
   const first = CREATURES.slice(0, slots);
   const row = first.includes(current) ? first : [...CREATURES.filter((c) => c !== current).slice(0, slots - 1), current];
   const face = (c) => withCreature(c, () => avatar("small")).replace('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"');
@@ -215,13 +216,15 @@ function switchRow(slots = 3) {
 
 // ---------- the formats ----------
 
+/** How many avatars A1's switcher shows by its size: the chevron alone at Small (its face shows the one on the call). */
+const A1_AVATARS = { s: 0, m: 2, l: 3 };
 const DRAW = {
   // A1: the row and the two actions on a top line, near the pointer; the title's ▾ opens the call's details.
   card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
 <div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span></span>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
-<span class="a1-top">${switcher(3)}${actions()}</span>${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
+<span class="a1-top">${switcher(A1_AVATARS[settings().size] ?? 3)}${actions()}</span>${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
   pip: (box) => pick.pipLayout === "stacked" ? DRAW.pipStacked(box) : DRAW.pipMeet(box),
   // B1, stacked: the room's header (the name ▾, the row, the two actions), the stage, the room's call bar.
   pipStacked: (box) => {
