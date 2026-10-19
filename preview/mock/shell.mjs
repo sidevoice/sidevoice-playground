@@ -17,7 +17,12 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [];
+export const VARIANTS = [
+  { name: "keylessProvider", label: "Provider without its key", note: "A remote provider chosen with no key kept (Settings › Transcription or Voice, or the setup's steps: pick OpenAI as the source). Either way its Model dropdown is disabled, and the setup's Continue is not offered: only Continue without …, or adding the key. sidevoice-web#206.", values: [
+    { value: "model", label: "Model dropdown · disabled, \"Needs an API key\" as its placeholder; the key's row stays \"OpenAI needs a key\" + Connect" },
+    { value: "key", label: "Key line · the badge moves onto \"OpenAI API key\" + Connect; the Model dropdown is disabled and empty" },
+  ] },
+];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
