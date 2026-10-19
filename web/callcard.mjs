@@ -221,8 +221,8 @@ ${actions()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCa
   // corner (its top left is the agent's balloon's), and the
   // room's call bar over the picture's foot, see-through, near the pointer.
   pipMeet: (box) => {
-    const canvas = Math.round((box.w - 12) * 9 / 16), corner = pick.pipActions === "corner";
-    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="dark" data-bar="${pick.pipBar === "hover" ? "hover" : "always"}">${pipHead2(!corner)}<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}${corner ? `<span class="pip-frame-actions stage-tag">${frameActions()}</span>` : ""}</div><div class="pip-bar-below">${roomBar()}</div></div>`;
+    const canvas = Math.round((box.w - 12) * 9 / 16), corner = pick.pipActions === "corner", sized = customHeight();
+    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="dark" data-bar="${pick.pipBar === "hover" ? "hover" : "always"}"${sized ? ` data-sized style="height:${sized}px"` : ""}>${pipHead2(!corner)}<div class="pip-canvas"${sized ? "" : ` style="height:${canvas}px"`}>${stage(canvas, { name: false })}${corner ? `<span class="pip-frame-actions stage-tag">${frameActions()}</span>` : ""}</div><div class="pip-bar-below">${roomBar()}</div></div>`;
   },
   // C1: on nothing; near the pointer, its name (a pill of the controls' width, or none), its controls and its row.
   // C1 (a) minimal: at rest the avatar alone; near the pointer, a slim pill over it (its name, which shows the row of
@@ -280,6 +280,7 @@ function drawCard() {
   for (const el of win.querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", win.hasAttribute("data-expanded"));
   $("blurb").textContent = f.blurb;
   place();
+  fitPip();
   animator.restart();
 }
 
@@ -290,14 +291,18 @@ function drawCard() {
 const RANGE = { pip: [260, 760] };
 const widthKey = (format) => "sidevoice.callcard.width." + format;
 const customWidth = (format) => { const w = Number(localStorage.getItem(widthKey(format))), [lo, hi] = RANGE[format] ?? [0, 0]; return w >= lo && w <= hi ? w : 0; };
-const forgetWidths = () => Object.keys(RANGE).forEach((format) => localStorage.removeItem(widthKey(format)));
+const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [230, 640];
+/** The picture's height as the person left it: the window is sized freely, its stage keeps 16:9 inside (fitPip). */
+const customHeight = () => { const h = Number(localStorage.getItem(HEIGHT_KEY)); return format().id === "pip" && pick.pipLayout !== "stacked" && h >= HEIGHT_RANGE[0] && h <= HEIGHT_RANGE[1] ? h : 0; };
+const forgetWidths = () => { Object.keys(RANGE).forEach((format) => localStorage.removeItem(widthKey(format))); localStorage.removeItem(HEIGHT_KEY); };
 let resizing = null;
 document.addEventListener("pointerdown", (event) => {
   const handle = event.target.closest(".cc-resize");
   if (!handle) return;
   event.stopPropagation(); event.preventDefault();
   const win = $("card-window"), w = parseFloat(getComputedStyle(win).getPropertyValue("--w"));
-  resizing = { edge: handle.dataset.edge, x: event.clientX, y: event.clientY, w, left: win.offsetLeft, top: win.offsetTop, h: win.offsetHeight, format: format().id };
+  const card = win.querySelector(".cc-pip-meet");
+  resizing = { edge: handle.dataset.edge, x: event.clientX, y: event.clientY, w, left: win.offsetLeft, top: win.offsetTop, h: win.offsetHeight, ch: card?.offsetHeight ?? 0, format: format().id };
   handle.setPointerCapture(event.pointerId);
   win.classList.add("resizing");
 }, true);
@@ -306,10 +311,10 @@ document.addEventListener("pointermove", (event) => {
   const r = resizing, win = $("card-window"), dx = event.clientX - r.x, dy = event.clientY - r.y, [lo, hi] = RANGE[r.format];
   const grow = r.edge.includes("e") ? dx : r.edge.includes("w") ? -dx : 0;
   const growY = r.edge.includes("s") ? dy : r.edge.includes("n") ? -dy : 0;
-  // The picture follows its 16:9 either way; the avatar its square; the card its width.
-  const byY = r.format === "pip" ? growY * 16 / 9 : r.format === "mascot" ? growY : 0;
-  const w = Math.round(Math.min(hi, Math.max(lo, r.w + (Math.abs(byY) > Math.abs(grow) ? byY : grow))));
-  setWidth(w);
+  // Free in both directions: the window takes any shape, its stage keeps 16:9 inside it.
+  const w = Math.round(Math.min(hi, Math.max(lo, r.w + grow)));
+  const h = Math.round(Math.min(HEIGHT_RANGE[1], Math.max(HEIGHT_RANGE[0], r.ch + growY)));
+  setWidth(w, h);
   // The opposite corner stays where it was.
   if (r.edge.includes("w")) win.style.left = r.left + r.w - w + "px";
   if (r.edge.includes("n")) win.style.top = r.top + r.h - win.offsetHeight + "px";
@@ -318,6 +323,8 @@ document.addEventListener("pointerup", () => {
   if (!resizing) return;
   const win = $("card-window"), w = Math.round(parseFloat(win.style.getPropertyValue("--w")) || resizing.w);
   localStorage.setItem(widthKey(resizing.format), String(w));
+  const card = win.querySelector(".cc-pip-meet");
+  if (card?.hasAttribute("data-sized")) localStorage.setItem(HEIGHT_KEY, String(Math.round(card.offsetHeight)));
   resizing = null;
   win.classList.remove("resizing");
   const at = dropAt({ x: win.offsetLeft, y: win.offsetTop }, cardSize(), workSize());
@@ -325,14 +332,23 @@ document.addEventListener("pointerup", () => {
   drawCard(); drawPanel(); if (pick.view === "settings") drawApp(); save();
 }, true);
 /** The card at width `w`, live while it is resized: laid out again, the picture's stage at its new scale. */
-function setWidth(w) {
+function setWidth(w, h) {
   const win = $("card-window");
   win.style.setProperty("--w", w + "px");
-  const box = win.querySelector(".pip-canvas"), tile = win.querySelector(".pip-canvas .stage-tile");
-  if (box) {
-    const canvas = Math.round((w - 12) * 9 / 16);
-    box.style.height = canvas + "px";
-    tile?.style.setProperty("--k", String(canvas / 440));
+  const card = win.querySelector(".cc-pip-meet"), area = win.querySelector(".pip-canvas");
+  if (card && area && h) { card.setAttribute("data-sized", ""); card.style.height = h + "px"; area.style.height = ""; }
+  fitPip();
+}
+/** The picture's stage keeps 16:9 inside whatever room its window leaves it, centred on the room's stage background
+ *  (as the room's slot fits its tile: StageScene fitCanvas); unsized, the room is exactly 16:9. */
+function fitPip() {
+  for (const area of document.querySelectorAll("#card-window .cc-pip-meet .pip-canvas")) {
+    const tile = area.querySelector(".stage-tile");
+    if (!tile) continue;
+    const width = area.clientWidth, height = area.clientHeight;
+    const fitted = width / height > 16 / 9 ? { width: height * 16 / 9, height } : { width, height: width * 9 / 16 };
+    Object.assign(tile.style, { width: fitted.width + "px", height: fitted.height + "px", left: (width - fitted.width) / 2 + "px", top: (height - fitted.height) / 2 + "px" });
+    tile.style.setProperty("--k", String(fitted.height / 440));
   }
 }
 
@@ -374,7 +390,17 @@ let previewUntil = 0, previewTimer = 0;
 function preview() {
   previewUntil = Date.now() + PREVIEW_MS;
   clearTimeout(previewTimer);
-  previewTimer = setTimeout(() => drawCard(), PREVIEW_MS + 20);
+  const end = () => {
+    // Never while the person is at it: it goes PREVIEW_MS after they are done with it.
+    if (interacting()) { previewUntil = Date.now() + 1000; previewTimer = setTimeout(end, 1000); return; }
+    drawCard();
+  };
+  previewTimer = setTimeout(end, PREVIEW_MS + 20);
+}
+/** Whether the person is using the card: the pointer on it, a drag or a resize, its list or details open, focus in it. */
+function interacting() {
+  const win = $("card-window");
+  return !!(drag || resizing || pickerOpen || detailsOpen || win.matches(":hover") || win.matches(":focus-within"));
 }
 
 /** Balloons that open below the avatar point their tails up at it (proposed-web.css: .balloon--tail-up). */
@@ -420,10 +446,14 @@ addEventListener("resize", () => place());
 let hoverTimer = 0;
 $("card-window").addEventListener("pointerenter", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(true), 120); });
 $("card-window").addEventListener("pointerleave", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
+// Done dragging or resizing away from the card: the controls go after the same delay as leaving it.
+addEventListener("pointerup", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 function expand(on) {
   const win = $("card-window");
   if (!on && settings().alwaysShown) return;
   if (!on && (pickerOpen || detailsOpen)) return; // open, the picker holds the controls out, as today's panels do
+  // Mid-interaction (dragging, resizing, the pointer back on it, focus in it), they stay out; asked again after it.
+  if (!on && interacting()) { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); return; }
   if (on === win.hasAttribute("data-expanded")) return;
   win.toggleAttribute("data-expanded", on);
   if (on) guardUntil = Date.now() + CLICK_GUARD_MS;
