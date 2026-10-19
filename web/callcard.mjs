@@ -190,6 +190,17 @@ function details() {
 }
 /** The phone's way to the conversations (RoomHeader, header-row.ts), compact: a few avatars (the one on the call marked,
  *  kept in the row), "+" for a new one, and the chevron with how many are not in the row, which drops the whole list. */
+/** The phone's switcher (RoomHeader, header-row.ts, room.css): the conversations' avatars, the one on the call marked,
+ *  one tap to move the call; then its own chevron, ▾ and ▴ while the list is down, which drops them all. Apart from the
+ *  title, which opens nothing. As the room narrows the avatars go first; the chevron always stays. */
+function switcher(slots = 3) {
+  const current = creature();
+  const first = CREATURES.slice(0, slots);
+  const row = first.includes(current) ? first : [...CREATURES.filter((c) => c !== current).slice(0, slots - 1), current];
+  const face = (c) => withCreature(c, () => avatar("small")).replace('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"');
+  return `<div class="cc-switcher header-conversations">${row.map((c) => { const f = facts(c), title = c.seed === "Sidevoice" ? "Sidevoice" : c.seed;
+    return `<button type="button" class="header-avatar" data-conversation="${c.id}" aria-pressed="${c === current}" title="${title}" aria-label="${title}"${f.reach === "offline" ? ' aria-disabled="true"' : ""}><span class="conversation-avatar" style="--tone:${c.tone}">${face(c)}<span class="person-state" data-state="${f.reach}"${f.working ? " data-working" : ""}><span class="dot"></span></span></span></button>`; }).join("")}<button type="button" class="conversations-toggle" ${switchAttrs()} aria-label="All conversations (${CREATURES.length})" title="All conversations">${svg("chevron", 16)}</button></div>`;
+}
 function switchRow(slots = 3) {
   const current = creature();
   const first = CREATURES.slice(0, slots);
@@ -207,10 +218,10 @@ function switchRow(slots = 3) {
 const DRAW = {
   // A1: the row and the two actions on a top line, near the pointer; the title's ▾ opens the call's details.
   card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
-<div class="card-who"><button type="button" class="card-title" ${titleAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>
+<div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span></span>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
-${actions()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
+<span class="a1-top">${switcher(3)}${actions()}</span>${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
   pip: (box) => pick.pipLayout === "stacked" ? DRAW.pipStacked(box) : DRAW.pipMeet(box),
   // B1, stacked: the room's header (the name ▾, the row, the two actions), the stage, the room's call bar.
   pipStacked: (box) => {
@@ -230,18 +241,18 @@ ${actions()}${yourWave()}</div>${controls()}</div>${settings().captions ? lineCa
   // plinth with its name and machine; the call bar comes out of it near the pointer.
   mascot: () => {
     const plinth = pick.c1Style === "plinth";
-    const name = `<button type="button" class="c1-name" ${titleAttrs()}><span class="c1-title">${call.title()}<span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></span>${plinth ? `<span class="c1-machine">${svg("machine", 11)} ${call.machine}</span>` : ""}</button>`;
-    const top = plinth ? "" : `<div class="call-card c1-pill">${name}${actions()}</div>`;
-    const base = plinth ? `<div class="call-card c1-base">${name}${actions()}</div>` : "";
+    const name = `<span class="c1-name"><span class="c1-title">${call.title()}</span>${plinth ? `<span class="c1-machine">${svg("machine", 11)} ${call.machine}</span>` : ""}</span>`;
+    const top = plinth ? "" : `<div class="call-card c1-pill">${name}${switcher(2)}${actions()}</div>`;
+    const base = plinth ? `<div class="call-card c1-base">${name}${switcher(2)}${actions()}</div>` : "";
     return `<div class="cc cc-mascot c1" data-style="${plinth ? "plinth" : "minimal"}">${top}<span class="m-figure">${avatar("stage")}</span>${base}<div class="c1-bar">${roomBar()}</div>${settings().captions ? balloonCaptions() : ""}</div>`;
   },
 };
 /** The picture's three actions: back to the call, its settings, and hiding it for this call. */
 const frameActions = () => `<button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button>`;
 /** The picture's header, on two lines: the name ▾ (and the three actions), then its machine, never cut, and the row. */
-const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><button type="button" class="stage-heading" ${titleAttrs()}><span class="stage-heading-name"><span>${call.title()}</span>${svg("chevron", 14).replace("<svg ", '<svg class="stage-heading-chevron" ')}</span></button></h2><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${withActions ? `<span class="pip-head-actions">${frameActions()}</span>` : ""}</header>`;
+const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="pip-title">${call.title()}</span></h2><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${switcher(3)}${withActions ? `<span class="pip-head-actions">${frameActions()}</span>` : ""}</header>`;
 /** The picture's header: the name with its ▾ (and its machine), the row, and, stacked, the two actions. */
-const pipHead = (withActions) => `<header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><button type="button" class="stage-heading" ${titleAttrs()}><span class="stage-heading-name"><span>${call.title()}</span>${svg("chevron", 14).replace("<svg ", '<svg class="stage-heading-chevron" ')}</span>${withActions ? `<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>` : ""}</button></h2>${withActions ? actions() : ""}</header>`;
+const pipHead = (withActions) => `<header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${switcher(3)}${withActions ? actions() : ""}</header>`;
 
 // ---------- the screen ----------
 
@@ -276,7 +287,7 @@ function drawCard() {
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   // Always shown (Settings), the controls stay out; else they come near the pointer (as today's card: alwaysExpanded).
   if (pickerOpen || s.alwaysShown) win.toggleAttribute("data-expanded", true);
-  else if (!win.matches(":hover")) win.removeAttribute("data-expanded");
+  // Else they keep whatever the pointer left them at: expand() takes them in, after its delay, once the person is done.
   for (const el of win.querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", win.hasAttribute("data-expanded"));
   $("blurb").textContent = f.blurb;
   place();
@@ -288,12 +299,14 @@ function drawCard() {
  *  in the app beside its place. Not a zoom: the card is laid out again at its new width (the picture's stage keeps 16:9,
  *  its header and bar take what they need). Settings' size is where it starts; resized, Settings says "Custom"; a size
  *  picked there, or "Reset size and position", forgets it. */
-const RANGE = { pip: [260, 760] };
+/** The picture's smallest; its largest is the screen's work area (the screen less the taskbar, dock or menu bar). */
+const RANGE = { pip: [260, Infinity] };
 const widthKey = (format) => "sidevoice.callcard.width." + format;
 const customWidth = (format) => { const w = Number(localStorage.getItem(widthKey(format))), [lo, hi] = RANGE[format] ?? [0, 0]; return w >= lo && w <= hi ? w : 0; };
-const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [230, 640];
+const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [230, Infinity];
 /** The picture's height as the person left it: the window is sized freely, its stage keeps 16:9 inside (fitPip). */
-const customHeight = () => { const h = Number(localStorage.getItem(HEIGHT_KEY)); return format().id === "pip" && pick.pipLayout !== "stacked" && h >= HEIGHT_RANGE[0] && h <= HEIGHT_RANGE[1] ? h : 0; };
+let previewing = false;
+const customHeight = () => { const h = Number(localStorage.getItem(HEIGHT_KEY)); return !previewing && format().id === "pip" && pick.pipLayout !== "stacked" && h >= HEIGHT_RANGE[0] && h <= HEIGHT_RANGE[1] ? h : 0; };
 const forgetWidths = () => { Object.keys(RANGE).forEach((format) => localStorage.removeItem(widthKey(format))); localStorage.removeItem(HEIGHT_KEY); };
 let resizing = null;
 document.addEventListener("pointerdown", (event) => {
@@ -308,12 +321,14 @@ document.addEventListener("pointerdown", (event) => {
 }, true);
 document.addEventListener("pointermove", (event) => {
   if (!resizing) return;
-  const r = resizing, win = $("card-window"), dx = event.clientX - r.x, dy = event.clientY - r.y, [lo, hi] = RANGE[r.format];
+  const r = resizing, win = $("card-window"), dx = event.clientX - r.x, dy = event.clientY - r.y, [lo] = RANGE[r.format];
+  // As large as the work area allows, its shadow margin included.
+  const work = workSize(), margin = 2 * PLACEMENT.margin, hi = work.width - margin, hiH = work.height - margin;
   const grow = r.edge.includes("e") ? dx : r.edge.includes("w") ? -dx : 0;
   const growY = r.edge.includes("s") ? dy : r.edge.includes("n") ? -dy : 0;
   // Free in both directions: the window takes any shape, its stage keeps 16:9 inside it.
   const w = Math.round(Math.min(hi, Math.max(lo, r.w + grow)));
-  const h = Math.round(Math.min(HEIGHT_RANGE[1], Math.max(HEIGHT_RANGE[0], r.ch + growY)));
+  const h = Math.round(Math.min(hiH, Math.max(HEIGHT_RANGE[0], r.ch + growY)));
   setWidth(w, h);
   // The opposite corner stays where it was.
   if (r.edge.includes("w")) win.style.left = r.left + r.w - w + "px";
@@ -321,6 +336,7 @@ document.addEventListener("pointermove", (event) => {
 });
 document.addEventListener("pointerup", () => {
   if (!resizing) return;
+  touched();
   const win = $("card-window"), w = Math.round(parseFloat(win.style.getPropertyValue("--w")) || resizing.w);
   localStorage.setItem(widthKey(resizing.format), String(w));
   const card = win.querySelector(".cc-pip-meet");
@@ -392,14 +408,18 @@ function preview() {
   clearTimeout(previewTimer);
   const end = () => {
     // Never while the person is at it: it goes PREVIEW_MS after they are done with it.
-    if (interacting()) { previewUntil = Date.now() + 1000; previewTimer = setTimeout(end, 1000); return; }
+    // Never while the person is at it, nor until PREVIEW_MS after they last touched it.
+    if (interacting() || Date.now() - lastTouch < PREVIEW_MS) { previewUntil = Date.now() + 1000; previewTimer = setTimeout(end, 1000); return; }
     drawCard();
   };
   previewTimer = setTimeout(end, PREVIEW_MS + 20);
 }
 /** Whether the person is using the card: the pointer on it, a drag or a resize, its list or details open, focus in it. */
+let lastTouch = 0;
+const touched = () => { lastTouch = Date.now(); };
 function interacting() {
   const win = $("card-window");
+  if (Date.now() - lastTouch < 600) return true;
   return !!(drag || resizing || pickerOpen || detailsOpen || win.matches(":hover") || win.matches(":focus-within"));
 }
 
@@ -432,6 +452,9 @@ function place() {
   if (grip) grip.dataset.edge = (opensDown(at, size, work) ? "s" : "n") + (win.dataset.side === "right" ? "w" : "e");
   // The avatar's name pill and controls centre under it, or keep to the screen's edge when it is against one.
   win.toggleAttribute("data-flush", at.x <= 0 || at.x + size.width >= work.width - 1);
+  // A1: the title keeps clear of the switcher (and, near the pointer, the two actions) in the corner, and no more.
+  const top = win.querySelector(".cc-a1 .a1-top"), who = win.querySelector(".cc-a1 .card-who");
+  if (top && who) who.style.paddingRight = top.offsetWidth + 6 + "px";
   dropFrom();
   // The avatar's name pill is as wide as its controls, whatever the name.
   const pill = win.querySelector(".cc-name-pill"), strip = win.querySelector(".cc-mascot > .cc-strip");
@@ -501,7 +524,7 @@ function settingsScreen() {
   const toggle = (name, on) => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}"><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
   const segmented = (name, options, value) => `<div class="ui-segmented ui-segmented--sm" role="radiogroup">${Object.entries(options).map(([id, label]) => `<button type="button" role="radio" class="ui-segment" aria-checked="${id === value}" data-setting="${name}" data-value="${id}">${label}</button>`).join("")}</div>`;
   const choice = (id) => `<button type="button" role="radio" aria-checked="${s.format === id}" class="ui-card ui-card--padded ui-card--interactive cc-choice" ${s.format === id ? " data-selected" : ""} data-setting="format" data-value="${id}">
-${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="desktop" data-format="${id}">${desktopPreview(id)}</span>
+${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="${pick.previews === "simple" ? "simple" : "desktop"}" data-format="${id}">${desktopPreview(id)}</span>
 <strong>${words(`settings.callCard.format.${id}`)}</strong><small>${words(`settings.callCard.format.${id}Hint`)}</small></button>`;
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
 <section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${own ? words("settings.callCard.title") : words("settings.section.call")}</h2><p class="ui-section-description">${own ? words("settings.callCard.hint") : words("settings.call.description")}</p></div></header>
@@ -522,13 +545,25 @@ const PREVIEW_SIZE = { card: "l", pip: "s", mascot: "l" };
 function cardPicture(id) {
   const box = FORMATS.find((f) => f.id === id).sizes[PREVIEW_SIZE[id]];
   const was = { captions: pick.captions, state: call.state }, wasOpen = pickerOpen;
-  pickerOpen = false;
+  pickerOpen = false; previewing = true;
   const html = withCreature(creature() ?? DEFAULT_CREATURE, () => DRAW[id](box));
-  pickerOpen = wasOpen;
-  const flat = html
+  pickerOpen = wasOpen; previewing = false;
+  // A still of a real moment: the agent speaking, its last words in its balloon, the card saying so.
+  const said = pick.lang === "es" ? "¿Lo quito y hago commit?" : "Shall I remove it and commit?";
+  const balloon = `<div class="speech-bubble stage-bubble" data-visible="" aria-hidden="true"><span class="paged-text" style="--paged-lines:3"><span class="paged-text-run"><span class="karaoke-text"><span class="karaoke-played">${said}</span><span class="karaoke-upcoming"></span></span></span></span><svg class="balloon-shine" viewBox="0 0 40 20" aria-hidden="true"><path d="M3 17Q5 4 24 3"/></svg>${tail("agent")}</div>`;
+  // Its buttons drawn as they stand (the animator, which paints them on the live card, leaves the previews alone).
+  const painted = html
+    .replaceAll('data-run="mute"></button>', `data-run="mute">${svg("mic", 22)}</button>`)
+    .replaceAll('data-run="captions"></button>', `data-run="captions">${svg("captions", 22)}</button>`)
+    .replaceAll('data-run="skip"></button>', `data-run="skip">${svg("skip", 22)}</button>`);
+  const flat = painted
     .replaceAll('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"')
     .replace(/<button\b/g, "<span").replace(/<\/button>/g, "</span>").replace(/<(\/?)(details|summary)\b/g, "<$1span")
     .replace(/\sdata-run="[^"]*"/g, "")
+    .replace('<div class="stage-top cc-agent-slot"></div>', `<div class="stage-top">${balloon}</div>`)
+    .replace(/(class="stage-tile" data-theme="dark" data-mood=")[a-z]+"/, '$1speaking"')
+    .replace('<span class="cc-state-text"></span>', `<span class="cc-state-text">${STATES.speaking.line}</span>`)
+    .replace('<i class="cc-dot"></i>', '<i class="cc-dot" style="background:var(--sv-voice, #e0a82e)"></i>')
     .replaceAll("cc-agent-slot", "cc-slot-off").replaceAll('"person-turns"', '"cc-slot-off"').replaceAll("cc-lines", "cc-slot-off");
   void was;
   return `<span class="cc-card-picture" data-format="${id}" data-size="${settings().size}" style="--w:${box.w}px${box.h ? `;--h:${box.h}px` : ""}">${flat}</span>`;
@@ -537,6 +572,8 @@ function cardPicture(id) {
  *  would detect it), where it first sits (the work area's top right), at the screen's own scale; the screen's top right
  *  quarter shown. */
 function desktopPreview(id) {
+  // B: a soft, neutral corner of a screen, no window or bar of any system: the card alone, as it sits there.
+  if (pick.previews === "simple") return `<span class="cc-mini cc-simple" data-format="${id}"><span class="cc-mini-screen"><span class="cc-mini-work" style="inset:0"><span class="cc-mini-card">${cardPicture(id)}</span></span></span></span>`;
   const desk = env(), inset = desk.inset;
   return `<span class="cc-mini" data-format="${id}"><span class="cc-mini-screen" data-env="${pick.env}">${desk.html}
 <span class="cc-mini-work" style="top:${inset.top}px;right:${inset.right}px;bottom:${inset.bottom}px;left:${inset.left}px"><span class="cc-mini-card">${cardPicture(id)}</span></span></span></span>`;
@@ -640,8 +677,11 @@ $("card-window").addEventListener("pointerdown", (event) => {
   const win = $("card-window");
   drag = { x: event.clientX, y: event.clientY, dx: event.clientX - win.offsetLeft, dy: event.clientY - win.offsetTop, moved: false, id: event.pointerId };
 });
+for (const type of ["pointerdown", "pointermove", "pointerup", "keydown"]) $("card-window").addEventListener(type, touched, true);
 addEventListener("pointermove", (event) => {
+  if (resizing) touched();
   if (!drag || drag.id !== event.pointerId) return;
+  touched();
   const win = $("card-window");
   if (!drag.moved) {
     if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <= DRAG_THRESHOLD_PX) return;
@@ -656,6 +696,7 @@ $("card-window").addEventListener("pointercancel", () => { drag = null; $("card-
 // Released anywhere (a press that left the card before it moved ends too).
 addEventListener("pointerup", () => {
   if (!drag) return;
+  touched();
   const win = $("card-window"), moved = drag.moved;
   drag = null;
   win.classList.remove("dragging");
@@ -916,7 +957,7 @@ function drawPanel() {
     select("theme", "System theme", [["", `The desktop's (${env().theme})`], ["dark", "Dark"], ["light", "Light"]], pick.theme),
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
-    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipLayout", "Picture's layout", [["meet", "Actions and controls over the picture (new)"], ["stacked", "Header, stage, controls (before)"]], pick.pipLayout === "stacked" ? "stacked" : "meet")}${select("settingsPlace", "Where the card's settings live", [["call", "A · In Call, as a group"], ["own", "B · A section of their own"]], pick.settingsPlace)}</div>`,
+    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipLayout", "Picture's layout", [["meet", "Actions and controls over the picture (new)"], ["stacked", "Header, stage, controls (before)"]], pick.pipLayout === "stacked" ? "stacked" : "meet")}${select("previews", "Style previews", [["desktop", "A · On this screen's corner"], ["simple", "B · Simplified"]], pick.previews === "simple" ? "simple" : "desktop")}${select("settingsPlace", "Where the card's settings live", [["call", "A · In Call, as a group"], ["own", "B · A section of their own"]], pick.settingsPlace)}</div>`,
     `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
 <p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");

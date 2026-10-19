@@ -666,3 +666,64 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
   .pip-head-1 .stage-machine { font-size: 10px; }
   .pip-head-actions .cc-action { width: 24px; height: 24px; }
 }
+/* The previews' picture: its stage fills its 16:9 area (the live card's is fitted by fitPip). */
+.cc-card-picture .cc-pip-meet .pip-canvas .stage-tile { inset: 0 !important; width: auto !important; height: auto !important; }
+/* Settings' previews, B: a soft screen corner, no system chrome; the card where it sits, still. */
+.cc-preview[data-preview=simple] { background: radial-gradient(130% 120% at 85% 0%, #3b3f78 0%, #262a4d 45%, #1a1d33 100%); }
+.cc-simple .cc-mini-screen { background: none; }
+.cc-simple .cc-mini-card { padding: 14px; }
+
+/* A1 at Small: its avatar tile has a size too (it had none, so the avatar drew at nothing). */
+[data-size=s] .cc-a1 { --face-size: 56px; }
+/* The title wins over the machine (operator, 2026-10-19): the machine shortens first, then goes; the title only shortens
+   once it is alone. */
+.pip-head-1 h2 { flex: 0 1 auto !important; min-width: 48px; }
+.pip-head-1 .stage-machine { flex: 0 100 auto !important; min-width: 0; overflow: hidden; }
+.pip-head-1 .stage-machine > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pip-head-1 .pip-head-actions { flex: none; }
+@container pip (max-width: 320px) { .pip-head-1 .stage-machine { display: none; } }
+
+/* ---------- round 13: the switcher apart from the title ---------- */
+/* The phone's switcher (room.css .header-conversations), compact: its avatars and its own chevron, always there. */
+.cc-switcher { --row-avatar: 24px; display: flex; align-items: center; gap: 1px; flex: none; min-width: 0; }
+.cc-switcher .header-avatar { position: relative; display: grid; place-items: center; flex: none; margin: 0; padding: 2px; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.cc-switcher .header-avatar:focus-visible, .cc-switcher .conversations-toggle:focus-visible { outline: 2px solid var(--sv-focus, #c9b6ec); outline-offset: 0; }
+.cc-switcher .header-avatar[aria-disabled="true"] { cursor: default; opacity: .6; }
+.cc-switcher .header-avatar:not([aria-disabled="true"], [aria-pressed="true"]):hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); }
+.cc-switcher .header-avatar[aria-pressed="true"] { background: var(--sv-accent-soft, #2f2741); }
+.cc-switcher .header-avatar[aria-pressed="true"]::after { content: ""; position: absolute; top: calc(100% + 1px); left: 50%; width: 10px; height: 2px; margin-left: -5px; border-radius: 2px; background: var(--sv-accent, #c9b6ec); }
+.cc-switcher .conversation-avatar { position: relative; display: block; width: var(--row-avatar); height: var(--row-avatar); }
+.cc-switcher .conversation-avatar .sv-avatar { width: 100%; height: 100%; border-radius: 50%; background: color-mix(in srgb, var(--tone, #c9b6ec) 26%, #2f2741); }
+.cc-switcher .conversation-avatar .person-state { position: absolute; right: -1px; bottom: -1px; display: block; }
+.cc-switcher .conversation-avatar .dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: #5bbf8a; box-shadow: 0 0 0 2px var(--sv-surface, #1c2128); }
+.cc-switcher .person-state[data-state=holding] .dot { background: #e0b657; }
+.cc-switcher .person-state[data-state=offline] .dot { background: #6b7885; }
+.cc-switcher .conversations-toggle { display: grid; place-items: center; flex: none; width: 24px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--sv-text-muted, #b0b3bd); cursor: pointer; }
+.cc-switcher .conversations-toggle:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text, #fafafa); }
+.cc-switcher .conversations-toggle svg { transition: transform .15s; }
+.cc-switcher .conversations-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+/* A1: the switcher and (near the pointer) the two actions in the card's top right; the title keeps clear of them. */
+.cc-a1 { container: a1 / inline-size; }
+.cc-a1 .a1-top { position: absolute; z-index: 2; top: 6px; right: 8px; display: flex; align-items: center; gap: 4px; }
+.cc-a1 .a1-top .cc-actions { position: static !important; }
+.cc-a1 .card-who { padding-right: 132px; }
+@container a1 (max-width: 400px) { .cc-a1 .cc-switcher .header-avatar:not([aria-pressed=true]) { display: none; } .cc-a1 .card-who { padding-right: 92px; } }
+/* B1: the title first, whole while it can be; the machine shortens and goes before it; the switcher's avatars go
+   before the title shortens; its chevron always stays. */
+.pip-head-1 h2 { flex: 0 1 auto !important; min-width: 56px; }
+.pip-head-1 .pip-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pip-head-1 .cc-switcher { margin-left: auto; }
+.pip-head-1 .stage-machine + .cc-switcher { margin-left: auto; }
+@container pip (max-width: 420px) { .pip-head-1 .stage-machine { display: none; } }
+@container pip (max-width: 330px) { .pip-head-1 .cc-switcher .header-avatar:not([aria-pressed=true]) { display: none; } }
+@container pip (max-width: 280px) { .pip-head-1 .cc-switcher .header-avatar { display: none; } }
+/* C1: the name, the switcher and the two actions in the pill (or on the base). */
+.c1 .c1-name { cursor: default; }
+.c1 .c1-name:hover { background: none; }
+.c1 .cc-switcher { --row-avatar: 22px; }
+/* A1's actions take room only near the pointer; at rest the corner holds the switcher alone. */
+.cc-a1 .a1-top .cc-actions { display: none; }
+.cc-a1[data-expanded] .a1-top .cc-actions { display: inline-flex; }
+.cc-a1 .card-who { padding-right: 60px; }
+@container a1 (max-width: 400px) { .cc-a1 .card-who { padding-right: 40px; } }
+@container a1 (max-width: 400px) { .cc-a1 .cc-switcher .header-avatar { display: none !important; } }
