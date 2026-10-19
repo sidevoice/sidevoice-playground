@@ -25,30 +25,35 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 {
   const css = await (await fetch("/callcard/call-card.css")).text();
   const style = document.createElement("style");
-  style.textContent = css.replaceAll("@media (prefers-color-scheme: light) {", "#card-window[data-scheme=light] {");
+  style.textContent = css.replaceAll("@media (prefers-color-scheme: light) {", ":is(#card-window, .cc-card-picture)[data-scheme=light] {");
   document.head.append(style);
 }
 
 // ---------- what is picked: the address's hash ----------
 
-const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+/** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
+const CAPTIONS_KEY = "sidevoice.callcard.captions";
+const DEFAULTS = { env: "windows", format: "card", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
+  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
   history.replaceState(null, "", "#" + new URLSearchParams(changed).toString());
 };
 const env = () => DESKTOPS[pick.env] ?? DESKTOPS.windows;
-/** Whose avatar a card shows, in the previews and the card shown after a change too: the conversation on the call; with
- *  none, one fixed default (Orquestador Sidevoice's). */
-const DEFAULT_CREATURE = CREATURES[0];
+/** Whose avatar a card shows (the card, the card shown after a change, Settings' previews): the active conversation's; with
+ *  none active, the first conversation in the list's; with no conversation at all, the default creature (Sidevoice's). */
+const DEFAULT_CREATURE = ALL_CREATURES.find((each) => each.id === "mascot:sidevoice");
+const CONVERSATION_LIST = CREATURES.filter((each) => each !== DEFAULT_CREATURE);
 /** The avatar drawn: the picked conversation's, or another for a while (withCreature: the settings' real previews). */
 let drawing = null;
-const creature = () => drawing ?? CREATURES.find((each) => each.id === pick.creature) ?? CREATURES[0];
+const creature = () => drawing ?? CREATURES.find((each) => each.id === pick.creature) ?? CONVERSATION_LIST[0] ?? DEFAULT_CREATURE;
 const withCreature = (c, draw) => { const was = drawing; drawing = c; try { return draw(); } finally { drawing = was; } };
 /** The settings the card is drawn from: the stored shape (formats.mjs SETTING_DEFAULTS), read from the address. */
 const settings = () => cardSettings({ format: pick.format, size: pick.size, captions: pick.captions === "1", alwaysShown: pick.always === "1", place: pick.x !== "" && pick.y !== "" ? { x: Number(pick.x), y: Number(pick.y) } : null });
 const format = () => FORMATS.find((each) => each.id === settings().format);
+/** The person is speaking: listening, or held recording (the mock state). */
+const hearing = () => call.state === "listening" || call.state === "recording";
 const words = (key) => COPY[key][pick.lang] ?? COPY[key].en;
 
 // ---------- the mock call ----------
@@ -111,7 +116,7 @@ const avatar = (size, cls = "") => `<span class="sv-avatar ${cls}" data-style="b
 
 // ---------- the room's stage and balloons (sidevoice-web features/call: CallStage, BalloonTail, LiveVoiceBalloon) ----------
 
-const STAGE_MOOD = { listening: "listening", speaking: "speaking", working: "working", muted: "idle", idle: "idle" };
+const STAGE_MOOD = { listening: "listening", recording: "listening", speaking: "speaking", working: "working", muted: "idle", idle: "idle" };
 const TAILS = { agent: "M16 1C16 12 22 24 30 31Q36 36 38 30C40 22 38 12 38 1", person: "M24 1C24 14 40 28 64 36C52 26 46 14 46 1" };
 function tail(shape) {
   const ink = TAILS[shape], start = /^M([\d.]+) /.exec(ink)[1], end = /([\d.]+) 1$/.exec(ink)[1];
@@ -132,13 +137,16 @@ const badge = () => `<span class="stage-tag stage-badge"><span class="ui-logo" s
 /** The agent's balloon (AgentBubble): three lines a page (PagedText), its words lit as they are said (KaraokeText). */
 const agentBalloon = () => `<div class="speech-bubble stage-bubble" data-visible="" aria-hidden="true" translate="no"><span class="paged-text" data-turn="page" style="--paged-lines:3"><span class="paged-text-run"><span class="karaoke-text" data-playback="playing" data-progress="true"><span class="karaoke-played"></span><span class="karaoke-upcoming">${SAYS}</span></span></span></span><svg class="balloon-shine" viewBox="0 0 40 20" aria-hidden="true"><path d="M3 17Q5 4 24 3"/></svg>${tail("agent")}</div>`;
 /** The person's balloon while they speak and while it is transcribed (LiveVoiceBalloon): the voice's bars. */
-const liveBalloon = (phase) => `<div class="speech-bubble person-bubble" data-live="" translate="no"><span class="voice-wave" data-phase="${phase}" role="status"><canvas aria-hidden="true"></canvas></span><div class="person-live-actions"></div>${tail("person")}</div>`;
+/** The room's way to take the turn back while it is recorded or transcribed (PersonTurn: Button ghost, neutral, small,
+ *  "cancel-input", stage.cancelTurn), where the room has it: in your own balloon, under the bars. */
+const cancelTurn = () => `<button type="button" class="ui-button ui-button--ghost ui-button--neutral ui-button--sm cancel-input" data-run="cancel-turn" title="${words("stage.cancelTurn")}"><span class="ui-button-content">${words("stage.cancelTurn")}</span></button>`;
+const liveBalloon = (phase) => `<div class="speech-bubble person-bubble" data-live="" translate="no"><span class="voice-wave" data-phase="${phase}" role="status"><canvas aria-hidden="true"></canvas></span><div class="person-live-actions">${cancelTurn()}</div>${tail("person")}</div>`;
 /** What was sent, for its moment (PersonTurn SentBubble). */
 const sentBalloon = () => `<div class="speech-bubble person-bubble" data-sent="" translate="no"><span class="person-said">${HEARS}</span>${tail("person")}</div>`;
 /** A card's captions, opening below or above it (data-open, place()): for the avatar, the room's balloons, the agent's
  *  at the left and yours at the right; for the title card, plain lines as a transcript reads (.cc-lines). */
 const balloonCaptions = () => `<div class="cc-captions cc-balloons" data-theme="dark"><div class="cc-agent-slot"></div><div class="person-turns"></div></div>`;
-const lineCaptions = () => `<div class="cc-captions call-card cc-lines"></div>`;
+const lineCaptions = () => `<div class="cc-captions call-card cc-lines" data-theme="${scheme()}"></div>`;
 
 // ---------- today's call controls card (sidevoice-web call-controls/CallCard.tsx) ----------
 
@@ -234,41 +242,33 @@ const DRAW = {
 <div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span>${conversationsButton()}</span>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
-${yourWave()}</div>${controls().replace(/<\/div>$/, `${actions()}</div>`)}</div>${settings().captions ? lineCaptions() : ""}</div>`,
-  pip: (box) => pick.pipLayout === "stacked" ? DRAW.pipStacked(box) : DRAW.pipMeet(box),
+${yourWave()}</div>${controls()}<span class="a1-corner">${frameActions()}</span></div>${settings().captions ? lineCaptions() : ""}</div>`,
+  pip: (box) => DRAW.pipMeet(box),
   // B1, stacked: the room's header (the name ▾, the row, the two actions), the stage, the room's call bar.
-  pipStacked: (box) => {
-    const canvas = Math.round((box.w - 16) * 9 / 16);
-    return `<div class="cc cc-pip-stacked" data-theme="dark">${pipHead(true)}<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}</div>${roomBar()}</div>`;
-  },
-  // B1, as Meet's picture-in-picture: a slim header, the stage with back to the call, settings and × in its top right
-  // corner (its top left is the agent's balloon's), and the
-  // room's call bar over the picture's foot, see-through, near the pointer.
   pipMeet: (box) => {
-    const canvas = Math.round((box.w - 12) * 9 / 16), corner = pick.pipActions === "corner", sized = customHeight();
+    const canvas = Math.round((box.w - 20) * 9 / 16), corner = false, sized = customHeight();
     return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="${scheme()}" data-icons="${pick.pipIcons === "always" ? "always" : "hover"}" data-bar="${pick.pipBar === "hover" ? "hover" : "always"}"${sized ? ` data-sized style="height:${sized}px"` : ""}>${pipHead2(!corner)}<div class="pip-canvas"${sized ? "" : ` style="height:${canvas}px"`}>${stage(canvas, { name: false })}${corner ? `<span class="pip-frame-actions stage-tag">${frameActions()}</span>` : ""}</div><div class="pip-bar-below">${roomBar()}</div></div>`;
   },
   // C1: on nothing; near the pointer, its name (a pill of the controls' width, or none), its controls and its row.
   // C1 (a) minimal: at rest the avatar alone; near the pointer, a slim pill over it (its name, which shows the row of
   // conversations, and the two actions) and the room's call bar under it. (b) a base: the avatar stands on a small
   // plinth with its name and machine; the call bar comes out of it near the pointer.
-  mascot: () => {
-    const plinth = pick.c1Style === "plinth";
-    const name = `<span class="c1-name"><span class="c1-title">${call.title()}${conversationsButton()}</span>${plinth ? `<span class="c1-machine">${svg("machine", 11)} ${call.machine}</span>` : ""}</span>`;
-    const top = plinth ? "" : `<div class="call-card c1-pill">${name}${actions()}</div>`;
-    const base = plinth ? `<div class="call-card c1-base">${name}${actions()}</div>` : "";
-    return `<div class="cc cc-mascot c1" data-style="${plinth ? "plinth" : "minimal"}">${top}<span class="m-figure">${avatar("stage")}</span>${base}<div class="c1-bar">${roomBar()}</div>${settings().captions ? balloonCaptions() : ""}</div>`;
-  },
+  // C1: the avatar floating on nothing, and one stack going out from it toward the middle of the screen (below it in the
+  // upper half, above it in the lower), in one order: the avatar, its balloons, then the dock. The window is the avatar's
+  // box alone, so nothing grows into it: the avatar never moves, and the dock, at the stack's far end, never pushes the
+  // balloons. The dock is B1's top bar and call bar on one card (the same parts, the same look), near the pointer.
+  // C1 (operator's pick, A): the dock is its own piece, not the stack's end: below (or above) the avatar when nothing is
+  // said, and beside it, on its open side and level with it, while a balloon is up, so the two never pile up.
+  mascot: () => `<div class="cc c1x"><span class="m-figure">${avatar("stage")}</span><div class="c1x-stack">${settings().captions ? balloonCaptions() : ""}</div><div class="cc-pip-stacked cc-pip-meet c1-dock" data-theme="${scheme()}" data-icons="hover" data-bar="always">${pipHead2(true)}<div class="pip-bar-below">${roomBar()}</div></div></div>`,
 };
 /** The picture's three actions: back to the call, its settings, and hiding it for this call. */
 const frameActions = () => `<button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button>`;
 /** The picture's header, on two lines: the name ▾ (and the three actions), then its machine, never cut, and the row. */
-const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="pip-title">${call.title()}</span></h2>${conversationsButton()}<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${withActions ? (pick.pipIcons === "always" ? `<span class="pip-head-actions">${frameActions()}</span>` : `<span class="pip-hover-icons">${frameActions().replace(/<button[^>]*pip-close[\s\S]*$/, "")}</span><span class="pip-head-x">${frameActions().match(/<button[^>]*pip-close[\s\S]*$/)[0]}</span>`) : ""}</header>`;
+const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="stage-heading"><span class="stage-heading-name"><span class="pip-title" title="${call.title()}">${call.title()}</span>${conversationsButton()}</span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${withActions ? (pick.pipIcons === "always" ? `<span class="pip-head-actions">${frameActions()}</span>` : `<span class="pip-hover-icons">${frameActions().replace(/<button[^>]*pip-close[\s\S]*$/, "")}</span><span class="pip-head-x">${frameActions().match(/<button[^>]*pip-close[\s\S]*$/)[0]}</span>`) : ""}</header>`;
 /** The picture's way to the other conversations: one small button, the web's conversations mark and how many there
  *  are; it drops the list. No faces: in a small picture they were noise. */
 const conversationsButton = () => `<button type="button" class="cc-convs" ${switchAttrs()} aria-label="Conversations (${CREATURES.length})" title="Conversations">${svg("conversations", 15)}<span>${CREATURES.length}</span>${svg("chevron", 12).replace("<svg ", '<svg class="cc-convs-chevron" ')}</button>`;
 /** The picture's header: the name with its ▾ (and its machine), the row, and, stacked, the two actions. */
-const pipHead = (withActions) => `<header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><span class="stage-heading"><span class="stage-heading-name"><span>${call.title()}</span></span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${switcher(3)}${withActions ? actions() : ""}</header>`;
 
 // ---------- the screen ----------
 
@@ -299,7 +299,7 @@ function drawCard() {
     : DRAW[f.id](box) + (pickerOpen ? picker() : "") + (detailsOpen ? details() : "")
       + (f.id === "pip" ? `<span class="cc-resize cc-grip" data-edge="se" aria-hidden="true"></span>` : "");
   win.toggleAttribute("data-picker", pickerOpen || detailsOpen);
-  win.dataset.listFrom = pick.listFrom === "card" ? "card" : "element";
+  win.dataset.listFrom = "element";
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   // Always shown (Settings), the controls stay out; else they come near the pointer (as today's card: alwaysExpanded).
   if (pickerOpen || s.alwaysShown) win.toggleAttribute("data-expanded", true);
@@ -316,13 +316,13 @@ function drawCard() {
  *  its header and bar take what they need). Settings' size is where it starts; resized, Settings says "Custom"; a size
  *  picked there, or "Reset size and position", forgets it. */
 /** The picture's smallest; its largest is the screen's work area (the screen less the taskbar, dock or menu bar). */
-const RANGE = { pip: [260, Infinity] };
+const RANGE = { pip: [350, Infinity] }; // its least: a stage tall enough for two readable lines of the agent's balloon
 const widthKey = (format) => "sidevoice.callcard.width." + format;
 const customWidth = (format) => { const w = Number(localStorage.getItem(widthKey(format))), [lo, hi] = RANGE[format] ?? [0, 0]; return w >= lo && w <= hi ? w : 0; };
-const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [230, Infinity]; // with the switcher's band, the smallest that still shows the avatar on its stage
+const HEIGHT_KEY = "sidevoice.callcard.height.pip", HEIGHT_RANGE = [330, Infinity]; // with the switcher's band, the smallest that still shows the avatar on its stage
 /** The picture's height as the person left it: the window is sized freely, its stage keeps 16:9 inside (fitPip). */
 let previewing = false;
-const customHeight = () => { const h = Number(localStorage.getItem(HEIGHT_KEY)); return !previewing && format().id === "pip" && pick.pipLayout !== "stacked" && h >= HEIGHT_RANGE[0] && h <= HEIGHT_RANGE[1] ? h : 0; };
+const customHeight = () => { const h = Number(localStorage.getItem(HEIGHT_KEY)); return !previewing && format().id === "pip" && h >= HEIGHT_RANGE[0] && h <= HEIGHT_RANGE[1] ? h : 0; };
 const forgetWidths = () => { Object.keys(RANGE).forEach((format) => localStorage.removeItem(widthKey(format))); localStorage.removeItem(HEIGHT_KEY); };
 let resizing = null;
 document.addEventListener("pointerdown", (event) => {
@@ -373,6 +373,9 @@ function setWidth(w, h) {
 }
 /** The picture's stage keeps 16:9 inside whatever room its window leaves it, centred on the room's stage background
  *  (as the room's slot fits its tile: StageScene fitCanvas); unsized, the room is exactly 16:9. */
+/** fitPip without its label pass (the label pass calls it back after moving the machine). */
+function fitPipOnly() { fitting = true; try { fitPip(); } finally { fitting = false; } }
+let fitting = false;
 function fitPip() {
   for (const area of document.querySelectorAll("#card-window .cc-pip-meet .pip-canvas")) {
     const tile = area.querySelector(".stage-tile");
@@ -382,7 +385,7 @@ function fitPip() {
     Object.assign(tile.style, { width: fitted.width + "px", height: fitted.height + "px", left: (width - fitted.width) / 2 + "px", top: (height - fitted.height) / 2 + "px" });
     tile.style.setProperty("--k", String(fitted.height / 440));
   }
-  noStubs();
+  if (!fitting) noStubs();
 }
 /** The picture's open and settings, near the pointer, lie over the title line without moving it: just left of × where the
  *  line has room clear of the conversations control, else over the title's end, right before that control (the title
@@ -396,21 +399,13 @@ function placeHoverIcons() {
     const overTitle = free < need + 4;
     icons.dataset.over = overTitle ? "title" : "line";
     icons.style.right = overTitle ? h.right - control.getBoundingClientRect().left + 4 + "px" : h.right - x.getBoundingClientRect().left + "px";
-    title.toggleAttribute("data-under-icons", overTitle);
+    head.querySelector(".pip-title")?.toggleAttribute("data-under-icons", overTitle);
   }
 }
 /** A label of an icon and words never shows as its icon alone: with fewer than about three characters of its words in
  *  view, it goes whole (the stage's model badge, the header's machine). */
 function noStubs() {
   queueMicrotask(placeHoverIcons);
-  // The picture's machine shows whole beside the title, or not at all (never cut, never on a line of its own).
-  for (const machine of document.querySelectorAll("#card-window .pip-head-1 .stage-machine")) {
-    // Measured in place; when it does not fit whole it leaves the line altogether, so the title has all of it.
-    machine.style.visibility = ""; machine.style.display = "";
-    if (getComputedStyle(machine).display !== "none" && machine.scrollWidth > machine.clientWidth + 1) machine.style.display = "none";
-    const shown = [...machine.closest(".pip-head-1").querySelectorAll(":is(.pip-head-actions, .pip-hover-icons) .cc-action:not(.pip-close)")].filter((b) => getComputedStyle(b).visibility === "visible");
-    if (shown.length && machine.getBoundingClientRect().right > shown[0].getBoundingClientRect().left - 18) machine.style.visibility = "hidden";
-  }
   for (const label of document.querySelectorAll("#card-window .stage-badge")) {
     label.style.visibility = "";
     const text = label.querySelector(":scope > span:last-child");
@@ -472,13 +467,13 @@ const touched = () => { lastTouch = Date.now(); };
 function interacting() {
   const win = $("card-window");
   if (Date.now() - lastTouch < 600) return true;
-  return !!(drag || resizing || pickerOpen || detailsOpen || win.matches(":hover") || win.matches(":focus-within"));
+  return !!(drag || resizing || pickerOpen || detailsOpen || hoverZone() || win.matches(":focus-within"));
 }
 
 /** Balloons that open below the avatar point their tails up at it (proposed-web.css: .balloon--tail-up). */
 function tailsToward() {
   const up = $("card-window").dataset.open === "down";
-  for (const balloon of $("card-window").querySelectorAll(".cc-mascot .cc-captions .speech-bubble")) balloon.classList.toggle("balloon--tail-up", up);
+  for (const balloon of $("card-window").querySelectorAll(":is(.cc-mascot, .c1x) .cc-captions .speech-bubble")) balloon.classList.toggle("balloon--tail-up", up);
 }
 
 /** The work area's size, and the card window's (the card and its shadow margin). */
@@ -491,12 +486,15 @@ function place() {
   const win = $("card-window");
   if (win.hidden) return;
   const work = workSize(), size = cardSize();
-  const rest = dropAt(settings().place ?? firstPlace(work, size), size, work);
+  const rest = dropAt(settings().place ?? firstPlace(work, size, pick.startCorner || "tr"), size, work);
   const at = fit(rest, size, work);
   win.style.left = at.x + "px";
   win.style.top = at.y + "px";
   lastRect = { x: at.x, y: at.y, w: size.width, h: size.height };
-  win.dataset.open = opensDown(at, size, work) ? "down" : "up";
+  // C1's balloons go above the avatar when a three-line balloon fits there, else below (operator, 2026-10-19); the other
+  // formats' captions open toward the screen's middle.
+  const BALLOON_ROOM = { s: 130, m: 150, l: 180 };
+  win.dataset.open = format().id === "mascot" ? (at.y >= (BALLOON_ROOM[settings().size] ?? 150) ? "up" : "down") : opensDown(at, size, work) ? "down" : "up";
   tailsToward();
   win.dataset.side = at.x + size.width / 2 > work.width / 2 ? "right" : "left";
   // The picture's grip: the corner towards the middle of the screen (away from the edges it sits by).
@@ -516,7 +514,18 @@ addEventListener("resize", () => place());
 // The card's controls show near the pointer, as today's (card-shell.tsx: after 120 ms in, until 500 ms out); its window
 // grows with them and moves in if it has to.
 let hoverTimer = 0;
-$("card-window").addEventListener("pointerenter", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(true), 120); });
+// C1: the dock comes out for the avatar itself (and stays while on it), never for its balloons (coordinator, 2026-10-19).
+const hoverZone = () => { const win = $("card-window"); return format().id === "mascot" ? !!win.querySelector(".m-figure:hover, .c1-dock:hover") : win.matches(":hover"); };
+// A1: its captions are neutral: over them the card neither opens nor closes, so the line under the pointer (and its
+// cancel button) never moves away from it.
+$("card-window").addEventListener("pointerover", (event) => {
+  const id = format().id;
+  if (id === "card") { clearTimeout(hoverTimer); if (!event.target.closest(".cc-captions")) hoverTimer = setTimeout(() => expand(true), 120); return; }
+  if (id !== "mascot") return;
+  const on = !!event.target.closest(".m-figure, .c1-dock");
+  clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(on), on ? 120 : 500);
+});
+$("card-window").addEventListener("pointerenter", () => { if (format().id === "mascot" || format().id === "card") return; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(true), 120); });
 $("card-window").addEventListener("pointerleave", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 // Done dragging or resizing away from the card: the controls go after the same delay as leaving it.
 addEventListener("pointerup", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
@@ -542,7 +551,7 @@ function drawApp() {
   if (!call.appOpen) { win.innerHTML = ""; return; }
   const settingsView = pick.view === "settings";
   win.innerHTML = `<header><span class="w-title">Sidevoice</span><span class="w-btns"><button type="button" data-run="minimise" title="Minimise">—</button></span></header>
-<div class="app-body" data-theme="dark">${settingsView ? settingsScreen() : `<nav><b>Conversations</b>${CREATURES.filter((c) => c.seed !== "Sidevoice").map((c) => `<span${c.id === creature().id ? ' class="on"' : ""}>${c.seed}</span>`).join("")}</nav>
+<div class="app-body" data-theme="${scheme()}">${settingsView ? settingsScreen() : `<nav><b>Conversations</b>${CREATURES.filter((c) => c.seed !== "Sidevoice").map((c) => `<span${c.id === creature().id ? ' class="on"' : ""}>${c.seed}</span>`).join("")}</nav>
 <section class="app-stage">${stage(330)}<p>The room, in front: the card hides while Sidevoice's window is in front (unless it is always shown). Minimise it to bring the card back.</p></section>`}</div>`;
   if (!settingsView) animator.restart();
   else requestAnimationFrame(fitPreviews);
@@ -565,8 +574,13 @@ const SECTIONS = [
 ];
 const navIcon = (name, size = 16) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICONS[name]}</svg>`;
 
+/** Where a new card first appears: a corner of the work area (a small screen with four spots). */
+function cornerPicker(s) {
+  const corner = pick.startCorner || "tr";
+  return `<div class="cc-corners" role="radiogroup" aria-label="${words("settings.callCard.startCorner")}">${["tl", "tr", "bl", "br"].map((c) => `<button type="button" role="radio" class="cc-corner" data-corner="${c}" aria-checked="${c === corner}" data-setting="corner" data-value="${c}" aria-label="${words("settings.callCard.corner." + c)}" title="${words("settings.callCard.corner." + c)}"></button>`).join("")}</div>`;
+}
 function settingsScreen() {
-  const s = settings(), own = pick.settingsPlace === "own";
+  const s = settings(), own = true; // a section of its own, after Call (decided)
   const current = own ? "card" : "call";
   const nav = SECTIONS.filter(([id]) => own || id !== "card")
     .map(([id, name, icon]) => `<button type="button" class="ui-nav-item"${id === current ? ' aria-current="page"' : ""}>${navIcon(icon, id === "this-computer" || id === "updates" ? 18 : 16)}<span>${name[pick.lang] ?? name.en}</span></button>`).join("");
@@ -581,7 +595,7 @@ ${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check
 <div class="ui-section-body"><div class="ui-group cc-card-group">${own ? "" : `<h3 class="ui-group-title">${words("settings.callCard.title")}</h3>`}<div class="ui-group-card">
 ${row(words("settings.callCard.format"), words("settings.callCard.previewNote"), `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
 ${row(words("settings.callCard.sizeTitle"), s.format === "pip" ? words("settings.callCard.sizeHint") : "", segmented("size", { s: words("settings.callCard.size.s"), m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l"), ...(customWidth(s.format) ? { custom: words("settings.callCard.size.custom") } : {}) }, customWidth(s.format) ? "custom" : s.size))}
-${row(words("settings.callCard.position"), words("settings.callCard.positionHint"), "")}
+${row(words("settings.callCard.startCorner"), words("settings.callCard.startCornerHint"), cornerPicker(s))}
 ${row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown))}
 ${row("", "", `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${s.place || customWidth(s.format) ? "" : " disabled"}><span class="ui-button-content">${words("settings.callCard.positionReset")}</span></button>`)}
 </div></div></div></section></div></div></div>`;
@@ -611,12 +625,13 @@ function cardPicture(id) {
     .replace(/<button\b/g, "<span").replace(/<\/button>/g, "</span>").replace(/<(\/?)(details|summary)\b/g, "<$1span")
     .replace(/\sdata-run="[^"]*"/g, "")
     .replace('<div class="stage-top cc-agent-slot"></div>', `<div class="stage-top">${balloon}</div>`)
+    .replace(/(<div class="c1x-stack"><div class="cc-captions cc-balloons" data-theme="dark">)<div class="cc-agent-slot"><\/div>/, `$1<div class="cc-still-slot">${balloon}</div>`)
     .replace(/(class="stage-tile" data-theme="dark" data-mood=")[a-z]+"/, '$1speaking"')
     .replace('<span class="cc-state-text"></span>', `<span class="cc-state-text">${STATES.speaking.line}</span>`)
     .replace('<i class="cc-dot"></i>', '<i class="cc-dot" style="background:var(--sv-voice, #e0a82e)"></i>')
     .replaceAll("cc-agent-slot", "cc-slot-off").replaceAll('"person-turns"', '"cc-slot-off"').replaceAll("cc-lines", "cc-slot-off");
   void was;
-  return `<span class="cc-card-picture" data-format="${id}" data-size="${PREVIEW_SIZE[id]}" style="--w:${box.w}px${box.h ? `;--h:${box.h}px` : ""}">${flat}</span>`;
+  return `<span class="cc-card-picture" data-scheme="${scheme()}" data-format="${id}" data-size="${PREVIEW_SIZE[id]}" style="--w:${box.w}px${box.h ? `;--h:${box.h}px` : ""}">${flat}</span>`;
 }
 /** Variant B: the real card in context, on a small copy of this computer's desktop (the page's desktop, as the app
  *  would detect it), where it first sits (the work area's top right), at the screen's own scale; the screen's top right
@@ -646,7 +661,7 @@ function draw() { drawDesktop(); drawCard(); drawApp(); drawPanel(); save(); }
 /** As today's card: a click within CLICK_GUARD_MS of the controls appearing (or the card changing size) runs nothing, so
  *  a click meant for what was under the pointer never hits a button that just moved there. */
 const CLICK_GUARD_MS = 350;
-let guardUntil = 0;
+let guardUntil = 0, cancelledAt = 0;
 /** Opens or closes the conversation picker, focus on the selected row when it opens and back on its opener when it closes. */
 function togglePicker(open) {
   pickerOpen = open;
@@ -677,26 +692,29 @@ addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   const target = event.target.closest("[data-run], [data-setting]");
   if (!target) return;
-  if (target.closest("#card-window") && Date.now() < guardUntil) return;
+  if (target.closest("#card-window") && Date.now() < guardUntil && run !== "cancel-turn") return;
   const run = target.dataset.run, setting = target.dataset.setting;
   if (run === "mute") setState(muted() ? "listening" : "muted");
   if (run === "skip") setState("idle");
+  // Taking the turn back: what was being said is dropped, its balloon (or line) goes, and the call listens again.
+  if (run === "cancel-turn") { cancelledAt = Date.now(); setState("listening"); return; }
   if (run === "c1-row") { c1RowOpen = !c1RowOpen; drawCard(); $("card-window").toggleAttribute("data-expanded", true); for (const el of $("card-window").querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", true); return; }
   if (run === "switch") { detailsOpen = false; togglePicker(!pickerOpen); return; }
   if (run === "details") { pickerOpen = false; detailsOpen = !detailsOpen; drawCard(); if (detailsOpen) $("card-window").toggleAttribute("data-expanded", true); return; }
-  if (run === "captions") { pick.captions = settings().captions ? "0" : "1"; refresh(); }
+  if (run === "captions") { pick.captions = settings().captions ? "0" : "1"; localStorage.setItem(CAPTIONS_KEY, pick.captions); refresh(); }
   if (run === "hangup") { call.ended = true; drawCard(); }
   if (run === "again") { call.ended = false; call.dismissed = false; call.since = Date.now(); drawCard(); }
-  if (run === "open") { call.appOpen = true; pick.view = ""; drawCard(); drawApp(); }
+  if (run === "open") { call.appOpen = true; call.dismissed = false; pick.view = ""; drawCard(); drawApp(); }
   if (run === "dismiss") { call.dismissed = true; drawCard(); return; }
   if (run === "show-card") { call.dismissed = false; drawCard(); return; }
   if (run === "minimise") { call.appOpen = false; drawCard(); drawApp(); }
   // The picture's gear: straight to Settings → Call → Floating call card.
-  if (run === "card-settings") { call.appOpen = true; pick.view = "settings"; draw(); $("app-window").querySelector(".cc-card-group")?.scrollIntoView({ block: "start" }); }
+  if (run === "card-settings") { call.appOpen = true; call.dismissed = false; pick.view = "settings"; draw(); $("app-window").querySelector(".cc-card-group")?.scrollIntoView({ block: "start" }); }
   if (setting === "always") pick.always = settings().alwaysShown ? "0" : "1";
   if (setting === "size" && target.dataset.value === "custom") return;
   if (setting === "format" || setting === "size") { preview(); keepAnchor(() => { if (setting === "size") forgetWidths(); pick[setting] = target.dataset.value; }); }
   if (setting === "reset") { pick.x = pick.y = ""; forgetWidths(); }
+  if (setting === "corner") { pick.startCorner = target.dataset.value; pick.x = pick.y = ""; preview(); }
   if (setting === "format" || setting === "size" || setting === "reset") preview();
   if (setting) refresh();
 });
@@ -833,26 +851,31 @@ const animator = (() => {
       // word read a different page while the last turn was still sliding, and the words jumped up and down.
       const tops = [];
       for (const rect of played.getClientRects()) if (rect.width && !tops.some((top) => Math.abs(top - rect.top) < line / 2)) tops.push(rect.top);
-      const page = Math.max(0, Math.floor((tops.length - 1) / 3));
+      // Lines a page: three, two in a small picture (its stage has room for no more).
+      const tile = bubble.closest(".stage-tile"), per = tile && tile.offsetHeight < 200 ? 2 : 3;
+      bubble.querySelector(".paged-text").style.setProperty("--paged-lines", String(per));
+      const page = Math.max(0, Math.floor((tops.length - 1) / per));
       if (run.dataset.page === String(page)) continue;
       run.dataset.page = String(page);
-      run.style.transform = `translateY(${-page * 3 * line}px)`;
+      run.style.transform = `translateY(${-page * per * line}px)`;
     }
   }
   /** The balloons for the state: the agent's while it speaks, the person's while they do (bars, then what was sent). */
   function balloons() {
     for (const slot of all(".cc-agent-slot")) slot.innerHTML = call.state === "speaking" ? agentBalloon() : "";
     for (const turns of all(".person-turns")) {
-      turns.innerHTML = call.state !== "listening" ? "" : personStep === 0 ? liveBalloon("listening") : personStep === 1 ? liveBalloon("transcribing") : sentBalloon();
+      turns.dataset.theme = scheme();
+      turns.innerHTML = !hearing() || personStep > 2 ? "" : personStep === 0 ? liveBalloon("listening") : personStep === 1 ? liveBalloon("transcribing") : sentBalloon();
     }
     for (const lines of all(".cc-lines")) lines.innerHTML = transcriptLines();
+    markTurn();
     tailsToward();
     if (call.state === "speaking") karaoke(SAYS.split(" ").slice(0, word).join(" "));
   }
   /** The title card's captions: what is being said as a transcript reads, a line per speaker, its name over it. */
   function transcriptLines() {
     if (call.state === "speaking") return `<p class="cc-line" data-role="assistant"><b>${call.title()}</b><span class="karaoke-text"><span class="karaoke-played"></span><span class="karaoke-upcoming">${SAYS}</span></span></p>`;
-    if (call.state === "listening") return `<p class="cc-line" data-role="user"><b>${words("card.you")}</b>${personStep === 2 ? `<span>${HEARS}</span>` : `<span class="voice-wave" data-phase="${personStep === 1 ? "transcribing" : "listening"}" role="status"><canvas aria-hidden="true"></canvas></span>`}</p>`;
+    if (hearing() && personStep <= 2) return `<p class="cc-line" data-role="user"><b>${words("card.you")}</b>${personStep === 2 ? `<span>${HEARS}</span>` : `<span class="cc-line-live"><span class="voice-wave" data-phase="${personStep === 1 ? "transcribing" : "listening"}" role="status"><canvas aria-hidden="true"></canvas></span>${cancelTurn()}</span>`}</p>`;
     return "";
   }
   /** The output level, as the room's voice publishes it while a reply sounds (preview/mock/voice.mjs: every 80 ms,
@@ -890,11 +913,20 @@ const animator = (() => {
     if (/[.?!]$/.test(all_[word - 1])) { sounding = false; playback.publish(0, "call"); later(() => { sounding = true; soundingSince = Date.now(); speak(); }, 650); }
     else later(speak, /,$/.test(all_[word - 1]) ? 650 : 180 + Math.random() * 240);
   }
+  /** Whether the person's turn can still be taken back: while recorded or transcribed (the cancel button shows). */
+  function markTurn() {
+    const win = $("card-window"); if (!win) return;
+    const turn = hearing() && !muted() && personStep < 2 ? (personStep === 1 ? "transcribing" : "recording") : "";
+    if (turn) win.dataset.turn = turn; else delete win.dataset.turn;
+  }
   /** The person's turn: speaking 3.5 s (the bars move), transcribed 1 s (they hold and blink), sent 2.5 s (PAGE_MS-ish). */
   function personTurn() {
+    markTurn();
     if (personStep === 1) for (const wave of all('.voice-wave[data-phase="listening"]')) wave.dataset.phase = "transcribing";
     else balloons();
     if (personStep === 0) { heardSince = performance.now(); columns.length = 0; }
+    // Held recording (the mock state), it stays there.
+    if (call.state === "recording" && personStep === 0) return;
     later(() => { personStep = (personStep + 1) % 3; personTurn(); }, [3500, 1000, 2500][personStep]);
   }
   /** The voice's bars as VoiceWaveform paints them on the stage (pitch 6, bar 3): newest at the right, a column every
@@ -915,9 +947,13 @@ const animator = (() => {
       const context = canvas.getContext("2d");
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       const capacity = Math.max(1, Math.floor(width / 6));
+      // Your voice's bars in the very colour of the microphone's level bars beside them (the card's, the room's), in the card's own theme.
+      // A1's line: the colour of the microphone's level bars beside it. A balloon's: the room's own (call-view.css, the person's ink).
+      const micBar = !canvas.closest(".person-bubble") && $("card-window")?.querySelector(".your-wave i, .mic-wave i");
+      const micColour = micBar ? getComputedStyle(micBar).backgroundColor : getComputedStyle(canvas).color;
       while (columns.length > capacity) columns.shift();
       context.clearRect(0, 0, width, height);
-      context.fillStyle = getComputedStyle(canvas).color;
+      context.fillStyle = micColour;
       context.beginPath();
       for (let slot = 0; slot < capacity; slot += 1) {
         const bar = Math.max(2, (columns[columns.length - 1 - slot] ?? 0) * (height - 2));
@@ -926,11 +962,11 @@ const animator = (() => {
       context.fill();
     }
     // The room's microphone pill draws its level from --mic-fill (room-session-controller.js voiceLevel).
-    for (const mic of all("#mic-control")) mic.style.setProperty("--mic-fill", call.state === "listening" && !muted() ? Math.round(speechLevel(now - heardSince, 0.7) * 100) + "%" : "0%");
+    for (const mic of all("#mic-control")) mic.style.setProperty("--mic-fill", hearing() && !muted() ? Math.round(speechLevel(now - heardSince, 0.7) * 100) + "%" : "0%");
     // Your microphone's wave in today's card (useWave): the level while you speak.
     for (const w of all(".your-wave")) {
       [...w.children].forEach((bar, i) => {
-        const live = call.state === "listening" && !muted();
+        const live = hearing() && !muted();
         bar.style.height = live ? Math.max(3, Math.round((20 + Math.random() * 80) * (1 - Math.abs(i - 5) / 7) * 0.16)) + "px" : "";
       });
     }
@@ -969,7 +1005,10 @@ const animator = (() => {
       every(rotate, 500);
       rotate();
       if (call.state === "speaking") speak();
-      if (call.state === "listening") later(() => { personStep = 1; personTurn(); }, 3500);
+      // Just taken back: nothing of yours shows until you speak again.
+      if (call.state === "listening" && Date.now() - cancelledAt < 1000) { personStep = 3; balloons(); later(() => { personStep = 0; personTurn(); }, 3000); }
+      else if (call.state === "listening") later(() => { personStep = 1; personTurn(); }, 3500);
+      markTurn();
       // Resting, it is quiet BORED_AFTER_MS before a pastime; under a balloon it holds still.
       if (STATES[call.state].mood === "idle" && !balloonUp()) later(() => { bored = true; rotate(); }, BORED_AFTER_MS);
       if (pick.cycle === "1") {
@@ -995,11 +1034,8 @@ function drawPanel() {
     select("format", "Format", FORMATS.map((f) => [f.id, f.label]), s.format),
     select("size", "Size", Object.entries(SIZES), s.size),
     `<label class="check"><input type="checkbox" data-pick="captions"${s.captions ? " checked" : ""}> Captions (as the card's own button)</label>`,
-    select("listFrom", "The list drops from", [["element", "What opened it (B)"], ["card", "The card's edge (A)"]], pick.listFrom),
-    s.format === "mascot" ? select("c1Style", "Avatar alone", [["minimal", "(a) Minimal: a pill over it, the bar under it"], ["plinth", "(b) On a base with its name"]], pick.c1Style) : "",
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
-    s.format === "pip" ? select("pipActions", "Picture's actions", [["header", "In the header (after)"], ["corner", "In the picture's corner (before)"]], pick.pipActions) : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
@@ -1007,7 +1043,7 @@ function drawPanel() {
     select("theme", "System theme", [["", `The desktop's (${env().theme})`], ["dark", "Dark"], ["light", "Light"]], pick.theme),
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
-    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}${select("pipLayout", "Picture's layout", [["meet", "Actions and controls over the picture (new)"], ["stacked", "Header, stage, controls (before)"]], pick.pipLayout === "stacked" ? "stacked" : "meet")}${select("settingsPlace", "Where the card's settings live", [["call", "A · In Call, as a group"], ["own", "B · A section of their own"]], pick.settingsPlace)}</div>`,
+    `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}</div>`,
     `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
 <p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");
@@ -1017,7 +1053,7 @@ $("controls").addEventListener("change", (event) => {
   const name = event.target.dataset.pick;
   if (!name) return;
   if (name === "cycle") pick.cycle = event.target.checked ? "1" : "0";
-  else if (name === "captions") pick.captions = event.target.checked ? "1" : "0";
+  else if (name === "captions") { pick.captions = event.target.checked ? "1" : "0"; localStorage.setItem(CAPTIONS_KEY, pick.captions); }
   else if (name === "motion") pick.motion = event.target.checked ? "reduced" : "full";
   else if (name === "format" || name === "size") { const value = event.target.value; keepAnchor(() => { if (name === "size") forgetWidths(); pick[name] = value; }); }
   else pick[name] = event.target.value;
@@ -1029,7 +1065,7 @@ $("controls").addEventListener("change", (event) => {
 $("controls").addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "place-reset") { pick.x = pick.y = ""; forgetWidths(); refresh(); }
-  if (action === "settings") { call.appOpen = true; pick.view = "settings"; draw(); }
+  if (action === "settings") { call.appOpen = true; call.dismissed = false; pick.view = "settings"; draw(); }
 });
 
 const panel = $("panel");

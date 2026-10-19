@@ -7,7 +7,7 @@
 export const FORMATS = [
   { id: "card", label: "A1 · Title card", sizes: { s: { w: 340 }, m: { w: 390 }, l: { w: 450 } },
     blurb: "Today's card grown up: the avatar in place of the brand mark, the conversation, its machine and its state; today's controls near the pointer. Captions as plain lines, above or below it." },
-  { id: "pip", label: "B1 · Picture in picture", sizes: { s: { w: 280, h: 158 }, m: { w: 340, h: 191 }, l: { w: 560, h: 315 } },
+  { id: "pip", label: "B1 · Picture in picture", sizes: { s: { w: 350, h: 197 }, m: { w: 420, h: 236 }, l: { w: 560, h: 315 } },
     blurb: "The room's 16:9 stage itself, small, with nothing changed; a button at its top right goes back to the call; today's controls over it near the pointer." },
   { id: "mascot", label: "C1 · Just the avatar", sizes: { s: { w: 120 }, m: { w: 160 }, l: { w: 220 } },
     blurb: "Only the avatar, floating on the desktop, on nothing; today's controls under it near the pointer. Its balloons open above or below it, never sideways." },
@@ -20,7 +20,7 @@ export const SIZES = { s: "Small", m: "Medium", l: "Large" };
  *  exist today (sidevoice-desktop: the "Always show the call controls" switch, and the card's place); `format` and
  *  `size` are new, set in Settings; `captions` is new too, but only the card's own button sets it (on by default; the
  *  room's call view gets the same toggle later), never Settings. */
-export const SETTING_DEFAULTS = { format: "card", size: "l", captions: true, alwaysShown: false, place: null };
+export const SETTING_DEFAULTS = { format: "card", size: "m", captions: true, alwaysShown: false, place: null };
 
 /** One card's settings, filled from the defaults; unknown values fall back. */
 export function cardSettings(stored = {}) {
@@ -59,6 +59,14 @@ export const COPY = {
   "settings.callCard.previewNote": { en: "Shown for a moment on your screen.", es: "Se muestra un momento en tu pantalla." },
 
   "card.you": { en: "You", es: "Tú" },
+  // The room's own (sidevoice-web stage.cancelTurn).
+  "stage.cancelTurn": { en: "Cancel sending", es: "Cancelar envío" },
+  "settings.callCard.startCorner": { en: "Default position", es: "Posición inicial" },
+  "settings.callCard.startCornerHint": { en: "Where the card first appears. After that, drag it anywhere: it stays where you leave it on each screen.", es: "Dónde aparece la tarjeta la primera vez. Luego arrástrala a donde quieras: se queda donde la dejes en cada pantalla." },
+  "settings.callCard.corner.tl": { en: "Top left", es: "Arriba a la izquierda" },
+  "settings.callCard.corner.tr": { en: "Top right", es: "Arriba a la derecha" },
+  "settings.callCard.corner.bl": { en: "Bottom left", es: "Abajo a la izquierda" },
+  "settings.callCard.corner.br": { en: "Bottom right", es: "Abajo a la derecha" },
   "settings.callCard.position": { en: "Position", es: "Posición" },
   "settings.callCard.positionHint": { en: "Drag it anywhere. It stays where you leave it on each screen.", es: "Arrástrala a donde quieras. Se queda donde la dejes en cada pantalla." },
   "settings.callCard.sizeTitle": { en: "Starting size", es: "Tamaño inicial" },
@@ -73,9 +81,10 @@ export const COPY = {
  *  menu bar), first at the top right; dropped within `magnet` of an edge, against it. */
 export const PLACEMENT = { margin: 12, magnet: 56 };
 
-/** Where a card never placed goes: the work area's top-right corner. `work` and `size` are { width, height }. */
-export function firstPlace(work, size) {
-  return { x: work.width - size.width, y: 0 };
+/** Where a card never placed goes: the corner Settings' Default position names (top right unless set). `work` and `size`
+ *  are { width, height }. After that it stays where it is dragged. */
+export function firstPlace(work, size, corner = "tr") {
+  return { x: corner.endsWith("r") ? work.width - size.width : 0, y: corner.startsWith("b") ? work.height - size.height : 0 };
 }
 
 /** Where the card lands when dropped at `at`: inside the work area, and against an edge or a corner when dropped within
@@ -99,6 +108,8 @@ export const opensDown = (place, size, work) => place.y + size.height / 2 < work
 /** The call's states the card shows. `mood` is what the avatar acts out (the room's stage moods). */
 export const STATES = {
   listening: { label: "Listening", line: "Listening to you", mood: "listening" },
+  // The person's turn held while it is recorded (a mock: the cancel button stays up to be seen).
+  recording: { label: "Your turn, recording", line: "Listening to you", mood: "listening" },
   speaking: { label: "Speaking", line: "Speaking", mood: "speaking" },
   working: { label: "Agent working", line: "Working", mood: "working" },
   muted: { label: "Muted", line: "Muted", mood: "idle" },

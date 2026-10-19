@@ -133,9 +133,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #app-window { position: absolute; left: 8%; top: 6%; width: 72%; height: 80%; border-radius: 12px; overflow: hidden; background: #14171b; color: #e8edf1;
   box-shadow: 0 24px 70px rgb(0 0 0 / 50%); display: flex; flex-direction: column; font-family: var(--font); }
 #app-window[hidden] { display: none; }
-#app-window header { height: 36px; display: flex; align-items: center; justify-content: center; position: relative; background: #1c2128; font-weight: 600; }
-#app-window .w-btns { position: absolute; right: 8px; top: 4px; }
-#app-window .w-btns button { width: 40px; height: 28px; border: 0; border-radius: 6px; background: #2a313a; color: #fff; cursor: pointer; }
+#app-window > header { height: 36px; display: flex; align-items: center; justify-content: center; position: relative; background: #1c2128; font-weight: 600; }
+#app-window > header .w-btns { position: absolute; right: 8px; top: 4px; }
+#app-window > header .w-btns button { width: 40px; height: 28px; border: 0; border-radius: 6px; background: #2a313a; color: #fff; cursor: pointer; }
 .app-body { flex: 1; display: flex; min-height: 0; }
 .app-body nav { width: 220px; padding: 14px; display: flex; flex-direction: column; gap: 6px; background: #1a1e24; }
 .app-body nav span { padding: 8px 10px; border-radius: 10px; color: #b8c0ca; }
@@ -650,22 +650,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-pip-meet[data-sized] .pip-canvas { min-height: 0; }
 /* B1's bar fits any width the window takes: smaller buttons and gaps, then the level's chevron button gives way. */
 .cc-pip-meet { container: pip / inline-size; }
-@container pip (max-width: 380px) {
-  .pip-bar-below .call-actions { gap: 6px !important; padding: 4px !important; }
-  .pip-bar-below .call-button { width: 38px !important; height: 38px !important; }
-  .pip-bar-below .call-button svg { width: 18px !important; height: 18px !important; }
-  .pip-bar-below #connect { width: 50px !important; }
-  .pip-bar-below .audio-devices-toggle { width: 32px; height: 38px; }
-}
-@container pip (max-width: 300px) {
-  .pip-bar-below .call-actions { gap: 4px !important; padding: 3px !important; }
-  .pip-bar-below .call-button { width: 32px !important; height: 32px !important; }
-  .pip-bar-below .call-button svg { width: 16px !important; height: 16px !important; }
-  .pip-bar-below #connect { width: 42px !important; }
-  .pip-bar-below .audio-devices-toggle { display: none; }
-  .pip-head-1 .stage-machine { font-size: 10px; }
-  .pip-head-actions .cc-action { width: 24px; height: 24px; }
-}
+
 /* The previews' picture: its stage fills its 16:9 area (the live card's is fitted by fitPip). */
 .cc-card-picture .cc-pip-meet .pip-canvas .stage-tile { inset: 0 !important; width: auto !important; height: auto !important; }
 /* Settings' previews, B: a soft screen corner, no system chrome; the card where it sits, still. */
@@ -681,7 +666,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .pip-head-1 .stage-machine { flex: 0 100 auto !important; min-width: 0; overflow: hidden; }
 .pip-head-1 .stage-machine > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pip-head-1 .pip-head-actions { flex: none; }
-@container pip (max-width: 320px) { .pip-head-1 .stage-machine { display: none; } }
 
 /* ---------- round 13: the switcher apart from the title ---------- */
 /* The phone's switcher (room.css .header-conversations), compact: its avatars and its own chevron, always there. */
@@ -713,7 +697,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .pip-head-1 .pip-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pip-head-1 .cc-switcher { margin-left: auto; }
 .pip-head-1 .stage-machine + .cc-switcher { margin-left: auto; }
-@container pip (max-width: 300px) { .pip-head-1 .stage-machine { display: none; } }
 @container pip (max-width: 330px) { .pip-head-1 .cc-switcher .header-avatar:not([aria-pressed=true]) { display: none; } }
 @container pip (max-width: 280px) { .pip-head-1 .cc-switcher .header-avatar { display: none; } }
 /* C1: the name, the switcher and the two actions in the pill (or on the base). */
@@ -811,3 +794,213 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .pip-head-1 .pip-hover-icons .cc-action:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text); }
 #card-window[data-expanded] .pip-head-1 .pip-hover-icons, .cc-pip-meet:focus-within .pip-head-1 .pip-hover-icons { visibility: visible; }
 @container pip (max-width: 300px) { .pip-head-1 .pip-hover-icons .cc-action, .pip-head-1 .pip-head-x .cc-action { width: 24px; height: 24px; } }
+
+/* ---------- round 17 ---------- */
+/* B1: one inner padding for everything, at every size. */
+:is(#card-window, .cc-card-picture) .cc-pip-meet { padding: 10px 10px 0; gap: 8px; }
+.cc-pip-meet .pip-head-1 { padding-left: 2px; }
+/* B1: one box, as the room's screen: the stage without a frame of its own (no border, no ring, no second background). */
+.cc-pip-meet .stage-tile { border: 0 !important; box-shadow: none !important; border-radius: var(--sv-radius-xl, 14px); }
+.cc-pip-meet .pip-canvas { background: none !important; border-radius: var(--sv-radius-xl, 14px); overflow: hidden; }
+/* B1: three steps for its chrome as it gets smaller, not a slide: Large, Medium, Small (Small a touch above the old least). */
+/* (Set on the picture's parts: a container query reaches its descendants, not the container itself.) */
+.cc-pip-meet > * { --pip-btn: 44px; --pip-icon: 20px; --pip-title: 16px; --pip-gap: 10px; }
+@container pip (max-width: 439px) { .cc-pip-meet > * { --pip-btn: 40px; --pip-icon: 19px; --pip-title: 15px; --pip-gap: 8px; } }
+@container pip (max-width: 299px) { .cc-pip-meet > * { --pip-btn: 36px; --pip-icon: 17px; --pip-title: 14px; --pip-gap: 6px; } .pip-bar-below .audio-devices-toggle { display: none; } }
+.pip-bar-below .call-actions { gap: var(--pip-gap) !important; padding: 4px !important; }
+.pip-bar-below .call-button { width: var(--pip-btn) !important; height: var(--pip-btn) !important; }
+.pip-bar-below .call-button svg { width: var(--pip-icon) !important; height: var(--pip-icon) !important; }
+.pip-bar-below #connect { width: calc(var(--pip-btn) * 1.3) !important; }
+.pip-bar-below .audio-devices-toggle { height: var(--pip-btn); }
+.pip-head-1 .pip-title { font-size: var(--pip-title); }
+/* B1: the machine beside the title when it fits whole there, else on a line of its own under it when there is room. */
+.pip-head-1[data-machine=below] { flex-wrap: wrap; row-gap: 0; }
+.pip-head-1[data-machine=below] .stage-machine { order: 9; flex-basis: 100%; margin-left: 0; height: auto; padding: 0; border: 0; background: none; font-size: 11px; }
+.pip-head-1[data-machine=below] .stage-machine > span { overflow: visible; }
+
+/* A1: the title and the conversations control on one centre line. */
+.cc-a1 .card-title { display: flex !important; align-items: center !important; line-height: 1.2; }
+.cc-a1 .card-title .cc-convs { align-self: center; margin-top: 0; }
+/* A1: settings, open and × back in the top right corner, near the pointer, lying over what is there (nothing moves). */
+.cc-a1 .a1-corner { position: absolute; z-index: 3; top: 6px; right: 8px; display: flex; gap: 2px; padding-left: 16px; border-radius: 0 12px 0 0;
+  background: linear-gradient(90deg, transparent, var(--glass, #16191f) 14px); visibility: hidden; }
+.cc-a1[data-expanded] .a1-corner, .cc-a1:focus-within .a1-corner { visibility: visible; }
+.cc-a1 .a1-corner .cc-action { width: 26px; height: 26px; color: var(--mu); }
+.cc-a1 .a1-corner .cc-action:hover { background: var(--btn); color: var(--fg); }
+.cc-a1 .card-controls > .cc-actions { display: none !important; }
+/* A1: your wave back in the middle of the row, where it was before round 10 (the corner buttons now lie over the top). */
+.cc-a1[data-head] .your-wave { align-self: center; margin-bottom: 0; }
+
+/* ---------- corner buttons, count (live fix) ---------- */
+/* The corner buttons are quiet icon buttons: no backing of their own in either theme, the theme's icon colour, a soft
+   wash on hover. Where they lie over the title's end, the title fades under them instead. */
+.cc-a1 .a1-corner, .pip-head-1 .pip-hover-icons, .pip-head-1 .pip-head-x, .cc-pip-meet .pip-head-actions { background: none !important; }
+.cc-a1 .a1-corner .cc-action, .pip-head-1 :is(.pip-hover-icons, .pip-head-x) .cc-action { background: none; }
+.cc-a1 .a1-corner .cc-action:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); }
+.pip-head-1 :is(.pip-hover-icons, .pip-head-x) .cc-action:hover { background: color-mix(in srgb, var(--sv-text) 9%, transparent); }
+#card-window[data-expanded] .pip-head-1 h2[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 h2[data-under-icons] { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent calc(100% - 4px)); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent calc(100% - 4px)); }
+/* A1: the conversations control no taller than the title's line, its count a step under the title, its mark to match. */
+.call-card .cc-convs { height: 20px; padding: 0 6px; gap: 3px; font-size: 12.5px; font-weight: 600; line-height: 1; }
+.call-card .cc-convs svg { width: 13px; height: 13px; }
+.call-card .cc-convs .cc-convs-chevron { width: 11px; height: 11px; }
+[data-size=l] .cc-a1 .cc-convs { height: 22px; font-size: 13.5px; }
+[data-size=l] .cc-a1 .cc-convs svg:first-child { width: 14px; height: 14px; }
+
+/* ---------- B1's title block is the room's heading (.stage-title: CallDetails StageHeading) ---------- */
+/* The title, then its machine on the line under it, always; the conversations control where the room's chevron is. No
+   measuring and no other placement: a window too short for the line clips it with the header. */
+.pip-head-1 h2 { flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden; }
+.pip-head-1 .stage-heading { display: grid; justify-items: start; gap: .25em; min-width: 0; max-width: 100%; margin: 0; padding: 0; cursor: default; }
+.pip-head-1 .stage-heading-name { display: flex; align-items: center; gap: .3em; min-width: 0; max-width: 100%; }
+.pip-head-1 .pip-title { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pip-head-1 .stage-machine { display: inline-flex !important; visibility: visible !important; flex: none; margin: 0; order: 0; flex-basis: auto; }
+.pip-head-1 .stage-machine > span { overflow: hidden; text-overflow: ellipsis; }
+.pip-head-1 .cc-convs { margin-left: 4px; }
+#card-window[data-expanded] .pip-head-1 h2[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 h2[data-under-icons] { -webkit-mask-image: none; mask-image: none; }
+#card-window[data-expanded] .pip-head-1 .pip-title[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 .pip-title[data-under-icons] { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+
+/* ---------- B1: readable text at the Small step, never under the room's own minimums ---------- */
+/* The stage's words at the room's floors (call-view.css .stage-tile: balloon 18px, person 16px, chips 11px). */
+.cc-pip-meet .stage-tile { --bubble-fs: clamp(18px, calc(25.6 * var(--u)), 34px) !important; --person-fs: clamp(16px, calc(22.4 * var(--u)), 28px) !important;
+  --chip-fs: clamp(11px, calc(12 * var(--u)), 15px) !important; --name-fs: clamp(14px, calc(20 * var(--u)), 26px) !important; }
+/* The header's words: the title at the room's name floor at Small, the machine and the count at its chip floor. */
+@container pip (max-width: 299px) { .cc-pip-meet > * { --pip-title: 15px; } }
+.pip-head-1 .stage-machine { font-size: 12px !important; }
+.pip-head-1 .cc-convs { font-size: 12px; }
+
+/* ---------- B1: the balloons fit the stage at every size ---------- */
+/* The chrome keeps its readable floors; the balloons scale with the stage instead (their words, padding, tail), are
+   capped to it, and show two lines a page in a small picture (karaoke(): --paged-lines). Overrides the floors above. */
+.cc-pip-meet .stage-tile { --bubble-fs: clamp(11px, calc(25.6 * var(--u) * 1.6), 34px) !important; --person-fs: clamp(10.5px, calc(22.4 * var(--u) * 1.6), 28px) !important; }
+.cc-pip-meet .stage-bubble { max-width: calc(100% - 2 * var(--stage-inset)) !important; }
+.cc-pip-meet .stage-top > * { max-height: 100%; }
+.cc-pip-meet .person-turns { max-width: calc(100% - 2 * var(--stage-inset)); --live-w: min(calc(var(--person-live-w) * var(--u) * 1.6), 70cqi); }
+.cc-pip-meet .person-turns .person-bubble { max-width: 100%; }
+/* The agent's balloon keeps the room's place (pushed left of the agent, its right end over it) but never leaves the
+   stage: its width is what is left of the row after that push. */
+.cc-pip-meet .stage-bubble { --push: clamp(0px, calc(50% - 112 * var(--u) * 1.6), 40%); width: auto !important; margin-inline-end: var(--push) !important; max-width: calc(100% - var(--push)) !important; justify-self: end; }
+
+/* ---------- B1 round 18: a readable least, a top bar ---------- */
+/* The agent's balloon never under 12.5px: the picture's least size gives its stage the height for two such lines. */
+.cc-pip-meet .stage-tile { --bubble-fs: clamp(12.5px, calc(25.6 * var(--u) * 1.6), 34px) !important; --person-fs: clamp(12px, calc(22.4 * var(--u) * 1.6), 28px) !important; }
+/* The header is a top bar: its title block kept off the edge (the room's heading's own negative margin undone), and the
+   icons at its very top, level with the title's line; × always has its room; the icons step with the chrome. */
+.pip-head-1 { padding-left: 4px !important; align-items: flex-start !important; }
+.pip-head-1 .stage-heading { margin: 0 !important; padding: 0 !important; }
+.cc-pip-meet > * { --pip-hicon: 28px; }
+@container pip (max-width: 439px) { .cc-pip-meet > * { --pip-hicon: 26px; } }
+@container pip (max-width: 299px) { .cc-pip-meet > * { --pip-hicon: 24px; } }
+.pip-head-1 .pip-head-x, .pip-head-1 .pip-hover-icons { top: 0 !important; transform: none !important; height: calc(var(--pip-title) * 1.2); align-items: center; }
+.pip-head-1 :is(.pip-head-x, .pip-hover-icons) .cc-action { width: var(--pip-hicon) !important; height: var(--pip-hicon) !important; }
+.cc-pip-meet[data-icons=hover] .pip-head-1 { padding-right: calc(var(--pip-hicon) + 6px) !important; }
+/* No wash on the title block when the pointer is on it: it opens nothing here. */
+.pip-head-1 .stage-heading, .pip-head-1 .stage-heading:hover, .pip-head-1 .stage-heading[aria-expanded="true"] { background: none !important; box-shadow: none !important; }
+
+/* ---------- round 19 ---------- */
+/* Settings' picture preview: drawn at its preset, its own height (no window size pinned onto it). */
+.cc-card-picture .cc-pip-meet { height: auto !important; grid-template-rows: auto auto auto !important; }
+/* Settings: the previews' screen in the light theme. */
+.cc-card-picture[data-scheme=light] ~ *, .app-body[data-theme=light] .cc-preview[data-preview] { background: radial-gradient(130% 120% at 85% 0%, #dfe3f3 0%, #cfd5ea 45%, #c3cae2 100%); }
+/* Settings: Default position, four spots on a small screen. */
+.cc-corners { display: grid; grid-template-columns: repeat(2, 28px); grid-template-rows: repeat(2, 18px); gap: 4px 34px; padding: 6px 8px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); }
+.cc-corner { width: 28px; height: 18px; padding: 0; border: 1.5px solid var(--sv-border-strong, #4a5160); border-radius: 4px; background: none; cursor: pointer; }
+.cc-corner[aria-checked=true] { border-color: var(--sv-accent); background: color-mix(in srgb, var(--sv-accent) 35%, transparent); }
+.cc-corner:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+/* B1: the conversations control has no hover wash; the title line and the top bar's icons share one centre line, with the
+   same gap to the card's edge on both sides. */
+.pip-head-1 .cc-convs:hover, .pip-head-1 .cc-convs[aria-expanded=true] { background: color-mix(in srgb, var(--sv-text) 7%, transparent) !important; color: var(--sv-text-muted) !important; }
+.pip-head-1 .stage-heading-name { height: var(--pip-hicon); }
+.pip-head-1 .pip-head-x, .pip-head-1 .pip-hover-icons { height: var(--pip-hicon) !important; }
+.pip-head-1 .cc-convs { height: min(24px, var(--pip-hicon)); }
+.cc-pip-meet[data-icons=hover] .pip-head-1 .pip-head-x { right: 0 !important; }
+.cc-pip-meet .pip-head-1 { padding-left: 4px !important; }
+.cc-pip-meet .pip-head-1 .pip-head-x .cc-action { margin-right: 0; }
+/* A1: × always there; settings and open near the pointer. */
+.cc-a1 .a1-corner { visibility: visible !important; background: none !important; }
+.cc-a1:not([data-expanded]):not(:focus-within) .a1-corner .cc-action:not(.pip-close) { visibility: hidden; }
+
+/* ---------- C1, one stack (round 19) ---------- */
+/* The window is the avatar's box; the stack hangs off it toward the middle of the screen (data-open), outside the box. */
+#card-window .c1x { position: relative; width: var(--w); padding: 0; }
+.c1x .m-figure { display: block; width: var(--w); height: var(--w); }
+.c1x .c1x-stack { position: absolute; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; width: max(var(--w), 320px); left: 50%; transform: translateX(-50%); }
+#card-window[data-open=down] .c1x .c1x-stack { top: calc(var(--w) * .92); }
+#card-window[data-open=up] .c1x .c1x-stack { bottom: calc(var(--w) * .92); flex-direction: column-reverse; }
+#card-window[data-flush][data-side=left] .c1x .c1x-stack { left: 0; transform: none; align-items: flex-start; }
+#card-window[data-flush][data-side=right] .c1x .c1x-stack { left: auto; right: 0; transform: none; align-items: flex-end; }
+/* Its balloons: in the stack, the avatar's width, the room's balloons (their tails toward the avatar). */
+#card-window .c1x .cc-captions { position: static !important; width: var(--w) !important; inset: auto !important; }
+.c1x .cc-balloons { --k: .5; --bubble-fs: 14px; --person-fs: 13px; }
+[data-size=l] .c1x .cc-balloons { --k: .66; --bubble-fs: 17px; --person-fs: 15px; }
+.c1x .cc-captions .cc-agent-slot, .c1x .cc-captions .person-turns { justify-self: stretch; width: 100%; }
+.c1x .cc-captions .person-turns { position: static; align-items: stretch; }
+.c1x .cc-captions .speech-bubble { width: 100%; max-width: 100%; box-sizing: border-box; }
+/* The dock: B1's top bar and call bar, one card, at the stack's far end; there near the pointer only (it keeps its room,
+   so nothing moves when it comes). */
+#card-window .c1x .c1-dock { width: 300px; height: auto; grid-template-rows: auto auto; padding-bottom: 0; visibility: hidden; }
+#card-window[data-expanded] .c1x .c1-dock, .c1x .c1-dock:focus-within { visibility: visible; }
+.c1x .c1-dock .pip-bar-below .pip-bar { padding-bottom: 10px; }
+/* Where open and settings lie over the title's end, the title is gone under them (not only faded). */
+#card-window[data-expanded] .pip-head-1 .pip-title[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 .pip-title[data-under-icons] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 84px), transparent calc(100% - 62px)); mask-image: linear-gradient(90deg, #000 calc(100% - 84px), transparent calc(100% - 62px)); }
+/* C1's dock is B1 without the stage, in B1's order wherever it sits (its top bar over its call bar), and without the
+   machine (it has no stage to tell apart). */
+#card-window .c1x .c1-dock { display: grid !important; grid-template-rows: auto auto !important; }
+.c1x .c1-dock > .pip-head-1 { order: 0 !important; } .c1x .c1-dock > .pip-bar-below { order: 1 !important; }
+.c1x .c1-dock .stage-machine { display: none !important; }
+.c1x .c1-dock .stage-heading { gap: 0; }
+/* Wide enough for the whole title, its switcher and the icons near the pointer, without covering the title. */
+#card-window .c1x .c1-dock { width: 368px; }
+
+
+
+/* C1 (A): the dock is its own piece. Nothing said: under (or over) the avatar, where the stack starts. A balloon up: beside
+   the avatar, on its open side, level with it, so the balloons keep the vertical and the dock the horizontal. */
+#card-window .c1x .c1-dock { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); }
+#card-window[data-open=down] .c1x .c1-dock { top: calc(var(--w) * .92); }
+#card-window[data-open=up] .c1x .c1-dock { bottom: calc(var(--w) * .92); }
+#card-window[data-flush][data-side=left] .c1x .c1-dock { left: 0; transform: none; }
+#card-window[data-flush][data-side=right] .c1x .c1-dock { left: auto; right: 0; transform: none; }
+#card-window .c1x:has(.cc-captions .speech-bubble) .c1-dock { top: calc(var(--w) / 2) !important; bottom: auto !important; transform: translateY(-50%) !important; }
+#card-window[data-side=left] .c1x:has(.cc-captions .speech-bubble) .c1-dock { left: calc(100% + 8px) !important; right: auto !important; }
+#card-window[data-side=right] .c1x:has(.cc-captions .speech-bubble) .c1-dock { right: calc(100% + 8px) !important; left: auto !important; }
+
+/* C1: the dock always beside the avatar, on its open side, level with it (it never changes place), and a touch more
+   compact: B1's top bar over its call bar, at B1's Small step, without the level's chevron button. */
+#card-window .c1x .c1-dock { top: calc(var(--w) / 2) !important; bottom: auto !important; transform: translateY(-50%) !important; width: 320px; }
+#card-window[data-side=left] .c1x .c1-dock { left: calc(100% + 8px) !important; right: auto !important; }
+#card-window[data-side=right] .c1x .c1-dock { right: calc(100% + 8px) !important; left: auto !important; }
+.c1x .c1-dock > * { --pip-btn: 34px; --pip-icon: 16px; --pip-title: 14px; --pip-gap: 6px; --pip-hicon: 24px; }
+.c1x .c1-dock .pip-bar-below .audio-devices-toggle { display: none; }
+.c1x .c1-dock { padding: 8px 8px 0 !important; gap: 6px !important; }
+.c1x .c1-dock .pip-bar-below .pip-bar { padding: 0 0 8px !important; }
+#card-window .c1x .c1-dock { width: 346px; }
+/* Settings: the avatar's preview as it is live against the right edge: the avatar at the right, its dock open to its left,
+   level with it. */
+/* The avatar's settings preview: the avatar and its balloon above it, no dock (operator, 2026-10-19). */
+.cc-card-picture .c1x { position: relative; display: block; width: var(--w); margin-top: 96px; }
+.cc-card-picture .c1x .c1-dock { display: none !important; }
+.cc-card-picture .c1x .c1x-stack { bottom: calc(var(--w) * .92); top: auto; width: 260px; left: auto; right: 0; transform: none; align-items: flex-end; }
+.cc-card-picture .c1x .cc-captions { position: static !important; width: 100% !important; inset: auto !important; }
+.cc-card-picture .c1x .cc-still-slot { display: grid; width: 100%; }
+.cc-card-picture .c1x .speech-bubble { margin: 0 0 var(--tail-h); }
+
+
+/* The room's "Cancel sending" (coordinator, 2026-10-19). B1 and C1: in your balloon under the bars, as the room has it
+ * (call-view.css .person-live-actions). A1, whose captions are lines: at the end of the "You" line, its space kept there
+ * so the bars never run under it; the same button, no balloon. */
+.cc-line .cc-line-live { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cc-line .cc-line-live .voice-wave { flex: 1 1 auto; min-width: 0; width: auto; }
+.cc-line .ui-button.cancel-input { flex: none; height: 28px; padding: 0 .6em; font-size: 13px; color: var(--mu); }
+.cc-line .ui-button.cancel-input:hover { color: var(--fg); }
+
+/* The cursor as in the app (call-card.css: body default, buttons pointer): the plain pointer all over the card, the
+ * hand only on its buttons; dragging moves it without a move or grab cursor. Resize grips keep the system's. */
+#card-window, #card-window *, #card-window.dragging, #card-window.dragging * { cursor: default; }
+#card-window :is(button, .ui-button, [role=button], summary, a[href]):not(:disabled, [aria-disabled=true]) { cursor: pointer; }
+#card-window.dragging :is(button, .ui-button) { cursor: default; }
+#card-window .cc-resize:is([data-edge=nw], [data-edge=se]), #card-window.resizing, #card-window.resizing * { cursor: nwse-resize; }
+#card-window .cc-resize:is([data-edge=ne], [data-edge=sw]) { cursor: nesw-resize; }
+#card-window .cc-resize:is([data-edge=w], [data-edge=e]) { cursor: ew-resize; }
+/* The cancel button is pressable where it sits, though the captions around it let the pointer through. */
+#card-window .cancel-input, #card-window .person-live-actions { pointer-events: auto; }
