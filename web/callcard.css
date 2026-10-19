@@ -529,3 +529,83 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-mascot > .cc-strip .cc-switch-row { padding-top: 6px; border-top: 1px solid var(--line); }
 .cc-mascot .cc-resize[data-edge=w], .cc-mascot .cc-resize[data-edge=e], #card-window[data-format=mascot] .cc-resize[data-edge=w], #card-window[data-format=mascot] .cc-resize[data-edge=e] { display: none; }
 #card-window[data-format=mascot] .cc-resize::after { inset: 4px; border-radius: 50%; border-width: 1.5px; }
+
+/* ---------- round 12 ---------- */
+/* The row's overflow: one quiet "more" pill of the avatars' own size (the count is in its name). */
+.cc-switch-row .cc-more { display: grid; place-items: center; width: 30px; height: 30px; margin-left: 2px; padding: 0; border: 0; border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-text, #fafafa) 7%, transparent); color: var(--sv-text-muted, #b0b3bd); cursor: pointer; }
+.cc-switch-row .cc-more:hover, .cc-switch-row .cc-more[aria-expanded=true] { background: color-mix(in srgb, var(--sv-text, #fafafa) 14%, transparent); color: var(--sv-text, #fafafa); }
+.cc-switch-row .cc-more svg { transform: none !important; }
+.cc-switch-row .header-new { width: 30px; height: 30px; border-width: 1px; border-color: color-mix(in srgb, var(--sv-text, #fafafa) 22%, transparent); }
+/* The list and the details over everything on the card. */
+#card-window .cc-picker, #card-window .cc-details { z-index: 30; }
+
+/* B1: the header on two lines (the name ▾ and the three actions; the machine, never cut, and the row); the room's call
+   bar under the picture as before, always or near the pointer. */
+.cc-pip-meet .pip-head-2 { display: grid !important; gap: 4px; padding: 0 0 0 4px; }
+.pip-head-2 .pip-head-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.pip-head-2 h2 { flex: 1; min-width: 0; }
+.pip-head-2 .stage-heading { max-width: 100%; }
+.pip-head-2 .stage-machine { flex: none; font-size: 11px; }
+.pip-head-2 .cc-switch-row { flex: none; }
+.pip-head-actions { display: inline-flex; flex: none; gap: 2px; }
+.pip-head-actions .cc-action { width: 28px; height: 28px; color: var(--sv-text-muted); }
+.pip-head-actions .cc-action:hover { background: var(--sv-hover, rgb(255 255 255 / 8%)); color: var(--sv-text); }
+.cc-pip-meet .pip-bar-below .pip-bar { grid-template-columns: 1fr; justify-items: center; padding: 2px 0 8px; background: none; }
+.cc-pip-meet .pip-bar-below .controls { grid-column: 1; grid-template-rows: auto; }
+.cc-pip-meet .pip-bar-below .call-actions { grid-row: 1; }
+.cc-pip-meet[data-bar=hover] .pip-bar-below { max-height: 0; overflow: hidden; transition: max-height .2s ease; }
+#card-window[data-expanded] .cc-pip-meet[data-bar=hover] .pip-bar-below { max-height: 90px; }
+/* Before: the actions in the picture's corner, now one quiet chip as the stage's own (its model badge). */
+.cc-pip-meet .pip-frame-actions.stage-tag { gap: 0; height: auto; padding: 1px 3px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill);
+  background: color-mix(in srgb, var(--sv-surface) 84%, transparent); }
+.cc-pip-meet .pip-frame-actions.stage-tag .cc-action { width: 26px; height: 26px; color: var(--sv-text-muted); }
+.cc-pip-meet .pip-frame-actions.stage-tag .cc-action:hover { color: var(--sv-text); background: none; }
+
+/* C1, both ways: the avatar on nothing; near the pointer the room's call bar under it (as B1's), centred (against a
+   screen edge, kept to it). */
+#card-window .c1 { width: var(--w); padding: 0; }
+.c1 .c1-bar { position: absolute; z-index: 4; top: calc(var(--w) * .92); left: 50%; transform: translateX(-50%); visibility: hidden; }
+#card-window[data-expanded] .c1 .c1-bar { visibility: visible; }
+.c1 .c1-bar .pip-bar { grid-template-columns: 1fr; padding: 0; background: none; }
+.c1 .c1-bar .controls { grid-column: 1; grid-template-rows: auto; }
+.c1 .c1-bar .call-actions { grid-row: 1; }
+#card-window[data-flush][data-side=left] .c1 :is(.c1-bar, .c1-pill, .c1-row) { left: 0; transform: none; }
+#card-window[data-flush][data-side=right] .c1 :is(.c1-bar, .c1-pill, .c1-row) { left: auto; right: 0; transform: none; }
+.c1 .c1-name { display: grid; min-width: 0; padding: 2px 8px; border: 0; border-radius: var(--sv-radius-pill); background: none; color: var(--fg); font: inherit; text-align: start; cursor: pointer; }
+.c1 .c1-name:hover { background: var(--btn); }
+.c1 .c1-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; font-weight: 650; }
+.c1 .c1-machine { display: inline-flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; font-size: 11px; color: var(--mu); }
+.c1 .cc-actions { position: static; visibility: inherit; flex: none; }
+.c1 .c1-row { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); width: auto; padding: 4px 6px; }
+/* (a) a slim pill over it: the name (it shows the row) and the two actions. */
+.c1[data-style=minimal] .c1-pill { position: absolute; z-index: 4; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 2px;
+  width: max-content; max-width: 260px; padding: 3px 4px; border-radius: var(--sv-radius-pill); visibility: hidden; }
+#card-window[data-expanded] .c1[data-style=minimal] .c1-pill { visibility: visible; }
+.c1[data-style=minimal] .c1-row { bottom: calc(100% + 42px); }
+#card-window[data-open=down] .c1[data-style=minimal] .cc-captions { top: calc(var(--w) * .9); }
+#card-window[data-open=down][data-expanded] .c1[data-style=minimal] .cc-captions { top: calc(var(--w) * .92 + 70px); }
+/* (b) on a base: the name and machine on a small plinth under its feet; the two actions on it near the pointer; the bar
+   comes out under the base; the row over the avatar. */
+.c1[data-style=plinth] { display: flex; flex-direction: column; align-items: center; }
+.c1[data-style=plinth] .c1-base { position: relative; z-index: 2; display: flex; align-items: center; gap: 2px; width: max(calc(var(--w) * 1.05), 176px); margin-top: calc(var(--w) * -.12);
+  padding: 4px 4px 4px 6px; border-radius: 14px; }
+.c1[data-style=plinth] .c1-base .c1-name { flex: 1; }
+.c1[data-style=plinth] .c1-base .cc-actions { visibility: hidden; }
+#card-window[data-expanded] .c1[data-style=plinth] .c1-base .cc-actions { visibility: visible; }
+.c1[data-style=plinth] .c1-bar { top: calc(100% + 6px); }
+.c1[data-style=plinth] .c1-row { bottom: calc(100% + 2px); }
+#card-window[data-open=down] .c1[data-style=plinth] .cc-captions { top: calc(100% + 8px); }
+#card-window[data-open=down][data-expanded] .c1[data-style=plinth] .cc-captions { top: calc(100% + 74px); }
+#card-window[data-open=up] .c1[data-style=plinth] .cc-captions { bottom: calc(100% - var(--w) * .12); }
+/* The conversation row near the pointer only, on every format. */
+#card-window:not([data-expanded]) .cc-switch-row { visibility: hidden; }
+.c1 .c1-name > span { min-width: 0; }
+.c1[data-style=plinth] .c1-base .c1-name { overflow: hidden; }
+/* The bar (and the pill and row) are as wide as their contents, centred: an absolute box at 50% would otherwise shrink
+   to the half left of it. */
+.c1 :is(.c1-bar, .c1-pill, .c1-row) { width: max-content; }
+.c1 .c1-name { place-items: start; justify-items: start; }
+.c1 .c1-title { display: block; max-width: 100%; }
+.c1[data-style=plinth] .c1-base .cc-actions { display: none; }
+#card-window[data-expanded] .c1[data-style=plinth] .c1-base .cc-actions { display: inline-flex; }

@@ -26,7 +26,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 // ---------- what is picked: the address's hash ----------
 
 const DEFAULTS = { env: "windows", format: "card", size: "l", captions: "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", c1Title: "top", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
@@ -84,6 +84,7 @@ const ICONS = {
   machine: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  moreH: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   more: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
   settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
@@ -168,6 +169,8 @@ function picker() {
   }).join("");
   return `<div class="call-card cc-picker" role="dialog" aria-label="Conversations"><div class="card-panel conversations"><div class="card-conversations">${rows}</div></div></div>`;
 }
+/** C1: its name reveals the row of conversations (a click), and hides it again. */
+let c1RowOpen = false;
 /** The title's ▾ opens what the call runs on, as in the room (CallDetails), never the list. */
 let detailsOpen = false;
 const titleAttrs = () => `data-run="details" aria-haspopup="dialog" aria-expanded="${detailsOpen}" title="Call details"`;
@@ -188,7 +191,7 @@ function switchRow(slots = 3) {
   return `<div class="cc-switch-row header-conversations">${row.map((c) => { const f = facts(c), title = c.seed === "Sidevoice" ? "Sidevoice" : c.seed;
     return `<button type="button" class="header-avatar" data-conversation="${c.id}" aria-pressed="${c === current}" title="${title}" aria-label="${title}"${f.reach === "offline" ? ' aria-disabled="true"' : ""}><span class="conversation-avatar" style="--tone:${c.tone}">${face(c)}<span class="person-state" data-state="${f.reach}"${f.working ? " data-working" : ""}><span class="dot"></span></span></span></button>`; }).join("")}
 <button type="button" class="header-new" title="New conversation" aria-label="New conversation">${svg("plus", 15)}</button>
-<button type="button" class="conversations-toggle" ${switchAttrs()} aria-label="All conversations (${CREATURES.length})" title="All conversations">${rest ? `<span class="conversations-rest">+${rest}</span>` : ""}${svg("chevron", 15)}</button></div>`;
+<button type="button" class="conversations-toggle cc-more" ${switchAttrs()} aria-label="All conversations (${CREATURES.length}${rest ? `, ${rest} more` : ""})" title="All conversations">${svg("moreH", 16)}</button></div>`;
 }
 
 // ---------- the formats ----------
@@ -198,7 +201,7 @@ const DRAW = {
   card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="cc-a1-top">${switchRow(3)}${actions()}</div><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
 <div class="card-who"><button type="button" class="card-title" ${titleAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
-<span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span><span aria-hidden="true">·</span><span class="card-clock"></span></span></div>
+<span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
 ${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : ""}</div>`,
   pip: (box) => pick.pipLayout === "stacked" ? DRAW.pipStacked(box) : DRAW.pipMeet(box),
   // B1, stacked: the room's header (the name ▾, the row, the two actions), the stage, the room's call bar.
@@ -210,12 +213,26 @@ ${yourWave()}</div>${controls()}</div>${settings().captions ? lineCaptions() : "
   // corner (its top left is the agent's balloon's), and the
   // room's call bar over the picture's foot, see-through, near the pointer.
   pipMeet: (box) => {
-    const canvas = Math.round((box.w - 12) * 9 / 16);
-    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="dark">${pipHead(false)}<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}<span class="pip-frame-actions"><button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button></span><div class="pip-hover-bar">${roomBar()}</div></div></div>`;
+    const canvas = Math.round((box.w - 12) * 9 / 16), corner = pick.pipActions === "corner";
+    return `<div class="cc cc-pip-stacked cc-pip-meet" data-theme="dark" data-bar="${pick.pipBar === "hover" ? "hover" : "always"}">${pipHead2(!corner)}<div class="pip-canvas" style="height:${canvas}px">${stage(canvas, { name: false })}${corner ? `<span class="pip-frame-actions stage-tag">${frameActions()}</span>` : ""}</div><div class="pip-bar-below">${roomBar()}</div></div>`;
   },
   // C1: on nothing; near the pointer, its name (a pill of the controls' width, or none), its controls and its row.
-  mascot: () => `<div class="cc cc-mascot" data-title="${pick.c1Title === "none" ? "none" : "top"}"><span class="m-figure">${avatar("stage")}</span>${pick.c1Title === "none" ? "" : `<span class="call-card cc-name-pill"><button type="button" class="card-title" ${titleAttrs()}><span class="card-title-text">${call.title()}</span><span class="card-title-chevron" aria-hidden="true">${svg("chevron", 13)}</span></button>${actions()}</span>`}${pick.c1Title === "none" ? actions() : ""}<div class="call-card cc-strip">${controls()}${switchRow(3)}</div>${settings().captions ? balloonCaptions() : ""}</div>`,
+  // C1 (a) minimal: at rest the avatar alone; near the pointer, a slim pill over it (its name, which shows the row of
+  // conversations, and the two actions) and the room's call bar under it. (b) a base: the avatar stands on a small
+  // plinth with its name and machine; the call bar comes out of it near the pointer.
+  mascot: () => {
+    const plinth = pick.c1Style === "plinth";
+    const name = `<button type="button" class="c1-name" data-run="c1-row" aria-expanded="${c1RowOpen}" title="Switch conversation"><span class="c1-title">${call.title()}</span>${plinth ? `<span class="c1-machine">${svg("machine", 11)} ${call.machine}</span>` : ""}</button>`;
+    const top = plinth ? "" : `<div class="call-card c1-pill">${name}${actions()}</div>`;
+    const base = plinth ? `<div class="call-card c1-base">${name}${actions()}</div>` : "";
+    return `<div class="cc cc-mascot c1" data-style="${plinth ? "plinth" : "minimal"}">${top}${c1RowOpen ? `<div class="call-card c1-row">${switchRow(4)}</div>` : ""}<span class="m-figure">${avatar("stage")}</span>${base}<div class="c1-bar">${roomBar()}</div>${settings().captions ? balloonCaptions() : ""}</div>`;
+  },
 };
+/** The picture's three actions: back to the call, its settings, and hiding it for this call. */
+const frameActions = () => `<button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button>`;
+/** The picture's header, on two lines: the name ▾ (and the three actions), then its machine, never cut, and the row. */
+const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-2" translate="no" style="--av-color:${creature().tone}"><div class="pip-head-line"><h2><button type="button" class="stage-heading" ${titleAttrs()}><span class="stage-heading-name"><span>${call.title()}</span>${svg("chevron", 14).replace("<svg ", '<svg class="stage-heading-chevron" ')}</span></button></h2>${withActions ? `<span class="pip-head-actions">${frameActions()}</span>` : ""}</div>
+<div class="pip-head-line"><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>${switchRow(3)}</div></header>`;
 /** The picture's header: the name with its ▾ (and its machine), the row, and, stacked, the two actions. */
 const pipHead = (withActions) => `<header class="stage-title pip-head" translate="no" style="--av-color:${creature().tone}"><h2><button type="button" class="stage-heading" ${titleAttrs()}><span class="stage-heading-name"><span>${call.title()}</span>${svg("chevron", 14).replace("<svg ", '<svg class="stage-heading-chevron" ')}</span>${withActions ? `<span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span>` : ""}</button></h2>${switchRow(3)}${withActions ? actions() : ""}</header>`;
 
@@ -246,7 +263,7 @@ function drawCard() {
   win.innerHTML = call.ended
     ? `<div class="call-card cc-ended"><span>Call ended</span><button type="button" data-run="again">Call again</button></div>`
     : DRAW[f.id](box) + (pickerOpen ? picker() : "") + (detailsOpen ? details() : "")
-      + ["nw", "ne", "sw", "se", "w", "e"].map((edge) => `<span class="cc-resize" data-edge="${edge}" aria-hidden="true"></span>`).join("");
+      + (f.id !== "pip" ? [] : ["nw", "ne", "sw", "se", "w", "e"]).map((edge) => `<span class="cc-resize" data-edge="${edge}" aria-hidden="true"></span>`).join("");
   win.toggleAttribute("data-picker", pickerOpen || detailsOpen);
   win.dataset.listFrom = pick.listFrom === "card" ? "card" : "element";
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
@@ -261,7 +278,7 @@ function drawCard() {
  *  in the app beside its place. Not a zoom: the card is laid out again at its new width (the picture's stage keeps 16:9,
  *  its header and bar take what they need). Settings' size is where it starts; resized, Settings says "Custom"; a size
  *  picked there, or "Reset size and position", forgets it. */
-const RANGE = { card: [320, 560], pip: [260, 760], mascot: [100, 320] };
+const RANGE = { pip: [260, 760] };
 const widthKey = (format) => "sidevoice.callcard.width." + format;
 const customWidth = (format) => { const w = Number(localStorage.getItem(widthKey(format))), [lo, hi] = RANGE[format] ?? [0, 0]; return w >= lo && w <= hi ? w : 0; };
 const forgetWidths = () => Object.keys(RANGE).forEach((format) => localStorage.removeItem(widthKey(format)));
@@ -479,8 +496,8 @@ function desktopPreview(id) {
 }
 /** Scales each real card into its choice: as large as fits with a margin, centred. */
 function fitPreviews() {
-  // The screen's top right, 1000 of its pixels across the frame: the card at its true size against the screen.
-  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / 1000));
+  // The screen's top right, 720 of its pixels across the frame, the same for the three: their cards at their true sizes.
+  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / 720));
   for (const box of document.querySelectorAll(".cc-real-box")) {
     const frame = box.parentElement, card = box.firstElementChild;
     // The avatar alone is as tall as the others' cards are wide in their frames: about half the frame.
@@ -532,6 +549,7 @@ document.addEventListener("click", (event) => {
   const run = target.dataset.run, setting = target.dataset.setting;
   if (run === "mute") setState(muted() ? "listening" : "muted");
   if (run === "skip") setState("idle");
+  if (run === "c1-row") { c1RowOpen = !c1RowOpen; drawCard(); $("card-window").toggleAttribute("data-expanded", true); for (const el of $("card-window").querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", true); return; }
   if (run === "switch") { detailsOpen = false; togglePicker(!pickerOpen); return; }
   if (run === "details") { pickerOpen = false; detailsOpen = !detailsOpen; drawCard(); if (detailsOpen) $("card-window").toggleAttribute("data-expanded", true); return; }
   if (run === "captions") { pick.captions = settings().captions ? "0" : "1"; refresh(); }
@@ -671,11 +689,14 @@ const animator = (() => {
       bubble.querySelector(".karaoke-upcoming").textContent = SAYS.slice(said.length);
       const run = bubble.querySelector(".paged-text-run"), played = bubble.querySelector(".karaoke-played");
       const line = parseFloat(getComputedStyle(run).lineHeight) || 1;
-      const shift = Number(run.dataset.shift || 0);
-      const rects = played.getClientRects(), top = run.getBoundingClientRect().top + shift;
-      const last = rects.length ? rects[rects.length - 1].bottom - top : 0;
-      const page = Math.max(0, Math.floor((last - 1) / (3 * line)));
-      run.dataset.shift = String(page * 3 * line);
+      // Which line the voice is on, counted from the said words' own line boxes: a count, so the page turning (a transform,
+      // mid-transition) never moves the measure. Before, the measure was taken against the moving page itself, so each
+      // word read a different page while the last turn was still sliding, and the words jumped up and down.
+      const tops = [];
+      for (const rect of played.getClientRects()) if (rect.width && !tops.some((top) => Math.abs(top - rect.top) < line / 2)) tops.push(rect.top);
+      const page = Math.max(0, Math.floor((tops.length - 1) / 3));
+      if (run.dataset.page === String(page)) continue;
+      run.dataset.page = String(page);
       run.style.transform = `translateY(${-page * 3 * line}px)`;
     }
   }
@@ -836,7 +857,9 @@ function drawPanel() {
     select("size", "Size", Object.entries(SIZES), s.size),
     `<label class="check"><input type="checkbox" data-pick="captions"${s.captions ? " checked" : ""}> Captions (as the card's own button)</label>`,
     select("listFrom", "The list drops from", [["element", "What opened it (B)"], ["card", "The card's edge (A)"]], pick.listFrom),
-    s.format === "mascot" ? select("c1Title", "Avatar's name", [["top", "A pill over it, the controls' width"], ["none", "None: the avatar at the top"]], pick.c1Title) : "",
+    s.format === "mascot" ? select("c1Style", "Avatar alone", [["minimal", "(a) Minimal: a pill over it, the bar under it"], ["plinth", "(b) On a base with its name"]], pick.c1Style) : "",
+    s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
+    s.format === "pip" ? select("pipActions", "Picture's actions", [["header", "In the header (after)"], ["corner", "In the picture's corner (before)"]], pick.pipActions) : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
