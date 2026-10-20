@@ -573,13 +573,13 @@ const hoverZone = () => { const win = $("card-window"); return format().id === "
 $("card-window").addEventListener("pointerover", (event) => {
   const id = format().id;
   if (id === "card") { clearTimeout(hoverTimer); if (!event.target.closest(".cc-captions")) hoverTimer = setTimeout(() => expand(true), 120); return; }
-  if (id === "mascot") c1Aimed(c1Zone(event.target));
+  if (id === "mascot") c1Aimed(c1ZoneAt(event));
 });
 $("card-window").addEventListener("pointerenter", () => { if (format().id === "mascot" || format().id === "card") return; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(true), 120); });
-$("card-window").addEventListener("pointerleave", () => { if (format().id === "mascot") { c1Aimed("none"); return; } clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
+$("card-window").addEventListener("pointerleave", (event) => { if (format().id === "mascot") { c1Aimed(c1ZoneAt(event)); return; } clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 // Done dragging or resizing away from the card: the controls go after the same delay as leaving it.
 addEventListener("pointerup", (event) => {
-  if (format().id === "mascot") { c1Aim = null; c1Aimed(c1Zone(event.target)); return; }
+  if (format().id === "mascot") { c1Aim = null; c1Aimed(c1ZoneAt(event)); return; }
   clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500);
 });
 // ---------- C1: its controls behind a handle (operator, 2026-10-20) ----------
@@ -595,6 +595,27 @@ const C1_FOLD_MS = 240;
 let c1Aim = null, c1FoldTimer = 0;
 /** What the pointer is on: the handle or what it opened ("card"), the creature, or neither. */
 const c1Zone = (target) => target?.closest?.(".c1-handle, .c1-dock") ? "card" : target?.closest?.(".c1x .m-figure") ? "creature" : "none";
+/** Once open, C1's controls hold while the pointer is anywhere in their hull: the box around the handle and everything
+ *  it opened (the card, or the arc's buttons and title) and the gaps between them, C1_HULL_PX wider all round. Crossing a
+ *  gap never folds them; leaving the hull does, after the usual 500 ms (operator, 2026-10-20). */
+const C1_HULL_PX = 16;
+function c1Hull() {
+  const parts = [...$("card-window").querySelectorAll(".c1x .c1-handle, .c1x .c1-dock button, .c1x .c1-dock > .pip-head-1, #card-window:not([data-c1-arc]) .c1x .c1-dock")]
+    .map((el) => el.getBoundingClientRect()).filter((r) => r.width && r.height);
+  if (!parts.length) return null;
+  return { left: Math.min(...parts.map((r) => r.left)) - C1_HULL_PX, right: Math.max(...parts.map((r) => r.right)) + C1_HULL_PX,
+    top: Math.min(...parts.map((r) => r.top)) - C1_HULL_PX, bottom: Math.max(...parts.map((r) => r.bottom)) + C1_HULL_PX };
+}
+/** What the pointer is on, for C1: inside the opened controls' hull it is on them; else what is under it. */
+function c1ZoneAt(event) {
+  if ($("card-window").hasAttribute("data-expanded") && Number.isFinite(event?.clientX)) {
+    const h = c1Hull();
+    if (h && event.clientX >= h.left && event.clientX <= h.right && event.clientY >= h.top && event.clientY <= h.bottom) return "card";
+  }
+  return c1Zone(event?.target);
+}
+// The pointer moving inside the window's own area (no cursor outside it is ever read): the hull is checked as it moves.
+addEventListener("pointermove", (event) => { if (format().id === "mascot" && !drag && !resizing && event.pointerType === "mouse") c1Aimed(c1ZoneAt(event)); });
 const c1Step = () => { const win = $("card-window"); return win.hasAttribute("data-expanded") ? "open" : win.hasAttribute("data-peek") ? "peek" : "rest"; };
 const c1Wanted = () => (c1Aim === "card" ? "open" : c1Aim === "creature" ? "peek" : "rest");
 /** Only a change of what the pointer is on restarts the delay (a balloon's words changing under a still pointer fire
