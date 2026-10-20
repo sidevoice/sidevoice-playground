@@ -34,7 +34,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
 const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", unread: "1", unreadCue: "dot", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
@@ -70,6 +70,10 @@ const CONVERSATIONS = {
   "mascot:sidevoice": { machine: "MacBook-Pro", model: "opus · high", reach: "listening" },
 };
 const facts = (c = creature()) => CONVERSATIONS[c.id] ?? CONVERSATIONS["Orquestador Sidevoice"];
+/** Whether a conversation has replies you haven't seen (the web's hasUnread: never the one on the call). The mock's
+ *  unread replies can be turned off in the panel. */
+const unread = (c) => pick.unread === "1" && (facts(c).unread ?? 0) > 0 && c.id !== creature().id;
+const unreadCount = () => CREATURES.filter(unread).length;
 const call = {
   state: pick.state in STATES ? pick.state : "speaking",
   title: () => creature().seed === "Sidevoice" ? "Sidevoice" : creature().seed,
@@ -189,10 +193,10 @@ function picker() {
   const rows = CREATURES.map((c) => {
     const f = facts(c), selected = c.id === creature().id, title = c.seed === "Sidevoice" ? "Sidevoice" : c.seed;
     const reach = REACH[f.reach]?.[pick.lang] ?? REACH[f.reach]?.en;
-    const face = withCreature(c, () => avatar("small")).replace('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"');
+    const face = withCreature(c, () => avatar("small")).replace('data-style="bichos"', `data-style="bichos" data-mood="idle" data-idle="quiet"${unread(c) ? " data-unread" : ""}`);
     return `<div class="participant-row" data-thread="${c.id}"${selected ? " data-selected" : ""}><button type="button" class="person" data-reach="${f.reach}" aria-pressed="${selected}" data-conversation="${c.id}" title="${title}"${f.reach === "offline" ? " disabled" : ""}>
 <span class="cc-row-face" aria-hidden="true">${face}</span><span class="person-state" data-state="${f.reach}"${f.working ? " data-working" : ""}><span class="dot"></span></span>
-<span class="participant-copy"><span class="person-name" translate="no">${title}</span><span class="person-sub muted"><span class="person-machine">${svg("machine", 11)} ${f.machine}</span><span class="person-harness">${harnessMark(f.model)} ${f.model}</span>${reach ? `<span class="person-reach"> · ${reach}</span>` : ""}</span></span></button></div>`;
+<span class="participant-copy"><span class="person-name" translate="no">${title}</span><span class="person-sub muted"><span class="person-machine">${svg("machine", 11)} ${f.machine}</span><span class="person-harness">${harnessMark(f.model)} ${f.model}</span>${reach ? `<span class="person-reach"> · ${reach}</span>` : ""}</span></span></button>${unread(c) ? '<span class="card-unread" role="img" aria-label="Unread message"></span>' : ""}</div>`;
   }).join("");
   return `<div class="call-card cc-picker" role="dialog" aria-label="Conversations"><div class="card-panel conversations"><div class="card-conversations">${rows}</div></div></div>`;
 }
@@ -242,7 +246,7 @@ const scheme = () => (pick.theme || env().theme) === "light" ? "light" : "dark";
 const DRAW = {
   // A1: the row and the two actions on a top line, near the pointer; the title's ▾ opens the call's details.
   card: () => `<div class="cc"><div class="call-card cc-a1" data-head="${pick.a1Head === "inline" ? "inline" : "corner"}"><div class="card-row"><span class="cc-face" style="--tone:${creature().tone}">${avatar("small")}</span>
-<div class="card-who"><span class="card-title"><span class="card-title-text">${call.title()}</span>${conversationsButton()}</span>
+<div class="card-who"><span class="card-title"><span class="card-title-text" title="${call.title()}">${call.title()}</span>${conversationsButton()}</span>
 <span class="card-sub"><span class="card-machine">${svg("machine", 11)} <span>${call.machine}</span></span><span aria-hidden="true">·</span><span class="card-harness"><span>${call.model}</span></span></span>
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
 ${yourWave()}</div>${controls()}<span class="a1-corner">${frameActions()}</span></div>${settings().captions ? lineCaptions() : ""}</div>`,
@@ -270,7 +274,18 @@ const frameActions = () => `<button type="button" class="cc-action" data-run="op
 const pipHead2 = (withActions) => `<header class="stage-title pip-head pip-head-1" translate="no" style="--av-color:${creature().tone}"><h2><span class="stage-heading"><span class="stage-heading-name"><span class="pip-title" title="${call.title()}">${call.title()}</span>${conversationsButton()}</span><span class="stage-machine">${svg("machine", 12)}<span>${call.machine}</span></span></span></h2>${withActions ? (pick.pipIcons === "always" ? `<span class="pip-head-actions">${frameActions()}</span>` : `<span class="pip-hover-icons">${frameActions().replace(/<button[^>]*pip-close[\s\S]*$/, "")}</span><span class="pip-head-x">${frameActions().match(/<button[^>]*pip-close[\s\S]*$/)[0]}</span>`) : ""}</header>`;
 /** The picture's way to the other conversations: one small button, the web's conversations mark and how many there
  *  are; it drops the list. No faces: in a small picture they were noise. */
-const conversationsButton = () => `<button type="button" class="cc-convs" ${switchAttrs()} aria-label="Conversations (${CREATURES.length})" title="Conversations">${svg("conversations", 15)}<span>${CREATURES.length}</span>${svg("chevron", 12).replace("<svg ", '<svg class="cc-convs-chevron" ')}</button>`;
+const conversationsButton = () => {
+  const n = unreadCount(), said = n ? `, ${n} with unread replies` : "";
+  return `<button type="button" class="cc-convs" ${switchAttrs()} aria-label="Conversations (${CREATURES.length})${said}" title="Conversations${said}"${n ? ` data-unread-cue="${unreadCue()}"` : ""}>${svg("conversations", 15)}<span>${CREATURES.length}</span>${svg("chevron", 12).replace("<svg ", '<svg class="cc-convs-chevron" ')}${n ? unreadMark() : ""}</button>`;
+};
+/** OPEN (variant "unread cue"): how the header's control says other conversations have replies you haven't seen. "dot":
+ *  the web's today (call-controls: .card-unread on the control's corner). "!": the list's own cue (the avatars' "!",
+ *  bichos .bang: the yellow tag with its dark outline and "!"), in the same corner. Both are decorative: the control's
+ *  name says it. */
+const unreadCue = () => (pick.unreadCue === "bang" ? "bang" : "dot");
+const unreadMark = () => unreadCue() === "bang"
+  ? '<span class="cc-unread-bang" aria-hidden="true"><svg viewBox="-10.5 -13.5 21 27"><rect x="-9" y="-12" width="18" height="24" rx="6"/><text y="7" text-anchor="middle">!</text></svg></span>'
+  : '<span class="card-unread" aria-hidden="true"></span>';
 /** The picture's header: the name with its ▾ (and its machine), the row, and, stacked, the two actions. */
 
 // ---------- the screen ----------
@@ -1035,6 +1050,8 @@ function drawPanel() {
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
+    `<fieldset class="panel-open"><legend>Open questions</legend>${select("unreadCue", "Unread cue in the header (A1, B1, C1)", [["dot", "Dot (today)"], ["bang", "! (as in the list)"]], unreadCue())}</fieldset>`,
+    `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
     select("creature", "Conversation", CREATURES.map((c) => [c.id, c.seed === "Sidevoice" ? "Sidevoice mascot" : c.seed]), creature().id),
@@ -1052,6 +1069,7 @@ $("controls").addEventListener("change", (event) => {
   if (!name) return;
   if (name === "cycle") pick.cycle = event.target.checked ? "1" : "0";
   else if (name === "card") pick.card = event.target.checked ? "1" : "0";
+  else if (name === "unread") pick.unread = event.target.checked ? "1" : "0";
   else if (name === "captions") { pick.captions = event.target.checked ? "1" : "0"; localStorage.setItem(CAPTIONS_KEY, pick.captions); }
   else if (name === "motion") pick.motion = event.target.checked ? "reduced" : "full";
   else if (name === "format" || name === "size") { const value = event.target.value; keepAnchor(() => { if (name === "size") forgetWidths(); pick[name] = value; }); }
