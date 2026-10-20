@@ -101,10 +101,12 @@
     ui.micLevel.subscribe((level) => report("barge-mic", { level, t: bargeStamp() }));
     let last = "";
     const state = () => {
-      const voice = ui.store.facts.voiceState, key = `${voice?.listening}|${voice?.playback}`;
+      const facts = ui.store.facts, voice = facts.voiceState;
+      const mic = facts.micEnabled === false ? "off" : "on", phase = facts.pendingPhase || "";
+      const key = `${voice?.listening}|${voice?.playback}|${mic}|${phase}`;
       if (key === last) return;
       last = key;
-      report("barge-state", { listening: voice?.listening, playback: voice?.playback, t: bargeStamp() });
+      report("barge-state", { listening: voice?.listening, playback: voice?.playback, mic, phase, t: bargeStamp() });
     };
     ui.store.subscribe(state);
     state();

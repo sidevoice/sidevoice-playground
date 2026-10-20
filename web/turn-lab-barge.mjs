@@ -52,7 +52,7 @@ export function createTracker({ onset = ONSET_LEVEL, emit }) {
       detectedMs: rel(a.detected), stoppedMs: rel(a.stopped),
       feltMs: a.stopped != null && a.onset != null ? Math.round(a.stopped - a.onset) : null,
       voiceMs: a.stopped != null && a.detected != null ? Math.round(a.stopped - a.detected) : null,
-      longestSpeechMs: Math.round(a.longest), hearing: a.hearing,
+      longestSpeechMs: Math.round(a.longest), peakLevel: a.peak, hearing: a.hearing,
     };
     emit(record);
   };
@@ -75,11 +75,12 @@ export function createTracker({ onset = ONSET_LEVEL, emit }) {
     play(preset, seconds, t) {
       if (current) finish(t, "through", "replaced by a new Play");
       current = { id: ++counter, playAt: t, preset, seconds, agentStart: null, onset: null, burstStart: null, lastVoiced: null,
-        longest: 0, detected: null, stopped: null, hearing: null, settleAt: null };
+        longest: 0, peak: 0, detected: null, stopped: null, hearing: null, settleAt: null };
     },
     mic(level, t) {
       const a = current;
       if (!a || a.agentStart == null || a.stopped != null) return;
+      a.peak = Math.max(a.peak, Math.round(level));
       if (level < threshold.onset) return;
       if (a.lastVoiced == null || t - a.lastVoiced > GAP_MS) a.burstStart = t;
       a.lastVoiced = t;
@@ -125,6 +126,7 @@ export const describe = (a) => {
   const ms = (value) => value == null ? "—" : `${value >= 0 ? "+" : ""}${value} ms`;
   return `#${a.id} ${a.preset} ${a.seconds.toFixed(1)} s · ${LABEL[a.outcome]}` +
     (a.outcome === "interrupted" || a.outcome === "false" ? ` · speech ${a.onsetMs == null ? "not seen" : "seen"} · voice heard ${ms(a.detectedMs)} · agent stopped ${ms(a.stoppedMs)}${a.feltMs == null ? "" : ` (${a.feltMs} ms after you started)`}` : "") +
+    (a.peakLevel != null && a.outcome !== "interrupted" ? ` · mic peaked at ${a.peakLevel} while the agent spoke` : "") +
     (a.reason ? ` · ${a.reason}` : "");
 };
 export const outcomeClass = (outcome) => CLASS[outcome] ?? "pending";
@@ -140,7 +142,9 @@ function mount(doc, win) {
   let preset = saved.preset in PRESETS || saved.preset === "custom" ? saved.preset : "A";
   let seconds = Number.isFinite(saved.seconds) ? saved.seconds : PRESETS.A.seconds;
   let override = saved.override !== false; // false: the app's own default, nothing sent
-  let joined = false, applied = null, micLevel = 0, audioStates = [];
+  let joined = false, applied = null, micLevel = 0, audioStates = [], peak = 0, peakAt = 0, micStep = "waiting for the room";
+  const trace = [];
+  const mark = (text) => { trace.push(`${new Date().toLocaleTimeString()} ${text}`); if (trace.length > 14) trace.shift(); };
   const persist = () => { try { store?.setItem(KEY, JSON.stringify({ attempts, preset, seconds, override })); } catch { /* storage is optional */ } };
   const now = () => win.performance.timeOrigin + win.performance.now();
 
@@ -166,6 +170,8 @@ function mount(doc, win) {
     $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`;
     const live = tracker.active;
     $("barge-live").textContent = live ? (live.agentStart == null ? "Waiting for the agent to start speaking…" : live.stopped == null ? "Agent speaking: try to interrupt it." : "Agent stopped.") : "Press Play, then interrupt the agent.";
+    $("barge-diag").textContent = `Microphone: ${micStep} · audio: ${audioStates.length ? audioStates.join("/") : "not opened"} · meter ${micLevel}, peak ${peak} in the last 10 s`;
+    $("barge-trace").replaceChildren(...[...trace].reverse().map((text) => { const li = doc.createElement("li"); li.textContent = text; return li; }));
     const stuck = audioStates.find((state) => state !== "running");
     $("barge-audio").textContent = stuck ? `The room's audio is ${stuck}, so it cannot hear you. Click once anywhere inside the room.` : "";
     $("barge-play").disabled = !joined;
@@ -227,10 +233,18 @@ function mount(doc, win) {
     if (event.source !== room().contentWindow || event.origin !== origin() || event.data?.source !== "turn-lab-browser") return;
     const { kind, data = {} } = event.data;
     const t = now();
+    if (kind === "browser-ready") {
+      if (data.tracks != null) { micStep = `allowed, ${data.tracks} track${data.tracks === 1 ? "" : "s"}`; mark(micStep.replace("allowed", "microphone allowed")); }
+      if (data.voice) mark(`call ${data.voice}`);
+      if (data.modelStep) mark(`setup step ${data.modelStep} done`);
+    }
+    if (kind === "browser-error") { mark(`error ${Object.values(data).join(" ")}`); micStep = `error: ${Object.values(data).join(" ")}`; }
+    if (kind === "room-frame" && ["voice-user-turn", "voice-input-receipt"].includes(data.type)) mark(`room: ${data.type} ${data.phase ?? data.status ?? ""}`.trim());
+    if (kind === "browser-action" && data.type === "voice-user-turn") mark(`page: turn ${data.phase}`);
     if (kind === "browser-ready" && data.voice === "joined") { joined = true; applied = null; sendSetting(); render(); }
-    else if (kind === "barge-mic") { micLevel = Math.round(data.level); tracker.mic(data.level, data.t ?? t); $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`; }
-    else if (kind === "barge-state") { tracker.state(data, data.t ?? t); render(); }
-    else if (kind === "barge-audio") { audioStates = data.states ?? []; render(); }
+    else if (kind === "barge-mic") { micLevel = Math.round(data.level); if (data.t - peakAt > 10_000 || data.level >= peak) { peak = Math.round(data.level); peakAt = data.t; } tracker.mic(data.level, data.t ?? t); $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`; }
+    else if (kind === "barge-state") { tracker.state(data, data.t ?? t); mark(`listening ${data.listening ?? "?"}, playback ${data.playback ?? "?"}, mic ${data.mic ?? "?"}${data.phase ? `, ${data.phase}` : ""}`); render(); }
+    else if (kind === "barge-audio") { audioStates = data.states ?? []; mark(`audio ${audioStates.join("/")}`); render(); }
     else if (kind === "barge-applied") { applied = data.seconds == null ? "app default (1.0 s)" : `${Number(data.seconds).toFixed(1)} s`; render(); }
     else if (kind === "barge-error") { applied = "error"; render(); }
     else if (kind === "browser-action" && data.type === "reply-hearing") tracker.hearing(data.outcome);

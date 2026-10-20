@@ -86,3 +86,9 @@ test('the page mounts, sends the preset to the room once it joins, and counts a 
     assert.deepEqual(requests, ['/preview/turn-lab/play']);
   } finally { delete globalThis.document; delete globalThis.window; }
 });
+
+test('an attempt records how loud the microphone got while the agent spoke', () => {
+  const [record] = run([playing(500), ...speak(1000, 1400, 9), ...speak(1500, 1800, 12), ['state', 200000, { listening: 'listening', playback: 'idle' }], ['hearing', 200000, 'heard'], ['mic', 201000, 0]]);
+  assert.equal(record.peakLevel, 12);
+  assert.equal(record.outcome, 'through');
+});
