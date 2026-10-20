@@ -217,6 +217,7 @@ window.addEventListener("message", (event) => {
     pairingSent = true;
     void ask("/preview/pair", {}).then(({ code }) => $("room").contentWindow.postMessage({ type: "turn-lab-pair", code }, previewOrigin)).catch((error) => setStatus(`Pairing: ${error.message}`));
   }
+  if (event.data.kind?.startsWith("barge-")) return;
   void ask("/preview/turn-lab/event", { kind: event.data.kind, data: event.data.data }).catch(() => {});
 });
 void boot().catch((error) => setStatus(`Could not start: ${error.message}`));
