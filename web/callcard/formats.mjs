@@ -81,6 +81,8 @@ export const COPY = {
   "settings.callCard.sizeHint": { en: "Or resize it by an edge or a corner: it keeps the size you leave it at.", es: "O cambia su tamaño desde un borde o una esquina: se queda como la dejes." },
   "card.captions.show": { en: "Show captions", es: "Mostrar subtítulos" },
   "card.captions.hide": { en: "Hide captions", es: "Ocultar subtítulos" },
+  // C1's handle (2026-10-20): its name, what it opens.
+  "card.controls": { en: "Call controls", es: "Controles de la llamada" },
 };
 
 /** Where the card goes, as the desktop app places it today (sidevoice-desktop core/src/call_controls.rs): its window
