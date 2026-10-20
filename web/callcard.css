@@ -1174,6 +1174,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .reduce-motion #card-window[data-c1-rail=bar] .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-dock :is(h2, .pip-hover-icons, .pip-head-x)) { transition: none !important; animation: none !important; }
 @media (prefers-reduced-motion: reduce) { #card-window[data-c1-rail=bar] .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-dock :is(h2, .pip-hover-icons, .pip-head-x)) { transition: none !important; animation: none !important; } }
 
+/* ---------- The title is not a control (fix, operator 2026-10-20) ----------
+   call-card.css (the web's) shades `.call-card .card-title:hover`: from today's card, where the title itself was the
+   picker's button. In A1 (and C1's compact card) the title is plain text holding the conversations control, so hovering
+   that control shaded the whole title line. Only the control answers the pointer (.cc-convs:hover, its own). For the web
+   (origin/main e1c5322, where .card-title is only ever a span): delete call-card.css:58 `.call-card .card-title:hover`. */
+#card-window .call-card .card-title:not(button):hover { background: none; }
+
 /* ---------- C1: its controls — the compact card (OPEN, 2026-10-20: "c1Rail" compact) ----------
    No handle: the pointer on the creature (never its balloons) shows A1's card itself — its title row (title, the
    conversations control with its "!", machine and model, state, your wave; open, settings, × in its corner) over its
