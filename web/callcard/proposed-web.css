@@ -5,3 +5,11 @@
  * avatar's, opening below it). The same tail (BalloonTail), turned over: its ink and fill as they are. */
 .balloon--tail-up .balloon-tail { top: auto; bottom: calc(100% - var(--balloon-line) - 1px); transform: scaleY(-1); }
 .stage-bubble.balloon--tail-up .balloon-tail { transform: scale(-1, -1); }
+
+/* PROPOSED WEB STYLE (operator, 2026-10-20), to upstream to sidevoice-web: theme.css (two tokens, both themes) and
+ * transcript.css (the person's island rule). "Cancel sending" — and any ghost button on your balloon's deep fill — gets
+ * hover and pressed states you can see. They are the app's own ghost-button states (ui.css: hover background
+ * --sv-hover and full ink, pressed --sv-pressed and scale .98, the focus ring --sv-focus), with the island's washes now
+ * distinct: hover 20% and pressed 30% white (both were the one 14% wash, too faint to read and identical). Loaded here
+ * before transcript.css, so the card's sheet (callcard.css) applies it after the island rule. */
+:root { --sv-chat-person-wash-hover: rgb(255 255 255 / 20%); --sv-chat-person-wash-pressed: rgb(255 255 255 / 30%); }

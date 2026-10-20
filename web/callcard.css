@@ -1096,3 +1096,19 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* Reduced motion: no morph; the card is simply there, then the handle again. */
 .reduce-motion #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *) { transition: none !important; }
 @media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *) { transition: none !important; } }
+
+/* "Cancel sending": the proposed island washes (proposed-web.css) applied after transcript.css's island rule, as the web
+   change would write them in that rule itself. A1's line (on the card's chrome, not in a balloon) takes A1's other
+   buttons' states: the actions' 9% wash on hover, 14% pressed. */
+#card-window :is(.chat-bubble[data-role="user"], .person-bubble) { --sv-hover: var(--sv-chat-person-wash-hover); --sv-pressed: var(--sv-chat-person-wash-pressed); }
+@media (hover: hover) { #card-window .cc-line .ui-button.cancel-input:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); color: var(--fg); } }
+#card-window .cc-line .ui-button.cancel-input:active { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+
+/* ---------- Cursors (operator, 2026-10-20) ----------
+   Every button shows the hand, as the card's others do: the handle and "Cancel sending" too. C1's creature is what you
+   drag: the open hand over it, the closed hand while it is pressed or dragged (DECIDED: this overrides 10-19's "no move
+   or grab cursor" for the creature; A1 and B1 keep the plain pointer, their whole card being what drags). */
+#card-window :is(.c1-handle, .cancel-input):not(:disabled) { cursor: pointer !important; }
+#card-window[data-format=mascot] .c1x .m-figure, #card-window[data-format=mascot] .c1x .m-figure * { cursor: grab !important; }
+#card-window[data-format=mascot] .c1x .m-figure:active, #card-window[data-format=mascot] .c1x .m-figure:active *,
+#card-window[data-format=mascot].dragging, #card-window[data-format=mascot].dragging * { cursor: grabbing !important; }
