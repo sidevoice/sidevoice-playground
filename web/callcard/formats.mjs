@@ -19,8 +19,9 @@ export const SIZES = { s: "Small", m: "Medium", l: "Large" };
 /** The settings, as the desktop app would store them, and their defaults. `alwaysShown` and `place` (per display)
  *  exist today (sidevoice-desktop: the "Always show the call controls" switch, and the card's place); `format` and
  *  `size` are new, set in Settings; `captions` is new too, but only the card's own button sets it (on by default; the
- *  room's call view gets the same toggle later), never Settings. */
-export const SETTING_DEFAULTS = { format: "card", size: "m", captions: true, alwaysShown: false, place: null };
+ *  room's call view gets the same toggle later), never Settings. The default format is B1, the picture (operator,
+ *  2026-10-20; it was A1 before). */
+export const SETTING_DEFAULTS = { format: "pip", size: "m", captions: true, alwaysShown: false, place: null };
 
 /** One card's settings, filled from the defaults; unknown values fall back. */
 export function cardSettings(stored = {}) {
