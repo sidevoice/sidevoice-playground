@@ -1201,3 +1201,30 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .fcp-figure svg :is([fill^="url("], [fill^="var("]) { fill: var(--av-color, #c9b6ec); }
 .fcp-figure svg [fill*="dark"] { fill: color-mix(in srgb, var(--av-color, #c9b6ec) 70%, #1b1428); }
 .fcp-figure svg :is([fill*="belly"], [fill*="spot"], [fill*="gold"]) { fill: color-mix(in srgb, var(--av-color, #c9b6ec) 62%, #fff); }
+
+/* ---------- Settings → Floating card: the previews with the call controls always out (operator, 2026-10-20) ----------
+   With "Always show the call controls" on, each preview shows its controls out, as the format really does: A1 its controls
+   row under its title row (a row of the bar's dots); B1 as it is (its bar is always out); C1 the current pick of its
+   open question, beside the creature on its open side (the preview's creature sits top right, so to its left). Same
+   schematic language as the rest: the bar's dots (the hang-up a red pill), lines for words, the handle a small accent
+   dot at the controls' near end; the buttons read left to right in their one order. */
+.fcp-card[data-out] { flex-wrap: wrap; row-gap: 5px; }
+.fcp-card[data-out] > .fcp-bar { flex-basis: 100%; justify-content: flex-start; padding-left: 32px; }
+.fcp-c1 { position: absolute; right: 78px; top: 8px; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); background: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); }
+.fcp-c1 > i, .fcp-c1 .fcp-bar > i { display: block; width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--sv-text) 25%, transparent); }
+.fcp-c1 > i:last-of-type, .fcp-c1 .fcp-bar > i:last-of-type { width: 13px; border-radius: 5px; background: var(--sv-danger, #dc362e); }
+.fcp-c1 > b { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--sv-accent); }
+.fcp-c1[data-rail=row] > b, .fcp-c1[data-rail=bar] > b { order: 5; }
+.fcp-c1[data-rail=column] { flex-direction: column; top: 6px; padding: 4px 3px; }
+.fcp-c1[data-rail=column] > i:last-of-type { width: 9px; height: 13px; }
+.fcp-c1[data-rail=bar] { gap: 3px; padding: 3px 3px 3px 6px; border-color: var(--sv-border); background: var(--sv-bg); box-shadow: 0 4px 10px rgb(0 0 0 / 25%); }
+.fcp-c1[data-rail=bar] > .fcp-lines { width: 20px; flex: none; }
+.fcp-c1[data-rail=bar] > i { width: 7px; height: 7px; }
+.fcp-c1[data-rail=bar] > i:last-of-type { width: 11px; }
+.fcp-c1[data-rail=compact] { flex-direction: column; align-items: stretch; gap: 5px; width: 40%; padding: 6px; border-radius: 10px; border-color: var(--sv-border); background: var(--sv-bg);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 30%); }
+.fcp-c1[data-rail=compact] .fcp-bar { justify-content: flex-start; }
+.fcp-c1-base { position: absolute; right: 8px; top: 74px; display: flex; align-items: center; width: 68px; height: 14px; padding: 0 6px; border: 1px solid var(--sv-border);
+  border-radius: 999px; background: var(--sv-bg); box-sizing: border-box; }
+.fcp-c1-base .fcp-lines { flex: 1; }

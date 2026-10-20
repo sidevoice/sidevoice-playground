@@ -837,17 +837,17 @@ function settingsScreen() {
   const sizes = `<div class="ui-segmented ui-segmented--sm" role="radiogroup" aria-label="${words("settings.floatingCard.size")}">${["s", "m", "l"].map((size) => `<button type="button" role="radio" class="ui-segment" aria-checked="${size === s.size}" tabindex="${size === s.size ? 0 : -1}"${off ? " disabled" : ""} data-setting="size" data-value="${size}"><span>${words(`settings.floatingCard.size.${size}`)}</span></button>`).join("")}</div>`;
   const corner = pick.startCorner || "tr";
   const corners = `<div class="floating-card-corners" role="radiogroup" aria-label="${words("settings.floatingCard.corner")}">${["tl", "tr", "bl", "br"].map((c) => `<button type="button" role="radio" class="floating-card-corner" data-corner="${c}" aria-checked="${c === corner}" aria-label="${words(`settings.floatingCard.corner.${c}`)}" title="${words(`settings.floatingCard.corner.${c}`)}"${off ? " disabled" : ""} data-setting="corner" data-value="${c}"></button>`).join("")}</div>`;
-  const moved = !!(s.place || customWidth(s.format));
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
 <section class="ui-section" id="floating-card" aria-labelledby="floating-card-title"><header class="ui-section-head"><div><h2 class="ui-section-title" id="floating-card-title">${words("settings.section.floatingCard")}</h2><p class="ui-section-description">${words("settings.floatingCard.description")}</p></div></header>
 <div class="ui-section-body">
 ${group(row(words("settings.callCard.enabled"), words(off ? "settings.callCard.enabledOffHint" : "settings.callCard.enabledOnHint"), toggle("enabled", s.enabled, words("settings.callCard.enabled"))))}
 ${group([
     row(words("settings.floatingCard.style"), "", `<div class="floating-card-choices" role="radiogroup" aria-label="${words("settings.floatingCard.style")}">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true),
+    row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown, words("settings.desktop.alwaysShown"), off)),
     row(words("settings.floatingCard.size"), s.format === "pip" ? words("settings.floatingCard.sizeHint") : "", sizes),
     row(words("settings.floatingCard.corner"), words("settings.floatingCard.cornerHint"), corners),
-    row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown, words("settings.desktop.alwaysShown"), off)),
-    row("", "", `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${off || !moved ? " disabled" : ""}><span class="ui-button-content">${words("settings.floatingCard.reset")}</span></button>`),
+    // Always there (only the card switched off disables it): it puts the card back on the preferred corner, at its size.
+    row("", "", `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${off ? " disabled" : ""}><span class="ui-button-content">${words("settings.floatingCard.reset")}</span></button>`),
   ].join("\n"))}
 </div></section></div></div></div>`;
 }
@@ -856,11 +856,17 @@ ${group([
  *  corner of a screen in the page's theme, and the creature it would show (the call's conversation's; else the first;
  *  else Sidevoice's own) — here schematic (OPEN, below). Nothing in it moves (web#264). */
 function cardPreview(id) {
-  const figure = previewFigure(id === "mascot" ? "stage" : "small");
-  const inner = id === "card" ? `<span class="fcp-card"><span class="fcp-face">${figure}</span><span class="fcp-lines"><i></i><i></i><i></i></span></span>`
+  const figure = previewFigure(id === "mascot" ? "stage" : "small"), out = settings().alwaysShown;
+  const dots = '<i></i><i></i><i></i><i></i>';
+  // C1's controls, as its open question's current pick draws them, beside the creature (its open side, the screen's middle).
+  const c1Out = { row: `<span class="fcp-c1" data-rail="row"><b></b>${dots}</span><span class="fcp-c1-base"><span class="fcp-lines"><i></i></span></span>`,
+    column: `<span class="fcp-c1" data-rail="column"><b></b>${dots}</span><span class="fcp-c1-base"><span class="fcp-lines"><i></i></span></span>`,
+    bar: `<span class="fcp-c1" data-rail="bar"><b></b><span class="fcp-lines"><i></i></span>${dots}</span>`,
+    compact: `<span class="fcp-c1" data-rail="compact"><span class="fcp-lines"><i></i><i></i></span><span class="fcp-bar">${dots}</span></span>` }[c1Rail()];
+  const inner = id === "card" ? `<span class="fcp-card"${out ? " data-out" : ""}><span class="fcp-face">${figure}</span><span class="fcp-lines"><i></i><i></i><i></i></span>${out ? `<span class="fcp-bar">${dots}</span>` : ""}</span>`
     : id === "pip" ? `<span class="fcp-pip"><span class="fcp-lines"><i></i></span><span class="fcp-stage">${figure}</span><span class="fcp-bar"><i></i><i></i><i></i><i></i></span></span>`
-    : `<span class="fcp-avatar">${figure}</span>`;
-  return `<span class="floating-card-preview" data-format="${APP_FORMAT[id]}" aria-hidden="true" style="--av-color:${creature().tone}">${inner}</span>`;
+    : `<span class="fcp-avatar">${figure}</span>${out ? c1Out : ""}`;
+  return `<span class="floating-card-preview" data-format="${APP_FORMAT[id]}"${out ? " data-out" : ""} aria-hidden="true" style="--av-color:${creature().tone}">${inner}</span>`;
 }
 /** The creature in the previews (DECIDED, operator 2026-10-20): the conversation's own, simplified from its drawing —
  *  flat in its main colour, its outline, parts and eyes kept, its shading, shine, blush, brows, props and accessories
