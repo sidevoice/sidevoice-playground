@@ -1174,6 +1174,20 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .reduce-motion #card-window[data-c1-rail=bar] .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-dock :is(h2, .pip-hover-icons, .pip-head-x)) { transition: none !important; animation: none !important; }
 @media (prefers-reduced-motion: reduce) { #card-window[data-c1-rail=bar] .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-dock :is(h2, .pip-hover-icons, .pip-head-x)) { transition: none !important; animation: none !important; } }
 
+/* ---------- C1: its controls — the compact card (OPEN, 2026-10-20: "c1Rail" compact) ----------
+   No handle: the pointer on the creature (never its balloons) shows A1's card itself — its title row (title, the
+   conversations control with its "!", machine and model, state, your wave; open, settings, × in its corner) over its
+   controls row — at once, as A1's own card is (its face left out: the creature is right there). Below the creature, or
+   above it, or beside it, as callcard.mjs c1LayCompact() finds room without touching the balloons (--cc-x/y, --cc-w:
+   A1's width for the size; data-c1-card). It stays focusable while hidden, and focus in it shows it. */
+#card-window[data-c1-rail=compact] .c1x .c1-compact { position: absolute; z-index: 7; left: calc(var(--w) / 2 + var(--cc-x, -195px)); top: calc(var(--w) / 2 + var(--cc-y, 86px));
+  opacity: 0; pointer-events: none; transition: opacity .15s linear; }
+#card-window[data-c1-rail=compact][data-expanded] .c1x .c1-compact, #card-window[data-c1-rail=compact] .c1x .c1-compact:focus-within { opacity: 1; pointer-events: auto; }
+#card-window .c1x .c1-compact > .call-card { --w: var(--cc-w, 390px); }
+#card-window .c1x .c1-compact .cc-face { display: none; }
+.reduce-motion #card-window .c1x .c1-compact { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window .c1x .c1-compact { transition: none !important; } }
+
 /* ---------- Settings → Floating card: the creature in the previews (DECIDED, operator 2026-10-20) ----------
    The conversation's own creature, simplified from its drawing: flat in its main colour (--av-color, as the app's preview
    sets it), its outline, parts and eyes kept; its shading, shine, blush, brows, props and accessories gone; still. Sized
