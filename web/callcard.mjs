@@ -1167,3 +1167,5 @@ document.body.classList.toggle("reduce-motion", pick.motion === "reduced");
 call.appOpen = pick.view === "settings";
 
 draw();
+// Started: the page's boot watch (callcard.html) stands down.
+window.callcardBooted = true;

@@ -15,21 +15,48 @@
   <link rel="stylesheet" href="/callcard/settings.css?v=47">
   <link rel="stylesheet" href="/callcard.css?v=47">
   <script type="module" src="/callcard.mjs?v=47"></script>
-  <!-- Live reload, apart from the page's module so that it still works while the page is broken: a saved edit to one of
-       the page's files reloads it. -->
+  <!-- Live reload and boot watch, apart from the page's module so that they still work while the page is broken: a saved
+       edit to one of the page's files reloads it. A page that does not start (its module threw, or was read mid-save)
+       says why on screen instead of staying black, and reloads by itself once its files read whole again. -->
   <script>
     (() => {
       const watched = ["/callcard.html", "/callcard.mjs", "/callcard.css", "/callcard/formats.mjs", "/callcard/desktops.mjs",
         "/callcard/creatures.json", "/callcard/motion.mjs", "/callcard/tokens.css", "/callcard/theme.css", "/callcard/call-view.css",
         "/callcard/call-card.css", "/callcard/proposed-web.css", "/callcard/ui.css", "/callcard/transcript.css", "/callcard/settings.css", "/callcard/bichos.css", "/callcard/call.css"];
+      const loadedAt = Date.now(), errors = [];
+      const show = () => {
+        let note = document.getElementById("boot-error");
+        if (!note) {
+          note = document.createElement("pre");
+          note.id = "boot-error";
+          note.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;margin:0;padding:10px 12px;border-radius:10px;background:#3a1212;color:#ffd9d9;font:12px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap";
+          (document.body ?? document.documentElement).append(note);
+        }
+        note.textContent = "The call card page did not start:\n" + errors.join("\n") + "\nIt reloads by itself once its files read whole again.";
+      };
+      const failed = (message) => { if (!window.callcardBooted) { errors.push(message); show(); } };
+      addEventListener("error", (event) => failed(event.message || (event.target?.src ? "could not load " + event.target.src : "a file did not load")), true);
+      addEventListener("unhandledrejection", (event) => failed(String(event.reason?.stack ?? event.reason)));
+      // A page that did not start reloads when its files read whole (every one answered 200), at most every 5 s, and
+      // gives up after five tries in a row (then the note stays, with the error).
+      const tries = Number(sessionStorage.getItem("callcard.bootTries") ?? 0);
+      addEventListener("load", () => setTimeout(() => { if (window.callcardBooted) sessionStorage.removeItem("callcard.bootTries"); else if (!errors.length) { errors.push("nothing ran within 6 s"); show(); } }, 6000));
       const seen = new Map();
       setInterval(async () => {
+        let whole = true;
         for (const path of watched) {
           try {
-            const text = await (await fetch(path, { cache: "no-store" })).text();
+            const response = await fetch(path, { cache: "no-store" });
+            // Only a file read whole counts: a tunnel's error page or a 401 is no news, never a change.
+            if (!response.ok) { whole = false; continue; }
+            const text = await response.text();
             if (seen.has(path) && seen.get(path) !== text) location.reload();
             seen.set(path, text);
-          } catch { /* the server restarting: next time */ }
+          } catch { whole = false; /* the server restarting: next time */ }
+        }
+        if (whole && !window.callcardBooted && Date.now() - loadedAt > 5000 && tries < 5) {
+          sessionStorage.setItem("callcard.bootTries", String(tries + 1));
+          location.reload();
         }
       }, 1500);
     })();
