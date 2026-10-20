@@ -1,12 +1,12 @@
 {
   "core": "a02a03a2b0ca4164fbfdcb897da2ef250558f6d5",
   "connector": "847fc63bd1184f4d087b8cd0b1036e5e0eb3a47d",
-  "web": "c56bb764a0b033fdbe7f4be80bb495c14c179e18",
-  "voice": "63b7a3b2e4f79d95122758b77ec59a7147149a23",
+  "web": "e1c5322deffb2fc5fc8826f50b130947ba9c74c8",
+  "voice": "5a33d7fe86a5a7f2afde3eef637e7216765c8482",
   "engine": "nightly",
   "notes": {
     "core": "core main (0.4.7 and after)",
-    "voice": "voice v0.6.0",
+    "voice": "voice v0.7.0",
     "connector": "connector main (0.9.0 and after)",
     "web": "web main, which pins @sidevoice/voice 0.6.0"
   }

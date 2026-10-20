@@ -1,30 +1,46 @@
-// Interruption lab: tune how much speech cuts the agent's reply, and see each attempt as evidence.
+// Interruption lab: tune what decides a turn and how speech cuts the agent's reply, and see each attempt as evidence.
 //
-// What can be set from here: the voice module's `barge_in_min_speech` (seconds of speech above the playing bar, counted
-// within the last 2.5 times as long, before sounding audio is cut). The web room does not pass it on, so the Lab's room
-// bridge (preview/turn-lab/observe.js) hands it to the voice host when the web gives the call its settings. Everything
-// else that decides an interruption is fixed inside the library (FIXED below); nothing here forks or patches it.
+// Every number is the web app's own `turn` setting (sidevoice-web services/voice-settings.js, TURN_TUNING), handed to
+// @sidevoice/voice, and changed here live through the room's `sidevoiceActions.editVoice({ turn })`. Nothing is forked.
 
-export const APP_DEFAULT_SECONDS = 0.6;
 export const ATTEMPTS_KEPT = 20;
 export const ONSET_LEVEL = 15;
 
-export const PRESETS = {
-  A: { seconds: 0.6, rationale: "Today: the app sets nothing, so the voice module's own 0.6 s applies." },
-  B: { seconds: 0.3, rationale: "Eager: 0.3 s of speech cuts the reply, about one short word; a cough or a bump can now cut it too." },
-  C: { seconds: 1.0, rationale: "Tolerant: 1.0 s, so \"mm-hm\", \"yes\" or a single bump never cut; a deliberate phrase does." },
+/** The app's defaults today (web TURN_TUNING), and the bounds the voice accepts. */
+export const DEFAULTS = {
+  listening_bar: { quiet: 0.5, playing: 0.65 },
+  barge_in_min_speech: 0.6, barge_in_window: 2.5, vad_confidence: 0.6, speech_start_ms: 400, pre_roll_ms: 1000, audio_grace_ms: 1000, fade_ms: 30,
 };
 
-// Pinned voice 63b7a3b (v0.6.0), the build the Turn Lab runs. Not settable from the page: the voice's JS host
-// forwards only `barge_in_min_speech` (js/voice-host.js:144), and the web room never sets even that.
+export const PARAMS = [
+  { key: "barge_in_min_speech", label: "Speech that cuts a reply", unit: "s", min: 0.1, max: 3, step: 0.05, hint: "seconds of speech over the playing bar before the reply is cut" },
+  { key: "barge_in_window", label: "Window for that speech", unit: "x", min: 1, max: 10, step: 0.5, hint: "times as long; bursts with gaps add up inside it" },
+  { key: "playing", bar: true, label: "Loudness bar while it plays", unit: "", min: 0.3, max: 0.95, step: 0.01, hint: "0 to 1, -110 to -10 LUFS; lower hears quieter speech (and the speaker)" },
+  { key: "quiet", bar: true, label: "Loudness bar when silent", unit: "", min: 0.2, max: 0.95, step: 0.01, hint: "the same scale, while nothing plays" },
+  { key: "vad_confidence", label: "Detector confidence", unit: "", min: 0.2, max: 0.95, step: 0.05, hint: "from which a window counts as speech" },
+  { key: "speech_start_ms", label: "Speech to start a turn", unit: "ms", min: 0, max: 1500, step: 50, hint: "in silence, how long speech goes on before a turn opens" },
+  { key: "pre_roll_ms", label: "Audio kept before a turn", unit: "ms", min: 0, max: 3000, step: 100, hint: "heard before speech was detected" },
+  { key: "audio_grace_ms", label: "Wait before a reply", unit: "ms", min: 0, max: 5000, step: 100, hint: "after a turn ends" },
+  { key: "fade_ms", label: "Fade when cut", unit: "ms", min: 0, max: 500, step: 5, hint: "the speaker's fade-out" },
+];
+
+const clone = (turn) => ({ ...turn, listening_bar: { ...turn.listening_bar } });
+const valueOf = (turn, param) => param.bar ? turn.listening_bar[param.key] : turn[param.key];
+const setValue = (turn, param, value) => { if (param.bar) turn.listening_bar[param.key] = value; else turn[param.key] = value; };
+
+export const PRESETS = {
+  A: { turn: clone(DEFAULTS), rationale: "Today: the app's own numbers." },
+  B: { turn: { ...clone(DEFAULTS), listening_bar: { quiet: 0.45, playing: 0.55 }, barge_in_min_speech: 0.3, barge_in_window: 3, vad_confidence: 0.5, speech_start_ms: 300, audio_grace_ms: 600, fade_ms: 15 },
+    rationale: "Eager: a lower bar and 0.3 s of speech cut the reply, the detector believes 0.5, it answers sooner; a cough or the speaker can cut it too." },
+  C: { turn: { ...clone(DEFAULTS), listening_bar: { quiet: 0.5, playing: 0.75 }, barge_in_min_speech: 1.0, barge_in_window: 2, vad_confidence: 0.7, speech_start_ms: 500, audio_grace_ms: 1200, fade_ms: 60 },
+    rationale: "Tolerant: a higher bar and 1.0 s of denser speech, so \"mm-hm\", a cough or a bump never cut; you have to mean it." },
+};
+export const turnsEqual = (a, b) => PARAMS.every((param) => valueOf(a, param) === valueOf(b, param));
+
+// What the page cannot change: the browser's own capture processing. There is no backchannel concept in the library.
 export const FIXED = [
-  { name: "Loudness bar while the agent plays", value: "0.65 (-45 LUFS); 0.5 when silent", where: "src/config.rs:207-213 (ListeningBar), applied src/turns.rs:194-199" },
-  { name: "Detector confidence for speech", value: "0.6", where: "src/turns.rs:41" },
-  { name: "Speech counts within a sliding window", value: "2.5 times the setting; gaps are allowed, so short bursts add up", where: "src/turns/overlap.rs:10-12, src/turns.rs:202-205" },
-  { name: "Grace after a turn before the agent speaks", value: "1000 ms", where: "src/config.rs:216-218, src/call.rs:750" },
-  { name: "Fade-out when it stops", value: "30 ms", where: "js/web-audio-io.js:23, js/shared-web-audio-io.js:6" },
-  { name: "Echo / self-voice", value: "the browser's echoCancellation, noiseSuppression, autoGainControl", where: "js/web-audio-io.js:28-31, src/echo/web.rs:1-3" },
-  { name: "Backchannel vs interruption", value: "no such concept: only the amount and loudness of speech decide", where: "src/turns.rs:194-215" },
+  { name: "Echo / self-voice", value: "the browser's echoCancellation, noiseSuppression, autoGainControl", where: "voice js/web-audio-io.js, js/shared-web-audio-io.js (CAPTURE)" },
+  { name: "Backchannel vs interruption", value: "no such concept: only the amount and loudness of speech decide", where: "voice src/turns.rs" },
 ];
 
 const GAP_MS = 250;
@@ -48,7 +64,7 @@ export function createTracker({ onset = ONSET_LEVEL, emit }) {
     const a = current; current = null;
     const rel = (value) => value == null || a.onset == null ? null : Math.round(value - a.onset);
     const record = {
-      id: a.id, at: a.playAt, preset: a.preset, seconds: a.seconds, outcome, reason,
+      id: a.id, at: a.playAt, preset: a.preset, seconds: a.seconds, turn: a.turn, outcome, reason,
       onsetMs: a.onset == null ? null : Math.round(a.onset - a.agentStart),
       detectedMs: rel(a.detected), stoppedMs: rel(a.stopped),
       feltMs: a.stopped != null && a.onset != null ? Math.round(a.stopped - a.onset) : null,
@@ -73,9 +89,9 @@ export function createTracker({ onset = ONSET_LEVEL, emit }) {
   return {
     threshold,
     get active() { return current; },
-    play(preset, seconds, t) {
+    play(preset, seconds, t, turn = null) {
       if (current) finish(t, "through", "replaced by a new Play");
-      current = { id: ++counter, playAt: t, preset, seconds, agentStart: null, onset: null, burstStart: null, lastVoiced: null,
+      current = { id: ++counter, playAt: t, preset, seconds, turn, agentStart: null, onset: null, burstStart: null, lastVoiced: null,
         longest: 0, peak: 0, detected: null, stopped: null, hearing: null, settleAt: null };
     },
     mic(level, t) {
@@ -136,17 +152,16 @@ export const outcomeClass = (outcome) => CLASS[outcome] ?? "pending";
 
 function mount(doc, win) {
   const $ = (id) => doc.getElementById(id);
-  const KEY = "turn-lab.bargein";
+  const KEY = "turn-lab.bargein.turn";
   const store = (() => { try { return win.localStorage; } catch { return null; } })();
   const saved = (() => { try { return JSON.parse(store?.getItem(KEY) ?? "null") ?? {}; } catch { return {}; } })();
   let attempts = Array.isArray(saved.attempts) ? saved.attempts.slice(-ATTEMPTS_KEPT) : [];
-  let preset = saved.preset in PRESETS || saved.preset === "custom" ? saved.preset : "A";
-  let seconds = Number.isFinite(saved.seconds) ? saved.seconds : PRESETS.A.seconds;
-  let override = saved.override !== false; // false: the app's own default, nothing sent
-  let joined = false, applied = null, micLevel = 0, audioStates = [], peak = 0, peakAt = 0, micStep = "waiting for the room";
+  let turn = saved.turn && PARAMS.every((param) => Number.isFinite(valueOf(saved.turn.listening_bar ? saved.turn : DEFAULTS, param))) ? clone(saved.turn) : clone(DEFAULTS);
+  let joined = false, applied = null, micLevel = 0, audioStates = [], peak = 0, peakAt = 0, micStep = "waiting for the room", timer = null;
   const trace = [];
   const mark = (text) => { trace.push(`${new Date().toLocaleTimeString()} ${text}`); if (trace.length > 14) trace.shift(); };
-  const persist = () => { try { store?.setItem(KEY, JSON.stringify({ attempts, preset, seconds, override })); } catch { /* storage is optional */ } };
+  const presetName = () => Object.keys(PRESETS).find((key) => turnsEqual(PRESETS[key].turn, turn)) ?? "custom";
+  const persist = () => { try { store?.setItem(KEY, JSON.stringify({ attempts, turn })); } catch { /* storage is optional */ } };
   const now = () => win.performance.timeOrigin + win.performance.now();
 
   const tracker = createTracker({ emit(record) {
@@ -157,24 +172,38 @@ function mount(doc, win) {
   const room = () => $("room");
   const origin = () => { try { return new URL(room().src).origin; } catch { return null; } };
   const send = (message) => { const to = origin(); if (to && room().contentWindow) room().contentWindow.postMessage(message, to); };
-  const sendSetting = () => { if (joined) send({ type: "turn-lab-barge", seconds: override ? seconds : null }); };
+  const sendSetting = () => { if (joined) send({ type: "turn-lab-barge", turn }); };
+  const changed = () => { persist(); render(); applied = null; win.clearTimeout(timer); timer = win.setTimeout(sendSetting, 150); };
 
-  const shown = () => override ? `${seconds.toFixed(1)} s` : `${APP_DEFAULT_SECONDS.toFixed(1)} s (app default)`;
+  const rows = PARAMS.map((param) => {
+    const label = doc.createElement("label"), name = doc.createElement("span"), input = doc.createElement("input"), out = doc.createElement("output"), def = doc.createElement("small");
+    input.type = "range"; input.min = String(param.min); input.max = String(param.max); input.step = String(param.step); input.title = param.hint;
+    name.textContent = param.label;
+    input.oninput = () => { setValue(turn, param, Number(input.value)); changed(); };
+    label.append(name, input, out, def);
+    return { param, input, out, def, label };
+  });
+  $("barge-params").replaceChildren(...rows.map((row) => row.label));
+
   function render() {
-    $("barge-seconds").value = String(seconds);
-    $("barge-seconds-out").textContent = shown();
-    for (const key of Object.keys(PRESETS)) $(`barge-${key}`).classList.toggle("on", preset === key && override);
-    $("barge-reset").classList.toggle("on", !override);
-    $("barge-rationale").textContent = override ? (PRESETS[preset]?.rationale ?? "Custom value.") : "No override: the app sets nothing, the voice module's own 1.0 s applies.";
-    $("barge-applied").textContent = !joined ? "Waiting for the room to join; the setting is sent when it does." :
-      applied === "error" ? "The room did not take the setting; see the event log." : applied == null ? "Sending to the room…" : `Applied in the room: ${applied}.`;
-    $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`;
-    const live = tracker.active;
-    $("barge-live").textContent = live ? (live.agentStart == null ? "Waiting for the agent to start speaking…" : live.stopped == null ? "Agent speaking: try to interrupt it." : "Agent stopped.") : "Press Play, then interrupt the agent.";
+    for (const { param, input, out, def } of rows) {
+      const value = valueOf(turn, param), base = valueOf(DEFAULTS, param);
+      input.value = String(value);
+      out.textContent = `${value}${param.unit}`;
+      def.textContent = value === base ? `default` : `default ${base}${param.unit}`;
+    }
+    const name = presetName();
+    for (const key of Object.keys(PRESETS)) $(`barge-${key}`).classList.toggle("on", name === key);
+    $("barge-rationale").textContent = PRESETS[name]?.rationale ?? "Custom values.";
+    $("barge-applied").textContent = !joined ? "Waiting for the room to join; the settings are sent when it does." :
+      applied === "error" ? "The room did not take the settings; see the room state below." : applied == null ? "Sending to the room…" : "Applied in the room.";
     $("barge-diag").textContent = `Microphone: ${micStep} · audio: ${audioStates.length ? audioStates.join("/") : "not opened"} · meter ${micLevel}, peak ${peak} in the last 10 s`;
     $("barge-trace").replaceChildren(...[...trace].reverse().map((text) => { const li = doc.createElement("li"); li.textContent = text; return li; }));
     const stuck = audioStates.find((state) => state !== "running");
     $("barge-audio").textContent = stuck ? `The room's audio is ${stuck}, so it cannot hear you. Click once anywhere inside the room.` : "";
+    $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`;
+    const live = tracker.active;
+    $("barge-live").textContent = live ? (live.agentStart == null ? "Waiting for the agent to start speaking…" : live.stopped == null ? "Agent speaking: try to interrupt it." : "Agent stopped.") : "Press Play, then interrupt the agent.";
     $("barge-play").disabled = !joined;
     $("barge-skip").disabled = !joined;
     $("barge-attempts").replaceChildren(...[...attempts].reverse().map((a) => {
@@ -186,22 +215,15 @@ function mount(doc, win) {
       }
       return li;
     }));
-    const totals = summarise(attempts);
-    $("barge-summary").replaceChildren(...Object.entries(totals).sort().map(([key, row]) => {
+    $("barge-summary").replaceChildren(...Object.entries(summarise(attempts)).sort().map(([key, row]) => {
       const li = doc.createElement("li");
       li.textContent = `${key}: ${row.n} tries · ${row.interrupted} interrupted · ${row.false} false · ${row.missed} missed · median ${row.medianFeltMs ?? "—"} ms`;
       return li;
     }));
   }
 
-  function choose(key) { preset = key; seconds = PRESETS[key].seconds; override = true; persist(); render(); sendSetting(); }
-  for (const key of Object.keys(PRESETS)) $(`barge-${key}`).onclick = () => choose(key);
-  $("barge-reset").onclick = () => { preset = "A"; seconds = APP_DEFAULT_SECONDS; override = false; applied = null; persist(); render(); sendSetting(); };
-  $("barge-seconds").oninput = () => {
-    seconds = Number($("barge-seconds").value); override = true;
-    preset = Object.entries(PRESETS).find(([, p]) => p.seconds === seconds)?.[0] ?? "custom";
-    persist(); render(); sendSetting();
-  };
+  for (const key of Object.keys(PRESETS)) $(`barge-${key}`).onclick = () => { turn = clone(PRESETS[key].turn); changed(); };
+  $("barge-reset").onclick = () => { turn = clone(DEFAULTS); changed(); };
   $("barge-onset").value = String(tracker.threshold.onset);
   $("barge-onset").onchange = () => { tracker.threshold.onset = Math.max(1, Number($("barge-onset").value) || ONSET_LEVEL); persist(); };
   $("barge-play").onclick = async () => {
@@ -211,14 +233,14 @@ function mount(doc, win) {
       if (!response.ok) throw new Error(await response.text());
       const reply = await response.json().catch(() => ({}));
       if (reply.status === "rejected") throw new Error(reply.instruction ?? reply.reason ?? "the reply was refused");
-      tracker.play(override ? preset : "A", override ? seconds : APP_DEFAULT_SECONDS, now());
+      tracker.play(presetName(), turn.barge_in_min_speech, now(), clone(turn));
     } catch (error) { $("barge-live").textContent = `Play failed: ${error.message}`; return; }
     render();
   };
   $("barge-skip").onclick = () => send({ type: "turn-lab-skip" });
   $("barge-clear").onclick = () => { attempts = []; persist(); render(); };
   $("barge-export").onclick = () => {
-    const body = { at: new Date().toISOString(), setting: "barge_in_min_speech (seconds)", appDefault: APP_DEFAULT_SECONDS, presets: PRESETS,
+    const body = { at: new Date().toISOString(), defaults: DEFAULTS, presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, p.turn])), current: turn,
       onsetLevel: tracker.threshold.onset, attempts, summary: summarise(attempts), fixedInLibrary: FIXED };
     const url = win.URL.createObjectURL(new win.Blob([JSON.stringify(body, null, 2)], { type: "application/json" }));
     const anchor = doc.createElement("a"); anchor.href = url; anchor.download = `turn-lab-bargein-${Date.now()}.json`; anchor.click();
@@ -237,7 +259,7 @@ function mount(doc, win) {
     if (kind === "browser-ready") {
       if (data.tracks != null) { micStep = `allowed, ${data.tracks} track${data.tracks === 1 ? "" : "s"}`; mark(micStep.replace("allowed", "microphone allowed")); }
       if (data.voice) mark(`call ${data.voice}`);
-      if (data.modelStep) mark(`setup step ${data.modelStep} done`);
+      if (data.modelStep) mark(`setup step ${data.modelStep} ${data.state ?? "done"}`);
     }
     if (kind === "browser-error") { mark(`error ${Object.values(data).join(" ")}`); micStep = `error: ${Object.values(data).join(" ")}`; }
     if (kind === "room-frame" && ["voice-user-turn", "voice-input-receipt"].includes(data.type)) mark(`room: ${data.type} ${data.phase ?? data.status ?? ""}`.trim());
@@ -246,9 +268,8 @@ function mount(doc, win) {
     else if (kind === "barge-mic") { micLevel = Math.round(data.level); if (data.t - peakAt > 10_000 || data.level >= peak) { peak = Math.round(data.level); peakAt = data.t; } tracker.mic(data.level, data.t ?? t); $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`; }
     else if (kind === "barge-state") { tracker.state(data, data.t ?? t); mark(`listening ${data.listening ?? "?"}, playback ${data.playback ?? "?"}, mic ${data.mic ?? "?"}${data.phase ? `, ${data.phase}` : ""}`); render(); }
     else if (kind === "barge-audio") { audioStates = data.states ?? []; mark(`audio ${audioStates.join("/")}`); render(); }
-    else if (kind === "barge-read") mark(`the voice took barge_in_min_speech ${data.seconds == null ? "default" : `${data.seconds} s`}`);
-    else if (kind === "barge-applied") { applied = data.seconds == null ? "app default (1.0 s)" : `${Number(data.seconds).toFixed(1)} s`; render(); }
-    else if (kind === "barge-error") { applied = "error"; render(); }
+    else if (kind === "barge-applied") { applied = true; mark(`room kept ${JSON.stringify(data.turn)}`); render(); }
+    else if (kind === "barge-error") { applied = "error"; mark(`settings not taken: ${data.message}`); render(); }
     else if (kind === "browser-action" && data.type === "reply-hearing") tracker.hearing(data.outcome);
   });
   win.setInterval(() => { tracker.tick(now()); }, 250);

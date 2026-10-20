@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTracker, summarise, PRESETS } from '../web/turn-lab-barge.mjs';
+import { createTracker, summarise, PRESETS, DEFAULTS } from '../web/turn-lab-barge.mjs';
 
 const run = (steps, { seconds = 1.0, preset = 'A' } = {}) => {
   const out = [], tracker = createTracker({ emit: (record) => out.push(record) });
@@ -55,7 +55,7 @@ test('a reply that plays through untouched is recorded as such, and silence befo
 });
 
 test('summaries compare presets and the presets are A defaults, B eager, C tolerant', () => {
-  assert.ok(PRESETS.B.seconds < PRESETS.A.seconds && PRESETS.A.seconds < PRESETS.C.seconds);
+  assert.ok(PRESETS.B.turn.barge_in_min_speech < PRESETS.A.turn.barge_in_min_speech && PRESETS.A.turn.barge_in_min_speech < PRESETS.C.turn.barge_in_min_speech && PRESETS.A.turn.listening_bar.playing === DEFAULTS.listening_bar.playing);
   const rows = summarise([{ preset: 'A', outcome: 'interrupted', feltMs: 1000 }, { preset: 'A', outcome: 'interrupted', feltMs: 1400 }, { preset: 'B', outcome: 'false' }]);
   assert.deepEqual(rows.A, { n: 2, interrupted: 2, false: 0, missed: 0, medianFeltMs: 1200 });
   assert.equal(rows.B.false, 1);
@@ -69,19 +69,20 @@ test('the page mounts, sends the preset to the room once it joins, and counts a 
     return elements.get(id);
   };
   const win = { localStorage: { getItem: () => null, setItem() {} }, performance: { timeOrigin: 0, now: () => 1000 }, addEventListener: (_, handler) => handlers.push(handler),
-    setInterval() {}, setTimeout, fetch: async (path) => { requests.push(path); return { ok: true, json: async () => ({}), text: async () => '' }; }, URL, Blob };
+    setInterval() {}, setTimeout, clearTimeout, fetch: async (path) => { requests.push(path); return { ok: true, json: async () => ({}), text: async () => '' }; }, URL, Blob };
   const doc = { getElementById: element, createElement: () => ({ classList: { toggle() {} }, append() {} }) };
   globalThis.document = doc; globalThis.window = win;
   try {
     element('barge-play');
     await import(`../web/turn-lab-barge.mjs?mount=${Math.random()}`);
     const message = (kind, data) => handlers[0]({ source: element('room').contentWindow, origin: 'https://room.example', data: { source: 'turn-lab-browser', kind, data } });
+    const wait = () => new Promise((resolve) => setTimeout(resolve, 250));
     message('browser-ready', { voice: 'joined' });
-    assert.deepEqual(posted.at(-1), { message: { type: 'turn-lab-barge', seconds: 0.6 }, origin: 'https://room.example' });
-    element('barge-B').onclick();
-    assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', seconds: 0.3 });
-    element('barge-reset').onclick();
-    assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', seconds: null });
+    assert.deepEqual(posted.at(-1), { message: { type: 'turn-lab-barge', turn: DEFAULTS }, origin: 'https://room.example' });
+    element('barge-B').onclick(); await wait();
+    assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', turn: PRESETS.B.turn });
+    element('barge-reset').onclick(); await wait();
+    assert.deepEqual(posted.at(-1).message.turn, DEFAULTS);
     await element('barge-play').onclick();
     assert.deepEqual(requests, ['/preview/turn-lab/play']);
   } finally { delete globalThis.document; delete globalThis.window; }
