@@ -1136,3 +1136,27 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* Reduced motion: no morph, no fan, nothing steps aside; things are simply there, then the handle again. */
 .reduce-motion #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; }
 @media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; } }
+
+/* ---------- C1's handle, how inviting it is (OPEN, 2026-10-20: the variant "handleLook") ---------- */
+/* A · "glow": the accent's soft fill and ink, a bolder mark; arriving from rest it pulses twice (a ring of the accent)
+   and its chevron nudges toward where it opens, then it holds still. Never on landing back from the card. */
+#card-window[data-handle-look=glow] .c1x .c1-handle { background: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent));
+  border-color: color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); }
+#card-window[data-handle-look=glow] .c1x .c1-handle svg { stroke-width: 2.3; }
+#card-window[data-handle-look=glow] .c1x .c1-handle:hover { background: color-mix(in srgb, var(--sv-accent) 32%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent)); }
+#card-window[data-handle-look=glow][data-c1-arrived][data-peek]:not([data-expanded]) .c1x .c1-handle { animation: c1-glow 1s ease-out .1s 2; }
+#card-window[data-handle-look=glow][data-c1-arrived][data-side=left] .c1x .c1-handle-chevron { animation: c1-nudge-r .5s ease-in-out .15s 2; }
+#card-window[data-handle-look=glow][data-c1-arrived][data-side=right] .c1x .c1-handle-chevron { animation: c1-nudge-l .5s ease-in-out .15s 2; }
+@keyframes c1-glow { 0% { box-shadow: 0 6px 18px rgb(0 0 0 / 35%), 0 0 0 0 color-mix(in srgb, var(--sv-accent) 55%, transparent); }
+  100% { box-shadow: 0 6px 18px rgb(0 0 0 / 35%), 0 0 0 9px color-mix(in srgb, var(--sv-accent) 0%, transparent); } }
+@keyframes c1-nudge-r { 50% { translate: 2.5px 0; } }
+@keyframes c1-nudge-l { 50% { translate: -2.5px 0; } }
+/* B · "state": the call's state in place of the more mark: the mic (the text's ink), the crossed mic on the room's
+   muted fill and ink (call-view.css #mic-control[data-muted]), the waveform in the voice's colour while the agent
+   speaks; the chevron after it, as ever. */
+#card-window[data-handle-look=state] .c1x .c1-handle { gap: 2px; padding: 0 4px 0 5px; }
+.c1-handle-state { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--sv-text); }
+.c1-handle-state[data-mark=micOff] { background: var(--sv-danger-soft); color: var(--sv-danger); }
+.c1-handle-state[data-mark=wave] { color: var(--sv-voice, #e0a82e); }
+.reduce-motion #card-window .c1x :is(.c1-handle, .c1-handle-chevron) { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-handle-chevron) { animation: none !important; } }

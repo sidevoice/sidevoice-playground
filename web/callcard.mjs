@@ -34,7 +34,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
 const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", unread: "1", c1Layout: "card", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", unread: "1", c1Layout: "card", handleLook: "plain", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 // Choices decided on 2026-10-20 leave the address: the unread cue (now "!"), and what C1's handle opens (the card).
 delete pick.unreadCue;
@@ -109,6 +109,8 @@ const ICONS = {
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
   conversations: '<path d="M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><path d="M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1"/>',
   chevronsUpDown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  // lucide's AudioWaveform (the web's Icons.tsx has it): the agent speaking, in C1's handle.
+  wave: '<path d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"/>',
   moreH: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   more: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
@@ -321,6 +323,7 @@ function drawCard() {
   if (f.id !== "mascot") { win.removeAttribute("data-peek"); c1Aim = null; }
   if (f.id === "mascot") win.dataset.c1Layout = c1Layout(); else delete win.dataset.c1Layout;
   win.toggleAttribute("data-c1-arc", c1Arc());
+  if (f.id === "mascot") win.dataset.handleLook = handleLook(); else delete win.dataset.handleLook;
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   // Always shown (Settings), the controls stay out; else they come near the pointer (as today's card: alwaysExpanded).
   if (pickerOpen || s.alwaysShown) win.toggleAttribute("data-expanded", true);
@@ -592,7 +595,7 @@ addEventListener("pointerup", (event) => {
  *  creature: on one, things step back down. */
 const C1_STEPS = ["rest", "peek", "open"];
 const C1_FOLD_MS = 240;
-let c1Aim = null, c1FoldTimer = 0;
+let c1Aim = null, c1FoldTimer = 0, c1ArriveTimer = 0;
 /** What the pointer is on: the handle or what it opened ("card"), the creature, or neither. */
 const c1Zone = (target) => target?.closest?.(".c1-handle, .c1-dock") ? "card" : target?.closest?.(".c1x .m-figure") ? "creature" : "none";
 /** Once open, C1's controls hold while the pointer is anywhere in their hull: the box around the handle and everything
@@ -634,6 +637,8 @@ function c1Go(want, force = false) {
   if (!force && want !== "open" && was === "open" && c1Held()) { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => c1Go(c1Wanted()), 500); return; }
   win.toggleAttribute("data-peek", want !== "rest" || settings().alwaysShown);
   // Folding back: the card shrinks into the handle, which shows again once it has (data-c1-folding, callcard.css).
+  if (was === "rest" && want === "peek") { win.setAttribute("data-c1-arrived", ""); clearTimeout(c1ArriveTimer); c1ArriveTimer = setTimeout(() => win.removeAttribute("data-c1-arrived"), 2200); }
+  if (want !== "peek") win.removeAttribute("data-c1-arrived");
   if (was === "open" && want !== "open") { win.setAttribute("data-c1-folding", ""); clearTimeout(c1FoldTimer); c1FoldTimer = setTimeout(() => win.removeAttribute("data-c1-folding"), C1_FOLD_MS); }
   const handleFocused = document.activeElement === handle;
   expand(want === "open", true);
@@ -643,7 +648,18 @@ function c1Go(want, force = false) {
 }
 /** The handle: a small pill in the card's chrome, the more mark and a chevron toward where it opens. A real button:
  *  Tab reaches it (it shows when focused), Enter unfolds it into the card, focus inside. */
-const c1Handle = () => `<button type="button" class="c1-handle" data-run="c1-open" data-theme="${scheme()}" aria-controls="c1-controls" aria-expanded="${$("card-window").hasAttribute("data-expanded")}" aria-label="${words("card.controls")}" title="${words("card.controls")}">${svg("moreH", 16)}${svg("chevron", 12).replace("<svg ", '<svg class="c1-handle-chevron" ')}</button>`;
+/** OPEN (variant "handleLook"): how inviting the handle is. "plain" (today): the more mark and the chevron, muted ink.
+ *  "glow" (A): the accent's soft fill and ink, a bolder mark; as it first appears it pulses twice and its chevron nudges
+ *  toward where it opens, then it holds still. "state" (B): the call's state in place of the more mark — the mic, the
+ *  crossed mic on the muted fill, the waveform in the voice's colour while the agent speaks — and the chevron. */
+const HANDLE_LOOKS = { plain: "Today (⋯ ›)", glow: "A · accent, glows as it appears", state: "B · the call's state inside" };
+const handleLook = () => (pick.handleLook in HANDLE_LOOKS ? pick.handleLook : "plain");
+const handleMark = () => {
+  if (handleLook() !== "state") return svg("moreH", 16);
+  const mark = muted() ? "micOff" : call.state === "speaking" ? "wave" : "mic";
+  return `<span class="c1-handle-state" data-mark="${mark}">${svg(mark, 15)}</span>`;
+};
+const c1Handle = () => `<button type="button" class="c1-handle" data-run="c1-open" data-theme="${scheme()}" aria-controls="c1-controls" aria-expanded="${$("card-window").hasAttribute("data-expanded")}" aria-label="${words("card.controls")}" title="${words("card.controls")}">${handleMark()}${svg("chevron", 12).replace("<svg ", '<svg class="c1-handle-chevron" ')}</button>`;
 $("card-window").addEventListener("focusout", (event) => {
   if (format().id !== "mascot" || event.relatedTarget?.closest?.(".c1x :is(.c1-handle, .c1-dock), .cc-picker")) return;
   // Focus gone: back to what the pointer says.
@@ -1185,7 +1201,7 @@ function drawPanel() {
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
-        `<fieldset class="panel-open"><legend>Open questions</legend>${select("c1Layout", "C1 · expanded layout", Object.entries(C1_LAYOUTS), c1Layout())}</fieldset>`,
+        `<fieldset class="panel-open"><legend>Open questions</legend>${select("c1Layout", "C1 · expanded layout", Object.entries(C1_LAYOUTS), c1Layout())}${select("handleLook", "C1 · the handle's look", Object.entries(HANDLE_LOOKS), handleLook())}</fieldset>`,
     select("spot", "Put the card", [["", "Where it is"], ["tl", "Top left"], ["tr", "Top right"], ["ml", "Middle left"], ["mr", "Middle right"], ["bl", "Bottom left"], ["br", "Bottom right"]], ""),
     `<label class="check"><input type="checkbox" data-pick="always"${s.alwaysShown ? " checked" : ""}> Keep the controls out (Settings' "Always show")</label>`,
     `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
@@ -1219,7 +1235,7 @@ $("controls").addEventListener("change", (event) => {
   else if (name === "format" || name === "size") { const value = event.target.value; keepAnchor(() => { if (name === "size") forgetWidths(); pick[name] = value; }); }
   else pick[name] = event.target.value;
   // Picking C1's layout shows C1.
-  if (name === "c1Layout" && pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; });
+  if ((name === "c1Layout" || name === "handleLook") && pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; });
   if (name === "state") { const was = call.state; call.state = pick.state; pick.cycle = "0"; animator.entered(was); }
   if (name === "creature" || name === "env") call.appOpen = false;
   document.body.classList.toggle("reduce-motion", pick.motion === "reduced");
