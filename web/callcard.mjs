@@ -34,7 +34,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
 const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", unread: "1", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", unread: "1", c1Layout: "card", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 // Choices decided on 2026-10-20 leave the address: the unread cue (now "!"), and what C1's handle opens (the card).
 delete pick.unreadCue;
@@ -319,6 +319,8 @@ function drawCard() {
   win.toggleAttribute("data-picker", pickerOpen || detailsOpen);
   win.dataset.listFrom = "element";
   if (f.id !== "mascot") { win.removeAttribute("data-peek"); c1Aim = null; }
+  if (f.id === "mascot") win.dataset.c1Layout = c1Layout(); else delete win.dataset.c1Layout;
+  win.toggleAttribute("data-c1-arc", c1Arc());
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   // Always shown (Settings), the controls stay out; else they come near the pointer (as today's card: alwaysExpanded).
   if (pickerOpen || s.alwaysShown) win.toggleAttribute("data-expanded", true);
@@ -478,6 +480,45 @@ function interacting() {
 function tailsToward() {
   const up = $("card-window").dataset.open === "down";
   for (const balloon of $("card-window").querySelectorAll(":is(.cc-mascot, .c1x) .cc-captions .speech-bubble")) balloon.classList.toggle("balloon--tail-up", up);
+  c1TitleSpot();
+}
+
+// ---------- C1: the expanded layout (OPEN, 2026-10-20: the variant "c1Layout") ----------
+
+/** OPEN (variant "c1Layout"): how C1's controls lie out once the handle opens. "card" is the decided one for now. The
+ *  others are the arc (the room's round call buttons fanning out around the creature on its open side, as before) with
+ *  the title line (title, conversations with its "!", open, settings, ×) above or below it, from the creature's
+ *  screen-edge side toward its open side, so it never spreads far sideways:
+ *  - "past" (A): on the balloons' side, past the arc's tip, or past the balloon while one is up (it moves with it);
+ *  - "near" (C): on the balloons' side, by the arc's tip; the balloons make way past it while the controls are out;
+ *  - "free" (B): on the side the balloons never use, past the arc's tip; near the screen's edge the creature keeps that
+ *    much room from it (in this layout only), so nothing moves when it opens. */
+const C1_LAYOUTS = { card: "Original card (decided for now)", past: "Arc + title past the balloons (A)", near: "Arc + title by the creature, balloons past it (C)", free: "Arc + title on the free side (B)" };
+const c1Layout = () => (pick.c1Layout in C1_LAYOUTS ? pick.c1Layout : "card");
+const c1Arc = () => format().id === "mascot" && c1Layout() !== "card";
+/** The arc as callcard.css draws it: radius the creature's half plus 30 px, buttons 34 px, two steps out at most. */
+const ARC_STEP = { s: 28, m: 23, l: 18 }, TITLE_GAP = 8, TITLE_H = 34;
+const avatarSide = () => FORMATS.find((each) => each.id === "mascot").sizes[settings().size].w;
+const arcReach = () => { const w = avatarSide(); return Math.max(w / 2, (w / 2 + 30) * Math.sin((2 * ARC_STEP[settings().size] * Math.PI) / 180) + 17); };
+/** The title's side (above or below the creature) and its near edge's distance from the creature's middle; for "near",
+ *  how far the balloons step out while the controls are out. */
+function c1TitleSpot() {
+  const win = $("card-window");
+  if (!c1Arc()) return;
+  const layout = c1Layout(), balloonsDown = win.dataset.open === "down", below = layout === "free" ? !balloonsDown : balloonsDown;
+  let y = arcReach() + TITLE_GAP;
+  if (layout === "past") {
+    const stack = win.querySelector(".c1x-stack"), figure = win.querySelector(".c1x .m-figure");
+    if (stack?.querySelector(".speech-bubble") && figure) {
+      const r = stack.getBoundingClientRect(), f = figure.getBoundingClientRect(), mid = f.top + f.height / 2;
+      y = Math.max(y, (below ? r.bottom - mid : mid - r.top) + TITLE_GAP);
+    }
+  }
+  win.dataset.c1Title = below ? "below" : "above";
+  win.style.setProperty("--c1-title-y", Math.round(y) + "px");
+  // The stack starts 0.42 of the creature from its middle (callcard.css .c1x-stack): past the title, while it is out.
+  const step = Math.max(0, arcReach() + TITLE_GAP + TITLE_H + TITLE_GAP - 0.42 * avatarSide());
+  win.style.setProperty("--c1-stack-step", (balloonsDown ? step : -step) + "px");
 }
 
 /** The work area's size, and the card window's (the card and its shadow margin). */
@@ -492,13 +533,20 @@ function place() {
   const work = workSize(), size = cardSize();
   const rest = dropAt(settings().place ?? firstPlace(work, size, pick.startCorner || "tr"), size, work);
   const at = fit(rest, size, work);
-  win.style.left = at.x + "px";
-  win.style.top = at.y + "px";
-  lastRect = { x: at.x, y: at.y, w: size.width, h: size.height };
   // C1's balloons go above the avatar when a three-line balloon fits there, else below (operator, 2026-10-19); the other
   // formats' captions open toward the screen's middle.
   const BALLOON_ROOM = { s: 130, m: 150, l: 180 };
   win.dataset.open = format().id === "mascot" ? (at.y >= (BALLOON_ROOM[settings().size] ?? 150) ? "up" : "down") : opensDown(at, size, work) ? "down" : "up";
+  // C1, the arc's title on the free side (B): the creature keeps the title's room from that screen edge, at rest too, so
+  // nothing moves when the controls open.
+  if (c1Arc() && c1Layout() === "free") {
+    const room = Math.ceil(arcReach() + TITLE_GAP + TITLE_H - avatarSide() / 2 - PLACEMENT.margin);
+    if (win.dataset.open === "down") at.y = Math.max(at.y, room);
+    else at.y = Math.min(at.y, Math.max(0, work.height - size.height - room));
+  }
+  win.style.left = at.x + "px";
+  win.style.top = at.y + "px";
+  lastRect = { x: at.x, y: at.y, w: size.width, h: size.height };
   tailsToward();
   win.dataset.side = at.x + size.width / 2 > work.width / 2 ? "right" : "left";
   // The picture's grip: the corner towards the middle of the screen (away from the edges it sits by).
@@ -1116,7 +1164,10 @@ function drawPanel() {
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
-        `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
+        `<fieldset class="panel-open"><legend>Open questions</legend>${select("c1Layout", "C1 · expanded layout", Object.entries(C1_LAYOUTS), c1Layout())}</fieldset>`,
+    select("spot", "Put the card", [["", "Where it is"], ["tl", "Top left"], ["tr", "Top right"], ["ml", "Middle left"], ["mr", "Middle right"], ["bl", "Bottom left"], ["br", "Bottom right"]], ""),
+    `<label class="check"><input type="checkbox" data-pick="always"${s.alwaysShown ? " checked" : ""}> Keep the controls out (Settings' "Always show")</label>`,
+    `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
     select("creature", "Conversation", CREATURES.map((c) => [c.id, c.seed === "Sidevoice" ? "Sidevoice mascot" : c.seed]), creature().id),
@@ -1135,10 +1186,19 @@ $("controls").addEventListener("change", (event) => {
   if (name === "cycle") pick.cycle = event.target.checked ? "1" : "0";
   else if (name === "card") pick.card = event.target.checked ? "1" : "0";
   else if (name === "unread") pick.unread = event.target.checked ? "1" : "0";
+  else if (name === "always") pick.always = event.target.checked ? "1" : "0";
+  else if (name === "spot") {
+    // A corner or the middle of a side of the work area, for the card's window as it is now.
+    const work = workSize(), size = cardSize(), spot = event.target.value;
+    pick.x = String(Math.round(spot.endsWith("l") ? 0 : work.width - size.width));
+    pick.y = String(Math.round(spot.startsWith("t") ? 0 : spot.startsWith("b") ? work.height - size.height : (work.height - size.height) / 2));
+  }
   else if (name === "captions") { pick.captions = event.target.checked ? "1" : "0"; localStorage.setItem(CAPTIONS_KEY, pick.captions); }
   else if (name === "motion") pick.motion = event.target.checked ? "reduced" : "full";
   else if (name === "format" || name === "size") { const value = event.target.value; keepAnchor(() => { if (name === "size") forgetWidths(); pick[name] = value; }); }
   else pick[name] = event.target.value;
+  // Picking C1's layout shows C1.
+  if (name === "c1Layout" && pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; });
   if (name === "state") { const was = call.state; call.state = pick.state; pick.cycle = "0"; animator.entered(was); }
   if (name === "creature" || name === "env") call.appOpen = false;
   document.body.classList.toggle("reduce-motion", pick.motion === "reduced");

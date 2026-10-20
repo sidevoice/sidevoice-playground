@@ -1084,31 +1084,55 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
    it (.06s) and the card's contents fade in as the card always has (.15s, today's card's fade); folding, the reverse:
    the contents fade, the surface shrinks back into the pill's rect, and the handle shows again as it lands. */
 #card-window .c1x .c1-dock { pointer-events: none; transition: clip-path .22s cubic-bezier(.3, .7, .2, 1), visibility 0s linear .22s; }
-#card-window[data-side=left] .c1x .c1-dock { clip-path: inset(calc(50% - var(--handle-h) / 2) calc(100% - var(--handle-w)) calc(50% - var(--handle-h) / 2) 0 round calc(var(--handle-h) / 2)); }
-#card-window[data-side=right] .c1x .c1-dock { clip-path: inset(calc(50% - var(--handle-h) / 2) 0 calc(50% - var(--handle-h) / 2) calc(100% - var(--handle-w)) round calc(var(--handle-h) / 2)); }
-#card-window[data-expanded] .c1x .c1-dock, #card-window .c1x .c1-dock:focus-within {
+#card-window:not([data-c1-arc])[data-side=left] .c1x .c1-dock { clip-path: inset(calc(50% - var(--handle-h) / 2) calc(100% - var(--handle-w)) calc(50% - var(--handle-h) / 2) 0 round calc(var(--handle-h) / 2)); }
+#card-window:not([data-c1-arc])[data-side=right] .c1x .c1-dock { clip-path: inset(calc(50% - var(--handle-h) / 2) 0 calc(50% - var(--handle-h) / 2) calc(100% - var(--handle-w)) round calc(var(--handle-h) / 2)); }
+#card-window:not([data-c1-arc])[data-expanded] .c1x .c1-dock, #card-window:not([data-c1-arc]) .c1x .c1-dock:focus-within {
   clip-path: inset(-40px round calc(var(--sv-radius-2xl) + 40px)) !important; pointer-events: auto; transition: clip-path .22s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
 #card-window .c1x .c1-dock > * { opacity: 0; transition: opacity .08s linear; }
 #card-window[data-expanded] .c1x .c1-dock > *, #card-window .c1x .c1-dock:focus-within > * { opacity: 1; transition: opacity .15s linear .07s; }
 #card-window[data-expanded] .c1x .c1-handle { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .06s linear, visibility 0s linear .06s; }
 #card-window[data-c1-folding]:not([data-expanded]) .c1x .c1-handle { scale: 1; transition: opacity .08s linear .16s; }
 
-/* Reduced motion: no morph; the card is simply there, then the handle again. */
-.reduce-motion #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *) { transition: none !important; }
-@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *) { transition: none !important; } }
+/* ---------- C1, the arc layouts (OPEN, 2026-10-20: "c1Layout" past | near | free) ----------
+   The arc as before: the room's round call buttons (34px, each in a 4px ring of the card's surface for any backdrop) fan
+   out from behind the creature on its open side, mic and captions above its middle, skip and hang up below, steps of
+   28°/23°/18° (S/M/L) on a radius of the creature's half plus 30px. The handle hands over to them (the morph's spirit:
+   it becomes the arc). The title line lies above or below the arc (data-c1-title, at --c1-title-y from the creature's
+   middle, both set by callcard.mjs c1TitleSpot), from the creature's screen-edge side toward its open side, and unfolds
+   from that side. */
+#card-window[data-c1-arc] .c1x { --arc-btn: 34px; --arc-r: calc(var(--w) / 2 + 30px); --arc-step: 23deg; --reach: 0; }
+#card-window[data-c1-arc][data-size=s] .c1x { --arc-step: 28deg; }
+#card-window[data-c1-arc][data-size=l] .c1x { --arc-step: 18deg; }
+#card-window[data-c1-arc][data-expanded] .c1x, #card-window[data-c1-arc] .c1x:has(.c1-dock:focus-within) { --reach: 1; }
+#card-window[data-c1-arc] .c1x .m-figure { position: relative; z-index: 4; }
+#card-window[data-c1-arc] .c1x .c1-dock { display: block !important; left: calc(var(--w) / 2) !important; right: auto !important; top: calc(var(--w) / 2) !important;
+  transform: none !important; width: 0 !important; height: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; z-index: 5; }
+#card-window[data-c1-arc][data-expanded] .c1x .c1-dock, #card-window[data-c1-arc] .c1x .c1-dock:focus-within { z-index: 7; }
+#card-window[data-c1-arc] .c1x .c1-dock :is(.pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
+#card-window[data-c1-arc] .c1x .c1-dock .call-button { --a: calc(var(--k) * var(--arc-step));
+  position: absolute !important; left: 0; top: 0; width: var(--arc-btn) !important; height: var(--arc-btn) !important;
+  transform: translate(-50%, -50%) rotate(var(--a)) translate(calc(var(--arc-r) * var(--reach))) rotate(calc(-1 * var(--a)));
+  opacity: var(--reach); box-shadow: 0 0 0 3px var(--sv-surface), 0 0 0 4px var(--sv-border), 0 6px 16px rgb(0 0 0 / 35%);
+  transition: transform .2s cubic-bezier(.2, .8, .2, 1), opacity .12s linear, background-color var(--sv-dur-fast) var(--sv-ease); }
+#card-window[data-c1-arc][data-side=right] .c1x .c1-dock .call-button { --a: calc(180deg - var(--k) * var(--arc-step)); }
+#card-window[data-c1-arc] .c1x .c1-dock #mute { --k: -2; }
+#card-window[data-c1-arc] .c1x .c1-dock .card-captions { --k: -1; }
+#card-window[data-c1-arc] .c1x .c1-dock .card-skip { --k: 1; }
+#card-window[data-c1-arc] .c1x .c1-dock #connect { --k: 2; }
+/* The title line: a pill of the card's chrome, the 10-20 title rule inside (up to 300px). */
+#card-window[data-c1-arc] .c1x .c1-dock > .pip-head-1 { position: absolute !important; width: max-content; max-width: 300px; box-sizing: border-box;
+  padding: 4px 4px 4px 12px !important; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill); background: var(--sv-bg); box-shadow: var(--sv-shadow-md);
+  opacity: 0; transition: opacity .14s linear, clip-path .22s cubic-bezier(.3, .7, .2, 1), top .18s ease-out, bottom .18s ease-out; }
+#card-window[data-c1-arc][data-side=left] .c1x .c1-dock > .pip-head-1 { left: calc(-1 * var(--w) / 2); clip-path: inset(0 100% 0 0 round 17px); }
+#card-window[data-c1-arc][data-side=right] .c1x .c1-dock > .pip-head-1 { right: calc(-1 * var(--w) / 2); clip-path: inset(0 0 0 100% round 17px); }
+#card-window[data-c1-arc][data-c1-title=below] .c1x .c1-dock > .pip-head-1 { top: var(--c1-title-y); }
+#card-window[data-c1-arc][data-c1-title=above] .c1x .c1-dock > .pip-head-1 { bottom: var(--c1-title-y); }
+#card-window[data-c1-arc][data-expanded] .c1x .c1-dock > .pip-head-1, #card-window[data-c1-arc] .c1x .c1-dock:focus-within > .pip-head-1 {
+  opacity: 1; clip-path: inset(-30px round 47px); transition: opacity .12s linear .04s, clip-path .22s cubic-bezier(.2, .8, .2, 1) .04s, top .18s ease-out, bottom .18s ease-out; }
+/* "near" (C): while the controls are out, the balloons step out past the title. */
+#card-window[data-c1-layout=near] .c1x .c1x-stack { transition: translate .2s cubic-bezier(.2, .8, .2, 1); }
+#card-window[data-c1-layout=near][data-expanded] .c1x .c1x-stack { translate: 0 var(--c1-stack-step); }
 
-/* "Cancel sending": the proposed island washes (proposed-web.css) applied after transcript.css's island rule, as the web
-   change would write them in that rule itself. A1's line (on the card's chrome, not in a balloon) takes A1's other
-   buttons' states: the actions' 9% wash on hover, 14% pressed. */
-#card-window :is(.chat-bubble[data-role="user"], .person-bubble) { --sv-hover: var(--sv-chat-person-wash-hover); --sv-pressed: var(--sv-chat-person-wash-pressed); }
-@media (hover: hover) { #card-window .cc-line .ui-button.cancel-input:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); color: var(--fg); } }
-#card-window .cc-line .ui-button.cancel-input:active { background: color-mix(in srgb, var(--fg) 14%, transparent); }
-
-/* ---------- Cursors (operator, 2026-10-20) ----------
-   Every button shows the hand, as the card's others do: the handle and "Cancel sending" too. C1's creature is what you
-   drag: the open hand over it, the closed hand while it is pressed or dragged (DECIDED: this overrides 10-19's "no move
-   or grab cursor" for the creature; A1 and B1 keep the plain pointer, their whole card being what drags). */
-#card-window :is(.c1-handle, .cancel-input):not(:disabled) { cursor: pointer !important; }
-#card-window[data-format=mascot] .c1x .m-figure, #card-window[data-format=mascot] .c1x .m-figure * { cursor: grab !important; }
-#card-window[data-format=mascot] .c1x .m-figure:active, #card-window[data-format=mascot] .c1x .m-figure:active *,
-#card-window[data-format=mascot].dragging, #card-window[data-format=mascot].dragging * { cursor: grabbing !important; }
+/* Reduced motion: no morph, no fan, nothing steps aside; things are simply there, then the handle again. */
+.reduce-motion #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; } }
