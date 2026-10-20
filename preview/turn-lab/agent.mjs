@@ -7,6 +7,17 @@ import { connectorEnv } from "../runs.mjs";
 
 const longReply = "I am walking through the result carefully. ".repeat(22) + "The final point is é🐙ab.";
 const muteReply = "I am walking through the result carefully. ".repeat(8) + "Use the Lab's Output unavailable control during this reply.";
+// The Interruption lab's reply: about forty seconds of speech with no pause long enough to end it early.
+const playReply = [
+  "This is a long reply to practise interrupting.",
+  "I will keep talking for a while, so you can try to cut in at any moment, with a short word, a sentence, or just a noise.",
+  "First, imagine a pot of water on the stove: it takes a few minutes to boil, and in the meantime the kitchen fills with a quiet, steady hum.",
+  "Next, the garden outside: the beans are climbing their canes, the tomatoes are reddening, and a blackbird is working through the lawn one worm at a time.",
+  "Then the train station: the board flickers, a bag rolls over the tiles, and somebody far away calls a name that nobody answers.",
+  "Finally, the harbour at dusk, where the boats rock against their ropes and the last light drains out of the water.",
+  "If you can still hear me, you have not interrupted yet. Go ahead and speak.",
+].join(" ");
+
 export const SCRIPTS = {
   T01: { title: "Interrupt a long reply", lines: [], autoReply: longReply, instruction: "Select this script, then speak. The agent answers with a long reply; speak again for at least one second while it plays." },
   T02a: { title: "Accepted before speech, with words", lines: [longReply], instruction: "Begin speaking just as playback would start." },
@@ -186,6 +197,11 @@ export function scriptedAgent({ program, profile, emit, now = Date.now, spawnPro
         void pull();
       }
       return joined;
+    },
+    async play(text = playReply) {
+      if (!context) throw new Error("Speak a short setup message in the room first, then press Play again.");
+      record("bargein-play", { conversation, epoch: context.epoch });
+      return say(text, { ...context });
     },
     async choose(id) {
       const nextScript = SCRIPTS[id];

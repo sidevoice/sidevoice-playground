@@ -40,6 +40,24 @@
       wantedThread = event.data.thread;
       return;
     }
+    if (event.data?.type === "turn-lab-skip") { try { (await readyAction()).skipReply?.(); } catch {} return; }
+    if (event.data?.type === "turn-lab-barge") {
+      // The interruption lab: the voice's barge_in_min_speech, through the web's own voice-settings action. null: no override.
+      const seconds = event.data.seconds;
+      if (seconds !== null && !(typeof seconds === "number" && seconds > 0 && seconds <= 60)) return;
+      try {
+        const actions = await readyAction();
+        if (typeof actions.editVoice !== "function") throw new Error("Web voice settings action did not load");
+        actions.editVoice({ barge_in_min_speech: seconds ?? undefined });
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        const facts = window.sidevoiceUI?.store?.facts;
+        const kept = facts?.voiceSettings?.barge_in_min_speech;
+        if (facts?.settingsError) throw new Error(String(facts.settingsError?.message ?? facts.settingsError));
+        if ((kept ?? null) !== seconds) throw new Error(`the room kept ${kept ?? "nothing"}`);
+        report("barge-applied", { seconds });
+      } catch (error) { report("barge-error", { message: String(error?.message ?? error) }); }
+      return;
+    }
     if (event.data?.type === "turn-lab-output") {
       if (!["on", "agents_muted", "voice_off"].includes(event.data.output)) return;
       try {
@@ -58,8 +76,27 @@
       report("browser-ready", { paired: true, host: result?.host });
     } catch (error) { report("browser-error", { pairing: String(error?.message ?? error) }); }
   });
+  // The interruption lab's signals: the microphone level, and whether the person speaks and the agent plays.
+  let bargeWired = false;
+  const bargeStamp = () => performance.timeOrigin + performance.now();
+  const wireBarge = () => {
+    const ui = window.sidevoiceUI;
+    if (bargeWired || !ui?.store?.subscribe || !ui.micLevel?.subscribe) return;
+    bargeWired = true;
+    ui.micLevel.subscribe((level) => report("barge-mic", { level, t: bargeStamp() }));
+    let last = "";
+    const state = () => {
+      const voice = ui.store.facts.voiceState, key = `${voice?.listening}|${voice?.playback}`;
+      if (key === last) return;
+      last = key;
+      report("barge-state", { listening: voice?.listening, playback: voice?.playback, t: bargeStamp() });
+    };
+    ui.store.subscribe(state);
+    state();
+  };
   const clicked = new Set();
   setInterval(() => {
+    wireBarge();
     const wizard = document.getElementById("wizard");
     const step = wizard?.getAttribute("data-step");
     if (wizard?.open && step) {
