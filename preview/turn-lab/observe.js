@@ -76,6 +76,21 @@
       report("browser-ready", { paired: true, host: result?.host });
     } catch (error) { report("browser-error", { pairing: String(error?.message ?? error) }); }
   });
+  // The room joins by a script click, which is not a user gesture: a browser (Safari always, Chrome on a page nobody
+  // clicked) can leave its audio context suspended, and a suspended context hears nothing. Watch the contexts the room
+  // opens, tell the Lab when one is not running, and resume it on the person's first real click or key in the room.
+  const audioContexts = new Set();
+  const reportAudio = () => report("barge-audio", { states: [...audioContexts].map((context) => context.state) });
+  for (const name of ["AudioContext", "webkitAudioContext"]) {
+    const Native = window[name];
+    if (typeof Native !== "function") continue;
+    window[name] = class extends Native {
+      constructor(...args) { super(...args); audioContexts.add(this); this.addEventListener("statechange", reportAudio); reportAudio(); }
+    };
+  }
+  const resumeAudio = (event) => { if (event.isTrusted) for (const context of audioContexts) if (context.state !== "running") context.resume().catch(() => {}); };
+  for (const type of ["pointerdown", "keydown", "touchend"]) window.addEventListener(type, resumeAudio, true);
+  setInterval(() => { if ([...audioContexts].some((context) => context.state !== "running")) reportAudio(); }, 2000);
   // The interruption lab's signals: the microphone level, and whether the person speaks and the agent plays.
   let bargeWired = false;
   const bargeStamp = () => performance.timeOrigin + performance.now();
@@ -103,6 +118,11 @@
       const downloadId = step === "W4" ? "stt-model-download" : step === "W4v" ? "tts-model-download" : step === "W5" ? "turn-model-download" : null;
       const download = downloadId && document.getElementById(downloadId);
       if (download && !clicked.has(downloadId)) { clicked.add(downloadId); download.click(); report("browser-ready", { model: downloadId, state: "downloading" }); }
+      // The permissions step (W4m) has its own Continue; it is enabled once the microphone is allowed.
+      const mic = document.getElementById("wizard-mic-continue");
+      if (step === "W4m" && mic && !mic.disabled && mic.getAttribute("aria-disabled") !== "true" && !clicked.has("W4m:continue")) {
+        clicked.add("W4m:continue"); mic.click(); report("browser-ready", { modelStep: "W4m", state: "ready" });
+      }
       const next = document.getElementById("wizard-stage-action");
       if (next && !next.disabled && !clicked.has(`${step}:continue`)) { clicked.add(`${step}:continue`); next.click(); report("browser-ready", { modelStep: step, state: "ready" }); }
       if (step === "W6" && !clicked.has("enter")) { clicked.add("enter"); wizard.querySelector(".wizard-enter")?.click(); }

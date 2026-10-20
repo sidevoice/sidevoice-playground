@@ -140,7 +140,7 @@ function mount(doc, win) {
   let preset = saved.preset in PRESETS || saved.preset === "custom" ? saved.preset : "A";
   let seconds = Number.isFinite(saved.seconds) ? saved.seconds : PRESETS.A.seconds;
   let override = saved.override !== false; // false: the app's own default, nothing sent
-  let joined = false, applied = null, micLevel = 0;
+  let joined = false, applied = null, micLevel = 0, audioStates = [];
   const persist = () => { try { store?.setItem(KEY, JSON.stringify({ attempts, preset, seconds, override })); } catch { /* storage is optional */ } };
   const now = () => win.performance.timeOrigin + win.performance.now();
 
@@ -166,6 +166,8 @@ function mount(doc, win) {
     $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`;
     const live = tracker.active;
     $("barge-live").textContent = live ? (live.agentStart == null ? "Waiting for the agent to start speaking…" : live.stopped == null ? "Agent speaking: try to interrupt it." : "Agent stopped.") : "Press Play, then interrupt the agent.";
+    const stuck = audioStates.find((state) => state !== "running");
+    $("barge-audio").textContent = stuck ? `The room's audio is ${stuck}, so it cannot hear you. Click once anywhere inside the room.` : "";
     $("barge-play").disabled = !joined;
     $("barge-skip").disabled = !joined;
     $("barge-attempts").replaceChildren(...[...attempts].reverse().map((a) => {
@@ -200,6 +202,8 @@ function mount(doc, win) {
     try {
       const response = await win.fetch("/preview/turn-lab/play", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
       if (!response.ok) throw new Error(await response.text());
+      const reply = await response.json().catch(() => ({}));
+      if (reply.status === "rejected") throw new Error(reply.instruction ?? reply.reason ?? "the reply was refused");
       tracker.play(override ? preset : "A", override ? seconds : APP_DEFAULT_SECONDS, now());
     } catch (error) { $("barge-live").textContent = `Play failed: ${error.message}`; return; }
     render();
@@ -226,6 +230,7 @@ function mount(doc, win) {
     if (kind === "browser-ready" && data.voice === "joined") { joined = true; applied = null; sendSetting(); render(); }
     else if (kind === "barge-mic") { micLevel = Math.round(data.level); tracker.mic(data.level, data.t ?? t); $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`; }
     else if (kind === "barge-state") { tracker.state(data, data.t ?? t); render(); }
+    else if (kind === "barge-audio") { audioStates = data.states ?? []; render(); }
     else if (kind === "barge-applied") { applied = data.seconds == null ? "app default (1.0 s)" : `${Number(data.seconds).toFixed(1)} s`; render(); }
     else if (kind === "barge-error") { applied = "error"; render(); }
     else if (kind === "browser-action" && data.type === "reply-hearing") tracker.hearing(data.outcome);

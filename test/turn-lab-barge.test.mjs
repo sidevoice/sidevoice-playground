@@ -69,7 +69,7 @@ test('the page mounts, sends the preset to the room once it joins, and counts a 
     return elements.get(id);
   };
   const win = { localStorage: { getItem: () => null, setItem() {} }, performance: { timeOrigin: 0, now: () => 1000 }, addEventListener: (_, handler) => handlers.push(handler),
-    setInterval() {}, setTimeout, fetch: async (path) => { requests.push(path); return { ok: true, text: async () => '' }; }, URL, Blob };
+    setInterval() {}, setTimeout, fetch: async (path) => { requests.push(path); return { ok: true, json: async () => ({}), text: async () => '' }; }, URL, Blob };
   const doc = { getElementById: element, createElement: () => ({ classList: { toggle() {} }, append() {} }) };
   globalThis.document = doc; globalThis.window = win;
   try {
