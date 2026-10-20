@@ -1007,120 +1007,107 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
    (and go, after the usual delay, if they were out). A press on one moves nothing; "Cancel sending" is its one action. */
 #card-window .c1x .cc-captions .speech-bubble { pointer-events: auto; }
 
-/* ---------- C1: its controls behind a handle (operator, 2026-10-20) ----------
-   #card-window carries data-peek (the handle out: the pointer on the creature), data-expanded (the card out: the pointer
-   on the handle or on the card, or focus in it) and, for a moment, data-c1-folding (the card folding back into the handle).
-   The handle sits where the card opens, on the card's leading edge, level with its middle: the card unfolds out of it. */
-.c1x { --handle-w: 46px; --handle-h: 28px; --handle-gap: 8px; }
-/* The handle: a small pill in the card's own chrome (its surface, line and shadow), the more mark and a chevron toward
-   where it opens: it reads "this unfolds". At rest it is not there for the pointer (nothing shows on approach) but it is
-   for the keyboard: Tab reaches it, and focused it shows. */
-#card-window .c1x .c1-handle { position: absolute; z-index: 6; top: calc(var(--w) / 2); display: inline-flex; align-items: center; justify-content: center; gap: 1px;
-  width: var(--handle-w); height: var(--handle-h); padding: 0 4px 0 6px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill);
-  background: var(--sv-bg); color: var(--sv-text-muted); box-shadow: 0 6px 18px rgb(0 0 0 / 35%);
-  translate: 0 -50%; opacity: 0; scale: .8; pointer-events: none; transition: opacity .12s ease-out, scale .12s ease-out; }
-#card-window[data-side=left] .c1x .c1-handle { left: calc(100% + var(--handle-gap)); transform-origin: left center; }
-#card-window[data-side=right] .c1x .c1-handle { right: calc(100% + var(--handle-gap)); transform-origin: right center; }
-#card-window[data-peek]:not([data-expanded]) .c1x .c1-handle, #card-window:not([data-expanded]) .c1x .c1-handle:focus-visible { opacity: 1; scale: 1; pointer-events: auto; }
-#card-window .c1x .c1-handle:hover { color: var(--sv-text); background: color-mix(in srgb, var(--sv-text) 8%, var(--sv-bg)); }
+/* "Cancel sending": the proposed island washes (proposed-web.css) applied after transcript.css's island rule, as the web
+   change would write them in that rule itself. A1's line (on the card's chrome, not in a balloon) takes A1's other
+   buttons' states: the actions' 9% wash on hover, 14% pressed. */
+#card-window :is(.chat-bubble[data-role="user"], .person-bubble) { --sv-hover: var(--sv-chat-person-wash-hover); --sv-pressed: var(--sv-chat-person-wash-pressed); }
+@media (hover: hover) { #card-window .cc-line .ui-button.cancel-input:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); color: var(--fg); } }
+#card-window .cc-line .ui-button.cancel-input:active { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+
+/* ---------- Cursors (operator, 2026-10-20) ----------
+   Every button shows the hand, as the card's others do: the handle and "Cancel sending" too. C1's creature is what you
+   drag: the open hand over it, the closed hand while it is pressed or dragged (DECIDED: this overrides 10-19's "no move
+   or grab cursor" for the creature; A1 and B1 keep the plain pointer, their whole card being what drags). */
+#card-window :is(.c1-handle, .cancel-input):not(:disabled) { cursor: pointer !important; }
+#card-window[data-format=mascot] .c1x .m-figure, #card-window[data-format=mascot] .c1x .m-figure * { cursor: grab !important; }
+#card-window[data-format=mascot] .c1x .m-figure:active, #card-window[data-format=mascot] .c1x .m-figure:active *,
+#card-window[data-format=mascot].dragging, #card-window[data-format=mascot].dragging * { cursor: grabbing !important; }
+
+/* ---------- C1: its controls (DECIDED, operator 2026-10-20: the arc, B, opened on hover) ----------
+   #card-window carries data-peek (the handle out: the pointer on the creature), data-expanded (the controls out: the
+   pointer in their hull, or focus in them), for a moment data-c1-arrived (the handle just came), and the geometry
+   callcard.mjs c1Lay() works out from where the creature will be: --hub-x/y (the handle), --arc-r, --arc-step,
+   --arc-a0/a1 (the handle's and the first button's angles), --c1-base-x/y (the title base), --c1-stack-step (the
+   balloons' step while the controls are out), and the pieces' sizes (--handle-d, --arc-btn, --arc-ring). */
+.c1x { --dir: 1; }
+#card-window[data-side=right] .c1x { --dir: -1; }
+/* The handle: a small round button in the accent's soft fill and ink, hugging the creature's lower corner on its open
+   side, just above the base; the chevron alone toward where the arc rises. At rest it is not there for the pointer
+   (nothing shows on approach) but it is for the keyboard: Tab reaches it, and focused it shows. */
+#card-window .c1x .c1-handle { position: absolute; z-index: 8; left: calc(var(--w) / 2 + var(--hub-x, calc(var(--w) / 2))); top: calc(var(--w) / 2 + var(--hub-y, calc(var(--w) * .38)));
+  display: grid; place-items: center; width: var(--handle-d, 26px); height: var(--handle-d, 26px); padding: 0;
+  border: 1px solid color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent)); box-shadow: 0 6px 16px rgb(0 0 0 / 32%);
+  translate: -50% -50%; opacity: 0; scale: .8; pointer-events: none; transition: opacity .12s ease-out, scale .12s ease-out; }
+#card-window:is([data-peek], [data-expanded]) .c1x .c1-handle, #card-window .c1x .c1-handle:focus-visible { opacity: 1; scale: 1; pointer-events: auto; }
+#card-window .c1x .c1-handle:hover { background: color-mix(in srgb, var(--sv-accent) 34%, var(--sv-bg)); }
 #card-window .c1x .c1-handle:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
-.c1-handle svg { display: block; flex: none; }
-#card-window[data-side=left] .c1-handle-chevron { rotate: -90deg; }
-#card-window[data-side=right] .c1-handle-chevron { rotate: 90deg; }
+.c1-handle svg { display: block; stroke-width: 2.4; }
+/* The chevron points up the arc's way (up and out); open, it points back down (a click on the hub closes). */
+#card-window .c1x .c1-handle-chevron { rotate: calc(var(--dir) * -135deg); transition: rotate .2s ease-out; }
+#card-window[data-expanded] .c1x .c1-handle-chevron { rotate: calc(var(--dir) * 45deg); }
+/* Arriving from rest, it glows twice (a ring of the accent) and the chevron nudges up the arc's way; then still. */
+#card-window[data-c1-arrived][data-peek]:not([data-expanded]) .c1x .c1-handle { animation: c1-glow 1s ease-out .1s 2; }
+#card-window[data-c1-arrived]:not([data-expanded]) .c1x .c1-handle-chevron { animation: c1-nudge 0.5s ease-in-out .15s 2; }
+@keyframes c1-glow { 0% { box-shadow: 0 6px 16px rgb(0 0 0 / 32%), 0 0 0 0 color-mix(in srgb, var(--sv-accent) 55%, transparent); }
+  100% { box-shadow: 0 6px 16px rgb(0 0 0 / 32%), 0 0 0 9px color-mix(in srgb, var(--sv-accent) 0%, transparent); } }
+@keyframes c1-nudge { 50% { translate: calc(var(--dir) * 1.5px) -1.5px; } }
 
-/* The morph (operator, 2026-10-20): the handle becomes the card. Open, the card's surface grows out of the handle's own
-   box (its clip, from the pill's rect on the card's leading edge to the whole card, .22s) while the handle hands over to
-   it (.06s) and the card's contents fade in as the card always has (.15s, today's card's fade); folding, the reverse:
-   the contents fade, the surface shrinks back into the pill's rect, and the handle shows again as it lands. */
-#card-window .c1x .c1-dock { pointer-events: none; transition: clip-path .22s cubic-bezier(.3, .7, .2, 1), visibility 0s linear .22s; }
-#card-window:not([data-c1-arc])[data-side=left] .c1x .c1-dock { clip-path: inset(calc(50% - var(--handle-h) / 2) calc(100% - var(--handle-w)) calc(50% - var(--handle-h) / 2) 0 round calc(var(--handle-h) / 2)); }
-#card-window:not([data-c1-arc])[data-side=right] .c1x .c1-dock { clip-path: inset(calc(50% - var(--handle-h) / 2) 0 calc(50% - var(--handle-h) / 2) calc(100% - var(--handle-w)) round calc(var(--handle-h) / 2)); }
-#card-window:not([data-c1-arc])[data-expanded] .c1x .c1-dock, #card-window:not([data-c1-arc]) .c1x .c1-dock:focus-within {
-  clip-path: inset(-40px round calc(var(--sv-radius-2xl) + 40px)) !important; pointer-events: auto; transition: clip-path .22s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
-#card-window .c1x .c1-dock > * { opacity: 0; transition: opacity .08s linear; }
-#card-window[data-expanded] .c1x .c1-dock > *, #card-window .c1x .c1-dock:focus-within > * { opacity: 1; transition: opacity .15s linear .07s; }
-#card-window[data-expanded] .c1x .c1-handle { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .06s linear, visibility 0s linear .06s; }
-#card-window[data-c1-folding]:not([data-expanded]) .c1x .c1-handle { scale: 1; transition: opacity .08s linear .16s; }
+/* The controls' frame: the dock is a point at the creature's middle; its pieces hang off it. The id twice: above the
+   older rules that move the dock beside the creature while a balloon is up (they out-rank one id through :has). */
+@property --fan { syntax: "<number>"; inherits: false; initial-value: 0; }
+#card-window .c1x { --open: 0; }
+#card-window[data-expanded] .c1x, #card-window .c1x:has(.c1-dock:focus-within) { --open: 1; }
+#card-window#card-window .c1x .c1-dock { display: block !important; left: calc(var(--w) / 2) !important; right: auto !important; top: calc(var(--w) / 2) !important;
+  transform: none !important; width: 0 !important; height: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important;
+  clip-path: none !important; z-index: 5; pointer-events: none; transition: visibility 0s linear .3s; }
+#card-window#card-window[data-expanded] .c1x .c1-dock, #card-window#card-window .c1x .c1-dock:focus-within { pointer-events: auto; z-index: 7; transition: none; }
+#card-window .c1x .c1-dock :is(.pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
+/* The arc: the room's round call buttons, each in a ring of the card's surface and its line, on one radius around the
+   creature, one even step apart, rising from the handle up the open side: mic first, then captions, skip, hang up. Each
+   travels along the arc out of the handle (--a0 → its own --a, as the registered --fan goes 0 → 1), 30ms after the one
+   before; back in, from the hang-up. */
+#card-window .c1x .c1-dock .call-button { --fan: var(--open);
+  --a: calc(var(--arc-a1, 0deg) - var(--k) * var(--arc-step, 25deg)); --a0: var(--arc-a0, 40deg);
+  --ang: calc(var(--a0) + (var(--a) - var(--a0)) * var(--fan));
+  position: absolute !important; left: 0; top: 0; width: var(--arc-btn, 32px) !important; height: var(--arc-btn, 32px) !important; margin: 0 !important;
+  transform: translate(-50%, -50%) translate(calc(cos(var(--ang)) * var(--arc-r, 100px) * var(--dir)), calc(sin(var(--ang)) * var(--arc-r, 100px))) scale(calc(.35 + .65 * var(--fan)));
+  opacity: var(--fan); box-shadow: 0 0 0 calc(var(--arc-ring, 4px) - 1px) var(--sv-surface), 0 0 0 var(--arc-ring, 4px) var(--sv-border), 0 6px 14px rgb(0 0 0 / 30%);
+  transition: --fan .28s cubic-bezier(.2, .8, .2, 1) calc((3 - var(--i)) * 30ms), background-color var(--sv-dur-fast) var(--sv-ease); }
+#card-window[data-expanded] .c1x .c1-dock .call-button { transition: --fan .28s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 30ms), background-color var(--sv-dur-fast) var(--sv-ease); }
+#card-window .c1x .c1-dock .call-button svg { width: 16px !important; height: 16px !important; }
+#card-window .c1x .c1-dock #mute { --k: 0; --i: 0; }
+#card-window .c1x .c1-dock .card-captions { --k: 1; --i: 1; }
+#card-window .c1x .c1-dock .card-skip { --k: 2; --i: 2; }
+#card-window .c1x .c1-dock #connect { --k: 3; --i: 3; }
+/* The base: the title line, a 36px pill of the card's chrome right under the creature (6px), centred on it and kept
+   inside the screen; it comes in from just above, as the arc fans out. */
+#card-window .c1x .c1-dock > .pip-head-1 { position: absolute !important; left: var(--c1-base-x, -150px); top: var(--c1-base-y, 86px); width: max-content; max-width: 300px;
+  height: 36px; box-sizing: border-box; align-items: center !important; padding: 0 5px 0 14px !important; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill);
+  background: var(--sv-bg); box-shadow: 0 6px 14px rgb(0 0 0 / 30%); opacity: 0; translate: 0 -6px;
+  transition: opacity .14s linear, translate .2s cubic-bezier(.3, .7, .2, 1); }
+#card-window .c1x .c1-dock > .pip-head-1 :is(h2, .stage-heading, .stage-heading-name) { height: auto !important; align-self: center; }
+#card-window[data-expanded] .c1x .c1-dock > .pip-head-1, #card-window .c1x .c1-dock:focus-within > .pip-head-1 {
+  opacity: 1; translate: 0 0; transition: opacity .14s linear .06s, translate .22s cubic-bezier(.2, .8, .2, 1) .04s; }
+/* Nothing overlaps a balloon: while the controls are out, the balloons step out past them (up past the arc, down past
+   the base), and come back as they fold. */
+#card-window .c1x .c1x-stack { transition: translate .24s cubic-bezier(.2, .8, .2, 1); }
+#card-window[data-expanded] .c1x .c1x-stack { translate: 0 var(--c1-stack-step, 0px); }
 
-/* ---------- C1, the arc layouts (OPEN, 2026-10-20: "c1Layout" past | near | free) ----------
-   The arc as before: the room's round call buttons (34px, each in a 4px ring of the card's surface for any backdrop) fan
-   out from behind the creature on its open side, mic and captions above its middle, skip and hang up below, steps of
-   28°/23°/18° (S/M/L) on a radius of the creature's half plus 30px. The handle hands over to them (the morph's spirit:
-   it becomes the arc). The title line lies above or below the arc (data-c1-title, at --c1-title-y from the creature's
-   middle, both set by callcard.mjs c1TitleSpot), from the creature's screen-edge side toward its open side, and unfolds
-   from that side. */
-#card-window[data-c1-arc] .c1x { --arc-btn: 34px; --arc-r: calc(var(--w) / 2 + 30px); --arc-step: 23deg; --reach: 0; }
-#card-window[data-c1-arc][data-size=s] .c1x { --arc-step: 28deg; }
-#card-window[data-c1-arc][data-size=l] .c1x { --arc-step: 18deg; }
-#card-window[data-c1-arc][data-expanded] .c1x, #card-window[data-c1-arc] .c1x:has(.c1-dock:focus-within) { --reach: 1; }
-#card-window[data-c1-arc] .c1x .m-figure { position: relative; z-index: 4; }
-#card-window[data-c1-arc] .c1x .c1-dock { display: block !important; left: calc(var(--w) / 2) !important; right: auto !important; top: calc(var(--w) / 2) !important;
-  transform: none !important; width: 0 !important; height: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; z-index: 5; }
-#card-window[data-c1-arc][data-expanded] .c1x .c1-dock, #card-window[data-c1-arc] .c1x .c1-dock:focus-within { z-index: 7; }
-#card-window[data-c1-arc] .c1x .c1-dock :is(.pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
-#card-window[data-c1-arc] .c1x .c1-dock .call-button { --a: calc(var(--k) * var(--arc-step));
-  position: absolute !important; left: 0; top: 0; width: var(--arc-btn) !important; height: var(--arc-btn) !important;
-  transform: translate(-50%, -50%) rotate(var(--a)) translate(calc(var(--arc-r) * var(--reach))) rotate(calc(-1 * var(--a)));
-  opacity: var(--reach); box-shadow: 0 0 0 3px var(--sv-surface), 0 0 0 4px var(--sv-border), 0 6px 16px rgb(0 0 0 / 35%);
-  transition: transform .2s cubic-bezier(.2, .8, .2, 1), opacity .12s linear, background-color var(--sv-dur-fast) var(--sv-ease); }
-#card-window[data-c1-arc][data-side=right] .c1x .c1-dock .call-button { --a: calc(180deg - var(--k) * var(--arc-step)); }
-#card-window[data-c1-arc] .c1x .c1-dock #mute { --k: -2; }
-#card-window[data-c1-arc] .c1x .c1-dock .card-captions { --k: -1; }
-#card-window[data-c1-arc] .c1x .c1-dock .card-skip { --k: 1; }
-#card-window[data-c1-arc] .c1x .c1-dock #connect { --k: 2; }
-/* The title line: a pill of the card's chrome, the 10-20 title rule inside (up to 300px). */
-#card-window[data-c1-arc] .c1x .c1-dock > .pip-head-1 { position: absolute !important; width: max-content; max-width: 300px; box-sizing: border-box;
-  padding: 4px 4px 4px 12px !important; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill); background: var(--sv-bg); box-shadow: var(--sv-shadow-md);
-  opacity: 0; transition: opacity .14s linear, clip-path .22s cubic-bezier(.3, .7, .2, 1), top .18s ease-out, bottom .18s ease-out; }
-#card-window[data-c1-arc][data-side=left] .c1x .c1-dock > .pip-head-1 { left: calc(-1 * var(--w) / 2); clip-path: inset(0 100% 0 0 round 17px); }
-#card-window[data-c1-arc][data-side=right] .c1x .c1-dock > .pip-head-1 { right: calc(-1 * var(--w) / 2); clip-path: inset(0 0 0 100% round 17px); }
-#card-window[data-c1-arc][data-c1-title=below] .c1x .c1-dock > .pip-head-1 { top: var(--c1-title-y); }
-#card-window[data-c1-arc][data-c1-title=above] .c1x .c1-dock > .pip-head-1 { bottom: var(--c1-title-y); }
-#card-window[data-c1-arc][data-expanded] .c1x .c1-dock > .pip-head-1, #card-window[data-c1-arc] .c1x .c1-dock:focus-within > .pip-head-1 {
-  opacity: 1; clip-path: inset(-30px round 47px); transition: opacity .12s linear .04s, clip-path .22s cubic-bezier(.2, .8, .2, 1) .04s, top .18s ease-out, bottom .18s ease-out; }
-/* "near" (C): while the controls are out, the balloons step out past the title. */
-#card-window[data-c1-layout=near] .c1x .c1x-stack { transition: translate .2s cubic-bezier(.2, .8, .2, 1); }
-#card-window[data-c1-layout=near][data-expanded] .c1x .c1x-stack { translate: 0 var(--c1-stack-step); }
+/* Reduced motion: no fan, no glow; the controls are simply there, then the handle again. */
+.reduce-motion #card-window .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; animation: none !important; } }
 
-/* Reduced motion: no morph, no fan, nothing steps aside; things are simply there, then the handle again. */
-.reduce-motion #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; }
-@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; } }
-
-/* ---------- C1's handle, how inviting it is (OPEN, 2026-10-20: the variant "handleLook") ---------- */
-/* A · "glow": the accent's soft fill and ink, a bolder mark; arriving from rest it pulses twice (a ring of the accent)
-   and its chevron nudges toward where it opens, then it holds still. Never on landing back from the card. */
-#card-window[data-handle-look=glow] .c1x .c1-handle { background: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent));
-  border-color: color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); }
-#card-window[data-handle-look=glow] .c1x .c1-handle svg { stroke-width: 2.3; }
-#card-window[data-handle-look=glow] .c1x .c1-handle:hover { background: color-mix(in srgb, var(--sv-accent) 32%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent)); }
-#card-window[data-handle-look=glow][data-c1-arrived][data-peek]:not([data-expanded]) .c1x .c1-handle { animation: c1-glow 1s ease-out .1s 2; }
-#card-window[data-handle-look=glow][data-c1-arrived][data-side=left] .c1x .c1-handle-chevron { animation: c1-nudge-r .5s ease-in-out .15s 2; }
-#card-window[data-handle-look=glow][data-c1-arrived][data-side=right] .c1x .c1-handle-chevron { animation: c1-nudge-l .5s ease-in-out .15s 2; }
-@keyframes c1-glow { 0% { box-shadow: 0 6px 18px rgb(0 0 0 / 35%), 0 0 0 0 color-mix(in srgb, var(--sv-accent) 55%, transparent); }
-  100% { box-shadow: 0 6px 18px rgb(0 0 0 / 35%), 0 0 0 9px color-mix(in srgb, var(--sv-accent) 0%, transparent); } }
-@keyframes c1-nudge-r { 50% { translate: 2.5px 0; } }
-@keyframes c1-nudge-l { 50% { translate: -2.5px 0; } }
-/* B · "state": the call's state in place of the more mark: the mic (the text's ink), the crossed mic on the room's
-   muted fill and ink (call-view.css #mic-control[data-muted]), the waveform in the voice's colour while the agent
-   speaks; the chevron after it, as ever. */
-#card-window[data-handle-look=state] .c1x .c1-handle { gap: 2px; padding: 0 4px 0 5px; }
-.c1-handle-state { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--sv-text); }
-.c1-handle-state[data-mark=micOff] { background: var(--sv-danger-soft); color: var(--sv-danger); }
-.c1-handle-state[data-mark=wave] { color: var(--sv-voice, #e0a82e); }
-.reduce-motion #card-window .c1x :is(.c1-handle, .c1-handle-chevron) { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-handle-chevron) { animation: none !important; } }
-
-/* ---------- Settings → Floating card: the creature in the previews (OPEN, 2026-10-20: the variant "previewFigure") ----------
-   As schematic as the rest of the preview, and still (web#264 stills everything in them). Sized as the app sizes its
-   avatar there (settings.css: .floating-card-preview .sv-avatar, .fcp-stage .sv-avatar). */
+/* ---------- Settings → Floating card: the creature in the previews (DECIDED, operator 2026-10-20) ----------
+   The conversation's own creature, simplified from its drawing: flat in its main colour (--av-color, as the app's preview
+   sets it), its outline, parts and eyes kept; its shading, shine, blush, brows, props and accessories gone; still. Sized
+   as the app sizes its avatar there (settings.css: .floating-card-preview .sv-avatar, .fcp-stage .sv-avatar). */
 .floating-card-preview .fcp-figure { display: block; width: 100%; height: 100%; }
 .fcp-stage .fcp-figure { width: 40%; height: auto; aspect-ratio: 1; }
 .fcp-figure :is(.sv-avatar, svg) { display: block; width: 100% !important; height: 100% !important; }
-/* A: the conversation's own creature, its shape only, flat in the theme's ink. */
-.fcp-figure[data-figure=silhouette] .sv-avatar { filter: brightness(0) invert(.92); opacity: .88; }
-[data-theme=light] .fcp-figure[data-figure=silhouette] .sv-avatar { filter: brightness(0) invert(.14); opacity: .82; }
-/* B: one simplified creature, flat, in the conversation's main colour (--av-color, as the app's preview sets it). */
-.fcp-figure[data-figure=simple] :is(.fcp-body, .fcp-foot) { fill: var(--av-color, #c9b6ec); }
-.fcp-figure[data-figure=simple] .fcp-eye { fill: #fff; }
-.fcp-figure[data-figure=simple] .fcp-pupil { fill: #1b1428; }
-.fcp-figure[data-figure=simple] .fcp-smile { fill: none; stroke: #1b1428; stroke-width: 2.4; stroke-linecap: round; }
+.fcp-figure svg :is(.shine, .brows, .eyes-closed, .m-open, .ground, .wk-props, .idl-props, .sweat, .cogs, .puffs, .zz, .bang, .listen-badge, .badge,
+  [class*="prop-"], [class^="b0"], [class^="b1"], [class^="b2"]) { display: none !important; }
+.fcp-figure svg [fill="#f6a9bb"] { display: none; }
+.fcp-figure svg :is([fill^="url("], [fill^="var("]) { fill: var(--av-color, #c9b6ec); }
+.fcp-figure svg [fill*="dark"] { fill: color-mix(in srgb, var(--av-color, #c9b6ec) 70%, #1b1428); }
+.fcp-figure svg :is([fill*="belly"], [fill*="spot"], [fill*="gold"]) { fill: color-mix(in srgb, var(--av-color, #c9b6ec) 62%, #fff); }
