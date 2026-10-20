@@ -21,12 +21,14 @@ export const SIZES = { s: "Small", m: "Medium", l: "Large" };
  *  `size` are new, set in Settings; `captions` is new too, but only the card's own button sets it (on by default; the
  *  room's call view gets the same toggle later), never Settings. The default format is B1, the picture (operator,
  *  2026-10-20; it was A1 before). */
-export const SETTING_DEFAULTS = { format: "pip", size: "m", captions: true, alwaysShown: false, place: null };
+export const SETTING_DEFAULTS = { enabled: true, format: "pip", size: "m", captions: true, alwaysShown: false, place: null };
 
 /** One card's settings, filled from the defaults; unknown values fall back. */
 export function cardSettings(stored = {}) {
   const s = { ...SETTING_DEFAULTS, ...Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== undefined)) };
   return {
+    // The card itself, on or off (Settings' first switch, operator 2026-10-20): off, no card shows during a call.
+    enabled: s.enabled !== false,
     format: FORMATS.some((each) => each.id === s.format) ? s.format : SETTING_DEFAULTS.format,
     size: SIZES[s.size] ? s.size : SETTING_DEFAULTS.size,
     captions: !!s.captions,
@@ -45,6 +47,10 @@ export const COPY = {
   "settings.desktop.alwaysShown": { en: "Always show the call controls", es: "Mostrar siempre los controles de llamada", existing: true },
   // The same setting the desktop app has (it is the card's alwaysExpanded too); its line says both of what it does now.
   "settings.desktop.alwaysShownHint": { en: "On: the card keeps its controls out, and stays with Sidevoice in front. Off: the controls show near the pointer, and the card only while Sidevoice is minimised.", es: "Activado: la tarjeta deja sus controles a la vista y sigue aunque Sidevoice esté delante. Desactivado: los controles salen al acercar el puntero, y la tarjeta solo con Sidevoice minimizada." },
+  // The section's first row: the card on or off; its line says what each does (as Call's presence row does).
+  "settings.callCard.enabled": { en: "Show the floating card", es: "Mostrar la tarjeta flotante" },
+  "settings.callCard.enabledOnHint": { en: "During a call, over your other apps.", es: "Durante una llamada, sobre tus otras aplicaciones." },
+  "settings.callCard.enabledOffHint": { en: "No card during calls: the call's controls stay in Sidevoice and its tray icon. Turn it on to choose how it looks.", es: "Sin tarjeta durante las llamadas: los controles de la llamada siguen en Sidevoice y en su icono de la bandeja. Actívala para elegir cómo se ve." },
   "settings.callCard.format": { en: "Style", es: "Estilo" },
   "settings.callCard.format.card": { en: "Card", es: "Tarjeta" },
   "settings.callCard.format.cardHint": { en: "The conversation, its state and the controls.", es: "La conversación, su estado y los controles." },

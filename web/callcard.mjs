@@ -33,7 +33,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
-const DEFAULTS = { env: "windows", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
+const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
   cycle: "0", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
@@ -50,7 +50,7 @@ let drawing = null;
 const creature = () => drawing ?? CREATURES.find((each) => each.id === pick.creature) ?? CONVERSATION_LIST[0] ?? DEFAULT_CREATURE;
 const withCreature = (c, draw) => { const was = drawing; drawing = c; try { return draw(); } finally { drawing = was; } };
 /** The settings the card is drawn from: the stored shape (formats.mjs SETTING_DEFAULTS), read from the address. */
-const settings = () => cardSettings({ format: pick.format, size: pick.size, captions: pick.captions === "1", alwaysShown: pick.always === "1", place: pick.x !== "" && pick.y !== "" ? { x: Number(pick.x), y: Number(pick.y) } : null });
+const settings = () => cardSettings({ enabled: pick.card !== "0", format: pick.format, size: pick.size, captions: pick.captions === "1", alwaysShown: pick.always === "1", place: pick.x !== "" && pick.y !== "" ? { x: Number(pick.x), y: Number(pick.y) } : null });
 const format = () => FORMATS.find((each) => each.id === settings().format);
 /** The person is speaking: listening, or held recording (the mock state). */
 const hearing = () => call.state === "listening" || call.state === "recording";
@@ -292,8 +292,10 @@ function drawCard() {
   if (box.h) win.style.setProperty("--h", box.h + "px"); else win.style.removeProperty("--h");
   win.style.setProperty("--margin", PLACEMENT.margin + "px");
   // In front of the room the card hides (unless always shown); while Settings changes it, it shows a moment (preview()).
-  win.hidden = (call.dismissed || (call.appOpen && !s.alwaysShown)) && Date.now() >= previewUntil;
-  $("dismissed-note").hidden = !call.dismissed || Date.now() < previewUntil;
+  // Turned off in Settings, no card at all during the call (not even the moment a setting change shows).
+  win.hidden = !s.enabled || ((call.dismissed || (call.appOpen && !s.alwaysShown)) && Date.now() >= previewUntil);
+  $("dismissed-note").hidden = !s.enabled || !call.dismissed || Date.now() < previewUntil;
+  $("off-note").hidden = s.enabled;
   win.innerHTML = call.ended
     ? `<div class="call-card cc-ended"><span>Call ended</span><button type="button" data-run="again">Call again</button></div>`
     : DRAW[f.id](box) + (pickerOpen ? picker() : "") + (detailsOpen ? details() : "")
@@ -585,20 +587,26 @@ function settingsScreen() {
   const nav = SECTIONS.filter(([id]) => own || id !== "card")
     .map(([id, name, icon]) => `<button type="button" class="ui-nav-item"${id === current ? ' aria-current="page"' : ""}>${navIcon(icon, id === "this-computer" || id === "updates" ? 18 : 16)}<span>${name[pick.lang] ?? name.en}</span></button>`).join("");
   const row = (label, hint, control, block = false) => `<div class="ui-row${block ? " ui-row--block" : ""}"><div class="ui-row-text"><span class="ui-row-label">${label}</span>${hint ? `<p class="ui-row-description">${hint}</p>` : ""}</div>${control ? `<div class="ui-row-control">${control}</div>` : ""}</div>`;
-  const toggle = (name, on) => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}"><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
+  const toggle = (name, on, label = "") => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}"${label ? ` aria-label="${label}"` : ""}><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
   const segmented = (name, options, value) => `<div class="ui-segmented ui-segmented--sm" role="radiogroup">${Object.entries(options).map(([id, label]) => `<button type="button" role="radio" class="ui-segment" aria-checked="${id === value}" data-setting="${name}" data-value="${id}">${label}</button>`).join("")}</div>`;
   const choice = (id) => `<button type="button" role="radio" aria-checked="${s.format === id}" class="ui-card ui-card--padded ui-card--interactive cc-choice" ${s.format === id ? " data-selected" : ""} data-setting="format" data-value="${id}">
 ${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="simple" data-format="${id}">${desktopPreview(id)}</span>
 <strong>${words(`settings.callCard.format.${id}`)}</strong><small>${words(`settings.callCard.format.${id}Hint`)}</small></button>`;
+  // Off, the card's other settings stay in view, inactive (the app's way: a control that can't act now is disabled, its
+  // row saying why; nothing in Settings hides rows behind a switch), so turning it on again moves nothing.
+  const dependent = (html) => s.enabled ? html : html.replace(/<button\b/g, "<button disabled");
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
 <section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${own ? words("settings.callCard.title") : words("settings.section.call")}</h2><p class="ui-section-description">${own ? words("settings.callCard.hint") : words("settings.call.description")}</p></div></header>
-<div class="ui-section-body"><div class="ui-group cc-card-group">${own ? "" : `<h3 class="ui-group-title">${words("settings.callCard.title")}</h3>`}<div class="ui-group-card">
+<div class="ui-section-body"><div class="ui-group cc-card-master"><div class="ui-group-card">
+${row(words("settings.callCard.enabled"), words(s.enabled ? "settings.callCard.enabledOnHint" : "settings.callCard.enabledOffHint"), toggle("enabled", s.enabled, words("settings.callCard.enabled")))}
+</div></div>
+${dependent(`<div class="ui-group cc-card-group"${s.enabled ? "" : " data-off"}>${own ? "" : `<h3 class="ui-group-title">${words("settings.callCard.title")}</h3>`}<div class="ui-group-card">
 ${row(words("settings.callCard.format"), words("settings.callCard.previewNote"), `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
 ${row(words("settings.callCard.sizeTitle"), s.format === "pip" ? words("settings.callCard.sizeHint") : "", segmented("size", { s: words("settings.callCard.size.s"), m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l"), ...(customWidth(s.format) ? { custom: words("settings.callCard.size.custom") } : {}) }, customWidth(s.format) ? "custom" : s.size))}
 ${row(words("settings.callCard.startCorner"), words("settings.callCard.startCornerHint"), cornerPicker(s))}
 ${row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown))}
 ${row("", "", `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${s.place || customWidth(s.format) ? "" : " disabled"}><span class="ui-button-content">${words("settings.callCard.positionReset")}</span></button>`)}
-</div></div></div></section></div></div></div>`;
+</div></div>`)}</div></section></div></div></div>`;
 }
 
 /** A format's real card, as it is (the person holding the microphone, onboarding's, and a sample name), still and
@@ -710,6 +718,8 @@ document.addEventListener("click", (event) => {
   if (run === "minimise") { call.appOpen = false; drawCard(); drawApp(); }
   // The picture's gear: straight to Settings → Call → Floating call card.
   if (run === "card-settings") { call.appOpen = true; call.dismissed = false; pick.view = "settings"; draw(); $("app-window").querySelector(".cc-card-group")?.scrollIntoView({ block: "start" }); }
+  // The card on or off: turned on, it shows a moment, as any other change here does; off, it goes at once.
+  if (setting === "enabled") { pick.card = settings().enabled ? "0" : "1"; if (pick.card === "1") preview(); }
   if (setting === "always") pick.always = settings().alwaysShown ? "0" : "1";
   if (setting === "size" && target.dataset.value === "custom") return;
   if (setting === "format" || setting === "size") { preview(); keepAnchor(() => { if (setting === "size") forgetWidths(); pick[setting] = target.dataset.value; }); }
@@ -1031,6 +1041,7 @@ function drawPanel() {
   $("source").textContent = source.replace(/@(\w{7})\w+/, "@$1");
   $("controls").innerHTML = [
     select("env", "Desktop", Object.entries(DESKTOPS).map(([id, d]) => [id, d.label]), pick.env),
+    `<label class="check"><input type="checkbox" data-pick="card"${s.enabled ? " checked" : ""}> Floating card on (Settings' first switch)</label>`,
     select("format", "Format", FORMATS.map((f) => [f.id, f.label]), s.format),
     select("size", "Size", Object.entries(SIZES), s.size),
     `<label class="check"><input type="checkbox" data-pick="captions"${s.captions ? " checked" : ""}> Captions (as the card's own button)</label>`,
@@ -1044,8 +1055,8 @@ function drawPanel() {
     `<label class="check"><input type="checkbox" data-pick="motion"${pick.motion === "reduced" ? " checked" : ""}> Reduced motion</label>`,
     `<div class="place"><span>Place: ${s.place ? `${s.place.x}, ${s.place.y} px` : "first place (top right)"}</span><button type="button" data-action="place-reset"${s.place ? "" : " disabled"}>Reset</button></div>`,
     `<div class="panel-settings"><button type="button" data-action="settings">Open the settings mock</button>${select("lang", "Its language", [["en", "English"], ["es", "Español"]], pick.lang)}</div>`,
-    `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
-<p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
+    `<details class="panel-map"><summary>The settings, as stored</summary><pre>${JSON.stringify({ callControls: { alwaysShown: s.alwaysShown, places: s.place ? { "<display>": s.place } : {}, card: { enabled: s.enabled, format: s.format, size: s.size, captions: s.captions } } }, null, 2)}</pre>
+<p><code>alwaysShown</code> and <code>places</code> are the desktop app's today; <code>card</code> is new. Settings sets <code>enabled</code>, <code>format</code> and <code>size</code>; only the card's own button sets <code>captions</code>.</p></details>`,
   ].join("");
 }
 
@@ -1053,6 +1064,7 @@ $("controls").addEventListener("change", (event) => {
   const name = event.target.dataset.pick;
   if (!name) return;
   if (name === "cycle") pick.cycle = event.target.checked ? "1" : "0";
+  else if (name === "card") pick.card = event.target.checked ? "1" : "0";
   else if (name === "captions") { pick.captions = event.target.checked ? "1" : "0"; localStorage.setItem(CAPTIONS_KEY, pick.captions); }
   else if (name === "motion") pick.motion = event.target.checked ? "reduced" : "full";
   else if (name === "format" || name === "size") { const value = event.target.value; keepAnchor(() => { if (name === "size") forgetWidths(); pick[name] = value; }); }

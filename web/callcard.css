@@ -1004,3 +1004,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #card-window .cc-resize:is([data-edge=w], [data-edge=e]) { cursor: ew-resize; }
 /* The cancel button is pressable where it sits, though the captions around it let the pointer through. */
 #card-window .cancel-input, #card-window .person-live-actions { pointer-events: auto; }
+
+/* Settings → Floating call card, the card turned off (operator, 2026-10-20): the rest of the section stays in view,
+   inactive. Its controls are disabled and take the app's own disabled looks (ui.css: the switch, the segments, the
+   button); its words take the disabled ink; the style choices and the corner picker, which have no disabled look in the
+   app yet, fade to the same weight. */
+.cc-card-master + .cc-card-group { margin-top: var(--sv-space-2, 8px); }
+.cc-card-group[data-off] :is(.ui-row-label, .ui-row-description, .cc-choice strong, .cc-choice small) { color: var(--sv-disabled-text); }
+.cc-card-group[data-off] :is(.cc-choice, .cc-corners) { opacity: .45; cursor: not-allowed; }
+.cc-card-group[data-off] .cc-choice[data-selected] { box-shadow: none !important; border-color: var(--sv-border) !important; }
+.cc-card-group[data-off] :is(.cc-choice, .cc-corner):disabled { pointer-events: none; }
