@@ -976,11 +976,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #card-window .cc-pip-meet .pip-head-1 > :is(.pip-hover-icons, .pip-head-actions) { margin-left: auto !important; }
 #card-window .cc-pip-meet .pip-head-1 > .pip-head-x { margin-left: var(--tl-gap) !important; }
 #card-window .cc-pip-meet .pip-head-1 .stage-heading-name { max-width: 100%; min-width: 0; }
-/* A1: the actions keep their closed place, the card's top-right corner (26px icons, 8px in from the card's edge), over
-   the end of the title's column; the title's row ends the actions' room plus the breathing room before that corner. The
-   column itself ends 81px before the card's edge (the card's 13px padding, the wave's 58px column, its 10px gap). */
-.cc-a1 { --tl-icon: 26px; --tl-actions: calc(3 * var(--tl-icon) + 2 * var(--tl-gap)); --tl-corner-inset: 9px; --tl-column-end: 81px; }
-#card-window .cc-a1 .card-title { padding-right: max(0px, calc(var(--tl-corner-inset) + var(--tl-actions) + var(--tl-breath) - var(--tl-column-end))) !important; }
+/* A1: the actions keep their closed place, the card's top-right corner (26px icons, 9px in from the card's edge), over
+   the end of the title's column; the title's row ends the actions' room, the unread "!" (it overhangs the conversations
+   control by 6px) and 16px of breathing room before that corner (operator, 2026-10-20: clearly apart, every size). The
+   column itself ends 81px before the card's edge (the card's 13px padding, the wave's 58px column, its 10px gap); in C1's
+   compact card, with no wave, at the card's 13px padding. */
+.cc-a1 { --tl-breath: 16px; --tl-bang: 6px; --tl-icon: 26px; --tl-actions: calc(3 * var(--tl-icon) + 2 * var(--tl-gap)); --tl-corner-inset: 9px; --tl-column-end: 81px; }
+#card-window .cc-a1 .card-title { padding-right: max(0px, calc(var(--tl-corner-inset) + var(--tl-actions) + var(--tl-bang) + var(--tl-breath) - var(--tl-column-end))) !important; }
+#card-window .c1x .c1-compact .cc-a1 { --tl-column-end: 13px; }
 
 /* ---------- The unread cue in the header (DECIDED, operator 2026-10-20: "!") ----------
    The list's own cue on the conversations control's top-right corner, as it sits on an avatar's: the avatars' tag
