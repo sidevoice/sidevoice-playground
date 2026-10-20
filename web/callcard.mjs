@@ -467,7 +467,8 @@ function preview() {
 }
 /** Whether the person is using the card: the pointer on it, a drag or a resize, its list or details open, focus in it. */
 let lastTouch = 0;
-const touched = () => { lastTouch = Date.now(); };
+// C1's balloons are not the card's controls: the pointer moving over one is not using the card (only its button is).
+const touched = (event) => { if (event?.target?.closest?.(".c1x .speech-bubble") && !event.target.closest("button")) return; lastTouch = Date.now(); };
 function interacting() {
   const win = $("card-window");
   if (Date.now() - lastTouch < 600) return true;
@@ -517,7 +518,7 @@ addEventListener("resize", () => place());
 
 // The card's controls show near the pointer, as today's (card-shell.tsx: after 120 ms in, until 500 ms out); its window
 // grows with them and moves in if it has to.
-let hoverTimer = 0;
+let hoverTimer = 0, hoverWant = null;
 // C1: the dock comes out for the avatar itself (and stays while on it), never for its balloons (coordinator, 2026-10-19).
 const hoverZone = () => { const win = $("card-window"); return format().id === "mascot" ? !!win.querySelector(".m-figure:hover, .c1-dock:hover") : win.matches(":hover"); };
 // A1: its captions are neutral: over them the card neither opens nor closes, so the line under the pointer (and its
@@ -527,10 +528,14 @@ $("card-window").addEventListener("pointerover", (event) => {
   if (id === "card") { clearTimeout(hoverTimer); if (!event.target.closest(".cc-captions")) hoverTimer = setTimeout(() => expand(true), 120); return; }
   if (id !== "mascot") return;
   const on = !!event.target.closest(".m-figure, .c1-dock");
+  // Only a change of what the pointer is on restarts the delay: a balloon's words changing under a still pointer (the
+  // karaoke) fire pointerover again and again, and must not hold the controls out forever.
+  if (on === hoverWant) return;
+  hoverWant = on;
   clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(on), on ? 120 : 500);
 });
 $("card-window").addEventListener("pointerenter", () => { if (format().id === "mascot" || format().id === "card") return; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(true), 120); });
-$("card-window").addEventListener("pointerleave", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
+$("card-window").addEventListener("pointerleave", () => { hoverWant = false; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 // Done dragging or resizing away from the card: the controls go after the same delay as leaving it.
 addEventListener("pointerup", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 function expand(on) {
@@ -702,12 +707,20 @@ addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   const target = event.target.closest("[data-run], [data-setting]");
   if (!target) return;
-  if (target.closest("#card-window") && Date.now() < guardUntil && run !== "cancel-turn") return;
   const run = target.dataset.run, setting = target.dataset.setting;
+  // The guard spares "Cancel sending": it comes with your balloon, never with the controls.
+  if (target.closest("#card-window") && Date.now() < guardUntil && run !== "cancel-turn") return;
   if (run === "mute") setState(muted() ? "listening" : "muted");
   if (run === "skip") setState("idle");
   // Taking the turn back: what was being said is dropped, its balloon (or line) goes, and the call listens again.
-  if (run === "cancel-turn") { cancelledAt = Date.now(); setState("listening"); return; }
+  // Its balloon goes with it. Pressed with the pointer, nothing of the card keeps focus (it would hold the controls out);
+  // from the keyboard, focus goes to the microphone, the call's nearest control.
+  if (run === "cancel-turn") {
+    const keyboard = event.detail === 0;
+    cancelledAt = Date.now(); setState("listening");
+    if (keyboard) $("card-window").querySelector("[data-run=mute]")?.focus(); else document.activeElement?.blur();
+    return;
+  }
   if (run === "c1-row") { c1RowOpen = !c1RowOpen; drawCard(); $("card-window").toggleAttribute("data-expanded", true); for (const el of $("card-window").querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", true); return; }
   if (run === "switch") { detailsOpen = false; togglePicker(!pickerOpen); return; }
   if (run === "details") { pickerOpen = false; detailsOpen = !detailsOpen; drawCard(); if (detailsOpen) $("card-window").toggleAttribute("data-expanded", true); return; }
@@ -752,7 +765,8 @@ const DRAG_THRESHOLD_PX = 4;
 $("card-window").addEventListener("focusin", () => noStubs());
 $("card-window").addEventListener("focusout", () => setTimeout(noStubs));
 $("card-window").addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || event.target.closest("button:not(.card-title)")) return;
+  // C1's balloons are inert, as the room's are: a press on one moves nothing (its one button acts).
+  if (event.button !== 0 || event.target.closest("button:not(.card-title)") || event.target.closest(".c1x .speech-bubble")) return;
   const win = $("card-window");
   drag = { x: event.clientX, y: event.clientY, dx: event.clientX - win.offsetLeft, dy: event.clientY - win.offsetTop, moved: false, id: event.pointerId };
 });
