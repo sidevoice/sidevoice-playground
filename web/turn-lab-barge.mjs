@@ -156,12 +156,13 @@ function mount(doc, win) {
   const store = (() => { try { return win.localStorage; } catch { return null; } })();
   const saved = (() => { try { return JSON.parse(store?.getItem(KEY) ?? "null") ?? {}; } catch { return {}; } })();
   let attempts = Array.isArray(saved.attempts) ? saved.attempts.slice(-ATTEMPTS_KEPT) : [];
+  let roomCustom = saved.roomCustom === true;
   let turn = saved.turn && PARAMS.every((param) => Number.isFinite(valueOf(saved.turn.listening_bar ? saved.turn : DEFAULTS, param))) ? clone(saved.turn) : clone(DEFAULTS);
-  let joined = false, applied = null, micLevel = 0, audioStates = [], peak = 0, peakAt = 0, micStep = "waiting for the room", timer = null;
+  let joined = false, applied = null, micLevel = 0,  peak = 0, peakAt = 0, micStep = "waiting for the room", timer = null;
   const trace = [];
-  const mark = (text) => { trace.push(`${new Date().toLocaleTimeString()} ${text}`); if (trace.length > 14) trace.shift(); };
+  const mark = (text) => { trace.push(`${new Date().toLocaleTimeString()} ${text}`); if (trace.length > 30) trace.shift(); };
   const presetName = () => Object.keys(PRESETS).find((key) => turnsEqual(PRESETS[key].turn, turn)) ?? "custom";
-  const persist = () => { try { store?.setItem(KEY, JSON.stringify({ attempts, turn })); } catch { /* storage is optional */ } };
+  const persist = () => { try { store?.setItem(KEY, JSON.stringify({ attempts, turn, roomCustom })); } catch { /* storage is optional */ } };
   const now = () => win.performance.timeOrigin + win.performance.now();
 
   const tracker = createTracker({ emit(record) {
@@ -172,7 +173,15 @@ function mount(doc, win) {
   const room = () => $("room");
   const origin = () => { try { return new URL(room().src).origin; } catch { return null; } };
   const send = (message) => { const to = origin(); if (to && room().contentWindow) room().contentWindow.postMessage(message, to); };
-  const sendSetting = () => { if (joined) send({ type: "turn-lab-barge", turn }); };
+  // The room is left alone while everything is the app's own: nothing is sent until a number differs, and once the room
+  // has been given other numbers, the defaults are sent once to put it back (its device settings outlive a reload).
+  const sendSetting = () => {
+    if (!joined) return;
+    const custom = !turnsEqual(turn, DEFAULTS);
+    if (!custom && !roomCustom) { applied = true; render(); return; }
+    roomCustom = custom; persist();
+    send({ type: "turn-lab-barge", turn });
+  };
   const changed = () => { persist(); render(); applied = null; win.clearTimeout(timer); timer = win.setTimeout(sendSetting, 150); };
 
   const rows = PARAMS.map((param) => {
@@ -197,10 +206,8 @@ function mount(doc, win) {
     $("barge-rationale").textContent = PRESETS[name]?.rationale ?? "Custom values.";
     $("barge-applied").textContent = !joined ? "Waiting for the room to join; the settings are sent when it does." :
       applied === "error" ? "The room did not take the settings; see the room state below." : applied == null ? "Sending to the room…" : "Applied in the room.";
-    $("barge-diag").textContent = `Microphone: ${micStep} · audio: ${audioStates.length ? audioStates.join("/") : "not opened"} · meter ${micLevel}, peak ${peak} in the last 10 s`;
+    $("barge-diag").textContent = `Microphone: ${micStep} · meter ${micLevel}, peak ${peak} in the last 10 s`;
     $("barge-trace").replaceChildren(...[...trace].reverse().map((text) => { const li = doc.createElement("li"); li.textContent = text; return li; }));
-    const stuck = audioStates.find((state) => state !== "running");
-    $("barge-audio").textContent = stuck ? `The room's audio is ${stuck}, so it cannot hear you. Click once anywhere inside the room.` : "";
     $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`;
     const live = tracker.active;
     $("barge-live").textContent = live ? (live.agentStart == null ? "Waiting for the agent to start speaking…" : live.stopped == null ? "Agent speaking: try to interrupt it." : "Agent stopped.") : "Press Play, then interrupt the agent.";
@@ -266,8 +273,8 @@ function mount(doc, win) {
     if (kind === "browser-action" && data.type === "voice-user-turn") mark(`page: turn ${data.phase}`);
     if (kind === "browser-ready" && data.voice === "joined") { joined = true; applied = null; sendSetting(); render(); }
     else if (kind === "barge-mic") { micLevel = Math.round(data.level); if (data.t - peakAt > 10_000 || data.level >= peak) { peak = Math.round(data.level); peakAt = data.t; } tracker.mic(data.level, data.t ?? t); $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`; }
-    else if (kind === "barge-state") { tracker.state(data, data.t ?? t); mark(`listening ${data.listening ?? "?"}, playback ${data.playback ?? "?"}, mic ${data.mic ?? "?"}${data.phase ? `, ${data.phase}` : ""}`); render(); }
-    else if (kind === "barge-audio") { audioStates = data.states ?? []; mark(`audio ${audioStates.join("/")}`); render(); }
+    else if (kind === "barge-state") { tracker.state(data, data.t ?? t); mark(`listening ${data.listening ?? "?"}, playback ${data.playback ?? "?"}, mic ${data.mic ?? "?"}${data.phase ? `, ${data.phase}` : ""}, room turn ${data.turn ?? "?"}${data.working ? ", agent working" : ""}${data.rec ? `, transcribing ${data.rec}` : ""}${data.error ? `, ERROR ${data.error}` : ""}`); render(); }
+    else if (kind === "barge-jserror") mark(`room ${data.what}: ${data.text}`);
     else if (kind === "barge-applied") { applied = true; mark(`room kept ${JSON.stringify(data.turn)}`); render(); }
     else if (kind === "barge-error") { applied = "error"; mark(`settings not taken: ${data.message}`); render(); }
     else if (kind === "browser-action" && data.type === "reply-hearing") tracker.hearing(data.outcome);

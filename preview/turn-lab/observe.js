@@ -77,21 +77,13 @@
       report("browser-ready", { paired: true, host: result?.host });
     } catch (error) { report("browser-error", { pairing: String(error?.message ?? error) }); }
   });
-  // The room joins by a script click, which is not a user gesture: a browser (Safari always, Chrome on a page nobody
-  // clicked) can leave its audio context suspended, and a suspended context hears nothing. Watch the contexts the room
-  // opens, tell the Lab when one is not running, and resume it on the person's first real click or key in the room.
-  const audioContexts = new Set();
-  const reportAudio = () => report("barge-audio", { states: [...audioContexts].map((context) => context.state) });
-  for (const name of ["AudioContext", "webkitAudioContext"]) {
-    const Native = window[name];
-    if (typeof Native !== "function") continue;
-    window[name] = class extends Native {
-      constructor(...args) { super(...args); audioContexts.add(this); this.addEventListener("statechange", reportAudio); reportAudio(); }
-    };
-  }
-  const resumeAudio = (event) => { if (event.isTrusted) for (const context of audioContexts) if (context.state !== "running") context.resume().catch(() => {}); };
-  for (const type of ["pointerdown", "keydown", "touchend"]) window.addEventListener(type, resumeAudio, true);
-  setInterval(() => { if ([...audioContexts].some((context) => context.state !== "running")) reportAudio(); }, 2000);
+  // Errors the room hits (a voice host failing silently shows up here), for the Lab's room state log.
+  let jsErrors = 0;
+  const reportError = (what, text) => { if (jsErrors++ < 40) report("barge-jserror", { what, text: String(text).slice(0, 200), t: bargeStamp() }); };
+  window.addEventListener("error", (event) => reportError("error", event.message));
+  window.addEventListener("unhandledrejection", (event) => reportError("rejection", event.reason?.message ?? event.reason));
+  const nativeError = console.error.bind(console);
+  console.error = (...args) => { reportError("console.error", args.map(String).join(" ")); nativeError(...args); };
   // The interruption lab's signals: the microphone level, and whether the person speaks and the agent plays.
   let bargeWired = false;
   const bargeStamp = () => performance.timeOrigin + performance.now();
@@ -104,10 +96,13 @@
     const state = () => {
       const facts = ui.store.facts, voice = facts.voiceState;
       const mic = facts.micEnabled === false ? "off" : "on", phase = facts.pendingPhase || "";
-      const key = `${voice?.listening}|${voice?.playback}|${mic}|${phase}`;
+      // What the room itself believes: a turn it keeps open, an agent it calls working, the voice's pending transcriptions.
+      const turn = facts.userTurn ? "open" : "none", working = Object.values(facts.harness || {}).some(Boolean) ? "working" : "";
+      const rec = voice?.recognising ?? 0, error = String(ui.store.getState?.().bootError ?? "").slice(0, 120);
+      const key = `${voice?.listening}|${voice?.playback}|${mic}|${phase}|${turn}|${working}|${rec}|${error}`;
       if (key === last) return;
       last = key;
-      report("barge-state", { listening: voice?.listening, playback: voice?.playback, mic, phase, t: bargeStamp() });
+      report("barge-state", { listening: voice?.listening, playback: voice?.playback, mic, phase, turn, working, rec, error, t: bargeStamp() });
     };
     ui.store.subscribe(state);
     state();

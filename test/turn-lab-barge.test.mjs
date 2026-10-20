@@ -78,11 +78,13 @@ test('the page mounts, sends the preset to the room once it joins, and counts a 
     const message = (kind, data) => handlers[0]({ source: element('room').contentWindow, origin: 'https://room.example', data: { source: 'turn-lab-browser', kind, data } });
     const wait = () => new Promise((resolve) => setTimeout(resolve, 250));
     message('browser-ready', { voice: 'joined' });
-    assert.deepEqual(posted.at(-1), { message: { type: 'turn-lab-barge', turn: DEFAULTS }, origin: 'https://room.example' });
+    assert.equal(posted.filter((row) => row.message.type === 'turn-lab-barge').length, 0, 'the room is left alone while everything is default');
     element('barge-B').onclick(); await wait();
     assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', turn: PRESETS.B.turn });
     element('barge-reset').onclick(); await wait();
     assert.deepEqual(posted.at(-1).message.turn, DEFAULTS);
+    element('barge-reset').onclick(); await wait();
+    assert.equal(posted.filter((row) => row.message.type === 'turn-lab-barge').length, 2, 'defaults are sent once to put the room back, then nothing');
     await element('barge-play').onclick();
     assert.deepEqual(requests, ['/preview/turn-lab/play']);
   } finally { delete globalThis.document; delete globalThis.window; }
