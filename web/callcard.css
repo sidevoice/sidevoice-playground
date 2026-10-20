@@ -1182,16 +1182,29 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #card-window .call-card .card-title:not(button):hover { background: none; }
 
 /* ---------- C1: its controls — the compact card (OPEN, 2026-10-20: "c1Rail" compact) ----------
-   No handle: the pointer on the creature (never its balloons) shows A1's card itself — its title row (title, the
-   conversations control with its "!", machine and model, state, your wave; open, settings, × in its corner) over its
-   controls row — at once, as A1's own card is (its face left out: the creature is right there). Below the creature, or
-   above it, or beside it, as callcard.mjs c1LayCompact() finds room without touching the balloons (--cc-x/y, --cc-w:
-   A1's width for the size; data-c1-card). It stays focusable while hidden, and focus in it shows it. */
+   No handle: the pointer on the creature (never its balloons) shows two lines of A1's card at once — its first line
+   (title, the conversations control with its "!"; open, settings, × in its corner) over its controls row. Above or below
+   the creature, never beside, as "c1CompactAt" puts it (callcard.mjs c1LayCompact(): --cc-x/y; --cc-w, A1's width for
+   the size; --bal-dy, how far the balloons move on past it where it comes first). Tab reaches it while hidden, and the keyboard's
+   focus in it opens it and holds it (a control clicked with the pointer does not). Put away while the creature is dragged (the class follows c1Stow() for focus in it). */
 #card-window[data-c1-rail=compact] .c1x .c1-compact { position: absolute; z-index: 7; left: calc(var(--w) / 2 + var(--cc-x, -195px)); top: calc(var(--w) / 2 + var(--cc-y, 86px));
   opacity: 0; pointer-events: none; transition: opacity .15s linear; }
-#card-window[data-c1-rail=compact][data-expanded] .c1x .c1-compact, #card-window[data-c1-rail=compact] .c1x .c1-compact:focus-within { opacity: 1; pointer-events: auto; }
+#card-window[data-c1-rail=compact][data-expanded] .c1x .c1-compact, #card-window[data-c1-rail=compact] .c1x .c1-compact:has(:focus-visible) { opacity: 1; pointer-events: auto; }
 #card-window .c1x .c1-compact > .call-card { --w: var(--cc-w, 390px); }
-#card-window .c1x .c1-compact .cc-face { display: none; }
+#card-window[data-c1-rail=compact].dragging .c1x .c1-compact { opacity: 0; pointer-events: none; transition: none; }
+/* Out, it glides to a new place past a balloon that grows or goes (B, D2); the balloons glide on past it and back (A at the
+   top, C, D1). */
+#card-window[data-c1-rail=compact][data-expanded] .c1x .c1-compact { transition: opacity .15s linear, top .2s ease; }
+#card-window[data-c1-rail=compact] .c1x .c1x-stack { transition: translate .25s ease; }
+#card-window[data-c1-rail=compact][data-expanded] .c1x .c1x-stack { translate: 0 var(--bal-dy, 0px); }
+.reduce-motion #card-window[data-c1-rail=compact] .c1x .c1x-stack { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window[data-c1-rail=compact] .c1x .c1x-stack { transition: none !important; } }
+/* Two lines of A1 and nothing else (operator, 2026-10-20): its first line — title, conversations control, and open,
+   settings, × in its corner — over its controls row; no face, no machine line, no state line, no wave. */
+#card-window .c1x .c1-compact :is(.cc-face, .card-sub, .cc-state, .your-wave) { display: none !important; }
+/* Polish (operator, 2026-10-20): with no face, the title is the card's left edge; it starts where the controls row's first
+   button does (that row insets its buttons 6px), so the two rows share one left edge (measured: 19px at every size). */
+#card-window .c1x .c1-compact .card-row { padding-left: 6px; }
 .reduce-motion #card-window .c1x .c1-compact { transition: none !important; }
 @media (prefers-reduced-motion: reduce) { #card-window .c1x .c1-compact { transition: none !important; } }
 
