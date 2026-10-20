@@ -1023,80 +1023,156 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #card-window[data-format=mascot] .c1x .m-figure:active, #card-window[data-format=mascot] .c1x .m-figure:active *,
 #card-window[data-format=mascot].dragging, #card-window[data-format=mascot].dragging * { cursor: grabbing !important; }
 
-/* ---------- C1: its controls (DECIDED, operator 2026-10-20: the arc, B, opened on hover) ----------
-   #card-window carries data-peek (the handle out: the pointer on the creature), data-expanded (the controls out: the
-   pointer in their hull, or focus in them), for a moment data-c1-arrived (the handle just came), and the geometry
-   callcard.mjs c1Lay() works out from where the creature will be: --hub-x/y (the handle), --arc-r, --arc-step,
-   --arc-a0/a1 (the handle's and the first button's angles), --c1-base-x/y (the title base), --c1-stack-step (the
-   balloons' step while the controls are out), and the pieces' sizes (--handle-d, --arc-btn, --arc-ring). */
-.c1x { --dir: 1; }
-#card-window[data-side=right] .c1x { --dir: -1; }
+/* ---------- C1: its controls — the rail (OPEN, 2026-10-20: "c1Rail" row | column) ----------
+   The handle opens into a rail (a band in its own accent) the round call buttons slide out along — "row": outward, level
+   with the creature's top; "column": down its side — and a title base on the side the balloons do not use. Geometry from
+   callcard.mjs c1LayRail(): --hub-x/y and --p0…--p4, --rail-len, --c1-base-x/y, --handle-d, --arc-btn, --arc-ring. */
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x { --dir: 1; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-side=right] .c1x { --dir: -1; }
 /* The handle: a small round button in the accent's soft fill and ink, hugging the creature's lower corner on its open
    side, just above the base; the chevron alone toward where the arc rises. At rest it is not there for the pointer
    (nothing shows on approach) but it is for the keyboard: Tab reaches it, and focused it shows. */
-#card-window .c1x .c1-handle { position: absolute; z-index: 8; left: calc(var(--w) / 2 + var(--hub-x, calc(var(--w) / 2))); top: calc(var(--w) / 2 + var(--hub-y, calc(var(--w) * .38)));
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-handle { position: absolute; z-index: 8; left: calc(var(--w) / 2 + var(--hub-x, calc(var(--w) / 2))); top: calc(var(--w) / 2 + var(--hub-y, calc(var(--w) * .38)));
   display: grid; place-items: center; width: var(--handle-d, 26px); height: var(--handle-d, 26px); padding: 0;
   border: 1px solid color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); border-radius: 50%;
   background: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent)); box-shadow: 0 6px 16px rgb(0 0 0 / 32%);
   translate: -50% -50%; opacity: 0; scale: .8; pointer-events: none; transition: opacity .12s ease-out, scale .12s ease-out; }
-#card-window:is([data-peek], [data-expanded]) .c1x .c1-handle, #card-window .c1x .c1-handle:focus-visible { opacity: 1; scale: 1; pointer-events: auto; }
-#card-window .c1x .c1-handle:hover { background: color-mix(in srgb, var(--sv-accent) 34%, var(--sv-bg)); }
-#card-window .c1x .c1-handle:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
-.c1-handle svg { display: block; stroke-width: 2.4; }
-/* The chevron points up the arc's way (up and out); open, it points back down (a click on the hub closes). */
-#card-window .c1x .c1-handle-chevron { rotate: calc(var(--dir) * -135deg); transition: rotate .2s ease-out; }
-#card-window[data-expanded] .c1x .c1-handle-chevron { rotate: calc(var(--dir) * 45deg); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]):is([data-peek], [data-expanded]) .c1x .c1-handle, #card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-handle:focus-visible { opacity: 1; scale: 1; pointer-events: auto; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-handle:hover { background: color-mix(in srgb, var(--sv-accent) 34%, var(--sv-bg)); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-handle:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1-handle svg { display: block; stroke-width: 2.4; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-handle-chevron { transition: rotate .2s ease-out; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-rail=row] .c1x { --nx: var(--dir); --ny: 0; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-rail=column] .c1x { --nx: 0; --ny: 1; }
 /* Arriving from rest, it glows twice (a ring of the accent) and the chevron nudges up the arc's way; then still. */
-#card-window[data-c1-arrived][data-peek]:not([data-expanded]) .c1x .c1-handle { animation: c1-glow 1s ease-out .1s 2; }
-#card-window[data-c1-arrived]:not([data-expanded]) .c1x .c1-handle-chevron { animation: c1-nudge 0.5s ease-in-out .15s 2; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-arrived][data-peek]:not([data-expanded]) .c1x .c1-handle { animation: c1-glow 1s ease-out .1s 2; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-arrived]:not([data-expanded]) .c1x .c1-handle-chevron { animation: c1-nudge 0.5s ease-in-out .15s 2; }
 @keyframes c1-glow { 0% { box-shadow: 0 6px 16px rgb(0 0 0 / 32%), 0 0 0 0 color-mix(in srgb, var(--sv-accent) 55%, transparent); }
   100% { box-shadow: 0 6px 16px rgb(0 0 0 / 32%), 0 0 0 9px color-mix(in srgb, var(--sv-accent) 0%, transparent); } }
-@keyframes c1-nudge { 50% { translate: calc(var(--dir) * 1.5px) -1.5px; } }
+@keyframes c1-nudge { 50% { translate: calc(var(--nx, 1) * 2px) calc(var(--ny, 0) * 2px); } }
 
-/* The controls' frame: the dock is a point at the creature's middle; its pieces hang off it. The id twice: above the
-   older rules that move the dock beside the creature while a balloon is up (they out-rank one id through :has). */
-@property --fan { syntax: "<number>"; inherits: false; initial-value: 0; }
-#card-window .c1x { --open: 0; }
-#card-window[data-expanded] .c1x, #card-window .c1x:has(.c1-dock:focus-within) { --open: 1; }
-#card-window#card-window .c1x .c1-dock { display: block !important; left: calc(var(--w) / 2) !important; right: auto !important; top: calc(var(--w) / 2) !important;
+/* The controls' frame: the dock is a point at the creature's middle; its pieces hang off it (--p0…--p4: the handle and
+   the four buttons, centres from the creature's middle, set by callcard.mjs c1Lay()). The id twice: above the older
+   rules that move the dock beside the creature while a balloon is up (they out-rank one id through :has). */
+#card-window#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock { display: block !important; left: calc(var(--w) / 2) !important; right: auto !important; top: calc(var(--w) / 2) !important;
   transform: none !important; width: 0 !important; height: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important;
   clip-path: none !important; z-index: 5; pointer-events: none; transition: visibility 0s linear .3s; }
-#card-window#card-window[data-expanded] .c1x .c1-dock, #card-window#card-window .c1x .c1-dock:focus-within { pointer-events: auto; z-index: 7; transition: none; }
-#card-window .c1x .c1-dock :is(.pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
-/* The arc: the room's round call buttons, each in a ring of the card's surface and its line, on one radius around the
-   creature, one even step apart, rising from the handle up the open side: mic first, then captions, skip, hang up. Each
-   travels along the arc out of the handle (--a0 → its own --a, as the registered --fan goes 0 → 1), 30ms after the one
-   before; back in, from the hang-up. */
-#card-window .c1x .c1-dock .call-button { --fan: var(--open);
-  --a: calc(var(--arc-a1, 0deg) - var(--k) * var(--arc-step, 25deg)); --a0: var(--arc-a0, 40deg);
-  --ang: calc(var(--a0) + (var(--a) - var(--a0)) * var(--fan));
-  position: absolute !important; left: 0; top: 0; width: var(--arc-btn, 32px) !important; height: var(--arc-btn, 32px) !important; margin: 0 !important;
-  transform: translate(-50%, -50%) translate(calc(cos(var(--ang)) * var(--arc-r, 100px) * var(--dir)), calc(sin(var(--ang)) * var(--arc-r, 100px))) scale(calc(.35 + .65 * var(--fan)));
-  opacity: var(--fan); box-shadow: 0 0 0 calc(var(--arc-ring, 4px) - 1px) var(--sv-surface), 0 0 0 var(--arc-ring, 4px) var(--sv-border), 0 6px 14px rgb(0 0 0 / 30%);
-  transition: --fan .28s cubic-bezier(.2, .8, .2, 1) calc((3 - var(--i)) * 30ms), background-color var(--sv-dur-fast) var(--sv-ease); }
-#card-window[data-expanded] .c1x .c1-dock .call-button { transition: --fan .28s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 30ms), background-color var(--sv-dur-fast) var(--sv-ease); }
-#card-window .c1x .c1-dock .call-button svg { width: 16px !important; height: 16px !important; }
-#card-window .c1x .c1-dock #mute { --k: 0; --i: 0; }
-#card-window .c1x .c1-dock .card-captions { --k: 1; --i: 1; }
-#card-window .c1x .c1-dock .card-skip { --k: 2; --i: 2; }
-#card-window .c1x .c1-dock #connect { --k: 3; --i: 3; }
-/* The base: the title line, a 36px pill of the card's chrome right under the creature (6px), centred on it and kept
-   inside the screen; it comes in from just above, as the arc fans out. */
-#card-window .c1x .c1-dock > .pip-head-1 { position: absolute !important; left: var(--c1-base-x, -150px); top: var(--c1-base-y, 86px); width: max-content; max-width: 300px;
+#card-window#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-expanded] .c1x .c1-dock, #card-window#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock:focus-within { pointer-events: auto; z-index: 7; transition: none; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock :is(.pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
+/* The rail: a band in the handle's own accent (its fill and its edge), as thick as the buttons plus 2px, from the handle to
+   the hang-up; it draws out of the handle's end as the controls open (.26s) and back into it as they fold. */
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-rail { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-rail path { fill: none; stroke-linecap: round; stroke-dasharray: var(--rail-len, 0px) 9999px; stroke-dashoffset: var(--rail-len, 0px);
+  transition: stroke-dashoffset .26s cubic-bezier(.3, .7, .2, 1); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-rail-edge { stroke: color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); stroke-width: calc(var(--arc-btn, 32px) + 2 * var(--arc-ring, 2px) + 6px); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-rail-fill { stroke: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); stroke-width: calc(var(--arc-btn, 32px) + 2 * var(--arc-ring, 2px) + 4px); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-expanded] .c1x .c1-rail path, #card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock:focus-within .c1-rail path { stroke-dashoffset: 0px; transition: stroke-dashoffset .26s cubic-bezier(.2, .8, .2, 1); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-rail { filter: drop-shadow(0 6px 10px rgb(0 0 0 / 28%)); }
+/* The buttons ride the rail: folded, they sit in the handle, small and clear; open, each slides out along the rail to its
+   spot, 20ms after the one before (back in from the hang-up). */
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock .call-button { position: absolute !important; left: 0; top: 0; width: var(--arc-btn, 32px) !important; height: var(--arc-btn, 32px) !important; margin: 0 !important;
+  transform: translate(-50%, -50%) translate(var(--p0x, 0px), var(--p0y, 0px)) scale(.4); opacity: 0;
+  box-shadow: 0 0 0 var(--arc-ring, 2px) var(--sv-surface);
+  transition: transform .26s cubic-bezier(.3, .7, .2, 1) calc((3 - var(--i)) * 20ms), opacity .12s linear calc((3 - var(--i)) * 20ms + 80ms), background-color var(--sv-dur-fast) var(--sv-ease); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-expanded] .c1x .c1-dock .call-button, #card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock:focus-within .call-button { transform: translate(-50%, -50%) translate(var(--bx), var(--by)) scale(1); opacity: 1;
+  transition: transform .26s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 20ms), opacity .1s linear calc(var(--i) * 20ms), background-color var(--sv-dur-fast) var(--sv-ease); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock .call-button svg { width: 16px !important; height: 16px !important; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock #mute { --bx: var(--p1x); --by: var(--p1y); --i: 0; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock .card-captions { --bx: var(--p2x); --by: var(--p2y); --i: 1; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock .card-skip { --bx: var(--p3x); --by: var(--p3y); --i: 2; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock #connect { --bx: var(--p4x); --by: var(--p4y); --i: 3; }
+/* The chevron points the rail's way (outward for a row, down for a column); open, back toward the handle. */
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-rail=row] .c1x .c1-handle-chevron { rotate: calc(var(--dir) * -90deg); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-rail=row][data-expanded] .c1x .c1-handle-chevron { rotate: calc(var(--dir) * 90deg); }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-rail=column] .c1x .c1-handle-chevron { rotate: 0deg; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-rail=column][data-expanded] .c1x .c1-handle-chevron { rotate: 180deg; }
+/* The base: the title line, a 36px pill of the card's chrome right under the creature (6px) — or right over it where the
+   balloons open below — centred on it and kept inside the screen; it comes in from the creature's side. */
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock > .pip-head-1 { position: absolute !important; left: var(--c1-base-x, -150px); top: var(--c1-base-y, 86px); width: max-content; max-width: 300px;
   height: 36px; box-sizing: border-box; align-items: center !important; padding: 0 5px 0 14px !important; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill);
   background: var(--sv-bg); box-shadow: 0 6px 14px rgb(0 0 0 / 30%); opacity: 0; translate: 0 -6px;
   transition: opacity .14s linear, translate .2s cubic-bezier(.3, .7, .2, 1); }
-#card-window .c1x .c1-dock > .pip-head-1 :is(h2, .stage-heading, .stage-heading-name) { height: auto !important; align-self: center; }
-#card-window[data-expanded] .c1x .c1-dock > .pip-head-1, #card-window .c1x .c1-dock:focus-within > .pip-head-1 {
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-c1-base=above] .c1x .c1-dock > .pip-head-1 { translate: 0 6px; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock > .pip-head-1 :is(h2, .stage-heading, .stage-heading-name) { height: auto !important; align-self: center; }
+#card-window:is([data-c1-rail=row], [data-c1-rail=column])[data-expanded] .c1x .c1-dock > .pip-head-1, #card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x .c1-dock:focus-within > .pip-head-1 {
   opacity: 1; translate: 0 0; transition: opacity .14s linear .06s, translate .22s cubic-bezier(.2, .8, .2, 1) .04s; }
-/* Nothing overlaps a balloon: while the controls are out, the balloons step out past them (up past the arc, down past
-   the base), and come back as they fold. */
-#card-window .c1x .c1x-stack { transition: translate .24s cubic-bezier(.2, .8, .2, 1); }
-#card-window[data-expanded] .c1x .c1x-stack { translate: 0 var(--c1-stack-step, 0px); }
 
-/* Reduced motion: no fan, no glow; the controls are simply there, then the handle again. */
-.reduce-motion #card-window .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; animation: none !important; }
-@media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1x-stack) { transition: none !important; animation: none !important; } }
+/* Reduced motion: no rail drawing, no sliding, no glow; the controls are simply there, then the handle again. */
+.reduce-motion #card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-rail path) { transition: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window:is([data-c1-rail=row], [data-c1-rail=column]) .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-rail path) { transition: none !important; animation: none !important; } }
+
+/* ---------- C1: its controls — the bar (OPEN, 2026-10-20: "c1Rail" bar) ----------
+   The handle (3px from the creature's drawn outline, level with its top) is the near cap of one bar: the title, the
+   conversations control, the call buttons and open, settings, ×, in that order on either side. Geometry from
+   callcard.mjs c1LayBar(): --sil-top/left/right, --handle-gap, --handle-d, --arc-btn, --bar-h. */
+#card-window[data-c1-rail=bar] .c1x { --dir: 1; }
+#card-window[data-c1-rail=bar][data-side=right] .c1x { --dir: -1; }
+/* The handle: a small round button in the accent's soft fill and ink, hugging the creature's lower corner on its open
+   side, just above the base; the chevron alone toward where the arc rises. At rest it is not there for the pointer
+   (nothing shows on approach) but it is for the keyboard: Tab reaches it, and focused it shows. */
+#card-window[data-c1-rail=bar] .c1x .c1-handle { position: absolute; z-index: 8; left: calc(var(--w) / 2 + var(--hub-x, calc(var(--w) / 2))); top: calc(var(--w) / 2 + var(--hub-y, calc(var(--w) * .38)));
+  display: grid; place-items: center; width: var(--handle-d, 26px); height: var(--handle-d, 26px); padding: 0;
+  border: 1px solid color-mix(in srgb, var(--sv-accent) 45%, var(--sv-border)); border-radius: 50%;
+  background: color-mix(in srgb, var(--sv-accent) 22%, var(--sv-bg)); color: var(--sv-accent-text, var(--sv-accent)); box-shadow: 0 6px 16px rgb(0 0 0 / 32%);
+  translate: -50% -50%; opacity: 0; scale: .8; pointer-events: none; transition: opacity .12s ease-out, scale .12s ease-out; }
+#card-window[data-c1-rail=bar]:is([data-peek], [data-expanded]) .c1x .c1-handle, #card-window[data-c1-rail=bar] .c1x .c1-handle:focus-visible { opacity: 1; scale: 1; pointer-events: auto; }
+#card-window[data-c1-rail=bar] .c1x .c1-handle:hover { background: color-mix(in srgb, var(--sv-accent) 34%, var(--sv-bg)); }
+#card-window[data-c1-rail=bar] .c1x .c1-handle:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+#card-window[data-c1-rail=bar] .c1-handle svg { display: block; stroke-width: 2.4; }
+#card-window[data-c1-rail=bar] .c1x .c1-handle-chevron { transition: rotate .2s ease-out; }
+/* Arriving from rest, it glows twice (a ring of the accent) and the chevron nudges up the arc's way; then still. */
+#card-window[data-c1-rail=bar][data-c1-arrived][data-peek]:not([data-expanded]) .c1x .c1-handle { animation: c1-glow 1s ease-out .1s 2; }
+#card-window[data-c1-rail=bar][data-c1-arrived]:not([data-expanded]) .c1x .c1-handle-chevron { animation: c1-nudge 0.5s ease-in-out .15s 2; }
+@keyframes c1-glow { 0% { box-shadow: 0 6px 16px rgb(0 0 0 / 32%), 0 0 0 0 color-mix(in srgb, var(--sv-accent) 55%, transparent); }
+  100% { box-shadow: 0 6px 16px rgb(0 0 0 / 32%), 0 0 0 9px color-mix(in srgb, var(--sv-accent) 0%, transparent); } }
+@keyframes c1-nudge { 50% { translate: calc(var(--nx, 1) * 2px) calc(var(--ny, 0) * 2px); } }
+
+/* The bar (DECIDED with the operator, 2026-10-20): one piece, level with the creature's top (--sil-top: its drawing's top),
+   beside it on its open side: the title, the conversations control, the room's round call buttons — mic, captions, skip,
+   hang up — and open, settings, ×, always in that order (a flex row; only its place mirrors with the side). The handle is
+   its near cap, 3px (--handle-gap) from the creature's drawn outline (--sil-left/right: its drawing's bounding box); the
+   bar's rounded near end tucks just behind the creature. It grows out of the cap (its clip widens from the cap to the
+   whole bar, .24s) and folds back into it. */
+/* No size containment (the picture's container query would make the bar ignore its own content and collapse). */
+#card-window#card-window[data-c1-rail=bar] .c1x .c1-dock { position: absolute !important; z-index: 3; display: flex !important; align-items: center; gap: 4px; container-type: normal !important;
+  top: var(--sil-top, 0px) !important; transform: none !important; width: max-content !important; height: var(--bar-h, 44px) !important; box-sizing: border-box;
+  border: 1px solid var(--sv-border) !important; border-radius: calc(var(--bar-h, 44px) / 2) !important; background: var(--sv-bg) !important;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 32%) !important; pointer-events: none; grid-template-rows: none !important;
+  --cap: calc((var(--bar-h, 44px) - var(--handle-d, 26px)) / 2); /* the cap's margin round the handle */
+  transition: clip-path .24s cubic-bezier(.3, .7, .2, 1), visibility 0s linear .24s; }
+#card-window#card-window[data-c1-rail=bar][data-side=left] .c1x .c1-dock { left: calc(var(--sil-right, var(--w)) + var(--handle-gap, 3px) - var(--cap)) !important; right: auto !important;
+  padding: 0 6px 0 calc(var(--cap) * 2 + var(--handle-d, 26px) + 2px) !important; clip-path: inset(0 calc(100% - var(--bar-h, 44px)) 0 0 round calc(var(--bar-h, 44px) / 2)); }
+#card-window#card-window[data-c1-rail=bar][data-side=right] .c1x .c1-dock { right: calc(var(--w) - var(--sil-left, 0px) + var(--handle-gap, 3px) - var(--cap)) !important; left: auto !important;
+  padding: 0 calc(var(--cap) * 2 + var(--handle-d, 26px) + 2px) 0 6px !important; clip-path: inset(0 0 0 calc(100% - var(--bar-h, 44px)) round calc(var(--bar-h, 44px) / 2)); }
+#card-window#card-window[data-c1-rail=bar][data-expanded] .c1x .c1-dock, #card-window#card-window[data-c1-rail=bar] .c1x .c1-dock:focus-within {
+  clip-path: inset(-24px round calc(var(--bar-h, 44px) / 2 + 24px)); pointer-events: auto; transition: clip-path .24s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
+/* The rail is the row and column options'; the bar has none. */
+#card-window[data-c1-rail=bar] .c1x .c1-dock .c1-rail { display: none !important; }
+/* Its pieces: the title line's and the call bar's wrappers give way, so all are items of the one row, in order. */
+#card-window[data-c1-rail=bar] .c1x .c1-dock :is(.pip-head-1, .pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock .pip-head-1 > h2 { order: 1; flex: 0 1 auto !important; min-width: 0 !important; max-width: 160px; margin: 0 !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock .call-button { order: 2; position: static !important; width: var(--arc-btn, 32px) !important; height: var(--arc-btn, 32px) !important; margin: 0 !important; transform: none !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock #mute { margin-left: 8px !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock #connect { width: calc(var(--arc-btn, 32px) * 1.25) !important; margin-right: 6px !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock .call-button svg { width: 16px !important; height: 16px !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock .pip-hover-icons { order: 3; position: static !important; display: flex !important; gap: 2px; margin: 0 !important; visibility: visible !important; transform: none !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-dock .pip-head-x { order: 4; position: static !important; display: flex !important; margin: 0 !important; transform: none !important; }
+/* Its contents come in as its surface reaches them (as the card always faded its own), and go first as it folds. */
+#card-window[data-c1-rail=bar] .c1x .c1-dock :is(.pip-head-1 > h2, .call-button, .pip-hover-icons, .pip-head-x) { opacity: 0; transition: opacity .08s linear; }
+#card-window[data-c1-rail=bar][data-expanded] .c1x .c1-dock :is(.pip-head-1 > h2, .call-button, .pip-hover-icons, .pip-head-x), #card-window[data-c1-rail=bar] .c1x .c1-dock:focus-within :is(.pip-head-1 > h2, .call-button, .pip-hover-icons, .pip-head-x) {
+  opacity: 1; transition: opacity .14s linear .08s; }
+/* The handle: the bar's near cap, in its place whether the bar is out or not. */
+#card-window[data-c1-rail=bar][data-side=left] .c1x .c1-handle { left: calc(var(--sil-right, var(--w)) + var(--handle-gap, 3px)) !important; right: auto; }
+#card-window[data-c1-rail=bar][data-side=right] .c1x .c1-handle { right: calc(var(--w) - var(--sil-left, 0px) + var(--handle-gap, 3px)) !important; left: auto !important; }
+#card-window[data-c1-rail=bar] .c1x .c1-handle { top: calc(var(--sil-top, 0px) + var(--bar-h, 44px) / 2) !important; translate: 0 -50% !important; }
+/* The chevron points the bar's way (outward); open, back toward the creature (a click on the cap closes). */
+#card-window[data-c1-rail=bar] .c1x .c1-handle-chevron { rotate: calc(var(--dir) * -90deg); }
+#card-window[data-c1-rail=bar][data-expanded] .c1x .c1-handle-chevron { rotate: calc(var(--dir) * 90deg); }
+#card-window[data-c1-rail=bar] .c1x { --nx: var(--dir); --ny: 0; }
+
+/* Reduced motion: no unfolding, no glow; the bar is simply there, then the handle again. */
+.reduce-motion #card-window[data-c1-rail=bar] .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-dock :is(h2, .pip-hover-icons, .pip-head-x)) { transition: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { #card-window[data-c1-rail=bar] .c1x :is(.c1-handle, .c1-handle-chevron, .c1-dock, .c1-dock > *, .c1-dock .call-button, .c1-dock :is(h2, .pip-hover-icons, .pip-head-x)) { transition: none !important; animation: none !important; } }
 
 /* ---------- Settings → Floating card: the creature in the previews (DECIDED, operator 2026-10-20) ----------
    The conversation's own creature, simplified from its drawing: flat in its main colour (--av-color, as the app's preview
