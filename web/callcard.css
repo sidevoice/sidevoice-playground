@@ -1059,3 +1059,76 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
    pointer on a balloon is on the balloon, never on the avatar under it, so the controls never come out for a balloon
    (and go, after the usual delay, if they were out). A press on one moves nothing; "Cancel sending" is its one action. */
 #card-window .c1x .cc-captions .speech-bubble { pointer-events: auto; }
+
+/* ---------- C1: its controls as the pointer comes near (OPEN, 2026-10-20: the variant "c1Actions") ----------
+   #card-window carries data-c1-actions (grow, arc, drawer), data-near (off, approach, near, on) and --near (0 to 1, the
+   pointer's nearness to the avatar). "There" is data-expanded (or focus inside): then every option is its whole self,
+   in place and usable, whatever --near says. Until then nothing that still moves takes the pointer. */
+#card-window[data-c1-actions] .c1x .c1-dock { visibility: visible; pointer-events: none; }
+#card-window[data-c1-actions][data-expanded] .c1x .c1-dock, #card-window[data-c1-actions] .c1x .c1-dock:focus-within { pointer-events: auto; }
+
+/* grow: near, the room's call pill alone (the dock cut to it: --cut, measured), usable where it stays; there, the cut
+   opens out to the whole dock around it, so the pill never moves. */
+#card-window[data-c1-actions=grow] .c1x .c1-dock {
+  opacity: min(1, calc(var(--near, 0) / .4)); clip-path: inset(var(--cut, 0) round 999px);
+  transition: clip-path .26s cubic-bezier(.2, .8, .2, 1), opacity .12s linear; }
+#card-window[data-c1-actions=grow]:is([data-near=near], [data-near=on]) .c1x .c1-dock .call-actions { pointer-events: auto; }
+#card-window[data-c1-actions=grow][data-expanded] .c1x .c1-dock, #card-window[data-c1-actions=grow] .c1x .c1-dock:focus-within {
+  opacity: 1; clip-path: inset(-40px round var(--sv-radius-2xl)); }
+/* The pill keeps to the avatar's side of the dock, so it comes out right by the creature and the dock opens away from it. */
+#card-window[data-c1-actions=grow][data-side=left] .c1x .c1-dock .pip-bar { justify-items: start !important; }
+#card-window[data-c1-actions=grow][data-side=right] .c1x .c1-dock .pip-bar { justify-items: end !important; }
+
+/* drawer: the whole dock slides out from behind the creature (the creature over it), its line of emergence the avatar's
+   middle; how far follows the pointer; there, it is all out. --slide: how much is still behind. */
+#card-window[data-c1-actions=drawer] .c1x .m-figure, #card-window[data-c1-actions=arc] .c1x .m-figure { position: relative; z-index: 6; pointer-events: auto; }
+#card-window[data-c1-actions=drawer] .c1x .c1-dock { z-index: 4; --gone: calc(354px + var(--w) / 2); --slide: calc((1 - var(--near, 0)) * var(--gone));
+  --hidden: max(0px, calc(var(--slide) - 8px - var(--w) / 2));
+  transition: translate .14s ease-out, clip-path .14s ease-out; }
+#card-window[data-c1-actions=drawer][data-side=left] .c1x .c1-dock { translate: calc(-1 * var(--slide)) 0; clip-path: inset(-40px -40px -40px var(--hidden)); }
+#card-window[data-c1-actions=drawer][data-side=right] .c1x .c1-dock { translate: var(--slide) 0; clip-path: inset(-40px var(--hidden) -40px -40px); }
+#card-window[data-c1-actions=drawer][data-expanded] .c1x .c1-dock, #card-window[data-c1-actions=drawer] .c1x .c1-dock:focus-within { --slide: 0px; }
+
+/* arc: the room's round call buttons on an arc around the avatar's open side, out from behind the creature as far as
+   the pointer is near (--reach); tilted away from the side its balloons open to, so they never meet; there, the title
+   line joins beyond them, level with the arc's middle. */
+#card-window[data-c1-actions=arc] .c1x { --arc-btn: 34px; --arc-r: calc(var(--w) / 2 + 28px); --arc-step: 25deg; --arc-tilt: 10deg; --reach: var(--near, 0); }
+/* The step keeps 34px buttons, each in its 4px ring, about 5px apart on every size's radius. */
+#card-window[data-c1-actions=arc][data-size=s] .c1x { --arc-step: 30deg; }
+#card-window[data-c1-actions=arc][data-size=l] .c1x { --arc-step: 20deg; }
+#card-window[data-c1-actions=arc][data-open=down] .c1x { --arc-tilt: -10deg; }
+#card-window[data-c1-actions=arc][data-expanded] .c1x, #card-window[data-c1-actions=arc] .c1x:focus-within { --reach: 1; }
+/* Out, they lie over the creature: its box (transparent round it) never takes a click meant for a button. */
+#card-window[data-c1-actions=arc][data-expanded] .c1x .c1-dock, #card-window[data-c1-actions=arc] .c1x .c1-dock:focus-within { z-index: 7; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock { display: block !important; left: calc(var(--w) / 2) !important; right: auto !important; top: calc(var(--w) / 2) !important;
+  transform: none !important; width: 0 !important; height: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; z-index: 4; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock :is(.pip-bar-below, .call-bar, .controls, .call-actions, .mic-control) { display: contents !important; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock .call-button { --a: calc(var(--arc-tilt) + (var(--i) - 1.5) * var(--arc-step));
+  position: absolute !important; left: 0; top: 0; width: var(--arc-btn) !important; height: var(--arc-btn) !important;
+  transform: translate(-50%, -50%) rotate(var(--a)) translate(calc(var(--arc-r) * var(--reach))) rotate(calc(-1 * var(--a)));
+  opacity: min(1, calc(var(--reach) * 2.5));
+  box-shadow: 0 0 0 3px var(--sv-surface), 0 0 0 4px var(--sv-border), 0 6px 16px rgb(0 0 0 / 35%);
+  transition: transform .16s cubic-bezier(.2, .8, .2, 1), opacity .12s linear, background-color var(--sv-dur-fast) var(--sv-ease); }
+#card-window[data-c1-actions=arc][data-side=right] .c1x .c1-dock .call-button { --a: calc(180deg - var(--arc-tilt) - (var(--i) - 1.5) * var(--arc-step)); }
+#card-window[data-c1-actions=arc] .c1x .c1-dock #mute { --i: 0; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock .card-captions { --i: 1; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock .card-skip { --i: 2; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock #connect { --i: 3; }
+#card-window[data-c1-actions=arc] .c1x .c1-dock > .pip-head-1 { position: absolute !important; top: calc(sin(var(--arc-tilt)) * var(--arc-r)); width: max-content; max-width: 300px;
+  padding: 4px 4px 4px 12px !important; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill); background: var(--sv-bg); box-shadow: var(--sv-shadow-md);
+  opacity: 0; translate: 0 -50%; pointer-events: none; transition: opacity .14s linear, translate .18s cubic-bezier(.2, .8, .2, 1); }
+#card-window[data-c1-actions=arc][data-side=left] .c1x .c1-dock > .pip-head-1 { left: calc(cos(var(--arc-tilt)) * var(--arc-r) + var(--arc-btn) / 2 + 14px); translate: -8px -50%; }
+#card-window[data-c1-actions=arc][data-side=right] .c1x .c1-dock > .pip-head-1 { right: calc(cos(var(--arc-tilt)) * var(--arc-r) + var(--arc-btn) / 2 + 14px); translate: 8px -50%; }
+#card-window[data-c1-actions=arc][data-expanded] .c1x .c1-dock > .pip-head-1, #card-window[data-c1-actions=arc] .c1x .c1-dock:focus-within > .pip-head-1 { opacity: 1; translate: 0 -50%; pointer-events: auto; }
+
+/* Reduced motion: nothing slides or fans out; the controls are simply there, "there" (grow's pill still shows near). */
+:is(.reduce-motion #card-window, #card-window.reduce-motion)[data-c1-actions] .c1x .c1-dock, :is(.reduce-motion #card-window)[data-c1-actions] .c1x .c1-dock * { transition: none !important; }
+.reduce-motion #card-window:is([data-c1-actions=drawer], [data-c1-actions=arc]):not([data-expanded]) .c1x .c1-dock:not(:focus-within) { visibility: hidden; }
+.reduce-motion #card-window[data-c1-actions=drawer] .c1x .c1-dock { --slide: 0px; }
+.reduce-motion #card-window[data-c1-actions=arc] .c1x { --reach: 1; }
+@media (prefers-reduced-motion: reduce) {
+  #card-window[data-c1-actions] .c1x .c1-dock, #card-window[data-c1-actions] .c1x .c1-dock * { transition: none !important; }
+  #card-window:is([data-c1-actions=drawer], [data-c1-actions=arc]):not([data-expanded]) .c1x .c1-dock:not(:focus-within) { visibility: hidden; }
+  #card-window[data-c1-actions=drawer] .c1x .c1-dock { --slide: 0px; }
+  #card-window[data-c1-actions=arc] .c1x { --reach: 1; }
+}

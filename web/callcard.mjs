@@ -34,7 +34,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
 const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", unread: "1", unreadCue: "dot", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", unread: "1", unreadCue: "dot", c1Actions: "hover", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
@@ -320,6 +320,8 @@ function drawCard() {
       + (f.id === "pip" ? `<span class="cc-resize cc-grip" data-edge="se" aria-hidden="true"></span>` : "");
   win.toggleAttribute("data-picker", pickerOpen || detailsOpen);
   win.dataset.listFrom = "element";
+  if (proximity()) { win.dataset.c1Actions = c1Actions(); win.dataset.near = nearStage; }
+  else { delete win.dataset.c1Actions; delete win.dataset.near; win.style.removeProperty("--near"); nearStage = "off"; }
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   // Always shown (Settings), the controls stay out; else they come near the pointer (as today's card: alwaysExpanded).
   if (pickerOpen || s.alwaysShown) win.toggleAttribute("data-expanded", true);
@@ -328,6 +330,7 @@ function drawCard() {
   $("blurb").textContent = f.blurb;
   place();
   fitPip();
+  measureGrow();
   animator.restart();
 }
 
@@ -520,13 +523,13 @@ addEventListener("resize", () => place());
 // grows with them and moves in if it has to.
 let hoverTimer = 0, hoverWant = null;
 // C1: the dock comes out for the avatar itself (and stays while on it), never for its balloons (coordinator, 2026-10-19).
-const hoverZone = () => { const win = $("card-window"); return format().id === "mascot" ? !!win.querySelector(".m-figure:hover, .c1-dock:hover") : win.matches(":hover"); };
+const hoverZone = () => { const win = $("card-window"); return format().id === "mascot" ? (proximity() ? nearStage === "on" : !!win.querySelector(".m-figure:hover, .c1-dock:hover")) : win.matches(":hover"); };
 // A1: its captions are neutral: over them the card neither opens nor closes, so the line under the pointer (and its
 // cancel button) never moves away from it.
 $("card-window").addEventListener("pointerover", (event) => {
   const id = format().id;
   if (id === "card") { clearTimeout(hoverTimer); if (!event.target.closest(".cc-captions")) hoverTimer = setTimeout(() => expand(true), 120); return; }
-  if (id !== "mascot") return;
+  if (id !== "mascot" || proximity()) return;
   const on = !!event.target.closest(".m-figure, .c1-dock");
   // Only a change of what the pointer is on restarts the delay: a balloon's words changing under a still pointer (the
   // karaoke) fire pointerover again and again, and must not hold the controls out forever.
@@ -535,9 +538,63 @@ $("card-window").addEventListener("pointerover", (event) => {
   clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(on), on ? 120 : 500);
 });
 $("card-window").addEventListener("pointerenter", () => { if (format().id === "mascot" || format().id === "card") return; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(true), 120); });
-$("card-window").addEventListener("pointerleave", () => { hoverWant = false; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
+$("card-window").addEventListener("pointerleave", () => { if (proximity()) return; hoverWant = false; clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
 // Done dragging or resizing away from the card: the controls go after the same delay as leaving it.
 addEventListener("pointerup", () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500); });
+// ---------- C1: its controls as the pointer comes near (OPEN: the variant "c1Actions") ----------
+
+/** OPEN (variant "c1Actions"): how C1's controls come out. "hover" is today's: on the avatar, after 120 ms. The other
+ *  three follow the pointer's distance to the avatar (proximity, 0 far to 1 there), and every one ends in the same
+ *  controls, the dock's own parts (B1's title line and the room's call buttons):
+ *  - "grow": near, the room's call pill alone (mic, captions, skip, hang up), where it stays, usable at once; there,
+ *    it opens out into the whole dock around it. The pill never moves.
+ *  - "arc": the room's round call buttons come out from behind the creature along an arc on its open side, as far out
+ *    as the pointer is near; there, they are usable, and the title line joins beyond them.
+ *  - "drawer": the whole dock slides out from behind the creature on its open side, as far as the pointer is near;
+ *    there, it is all out and usable.
+ *  In all of them: nothing is usable while it still moves (only "there", or grow's settled pill); a balloon is never the
+ *  avatar (on one, the controls stay in); focus in them brings them all out; reduced motion shows them only "there". */
+const C1_ACTIONS = { hover: "On the avatar (today)", grow: "Grow: the call pill near, everything there", arc: "Arc: buttons fan out around it", drawer: "Drawer: slides out from behind it" };
+const c1Actions = () => (pick.c1Actions in C1_ACTIONS ? pick.c1Actions : "hover");
+const proximity = () => format().id === "mascot" && c1Actions() !== "hover";
+/** Distances from the avatar's box, in CSS pixels: it starts answering at NEAR_PX, it is there within ON_PX, and once
+ *  out it stays while the pointer is within STAY_PX of the avatar or of anything that came out. */
+const NEAR_PX = 150, ON_PX = 12, STAY_PX = 28;
+let nearStage = "off";
+const rectDistance = (r, x, y) => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+function nearness(event) {
+  const win = $("card-window"), figure = win.querySelector(".c1x .m-figure");
+  if (!figure || win.hidden || event.target.closest?.(".c1x .speech-bubble")) return 0;
+  let d = rectDistance(figure.getBoundingClientRect(), event.clientX, event.clientY);
+  const out = win.hasAttribute("data-expanded");
+  if (out) for (const part of win.querySelectorAll(".c1-dock :is(button, .pip-head-1)")) { const r = part.getBoundingClientRect(); if (r.width) d = Math.min(d, rectDistance(r, event.clientX, event.clientY)); }
+  else if (event.target.closest?.(".c1-dock")) d = 0; // grow's pill, usable before the rest
+  return d <= (out ? STAY_PX : ON_PX) ? 1 : Math.max(0, Math.min(1, (NEAR_PX - d) / (NEAR_PX - ON_PX)));
+}
+function setNear(p) {
+  const win = $("card-window");
+  win.style.setProperty("--near", p.toFixed(3));
+  const stage = p >= 1 ? "on" : p >= .4 ? "near" : p > 0 ? "approach" : "off";
+  // grow's pill is usable from "near": a click meant for what was under it never lands on it as it appears.
+  if (stage === "near" && (nearStage === "off" || nearStage === "approach")) guardUntil = Date.now() + CLICK_GUARD_MS;
+  nearStage = win.dataset.near = stage;
+  const on = stage === "on";
+  if (on === hoverWant) return;
+  hoverWant = on;
+  clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(on), on ? 0 : 500);
+}
+addEventListener("pointermove", (event) => { if (proximity() && !drag && !resizing && event.pointerType === "mouse") setNear(nearness(event)); });
+// No hover on a touch screen: a tap on the avatar brings them all out (and the next acts), as today's first tap does.
+addEventListener("pointerdown", (event) => { if (proximity() && event.pointerType !== "mouse" && event.target.closest?.(".c1x .m-figure")) setNear(1); }, true);
+document.documentElement.addEventListener("pointerleave", () => { if (proximity()) setNear(0); });
+/** grow: the call pill's box inside the dock, which the dock is cut to until it is there. */
+function measureGrow() {
+  const win = $("card-window"), dock = win.querySelector(".c1x .c1-dock"), pill = dock?.querySelector(".call-actions");
+  if (!dock || !pill || c1Actions() !== "grow") return;
+  const d = dock.getBoundingClientRect(), r = pill.getBoundingClientRect(), k = d.width / dock.offsetWidth || 1;
+  dock.style.setProperty("--cut", `${(r.top - d.top) / k}px ${(d.right - r.right) / k}px ${(d.bottom - r.bottom) / k}px ${(r.left - d.left) / k}px`);
+}
+
 function expand(on) {
   const win = $("card-window");
   if (!on && settings().alwaysShown) return;
@@ -1064,7 +1121,7 @@ function drawPanel() {
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
-    `<fieldset class="panel-open"><legend>Open questions</legend>${select("unreadCue", "Unread cue in the header (A1, B1, C1)", [["dot", "Dot (today)"], ["bang", "! (as in the list)"]], unreadCue())}</fieldset>`,
+    `<fieldset class="panel-open"><legend>Open questions</legend>${select("unreadCue", "Unread cue in the header (A1, B1, C1)", [["dot", "Dot (today)"], ["bang", "! (as in the list)"]], unreadCue())}${select("c1Actions", "C1 · how its controls come out", Object.entries(C1_ACTIONS), c1Actions())}</fieldset>`,
     `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
     select("state", "Call state", Object.entries(STATES).map(([id, st]) => [id, st.label]), call.state),
     `<label class="check"><input type="checkbox" data-pick="cycle"${pick.cycle === "1" ? " checked" : ""}> Cycle through the states</label>`,
@@ -1088,6 +1145,8 @@ $("controls").addEventListener("change", (event) => {
   else if (name === "motion") pick.motion = event.target.checked ? "reduced" : "full";
   else if (name === "format" || name === "size") { const value = event.target.value; keepAnchor(() => { if (name === "size") forgetWidths(); pick[name] = value; }); }
   else pick[name] = event.target.value;
+  // Picking how C1's controls come out shows C1.
+  if (name === "c1Actions" && pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; });
   if (name === "state") { const was = call.state; call.state = pick.state; pick.cycle = "0"; animator.entered(was); }
   if (name === "creature" || name === "env") call.appOpen = false;
   document.body.classList.toggle("reduce-motion", pick.motion === "reduced");
