@@ -1,29 +1,30 @@
 // Interruption lab: tune how much speech cuts the agent's reply, and see each attempt as evidence.
 //
-// What can be set from here: the voice module's `barge_in_min_speech` (seconds of continuous speech above the playing
-// bar before sounding audio is cut), through the pinned web room's own `sidevoiceActions.editVoice`. Everything else
-// that decides an interruption is fixed inside the library (FIXED below); nothing here forks or patches it.
+// What can be set from here: the voice module's `barge_in_min_speech` (seconds of speech above the playing bar, counted
+// within the last 2.5 times as long, before sounding audio is cut). The web room does not pass it on, so the Lab's room
+// bridge (preview/turn-lab/observe.js) hands it to the voice host when the web gives the call its settings. Everything
+// else that decides an interruption is fixed inside the library (FIXED below); nothing here forks or patches it.
 
-export const APP_DEFAULT_SECONDS = 1.0;
+export const APP_DEFAULT_SECONDS = 0.6;
 export const ATTEMPTS_KEPT = 20;
 export const ONSET_LEVEL = 15;
 
 export const PRESETS = {
-  A: { seconds: 1.0, rationale: "Today: the app sets nothing, so the voice module's own 1.0 s applies." },
-  B: { seconds: 0.4, rationale: "Eager: 0.4 s of continuous speech cuts the reply, about one short word (the same length speech needs to start in silence)." },
-  C: { seconds: 1.6, rationale: "Tolerant: 1.6 s, so \"mm-hm\", \"yes\", a cough or a bump never cut; only a deliberate sentence does." },
+  A: { seconds: 0.6, rationale: "Today: the app sets nothing, so the voice module's own 0.6 s applies." },
+  B: { seconds: 0.3, rationale: "Eager: 0.3 s of speech cuts the reply, about one short word; a cough or a bump can now cut it too." },
+  C: { seconds: 1.0, rationale: "Tolerant: 1.0 s, so \"mm-hm\", \"yes\" or a single bump never cut; a deliberate phrase does." },
 };
 
-// Pinned voice 73fb627 (v0.5.0), the build the Turn Lab runs. Not settable from the page: the voice's JS host
+// Pinned voice 63b7a3b (v0.6.0), the build the Turn Lab runs. Not settable from the page: the voice's JS host
 // forwards only `barge_in_min_speech` (js/voice-host.js:144), and the web room never sets even that.
 export const FIXED = [
-  { name: "Loudness bar while the agent plays", value: "0.8 (-30 LUFS); 0.5 when silent", where: "src/config.rs:149-155 (ListeningBar), applied src/turns.rs:191-199" },
-  { name: "Detector confidence for speech", value: "0.6", where: "src/turns.rs:38" },
-  { name: "Speech must be continuous", value: "a quiet gap restarts the count", where: "src/turns.rs:202-207" },
-  { name: "Grace after a turn before the agent speaks", value: "1000 ms", where: "src/config.rs:158-160, src/call.rs:690" },
-  { name: "Fade-out when it stops", value: "30 ms", where: "js/web-audio-io.js:21, js/shared-web-audio-io.js:4" },
-  { name: "Echo / self-voice", value: "the browser's echoCancellation, noiseSuppression, autoGainControl", where: "js/web-audio-io.js:26-30, src/echo/web.rs:1-3" },
-  { name: "Backchannel vs interruption", value: "no such concept: only length and loudness decide", where: "src/turns.rs:197-215" },
+  { name: "Loudness bar while the agent plays", value: "0.65 (-45 LUFS); 0.5 when silent", where: "src/config.rs:207-213 (ListeningBar), applied src/turns.rs:194-199" },
+  { name: "Detector confidence for speech", value: "0.6", where: "src/turns.rs:41" },
+  { name: "Speech counts within a sliding window", value: "2.5 times the setting; gaps are allowed, so short bursts add up", where: "src/turns/overlap.rs:10-12, src/turns.rs:202-205" },
+  { name: "Grace after a turn before the agent speaks", value: "1000 ms", where: "src/config.rs:216-218, src/call.rs:750" },
+  { name: "Fade-out when it stops", value: "30 ms", where: "js/web-audio-io.js:23, js/shared-web-audio-io.js:6" },
+  { name: "Echo / self-voice", value: "the browser's echoCancellation, noiseSuppression, autoGainControl", where: "js/web-audio-io.js:28-31, src/echo/web.rs:1-3" },
+  { name: "Backchannel vs interruption", value: "no such concept: only the amount and loudness of speech decide", where: "src/turns.rs:194-215" },
 ];
 
 const GAP_MS = 250;
@@ -245,6 +246,7 @@ function mount(doc, win) {
     else if (kind === "barge-mic") { micLevel = Math.round(data.level); if (data.t - peakAt > 10_000 || data.level >= peak) { peak = Math.round(data.level); peakAt = data.t; } tracker.mic(data.level, data.t ?? t); $("barge-mic").textContent = `Microphone meter ${micLevel}; counts as speech from`; }
     else if (kind === "barge-state") { tracker.state(data, data.t ?? t); mark(`listening ${data.listening ?? "?"}, playback ${data.playback ?? "?"}, mic ${data.mic ?? "?"}${data.phase ? `, ${data.phase}` : ""}`); render(); }
     else if (kind === "barge-audio") { audioStates = data.states ?? []; mark(`audio ${audioStates.join("/")}`); render(); }
+    else if (kind === "barge-read") mark(`the voice took barge_in_min_speech ${data.seconds == null ? "default" : `${data.seconds} s`}`);
     else if (kind === "barge-applied") { applied = data.seconds == null ? "app default (1.0 s)" : `${Number(data.seconds).toFixed(1)} s`; render(); }
     else if (kind === "barge-error") { applied = "error"; render(); }
     else if (kind === "browser-action" && data.type === "reply-hearing") tracker.hearing(data.outcome);

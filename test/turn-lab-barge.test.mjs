@@ -77,9 +77,9 @@ test('the page mounts, sends the preset to the room once it joins, and counts a 
     await import(`../web/turn-lab-barge.mjs?mount=${Math.random()}`);
     const message = (kind, data) => handlers[0]({ source: element('room').contentWindow, origin: 'https://room.example', data: { source: 'turn-lab-browser', kind, data } });
     message('browser-ready', { voice: 'joined' });
-    assert.deepEqual(posted.at(-1), { message: { type: 'turn-lab-barge', seconds: 1 }, origin: 'https://room.example' });
+    assert.deepEqual(posted.at(-1), { message: { type: 'turn-lab-barge', seconds: 0.6 }, origin: 'https://room.example' });
     element('barge-B').onclick();
-    assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', seconds: 0.4 });
+    assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', seconds: 0.3 });
     element('barge-reset').onclick();
     assert.deepEqual(posted.at(-1).message, { type: 'turn-lab-barge', seconds: null });
     await element('barge-play').onclick();

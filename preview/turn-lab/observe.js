@@ -8,6 +8,17 @@
       deferred_at: null, completed_at: null, trials: {}, chosen: {}, baseline_release: 0, features: {},
     }));
   } catch {}
+  // The voice host reads `input.barge_in_min_speech` from the input half the web gives it, and the web builds that half
+  // without it. A getter on Object.prototype answers for any input object that has none of its own; it answers nothing
+  // (the voice's default) until the Lab sets a value. Only this room page is affected.
+  const bargeOverride = { value: undefined, read: false };
+  try {
+    Object.defineProperty(Object.prototype, "barge_in_min_speech", {
+      configurable: true, enumerable: false,
+      get() { if (this !== Object.prototype) { bargeOverride.read = true; report("barge-read", { seconds: bargeOverride.value ?? null }); } return bargeOverride.value; },
+      set(value) { Object.defineProperty(this, "barge_in_min_speech", { value, writable: true, enumerable: true, configurable: true }); },
+    });
+  } catch {}
   const turnTargets = new Map();
   const report = (kind, data) => {
     try {
@@ -42,18 +53,21 @@
     }
     if (event.data?.type === "turn-lab-skip") { try { (await readyAction()).skipReply?.(); } catch {} return; }
     if (event.data?.type === "turn-lab-barge") {
-      // The interruption lab: the voice's barge_in_min_speech, through the web's own voice-settings action. null: no override.
+      // The interruption lab: the voice's barge_in_min_speech. The web gives the voice only the settings it knows
+      // (voiceInput), so the value is supplied where the voice host reads it (`input.barge_in_min_speech`, see
+      // bargeOverride above) and the web is made to give the call its settings again, which it does when a setting
+      // changes: the value is also written to the device settings, as an extra key the web keeps and ignores. null:
+      // no override, the voice's own default.
       const seconds = event.data.seconds;
       if (seconds !== null && !(typeof seconds === "number" && seconds > 0 && seconds <= 60)) return;
       try {
         const actions = await readyAction();
         if (typeof actions.editVoice !== "function") throw new Error("Web voice settings action did not load");
+        bargeOverride.value = seconds ?? undefined;
+        bargeOverride.read = false;
         actions.editVoice({ barge_in_min_speech: seconds ?? undefined });
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        const facts = window.sidevoiceUI?.store?.facts;
-        const kept = facts?.voiceSettings?.barge_in_min_speech;
-        if (facts?.settingsError) throw new Error(String(facts.settingsError?.message ?? facts.settingsError));
-        if ((kept ?? null) !== seconds) throw new Error(`the room kept ${kept ?? "nothing"}`);
+        for (let i = 0; i < 20 && !bargeOverride.read; i++) await new Promise((resolve) => setTimeout(resolve, 100));
+        if (!bargeOverride.read) throw new Error("the voice did not take the setting");
         report("barge-applied", { seconds });
       } catch (error) { report("barge-error", { message: String(error?.message ?? error) }); }
       return;
@@ -121,6 +135,9 @@
       const download = downloadId && document.getElementById(downloadId);
       if (download && !clicked.has(downloadId)) { clicked.add(downloadId); download.click(); report("browser-ready", { model: downloadId, state: "downloading" }); }
       // The permissions step (W4m) has its own Continue; it is enabled once the microphone is allowed.
+      // Asks for the microphone once; the browser's own prompt (or the permission already given) answers.
+      const ask = document.getElementById("wizard-mic-action");
+      if (step === "W4m" && ask && !ask.disabled && !clicked.has("W4m:ask")) { clicked.add("W4m:ask"); ask.click(); report("browser-ready", { modelStep: "W4m", state: "asking" }); }
       const mic = document.getElementById("wizard-mic-continue");
       if (step === "W4m" && mic && !mic.disabled && mic.getAttribute("aria-disabled") !== "true" && !clicked.has("W4m:continue")) {
         clicked.add("W4m:continue"); mic.click(); report("browser-ready", { modelStep: "W4m", state: "ready" });
