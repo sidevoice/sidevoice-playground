@@ -838,7 +838,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-a1 .a1-corner .cc-action, .pip-head-1 :is(.pip-hover-icons, .pip-head-x) .cc-action { background: none; }
 .cc-a1 .a1-corner .cc-action:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); }
 .pip-head-1 :is(.pip-hover-icons, .pip-head-x) .cc-action:hover { background: color-mix(in srgb, var(--sv-text) 9%, transparent); }
-#card-window[data-expanded] .pip-head-1 h2[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 h2[data-under-icons] { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent calc(100% - 4px)); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent calc(100% - 4px)); }
 /* A1: the conversations control no taller than the title's line, its count a step under the title, its mark to match. */
 .call-card .cc-convs { height: 20px; padding: 0 6px; gap: 3px; font-size: 12.5px; font-weight: 600; line-height: 1; }
 .call-card .cc-convs svg { width: 13px; height: 13px; }
@@ -856,8 +855,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .pip-head-1 .stage-machine { display: inline-flex !important; visibility: visible !important; flex: none; margin: 0; order: 0; flex-basis: auto; }
 .pip-head-1 .stage-machine > span { overflow: hidden; text-overflow: ellipsis; }
 .pip-head-1 .cc-convs { margin-left: 4px; }
-#card-window[data-expanded] .pip-head-1 h2[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 h2[data-under-icons] { -webkit-mask-image: none; mask-image: none; }
-#card-window[data-expanded] .pip-head-1 .pip-title[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 .pip-title[data-under-icons] { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
 
 /* ---------- B1: readable text at the Small step, never under the room's own minimums ---------- */
 /* The stage's words at the room's floors (call-view.css .stage-tile: balloon 18px, person 16px, chips 11px). */
@@ -940,9 +937,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #card-window .c1x .c1-dock { width: 300px; height: auto; grid-template-rows: auto auto; padding-bottom: 0; visibility: hidden; }
 #card-window[data-expanded] .c1x .c1-dock, .c1x .c1-dock:focus-within { visibility: visible; }
 .c1x .c1-dock .pip-bar-below .pip-bar { padding-bottom: 10px; }
-/* Where open and settings lie over the title's end, the title is gone under them (not only faded). */
-#card-window[data-expanded] .pip-head-1 .pip-title[data-under-icons], .cc-pip-meet:focus-within .pip-head-1 .pip-title[data-under-icons] {
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 84px), transparent calc(100% - 62px)); mask-image: linear-gradient(90deg, #000 calc(100% - 84px), transparent calc(100% - 62px)); }
 /* C1's dock is B1 without the stage, in B1's order wherever it sits (its top bar over its call bar), and without the
    machine (it has no stage to tell apart). */
 #card-window .c1x .c1-dock { display: grid !important; grid-template-rows: auto auto !important; }
@@ -1014,3 +1008,27 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-card-group[data-off] :is(.cc-choice, .cc-corners) { opacity: .45; cursor: not-allowed; }
 .cc-card-group[data-off] .cc-choice[data-selected] { box-shadow: none !important; border-color: var(--sv-border) !important; }
 .cc-card-group[data-off] :is(.cc-choice, .cc-corner):disabled { pointer-events: none; }
+
+/* ---------- The title line (operator, 2026-10-20), in every format ----------
+   One line holds three pieces. The fixed ones are always given their room: the conversations control (its mark, the
+   count, the unread cue, ▾: flex none) and, on the right, the three actions (open, settings, ×: 3 icons with 2px between
+   them), with 8px of breathing room before them. Open and settings keep their room while hidden at rest (visibility, not
+   display), so nothing moves when they show and nothing ever lies under them. The title is the only flexible piece: it
+   takes what is left, up to 24em, and ends in an ellipsis; a short title shows whole. */
+.cc-a1, .cc-pip-meet { --tl-breath: 8px; --tl-gap: 2px; --tl-title-max: 24em; }
+#card-window :is(.pip-title, .card-title-text) { flex: 0 1 auto !important; min-width: 0 !important; max-width: var(--tl-title-max) !important;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#card-window :is(.pip-head-1, .card-title) .cc-convs { flex: none !important; }
+/* B1 and C1: the actions are in the line's own flow, after the title block: the block shrinks, the actions don't. */
+#card-window .cc-pip-meet .pip-head-1 { display: flex !important; flex-wrap: nowrap !important; gap: 0 !important; padding-right: 0 !important; }
+#card-window .cc-pip-meet .pip-head-1 > h2 { flex: 0 1 auto !important; min-width: 0 !important; margin-right: var(--tl-breath) !important; }
+#card-window .cc-pip-meet .pip-head-1 > :is(.pip-hover-icons, .pip-head-x, .pip-head-actions) { position: static !important; flex: none !important;
+  display: flex; gap: var(--tl-gap); padding: 0 !important; transform: none !important; }
+#card-window .cc-pip-meet .pip-head-1 > :is(.pip-hover-icons, .pip-head-actions) { margin-left: auto !important; }
+#card-window .cc-pip-meet .pip-head-1 > .pip-head-x { margin-left: var(--tl-gap) !important; }
+#card-window .cc-pip-meet .pip-head-1 .stage-heading-name { max-width: 100%; min-width: 0; }
+/* A1: the actions keep their closed place, the card's top-right corner (26px icons, 8px in from the card's edge), over
+   the end of the title's column; the title's row ends the actions' room plus the breathing room before that corner. The
+   column itself ends 81px before the card's edge (the card's 13px padding, the wave's 58px column, its 10px gap). */
+.cc-a1 { --tl-icon: 26px; --tl-actions: calc(3 * var(--tl-icon) + 2 * var(--tl-gap)); --tl-corner-inset: 9px; --tl-column-end: 81px; }
+#card-window .cc-a1 .card-title { padding-right: max(0px, calc(var(--tl-corner-inset) + var(--tl-actions) + var(--tl-breath) - var(--tl-column-end))) !important; }

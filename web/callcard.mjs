@@ -64,6 +64,9 @@ const CONVERSATIONS = {
   "Refactor del relay": { machine: "build-server", model: "gpt-5 · medium", reach: "listening" },
   "Landing nueva": { machine: "MacBook-Pro", model: "sonnet", reach: "holding" },
   "Tests de la voz": { machine: "linux-box", model: "opus", reach: "offline" },
+  // A long title, to check where the title line truncates; and a short one, which shows whole (operator, 2026-10-20).
+  "Actualización del servicio desktop 67": { machine: "MacBook-Pro", model: "opus · high", reach: "listening", unread: 2 },
+  "Pulir nightly": { machine: "build-server", model: "gpt-5 · medium", reach: "listening", unread: 1 },
   "mascot:sidevoice": { machine: "MacBook-Pro", model: "opus · high", reach: "listening" },
 };
 const facts = (c = creature()) => CONVERSATIONS[c.id] ?? CONVERSATIONS["Orquestador Sidevoice"];
@@ -389,25 +392,9 @@ function fitPip() {
   }
   if (!fitting) noStubs();
 }
-/** The picture's open and settings, near the pointer, lie over the title line without moving it: just left of × where the
- *  line has room clear of the conversations control, else over the title's end, right before that control (the title
- *  fading under them). */
-function placeHoverIcons() {
-  for (const head of document.querySelectorAll("#card-window .pip-head-1")) {
-    const icons = head.querySelector(".pip-hover-icons"), x = head.querySelector(".pip-head-x"), control = head.querySelector(".cc-convs"), title = head.querySelector("h2");
-    if (!icons || !x || !control) continue;
-    const h = head.getBoundingClientRect(), need = icons.offsetWidth;
-    const free = x.getBoundingClientRect().left - control.getBoundingClientRect().right;
-    const overTitle = free < need + 4;
-    icons.dataset.over = overTitle ? "title" : "line";
-    icons.style.right = overTitle ? h.right - control.getBoundingClientRect().left + 4 + "px" : h.right - x.getBoundingClientRect().left + "px";
-    head.querySelector(".pip-title")?.toggleAttribute("data-under-icons", overTitle);
-  }
-}
 /** A label of an icon and words never shows as its icon alone: with fewer than about three characters of its words in
  *  view, it goes whole (the stage's model badge, the header's machine). */
 function noStubs() {
-  queueMicrotask(placeHoverIcons);
   for (const label of document.querySelectorAll("#card-window .stage-badge")) {
     label.style.visibility = "";
     const text = label.querySelector(":scope > span:last-child");

@@ -25,7 +25,7 @@ const src = resolve(values.web, "apps/web/src");
 const out = resolve(import.meta.dirname, "../web/callcard");
 
 // The conversations the mockup calls (their titles are their seeds here), then the Sidevoice mascot.
-const SEEDS = ["Orquestador Sidevoice", "Refactor del relay", "Landing nueva", "Tests de la voz"];
+const SEEDS = ["Orquestador Sidevoice", "Refactor del relay", "Landing nueva", "Tests de la voz", "Actualización del servicio desktop 67", "Pulir nightly"];
 
 const dir = mkdtempSync(join(tmpdir(), "callcard-creatures-"));
 const entry = join(dir, "entry.ts");
