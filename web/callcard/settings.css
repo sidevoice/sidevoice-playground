@@ -1,4 +1,4 @@
-/* COPIED from sidevoice-web@32e266d64adc873fc7b9223824d1f6ab871a975e apps/web/src/features/settings/settings.css by scripts/callcard-creatures.mjs. */
+/* COPIED from sidevoice-web PR #264 (fix/settings-still-card-previews @ 7c15127, on main 6a2230f) apps/web/src/features/settings/settings.css, by hand (2026-10-20): the app's Floating card section with its still previews and the check chip. The other copies here are from sidevoice-web@32e266d (scripts/callcard-creatures.mjs). */
 /* Settings (SettingsDialog): a full-screen page — its sections beside the content on a desktop, a menu of them on a
  * phone, each section a page of its own under it (settings-levels.tsx) — on the design system's dialog shell
  * (components/ui/ui.css `.ui-dialog`). What fails is said in one line under the header (#settings-error), outside both:
@@ -22,6 +22,8 @@
 .provider-name { display: inline-flex; align-items: center; gap: var(--sv-space-3); }
 .provider-mark { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-sm); background: var(--sv-surface); color: var(--sv-text); }
 .provider-mark:empty { display: none; }
+/* A voice slot's provider without its key (ProviderConnect.tsx): the badge, then Connect. */
+.provider-key-needed .ui-row-control { gap: var(--sv-space-3); flex-wrap: wrap; }
 .provider-key-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sv-space-2); }
 .provider-key-actions [role="status"] { margin: 0 auto 0 0; font-size: var(--sv-font-sm); }
 .provider-key-actions [role="status"]:empty { visibility: hidden; }
@@ -292,3 +294,54 @@
 /* A tooltip that says its shortcut: the label, then its key caps, small, on the tooltip's own ground. */
 .shortcut-tip { display: inline-flex; align-items: center; gap: var(--sv-space-2); }
 .ui-tooltip .shortcut-key { min-width: 1.25rem; height: 1.25rem; padding: 0 var(--sv-space-1); font-size: var(--sv-font-xs, 0.75rem); background: transparent; color: inherit; border-color: currentColor; opacity: 0.85; }
+
+/* Settings → Floating card (FloatingCardSettings.tsx): the three styles, each with a still, simplified picture of it on
+ * a corner of a screen in the page's theme; the four corners a card first appears in. */
+.floating-card-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sv-space-3); width: 100%; }
+@media (max-width: 559px) { .floating-card-choices { grid-template-columns: 1fr; } }
+.floating-card-choice { position: relative; display: grid; gap: 4px; justify-items: start; align-content: start; text-align: start; font: inherit; color: inherit; }
+.floating-card-choice small { color: var(--sv-text-muted); font-size: var(--sv-font-xs); line-height: 1rem; }
+.floating-card-choice[data-selected] { border-color: var(--sv-accent); box-shadow: 0 0 0 1px var(--sv-accent); }
+.floating-card-choice[data-selected] strong { color: var(--sv-accent-text); }
+.floating-card-preview { position: relative; display: block; width: 100%; height: 104px; margin-bottom: 6px; overflow: hidden; border-radius: var(--sv-radius-md);
+  background: radial-gradient(130% 120% at 85% 0%, #3b3f78 0%, #262a4d 45%, #1a1d33 100%); }
+[data-theme="light"] .floating-card-preview { background: radial-gradient(130% 120% at 85% 0%, #dfe3f3 0%, #cfd5ea 45%, #c3cae2 100%); }
+.floating-card-preview .sv-avatar { display: block; width: 100%; height: 100%; }
+.floating-card-preview :is(.fcp-card, .fcp-pip) { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; padding: 6px; border: 1px solid var(--sv-border);
+  border-radius: 10px; background: var(--sv-bg); box-shadow: 0 6px 16px rgb(0 0 0 / 30%); }
+.fcp-card { align-items: center; width: 62%; }
+.fcp-face { flex: none; width: 26px; height: 26px; overflow: hidden; border-radius: 30%; background: color-mix(in srgb, var(--av-color, #c9b6ec) 30%, var(--sv-surface)); }
+.fcp-lines { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.fcp-lines i { display: block; height: 4px; border-radius: 2px; background: var(--sv-text); opacity: .8; }
+.fcp-lines i + i { width: 70%; opacity: .35; }
+.fcp-lines i + i + i { width: 40%; background: var(--sv-voice, #e0a82e); opacity: .9; }
+.fcp-pip { flex-direction: column; width: 50%; }
+.fcp-pip .fcp-lines i { width: 60%; }
+.fcp-stage { display: grid; place-items: end center; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px;
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--av-color, #c9b6ec) 30%, transparent), transparent 60%), var(--sv-stage-bg); }
+.fcp-stage .sv-avatar { width: 40%; height: auto; aspect-ratio: 1; }
+.fcp-bar { display: flex; justify-content: center; gap: 4px; }
+.fcp-bar i { width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--sv-text) 25%, transparent); }
+.fcp-bar i:last-child { width: 13px; border-radius: 5px; background: var(--sv-danger, #dc362e); }
+.fcp-avatar { position: absolute; top: 6px; right: 10px; width: 64px; height: 64px; }
+.floating-card-corners { display: grid; grid-template-columns: repeat(2, 28px); grid-template-rows: repeat(2, 18px); gap: 4px 34px; padding: 6px 8px;
+  border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); }
+.floating-card-corner { width: 28px; height: 18px; padding: 0; border: 1.5px solid var(--sv-border-strong, var(--sv-border)); border-radius: 4px; background: none; cursor: pointer; }
+.floating-card-corner[aria-checked="true"] { border-color: var(--sv-accent); background: color-mix(in srgb, var(--sv-accent) 35%, transparent); }
+.floating-card-corner:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+
+/* The floating card switched off: the section's other controls stay in view, faded, their words in the disabled ink and out of
+ * the Tab order (the app's pattern for a control that cannot act now; decided 2026-10-20). */
+.floating-card-choice:disabled, .floating-card-corner:disabled { opacity: .45; cursor: not-allowed; }
+.floating-card-choice:disabled { color: var(--sv-disabled-text); }
+.floating-card-choice:disabled strong, .floating-card-choice:disabled small { color: var(--sv-disabled-text); }
+.floating-card-choice[data-selected]:disabled { box-shadow: none; border-color: var(--sv-border); }
+.floating-card-corner:disabled { pointer-events: none; }
+
+/* The previews hold still (decided 2026-10-19, briefs/UX-DECISIONS-2026-10-19.md: "Simplified static previews"): nothing in a
+ * tile moves — no creature, no idle step, no transition on the tile itself. */
+.floating-card-choice { transition: none; }
+.floating-card-preview, .floating-card-preview *, .floating-card-preview *::before, .floating-card-preview *::after { animation: none !important; transition: none !important; }
+/* The chosen tile's check lies over its preview (which comes later in the tile and would paint over it): on a small chip of the
+ * tile's own surface, above the preview. */
+.floating-card-choice .ui-card-check { z-index: 2; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--sv-surface); box-shadow: 0 0 0 1px var(--sv-accent); }

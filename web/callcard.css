@@ -144,25 +144,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .app-stage .stage-tile { position: relative; width: min(100%, 587px); height: 330px; border-radius: 16px; overflow: hidden; }
 .app-stage p { color: #a1acb9; max-width: 480px; text-align: center; }
 
-
 /* The Sidevoice window's Settings mock: the web's settings screen (settings.css, ui.css) in the window. */
 .app-body[data-theme] { background: var(--sv-bg); color: var(--sv-text); font-family: var(--sv-font-sans); }
 .cc-settings { height: 100%; }
 .cc-settings .settings-nav { display: flex; flex-direction: column; gap: 2px; }
-.cc-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sv-space-3); width: 100%; }
-.cc-choice { position: relative; display: grid; gap: 4px; justify-items: start; text-align: start; font: inherit; color: inherit; cursor: pointer; }
-.cc-choice small { color: var(--sv-text-muted); font-size: var(--sv-font-xs); line-height: 1rem; }
-.cc-choice[data-selected] { border-color: var(--sv-accent); box-shadow: 0 0 0 1px var(--sv-accent); }
-.cc-choice .ui-card-check { position: absolute; top: 8px; right: 8px; }
+
 /* A format's small picture: its shape on a bit of desktop. */
-.cc-preview { display: grid; place-items: center; width: 100%; height: 64px; margin-bottom: 6px; border-radius: var(--sv-radius-md); background: linear-gradient(135deg, #20304f, #3a2a55); }
-.cc-preview > i { position: relative; display: block; }
-.cc-preview[data-preview=real] { height: 110px; overflow: hidden; }
-.cc-real { position: relative; display: block; width: 100%; height: 100%; }
-.cc-real-box { position: absolute; left: 50%; top: 50%; display: block; transform-origin: center; }
-.cc-real .cc-pip { position: relative; display: block; width: var(--w); height: var(--h); border-radius: 16px; overflow: hidden; }
-.cc-real .call-card { width: var(--w); --face-size: 64px; border-radius: 16px; }
-.cc-real .call-card .card-row { pointer-events: none; }
+
 .pv-card { width: 72%; height: 26px; border-radius: 8px; background: rgb(22 25 31 / 92%); box-shadow: 0 2px 6px rgb(0 0 0 / 40%); }
 .pv-card b { position: absolute; left: 5px; top: 5px; width: 16px; height: 16px; border-radius: 5px; }
 .pv-card i { position: absolute; left: 26px; top: 7px; width: 48%; height: 4px; border-radius: 2px; background: #e8edf1; }
@@ -179,7 +167,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc { position: relative; }
 
 /* ---------- A1: today's card (call-card.css), grown, with the avatar in place of the brand mark ---------- */
-:is(#card-window, .cc-card-picture) .cc-a1 { width: var(--w); }
+:is(#card-window) .cc-a1 { width: var(--w); }
 [data-size=m] .cc-a1 { --face-size: 64px; } [data-size=l] .cc-a1 { --face-size: 76px; }
 [data-size=l] .cc-a1 .card-title { font-size: 15px; } [data-size=l] .cc-a1 .card-sub { font-size: 12px; }
 /* The avatar's tile: a rounded square on the conversation's colour, its whole small drawing inside with room for what it
@@ -243,7 +231,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .m-figure .sv-avatar { width: 100%; height: 100%; }
 
 /* Today's card holding only its controls (and "open Sidevoice"): under the avatar, over the picture, near the pointer. */
-:is(#card-window, .cc-card-picture) .cc-strip { display: flex; align-items: center; gap: 6px; width: auto; padding: 6px 8px; }
+:is(#card-window) .cc-strip { display: flex; align-items: center; gap: 6px; width: auto; padding: 6px 8px; }
 .cc-strip .card-controls { display: flex !important; gap: 8px; margin: 0; padding: 0; }
 .cc-strip .card-open { visibility: visible; opacity: 1; }
 #card-window:not([data-expanded]) .cc-strip { visibility: hidden; }
@@ -328,7 +316,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-line .voice-wave[data-phase="transcribing"] canvas { animation: person-wave-blink 1s ease-in-out infinite; }
 /* The avatar's window is the drawing's width; its controls keep to the screen's side of it, and push its balloons down
    while they show. */
-:is(#card-window, .cc-card-picture) .cc-mascot { width: var(--w); }
+:is(#card-window) .cc-mascot { width: var(--w); }
 .cc-mascot > .cc-strip { transform: none; left: auto; right: auto; }
 [data-side=left] .cc-mascot > .cc-strip { left: 0; }
 [data-side=right] .cc-mascot > .cc-strip { right: 0; }
@@ -341,7 +329,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-mascot .cc-captions .speech-bubble { width: 100%; max-width: 100%; box-sizing: border-box; }
 
 /* ---------- B1, stacked: the room's screen, small: header, stage, call bar ---------- */
-:is(#card-window, .cc-card-picture) .cc-pip-stacked { width: var(--w); display: grid; gap: 8px; padding: 8px 8px 0; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-2xl);
+:is(#card-window) .cc-pip-stacked { width: var(--w); display: grid; gap: 8px; padding: 8px 8px 0; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-2xl);
   background: var(--sv-bg); color: var(--sv-text); font-family: var(--sv-font-sans); box-shadow: 0 12px 34px rgb(0 0 0 / 45%); }
 /* The room's header (.room-shell .stage-title on a desktop), with the card's two actions at its right. */
 .cc-pip-stacked .pip-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 0 2px 0 6px; }
@@ -388,28 +376,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-a1[data-head=corner] .your-wave { align-self: flex-end; min-width: 58px; justify-content: flex-end; margin-bottom: 6px; }
 
 /* Settings' previews: one frame for all three, the same height and centring, nothing cut; selected, the accent. */
-.cc-preview[data-preview] { position: relative; display: block; width: 100%; height: 132px; margin-bottom: 8px; overflow: hidden; border-radius: var(--sv-radius-md);
-  background: radial-gradient(120% 90% at 70% 0%, #2a3350, #191d2b 70%); }
-.cc-real { position: absolute; inset: 0; display: block; }
-.cc-real-box { position: absolute; left: 50%; top: 50%; display: block; transform-origin: center; }
-.cc-card-picture { display: block; pointer-events: none; }
-.cc-card-picture .cc-pip-stacked { box-shadow: none; }
-.cc-card-picture .m-figure { width: var(--w); height: var(--w); }
-.cc-choice[data-selected] { border-color: var(--sv-accent); box-shadow: 0 0 0 2px var(--sv-accent); }
-.cc-choice[data-selected] strong { color: var(--sv-accent-text); }
+
 /* B: the card where it first sits, on the top right of this computer's screen (its corner, a bar's edge, a window). */
-.cc-mini { position: absolute; inset: 0; display: block; }
-.cc-mini-screen { position: absolute; top: 0; right: 0; width: 1440px; height: 900px; transform-origin: top right; transform: scale(var(--mini-k, .27)); }
-.cc-mini-work { position: absolute; display: block; }
-.cc-mini-card { position: absolute; top: 0; right: 0; display: block; padding: 12px; }
-.cc-mini .cc-card-picture .cc-pip-stacked, .cc-mini .cc-card-picture .call-card { box-shadow: 0 10px 30px rgb(0 0 0 / 40%); }
+
 .settings-nav .ui-nav-item { display: flex; align-items: center; gap: 10px; }
 /* A picture of the card at rest: its controls, actions and name pill are near-the-pointer things, not shown. */
-.cc-card-picture :is(.cc-strip, .cc-actions, .cc-name-pill, .card-controls) { display: none !important; }
-.cc-card-picture .cc-pip-stacked .pip-bar { display: grid; }
-.cc-card-picture .cc-pip-stacked .pip-bar .card-controls { display: none; }
-.cc-choices .cc-choice:not([data-selected]) { border-color: var(--sv-border) !important; box-shadow: none !important; }
-.cc-choice:not([data-selected]):hover { border-color: var(--sv-border-strong, #4a5160); }
+
 .cc-picker .card-panel.conversations { max-height: 300px; }
 #card-window[data-pill-down] .cc-mascot > .cc-name-pill { bottom: auto; top: calc(var(--w) * .9 + 50px); }
 /* The avatar's picker opens past its controls (and its name pill under them). */
@@ -459,7 +431,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 
 /* B1, Meet-like: a slim header (the name ▾ and the row), the stage with its actions and × in the corner, the call bar
    over the picture's foot near the pointer, see-through. */
-:is(#card-window, .cc-card-picture) .cc-pip-meet { position: relative; gap: 6px; padding: 6px 6px 6px; }
+:is(#card-window) .cc-pip-meet { position: relative; gap: 6px; padding: 6px 6px 6px; }
 .cc-pip-meet .pip-head { padding: 0 0 0 4px; }
 .cc-pip-meet .pip-head .stage-heading { font-size: 14px; }
 .cc-pip-meet .pip-canvas { border-radius: var(--sv-radius-xl, 14px); overflow: hidden; }
@@ -489,7 +461,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-resize[data-edge=nw]::after, .cc-resize[data-edge=ne]::after, .cc-resize[data-edge=sw]::after, .cc-resize[data-edge=se]::after { content: ""; position: absolute; inset: 3px; border-radius: 3px; border: 2px solid var(--sv-accent); background: var(--sv-bg, #14171b); }
 .cc-resize[data-edge=w]::after, .cc-resize[data-edge=e]::after { content: ""; position: absolute; inset: 0 2px; border-radius: 2px; background: var(--sv-accent); opacity: .8; }
 #card-window.resizing { transition: none; cursor: nwse-resize; }
-.cc-card-picture .cc-resize, .cc-card-picture .pip-hover-bar { display: none; }
 
 /* C1: its name, a pill of its controls' width (or none: the avatar at the top); controls and the row under it. */
 #card-window .cc-mascot > .cc-strip { flex-direction: column; align-items: stretch; gap: 6px; }
@@ -500,8 +471,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 #card-window[data-format=mascot][data-open=down] .cc-picker { top: calc(var(--margin, 12px) + var(--w) * .9 + 92px); }
 
 /* Settings: the card on this screen's top right, at its true size against it. */
-.cc-mini-card { padding: 12px; }
-.cc-preview[data-preview] { height: 128px; }
 
 /* After the picture is hidden for the call. */
 .dismissed-note { position: absolute; z-index: 50; right: 16px; bottom: 64px; display: grid; gap: 6px; max-width: 300px; padding: 12px 14px; border-radius: 12px; background: #1c2128; color: #e8edf1;
@@ -639,9 +608,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-grip[data-edge=ne] { right: calc(var(--margin, 12px) + 2px) !important; top: calc(var(--margin, 12px) + 2px) !important; left: auto !important; bottom: auto !important; }
 .cc-grip[data-edge=nw] { left: calc(var(--margin, 12px) + 2px) !important; top: calc(var(--margin, 12px) + 2px) !important; right: auto !important; bottom: auto !important; }
 /* Settings' previews: still pictures. */
-.cc-card-picture *, .cc-card-picture *::before, .cc-card-picture *::after { animation: none !important; transition: none !important; }
+
 /* The previews hold still: no scene, avatar, mouth or balloon moves in them. */
-.cc-mini *, .cc-mini *::before, .cc-mini *::after { animation: none !important; transition: none !important; }
+
 /* B1 sized freely: the header and the bar take their room, the rest is the stage's, its 16:9 tile centred on the room's
    stage background (as the room's slot around a tile of another shape). */
 .cc-pip-meet .pip-canvas .stage-tile { inset: auto; }
@@ -652,11 +621,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .cc-pip-meet { container: pip / inline-size; }
 
 /* The previews' picture: its stage fills its 16:9 area (the live card's is fitted by fitPip). */
-.cc-card-picture .cc-pip-meet .pip-canvas .stage-tile { inset: 0 !important; width: auto !important; height: auto !important; }
+
 /* Settings' previews, B: a soft screen corner, no system chrome; the card where it sits, still. */
-.cc-preview[data-preview=simple] { background: radial-gradient(130% 120% at 85% 0%, #3b3f78 0%, #262a4d 45%, #1a1d33 100%); }
-.cc-simple .cc-mini-screen { background: none; }
-.cc-simple .cc-mini-card { padding: 14px; }
 
 /* A1 at Small: its avatar tile has a size too (it had none, so the avatar drew at nothing). */
 [data-size=s] .cc-a1 { --face-size: 56px; }
@@ -797,7 +763,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 
 /* ---------- round 17 ---------- */
 /* B1: one inner padding for everything, at every size. */
-:is(#card-window, .cc-card-picture) .cc-pip-meet { padding: 10px 10px 0; gap: 8px; }
+:is(#card-window) .cc-pip-meet { padding: 10px 10px 0; gap: 8px; }
 .cc-pip-meet .pip-head-1 { padding-left: 2px; }
 /* B1: one box, as the room's screen: the stage without a frame of its own (no border, no ring, no second background). */
 .cc-pip-meet .stage-tile { border: 0 !important; box-shadow: none !important; border-radius: var(--sv-radius-xl, 14px); }
@@ -895,14 +861,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 
 /* ---------- round 19 ---------- */
 /* Settings' picture preview: drawn at its preset, its own height (no window size pinned onto it). */
-.cc-card-picture .cc-pip-meet { height: auto !important; grid-template-rows: auto auto auto !important; }
+
 /* Settings: the previews' screen in the light theme. */
-.cc-card-picture[data-scheme=light] ~ *, .app-body[data-theme=light] .cc-preview[data-preview] { background: radial-gradient(130% 120% at 85% 0%, #dfe3f3 0%, #cfd5ea 45%, #c3cae2 100%); }
+
 /* Settings: Default position, four spots on a small screen. */
-.cc-corners { display: grid; grid-template-columns: repeat(2, 28px); grid-template-rows: repeat(2, 18px); gap: 4px 34px; padding: 6px 8px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); }
-.cc-corner { width: 28px; height: 18px; padding: 0; border: 1.5px solid var(--sv-border-strong, #4a5160); border-radius: 4px; background: none; cursor: pointer; }
-.cc-corner[aria-checked=true] { border-color: var(--sv-accent); background: color-mix(in srgb, var(--sv-accent) 35%, transparent); }
-.cc-corner:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+
 /* B1: the conversations control has no hover wash; the title line and the top bar's icons share one centre line, with the
    same gap to the card's edge on both sides. */
 .pip-head-1 .cc-convs:hover, .pip-head-1 .cc-convs[aria-expanded=true] { background: color-mix(in srgb, var(--sv-text) 7%, transparent) !important; color: var(--sv-text-muted) !important; }
@@ -946,8 +909,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* Wide enough for the whole title, its switcher and the icons near the pointer, without covering the title. */
 #card-window .c1x .c1-dock { width: 368px; }
 
-
-
 /* C1 (A): the dock is its own piece. Nothing said: under (or over) the avatar, where the stack starts. A balloon up: beside
    the avatar, on its open side, level with it, so the balloons keep the vertical and the dock the horizontal. */
 #card-window .c1x .c1-dock { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); }
@@ -972,13 +933,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 /* Settings: the avatar's preview as it is live against the right edge: the avatar at the right, its dock open to its left,
    level with it. */
 /* The avatar's settings preview: the avatar and its balloon above it, no dock (operator, 2026-10-19). */
-.cc-card-picture .c1x { position: relative; display: block; width: var(--w); margin-top: 96px; }
-.cc-card-picture .c1x .c1-dock { display: none !important; }
-.cc-card-picture .c1x .c1x-stack { bottom: calc(var(--w) * .92); top: auto; width: 260px; left: auto; right: 0; transform: none; align-items: flex-end; }
-.cc-card-picture .c1x .cc-captions { position: static !important; width: 100% !important; inset: auto !important; }
-.cc-card-picture .c1x .cc-still-slot { display: grid; width: 100%; }
-.cc-card-picture .c1x .speech-bubble { margin: 0 0 var(--tail-h); }
-
 
 /* The room's "Cancel sending" (coordinator, 2026-10-19). B1 and C1: in your balloon under the bars, as the room has it
  * (call-view.css .person-live-actions). A1, whose captions are lines: at the end of the "You" line, its space kept there
@@ -1003,11 +957,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
    inactive. Its controls are disabled and take the app's own disabled looks (ui.css: the switch, the segments, the
    button); its words take the disabled ink; the style choices and the corner picker, which have no disabled look in the
    app yet, fade to the same weight. */
-.cc-card-master + .cc-card-group { margin-top: var(--sv-space-2, 8px); }
-.cc-card-group[data-off] :is(.ui-row-label, .ui-row-description, .cc-choice strong, .cc-choice small) { color: var(--sv-disabled-text); }
-.cc-card-group[data-off] :is(.cc-choice, .cc-corners) { opacity: .45; cursor: not-allowed; }
-.cc-card-group[data-off] .cc-choice[data-selected] { box-shadow: none !important; border-color: var(--sv-border) !important; }
-.cc-card-group[data-off] :is(.cc-choice, .cc-corner):disabled { pointer-events: none; }
 
 /* ---------- The title line (operator, 2026-10-20), in every format ----------
    One line holds three pieces. The fixed ones are always given their room: the conversations control (its mark, the
@@ -1160,3 +1109,18 @@ html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.35 var(--fo
 .c1-handle-state[data-mark=wave] { color: var(--sv-voice, #e0a82e); }
 .reduce-motion #card-window .c1x :is(.c1-handle, .c1-handle-chevron) { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { #card-window .c1x :is(.c1-handle, .c1-handle-chevron) { animation: none !important; } }
+
+/* ---------- Settings → Floating card: the creature in the previews (OPEN, 2026-10-20: the variant "previewFigure") ----------
+   As schematic as the rest of the preview, and still (web#264 stills everything in them). Sized as the app sizes its
+   avatar there (settings.css: .floating-card-preview .sv-avatar, .fcp-stage .sv-avatar). */
+.floating-card-preview .fcp-figure { display: block; width: 100%; height: 100%; }
+.fcp-stage .fcp-figure { width: 40%; height: auto; aspect-ratio: 1; }
+.fcp-figure :is(.sv-avatar, svg) { display: block; width: 100% !important; height: 100% !important; }
+/* A: the conversation's own creature, its shape only, flat in the theme's ink. */
+.fcp-figure[data-figure=silhouette] .sv-avatar { filter: brightness(0) invert(.92); opacity: .88; }
+[data-theme=light] .fcp-figure[data-figure=silhouette] .sv-avatar { filter: brightness(0) invert(.14); opacity: .82; }
+/* B: one simplified creature, flat, in the conversation's main colour (--av-color, as the app's preview sets it). */
+.fcp-figure[data-figure=simple] :is(.fcp-body, .fcp-foot) { fill: var(--av-color, #c9b6ec); }
+.fcp-figure[data-figure=simple] .fcp-eye { fill: #fff; }
+.fcp-figure[data-figure=simple] .fcp-pupil { fill: #1b1428; }
+.fcp-figure[data-figure=simple] .fcp-smile { fill: none; stroke: #1b1428; stroke-width: 2.4; stroke-linecap: round; }

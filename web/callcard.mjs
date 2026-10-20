@@ -34,7 +34,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
 const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", unread: "1", c1Layout: "card", handleLook: "plain", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", unread: "1", c1Layout: "card", handleLook: "plain", previewFigure: "silhouette", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 // Choices decided on 2026-10-20 leave the address: the unread cue (now "!"), and what C1's handle opens (the card).
 delete pick.unreadCue;
@@ -692,7 +692,6 @@ function drawApp() {
 <div class="app-body" data-theme="${scheme()}">${settingsView ? settingsScreen() : `<nav><b>Conversations</b>${CREATURES.filter((c) => c.seed !== "Sidevoice").map((c) => `<span${c.id === creature().id ? ' class="on"' : ""}>${c.seed}</span>`).join("")}</nav>
 <section class="app-stage">${stage(330)}<p>The room, in front: the card hides while Sidevoice's window is in front (unless it is always shown). Minimise it to bring the card back.</p></section>`}</div>`;
   if (!settingsView) animator.restart();
-  else requestAnimationFrame(fitPreviews);
 }
 
 /** Settings → Call, with the floating card's group, as sidevoice-web's settings screen draws it (SettingsDialog,
@@ -712,90 +711,56 @@ const SECTIONS = [
 ];
 const navIcon = (name, size = 16) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICONS[name]}</svg>`;
 
-/** Where a new card first appears: a corner of the work area (a small screen with four spots). */
-function cornerPicker(s) {
-  const corner = pick.startCorner || "tr";
-  return `<div class="cc-corners" role="radiogroup" aria-label="${words("settings.callCard.startCorner")}">${["tl", "tr", "bl", "br"].map((c) => `<button type="button" role="radio" class="cc-corner" data-corner="${c}" aria-checked="${c === corner}" data-setting="corner" data-value="${c}" aria-label="${words("settings.callCard.corner." + c)}" title="${words("settings.callCard.corner." + c)}"></button>`).join("")}</div>`;
-}
+/** Settings → Floating card, drawn as the app draws it (sidevoice-web features/settings/FloatingCardSettings.tsx at
+ *  web#264, on main 6a2230f): the components' markup (Section, Group, Row, ChoiceCard, Segmented, Switch, Button) on
+ *  the app's settings.css (copied from #264), with the app's catalogue words; the playground's settings in place of the
+ *  app's store and bridge. Off, the rest stays in view, disabled, as the app does. */
+const APP_FORMAT = { card: "card", pip: "pip", mascot: "avatar" };
 function settingsScreen() {
-  const s = settings(), own = true; // a section of its own, after Call (decided)
-  const current = own ? "card" : "call";
-  const nav = SECTIONS.filter(([id]) => own || id !== "card")
-    .map(([id, name, icon]) => `<button type="button" class="ui-nav-item"${id === current ? ' aria-current="page"' : ""}>${navIcon(icon, id === "this-computer" || id === "updates" ? 18 : 16)}<span>${name[pick.lang] ?? name.en}</span></button>`).join("");
-  const row = (label, hint, control, block = false) => `<div class="ui-row${block ? " ui-row--block" : ""}"><div class="ui-row-text"><span class="ui-row-label">${label}</span>${hint ? `<p class="ui-row-description">${hint}</p>` : ""}</div>${control ? `<div class="ui-row-control">${control}</div>` : ""}</div>`;
-  const toggle = (name, on, label = "") => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}"${label ? ` aria-label="${label}"` : ""}><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
-  const segmented = (name, options, value) => `<div class="ui-segmented ui-segmented--sm" role="radiogroup">${Object.entries(options).map(([id, label]) => `<button type="button" role="radio" class="ui-segment" aria-checked="${id === value}" data-setting="${name}" data-value="${id}">${label}</button>`).join("")}</div>`;
-  const choice = (id) => `<button type="button" role="radio" aria-checked="${s.format === id}" class="ui-card ui-card--padded ui-card--interactive cc-choice" ${s.format === id ? " data-selected" : ""} data-setting="format" data-value="${id}">
-${s.format === id ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}<span class="cc-preview" data-preview="simple" data-format="${id}">${desktopPreview(id)}</span>
-<strong>${words(`settings.callCard.format.${id}`)}</strong><small>${words(`settings.callCard.format.${id}Hint`)}</small></button>`;
-  // Off, the card's other settings stay in view, inactive (the app's way: a control that can't act now is disabled, its
-  // row saying why; nothing in Settings hides rows behind a switch), so turning it on again moves nothing.
-  const dependent = (html) => s.enabled ? html : html.replace(/<button\b/g, "<button disabled");
+  const s = settings(), off = !s.enabled, current = "card";
+  const nav = SECTIONS.map(([id, name, icon]) => `<button type="button" class="ui-nav-item"${id === current ? ' aria-current="page"' : ""}>${navIcon(icon, id === "this-computer" || id === "updates" ? 18 : 16)}<span>${name[pick.lang] ?? name.en}</span></button>`).join("");
+  const row = (label, description, control, block = false) => `<div class="ui-row${block ? " ui-row--block" : ""}"><div class="ui-row-text"><span class="ui-row-label">${label}</span>${description ? `<p class="ui-row-description">${description}</p>` : ""}</div>${control ? `<div class="ui-row-control">${control}</div>` : ""}</div>`;
+  const group = (rows) => `<div class="ui-group"><div class="ui-group-card">${rows}</div></div>`;
+  const toggle = (name, on, label, disabled = false) => `<button type="button" role="switch" aria-checked="${on}" class="ui-switch" data-setting="${name}" aria-label="${label}"${disabled ? " disabled" : ""}><span class="ui-switch-thumb" aria-hidden="true"></span></button>`;
+  const choice = (id) => { const selected = s.format === id, app = APP_FORMAT[id];
+    return `<button type="button" role="radio" aria-checked="${selected}" class="ui-card ui-card--padded ui-card--interactive floating-card-choice"${selected ? " data-selected" : ""}${off ? " disabled" : ""} data-setting="format" data-value="${id}">${selected ? `<span class="ui-card-check" aria-hidden="true">${svg("check", 14)}</span>` : ""}${cardPreview(id)}<strong>${words(`settings.floatingCard.format.${app}`)}</strong><small>${words(`settings.floatingCard.format.${app}Hint`)}</small></button>`; };
+  const sizes = `<div class="ui-segmented ui-segmented--sm" role="radiogroup" aria-label="${words("settings.floatingCard.size")}">${["s", "m", "l"].map((size) => `<button type="button" role="radio" class="ui-segment" aria-checked="${size === s.size}" tabindex="${size === s.size ? 0 : -1}"${off ? " disabled" : ""} data-setting="size" data-value="${size}"><span>${words(`settings.floatingCard.size.${size}`)}</span></button>`).join("")}</div>`;
+  const corner = pick.startCorner || "tr";
+  const corners = `<div class="floating-card-corners" role="radiogroup" aria-label="${words("settings.floatingCard.corner")}">${["tl", "tr", "bl", "br"].map((c) => `<button type="button" role="radio" class="floating-card-corner" data-corner="${c}" aria-checked="${c === corner}" aria-label="${words(`settings.floatingCard.corner.${c}`)}" title="${words(`settings.floatingCard.corner.${c}`)}"${off ? " disabled" : ""} data-setting="corner" data-value="${c}"></button>`).join("")}</div>`;
+  const moved = !!(s.place || customWidth(s.format));
   return `<div class="settings-layout cc-settings"><nav class="settings-nav ui-nav">${nav}</nav><div class="settings-content"><div class="settings-column">
-<section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${own ? words("settings.callCard.title") : words("settings.section.call")}</h2><p class="ui-section-description">${own ? words("settings.callCard.hint") : words("settings.call.description")}</p></div></header>
-<div class="ui-section-body"><div class="ui-group cc-card-master"><div class="ui-group-card">
-${row(words("settings.callCard.enabled"), words(s.enabled ? "settings.callCard.enabledOnHint" : "settings.callCard.enabledOffHint"), toggle("enabled", s.enabled, words("settings.callCard.enabled")))}
-</div></div>
-${dependent(`<div class="ui-group cc-card-group"${s.enabled ? "" : " data-off"}>${own ? "" : `<h3 class="ui-group-title">${words("settings.callCard.title")}</h3>`}<div class="ui-group-card">
-${row(words("settings.callCard.format"), words("settings.callCard.previewNote"), `<div class="cc-choices" role="radiogroup">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true)}
-${row(words("settings.callCard.sizeTitle"), s.format === "pip" ? words("settings.callCard.sizeHint") : "", segmented("size", { s: words("settings.callCard.size.s"), m: words("settings.callCard.size.m"), l: words("settings.callCard.size.l"), ...(customWidth(s.format) ? { custom: words("settings.callCard.size.custom") } : {}) }, customWidth(s.format) ? "custom" : s.size))}
-${row(words("settings.callCard.startCorner"), words("settings.callCard.startCornerHint"), cornerPicker(s))}
-${row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown))}
-${row("", "", `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${s.place || customWidth(s.format) ? "" : " disabled"}><span class="ui-button-content">${words("settings.callCard.positionReset")}</span></button>`)}
-</div></div>`)}</div></section></div></div></div>`;
+<section class="ui-section" id="floating-card" aria-labelledby="floating-card-title"><header class="ui-section-head"><div><h2 class="ui-section-title" id="floating-card-title">${words("settings.section.floatingCard")}</h2><p class="ui-section-description">${words("settings.floatingCard.description")}</p></div></header>
+<div class="ui-section-body">
+${group(row(words("settings.callCard.enabled"), words(off ? "settings.callCard.enabledOffHint" : "settings.callCard.enabledOnHint"), toggle("enabled", s.enabled, words("settings.callCard.enabled"))))}
+${group([
+    row(words("settings.floatingCard.style"), "", `<div class="floating-card-choices" role="radiogroup" aria-label="${words("settings.floatingCard.style")}">${FORMATS.map((f) => choice(f.id)).join("")}</div>`, true),
+    row(words("settings.floatingCard.size"), s.format === "pip" ? words("settings.floatingCard.sizeHint") : "", sizes),
+    row(words("settings.floatingCard.corner"), words("settings.floatingCard.cornerHint"), corners),
+    row(words("settings.desktop.alwaysShown"), words("settings.desktop.alwaysShownHint"), toggle("always", s.alwaysShown, words("settings.desktop.alwaysShown"), off)),
+    row("", "", `<button type="button" class="ui-button ui-button--secondary ui-button--sm" data-setting="reset"${off || !moved ? " disabled" : ""}><span class="ui-button-content">${words("settings.floatingCard.reset")}</span></button>`),
+  ].join("\n"))}
+</div></section></div></div></div>`;
 }
 
-/** A format's real card, as it is (the person holding the microphone, onboarding's, and a sample name), still and
- *  inert: its buttons and ids made plain, so it is a picture of the card inside the choice. */
-/** The sizes the previews draw each format at, fixed whatever is set: the card and the avatar large, the picture small,
- *  so the three read together. */
-const PREVIEW_SIZE = { card: "l", pip: "s", mascot: "l" };
-function cardPicture(id) {
-  const box = FORMATS.find((f) => f.id === id).sizes[PREVIEW_SIZE[id]];
-  const was = { captions: pick.captions, state: call.state }, wasOpen = pickerOpen;
-  pickerOpen = false; previewing = true;
-  const html = withCreature(creature() ?? DEFAULT_CREATURE, () => DRAW[id](box));
-  pickerOpen = wasOpen; previewing = false;
-  // A still of a real moment: the agent speaking, its last words in its balloon, the card saying so.
-  const said = pick.lang === "es" ? "¿Lo quito y hago commit?" : "Shall I remove it and commit?";
-  const balloon = `<div class="speech-bubble stage-bubble" data-visible="" aria-hidden="true"><span class="paged-text" style="--paged-lines:3"><span class="paged-text-run"><span class="karaoke-text"><span class="karaoke-played">${said}</span><span class="karaoke-upcoming"></span></span></span></span><svg class="balloon-shine" viewBox="0 0 40 20" aria-hidden="true"><path d="M3 17Q5 4 24 3"/></svg>${tail("agent")}</div>`;
-  // Its buttons drawn as they stand (the animator, which paints them on the live card, leaves the previews alone).
-  const painted = html
-    .replaceAll('data-run="mute"></button>', `data-run="mute">${svg("mic", 22)}</button>`)
-    .replaceAll('data-run="captions"></button>', `data-run="captions">${svg("captions", 22)}</button>`)
-    .replaceAll('data-run="skip"></button>', `data-run="skip">${svg("skip", 22)}</button>`);
-  const flat = painted
-    .replaceAll('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"')
-    .replace(/<button\b/g, "<span").replace(/<\/button>/g, "</span>").replace(/<(\/?)(details|summary)\b/g, "<$1span")
-    .replace(/\sdata-run="[^"]*"/g, "")
-    .replace('<div class="stage-top cc-agent-slot"></div>', `<div class="stage-top">${balloon}</div>`)
-    .replace(/(<div class="c1x-stack"><div class="cc-captions cc-balloons" data-theme="dark">)<div class="cc-agent-slot"><\/div>/, `$1<div class="cc-still-slot">${balloon}</div>`)
-    .replace(/(class="stage-tile" data-theme="dark" data-mood=")[a-z]+"/, '$1speaking"')
-    .replace('<span class="cc-state-text"></span>', `<span class="cc-state-text">${STATES.speaking.line}</span>`)
-    .replace('<i class="cc-dot"></i>', '<i class="cc-dot" style="background:var(--sv-voice, #e0a82e)"></i>')
-    .replaceAll("cc-agent-slot", "cc-slot-off").replaceAll('"person-turns"', '"cc-slot-off"').replaceAll("cc-lines", "cc-slot-off");
-  void was;
-  return `<span class="cc-card-picture" data-scheme="${scheme()}" data-format="${id}" data-size="${PREVIEW_SIZE[id]}" style="--w:${box.w}px${box.h ? `;--h:${box.h}px` : ""}">${flat}</span>`;
+/** A format's still, simplified picture, as the app's CardPreview draws it: shapes for its words and controls on a
+ *  corner of a screen in the page's theme, and the creature it would show (the call's conversation's; else the first;
+ *  else Sidevoice's own) — here schematic (OPEN, below). Nothing in it moves (web#264). */
+function cardPreview(id) {
+  const figure = previewFigure(id === "mascot" ? "stage" : "small");
+  const inner = id === "card" ? `<span class="fcp-card"><span class="fcp-face">${figure}</span><span class="fcp-lines"><i></i><i></i><i></i></span></span>`
+    : id === "pip" ? `<span class="fcp-pip"><span class="fcp-lines"><i></i></span><span class="fcp-stage">${figure}</span><span class="fcp-bar"><i></i><i></i><i></i><i></i></span></span>`
+    : `<span class="fcp-avatar">${figure}</span>`;
+  return `<span class="floating-card-preview" data-format="${APP_FORMAT[id]}" aria-hidden="true" style="--av-color:${creature().tone}">${inner}</span>`;
 }
-/** Variant B: the real card in context, on a small copy of this computer's desktop (the page's desktop, as the app
- *  would detect it), where it first sits (the work area's top right), at the screen's own scale; the screen's top right
- *  quarter shown. */
-function desktopPreview(id) {
-  // A soft, neutral corner of a screen, no window or bar of any system: the card alone, as it sits there, still.
-  return `<span class="cc-mini cc-simple" data-format="${id}"><span class="cc-mini-screen"><span class="cc-mini-work" style="inset:0"><span class="cc-mini-card">${cardPicture(id)}</span></span></span></span>`;
-}
-/** Scales each real card into its choice: as large as fits with a margin, centred. */
-function fitPreviews() {
-  // The screen's top right, 640 of its pixels across the frame, the same for the three: their cards at their true sizes.
-  // The title card a little closer, so its words read (operator, 2026-10-19).
-  for (const mini of document.querySelectorAll(".cc-mini")) mini.style.setProperty("--mini-k", String(mini.clientWidth / (mini.dataset.format === "card" ? 540 : 640)));
-  for (const box of document.querySelectorAll(".cc-real-box")) {
-    const frame = box.parentElement, card = box.firstElementChild;
-    // The avatar alone is as tall as the others' cards are wide in their frames: about half the frame.
-    const most = box.closest("[data-format=mascot]") ? .5 : 1;
-    const scale = Math.min((frame.clientWidth - 24) / card.offsetWidth, (frame.clientHeight - 20) / card.offsetHeight, most);
-    box.style.transform = `translate(-50%, -50%) scale(${scale})`;
-  }
+/** OPEN (variant "previewFigure", operator 2026-10-20): the creature in the previews must be as schematic as the rest
+ *  of them, and still. "silhouette" (A): the conversation's own creature as a flat silhouette in the theme's ink — its
+ *  shape, none of its detail. "simple" (B): one simplified creature, flat, in the conversation's main colour, with two
+ *  eyes and a smile — the same shape for every conversation, only the colour tells them apart. */
+const PREVIEW_FIGURES = { silhouette: "A · flat silhouette in the theme's ink", simple: "B · simplified creature in its colour" };
+const previewFigureLook = () => (pick.previewFigure in PREVIEW_FIGURES ? pick.previewFigure : "silhouette");
+function previewFigure(size) {
+  if (previewFigureLook() === "simple") return `<span class="fcp-figure" data-figure="simple"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="fcp-body" d="M13 36c0-12 8.5-21 19-21s19 9 19 21v6c0 8-6.5 13-14 13H27c-7.5 0-14-5-14-13z"/><path class="fcp-foot" d="M20 53h9v4a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3z"/><path class="fcp-foot" d="M35 53h9v4a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3z"/><circle class="fcp-eye" cx="25" cy="34" r="5.5"/><circle class="fcp-eye" cx="39" cy="34" r="5.5"/><circle class="fcp-pupil" cx="26" cy="35" r="2.6"/><circle class="fcp-pupil" cx="40" cy="35" r="2.6"/><path class="fcp-smile" d="M27.5 44.5q4.5 3 9 0"/></svg></span>`;
+  return `<span class="fcp-figure" data-figure="silhouette">${avatar(size).replace('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"')}</span>`;
 }
 
 function draw() { drawDesktop(); drawCard(); drawApp(); drawPanel(); save(); }
@@ -1201,7 +1166,7 @@ function drawPanel() {
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
-        `<fieldset class="panel-open"><legend>Open questions</legend>${select("c1Layout", "C1 · expanded layout", Object.entries(C1_LAYOUTS), c1Layout())}${select("handleLook", "C1 · the handle's look", Object.entries(HANDLE_LOOKS), handleLook())}</fieldset>`,
+        `<fieldset class="panel-open"><legend>Open questions</legend>${select("c1Layout", "C1 · expanded layout", Object.entries(C1_LAYOUTS), c1Layout())}${select("handleLook", "C1 · the handle's look", Object.entries(HANDLE_LOOKS), handleLook())}${select("previewFigure", "Settings previews · the creature", Object.entries(PREVIEW_FIGURES), previewFigureLook())}</fieldset>`,
     select("spot", "Put the card", [["", "Where it is"], ["tl", "Top left"], ["tr", "Top right"], ["ml", "Middle left"], ["mr", "Middle right"], ["bl", "Bottom left"], ["br", "Bottom right"]], ""),
     `<label class="check"><input type="checkbox" data-pick="always"${s.alwaysShown ? " checked" : ""}> Keep the controls out (Settings' "Always show")</label>`,
     `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
@@ -1236,6 +1201,7 @@ $("controls").addEventListener("change", (event) => {
   else pick[name] = event.target.value;
   // Picking C1's layout shows C1.
   if ((name === "c1Layout" || name === "handleLook") && pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; });
+  if (name === "previewFigure") { call.appOpen = true; call.dismissed = false; pick.view = "settings"; }
   if (name === "state") { const was = call.state; call.state = pick.state; pick.cycle = "0"; animator.entered(was); }
   if (name === "creature" || name === "env") call.appOpen = false;
   document.body.classList.toggle("reduce-motion", pick.motion === "reduced");
