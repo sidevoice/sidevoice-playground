@@ -77,8 +77,6 @@ export const COPY = {
   "stage.cancelTurn": { en: "Cancel sending", es: "Cancelar envío" },
   "card.captions.show": { en: "Show captions", es: "Mostrar subtítulos" },
   "card.captions.hide": { en: "Hide captions", es: "Ocultar subtítulos" },
-  // C1's handle (2026-10-20): its name, what it opens.
-  "card.controls": { en: "Call controls", es: "Controles de la llamada" },
 };
 
 /** Where the card goes, as the desktop app places it today (sidevoice-desktop core/src/call_controls.rs): its window

@@ -34,7 +34,7 @@ const CREATURES = ALL_CREATURES.filter((each) => !each.id.startsWith("person:"))
 /** Captions are on unless turned off; the choice is kept across sessions (the app: with the card's settings). */
 const CAPTIONS_KEY = "sidevoice.callcard.captions";
 const DEFAULTS = { env: "windows", card: "1", format: "pip", size: "m", captions: localStorage.getItem(CAPTIONS_KEY) ?? "1", always: "0", x: "", y: "", state: "speaking",
-  cycle: "0", unread: "1", c1Rail: "row", c1CompactAt: "pushes", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
+  cycle: "0", unread: "1", creature: CREATURES[0].id, theme: "", motion: "full", panel: "1", view: "", lang: "en", a1Head: "corner", settingsPlace: "call", listFrom: "element", startCorner: "tr", pipIcons: "hover", c1Style: "minimal", pipBar: "always", pipActions: "header", pipTitle: "bottom", pipLayout: "meet" };
 const pick = { ...DEFAULTS, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
 // Choices decided on 2026-10-20 leave the address: the unread cue (now "!"), and what C1's handle opens (the card).
 delete pick.unreadCue;
@@ -44,6 +44,8 @@ delete pick.c1Actions;
 delete pick.handleLook; delete pick.previewFigure;
 // And later still: C1's expanded layout (the arc, B) and how its handle opens (on hover).
 delete pick.c1Layout; delete pick.handleOpens;
+// C1's controls are the compact card under the creature (DECIDED, operator 2026-10-20): its rail and placement picks go.
+delete pick.c1Rail; delete pick.c1CompactAt;
 const save = () => {
   const changed = Object.entries(pick).filter(([key, value]) => value !== DEFAULTS[key]);
   history.replaceState(null, "", "#" + new URLSearchParams(changed).toString());
@@ -211,7 +213,6 @@ function picker() {
   return `<div class="call-card cc-picker" role="dialog" aria-label="Conversations"><div class="card-panel conversations"><div class="card-conversations">${rows}</div></div></div>`;
 }
 /** C1: its name reveals the row of conversations (a click), and hides it again. */
-let c1RowOpen = false;
 /** The title's ▾ opens what the call runs on, as in the room (CallDetails), never the list. */
 let detailsOpen = false;
 const titleAttrs = () => `data-run="switch" aria-haspopup="dialog" aria-expanded="${pickerOpen}" title="Switch conversation"`;
@@ -272,7 +273,7 @@ const DRAW = {
   // balloons. The dock is B1's top bar and call bar on one card (the same parts, the same look), near the pointer.
   // C1 (operator's pick, A): the dock is its own piece, not the stack's end: below (or above) the avatar when nothing is
   // said, and beside it, on its open side and level with it, while a balloon is up, so the two never pile up.
-  mascot: () => `<div class="cc c1x"><span class="m-figure">${avatar("stage")}</span><div class="c1x-stack">${settings().captions ? balloonCaptions() : ""}</div>${c1Rail() === "compact" ? `<div class="c1-compact" data-theme="${scheme()}">${a1Card()}</div>` : c1Controls()}</div>`,
+  mascot: () => `<div class="cc c1x"><span class="m-figure">${avatar("stage")}</span><div class="c1x-stack">${settings().captions ? balloonCaptions() : ""}</div><div class="c1-compact" data-theme="${scheme()}">${a1Card()}</div></div>`,
 };
 /** A1's card itself (the title row — its face, title and conversations control, machine and model, state, your wave, and
  *  open, settings, × in its corner — over its controls row): A1, and C1's compact card, draw this same markup. */
@@ -282,7 +283,7 @@ const a1Card = () => `<div class="call-card cc-a1" data-head="${pick.a1Head === 
 <span class="cc-state"><i class="cc-dot"></i><span class="cc-state-text"></span></span></div>
 ${yourWave()}</div>${controls()}<span class="a1-corner">${frameActions()}</span></div>`;
 /** C1's handle and controls (every option but the compact card). */
-const c1Controls = () => `${c1Handle()}<div id="c1-controls" class="cc-pip-stacked cc-pip-meet c1-dock" data-theme="${scheme()}" data-icons="hover" data-bar="always"><svg class="c1-rail" aria-hidden="true"><path class="c1-rail-edge"/><path class="c1-rail-fill"/></svg>${pipHead2(true)}<div class="pip-bar-below">${roomBar()}</div></div>`;
+
 /** The picture's three actions: back to the call, its settings, and hiding it for this call. */
 const frameActions = () => `<button type="button" class="cc-action" data-run="open" title="Back to the call" aria-label="Back to the call">${svg("open", 15)}</button><button type="button" class="cc-action" data-run="card-settings" title="Floating card settings" aria-label="Floating card settings">${svg("settings", 15)}</button><button type="button" class="cc-action pip-close" data-run="dismiss" title="Hide the picture for this call" aria-label="Hide the picture for this call">${svg("close", 15)}</button>`;
 /** The picture's header, on two lines: the name ▾ (and the three actions), then its machine, never cut, and the row. */
@@ -330,7 +331,7 @@ function drawCard() {
       + (f.id === "pip" ? `<span class="cc-resize cc-grip" data-edge="se" aria-hidden="true"></span>` : "");
   win.toggleAttribute("data-picker", pickerOpen || detailsOpen);
   win.dataset.listFrom = "element";
-  if (f.id !== "mascot") { win.removeAttribute("data-peek"); c1Aim = null; }
+  if (f.id !== "mascot") c1Aim = null;
   // Drawn again, the card keeps its controls out if they were (and the picker holds them out).
   // Always shown (Settings), the controls stay out; else they come near the pointer (as today's card: alwaysExpanded).
   if (pickerOpen || s.alwaysShown) win.toggleAttribute("data-expanded", true);
@@ -482,7 +483,7 @@ function preview() {
 /** Whether the person is using the card: the pointer on it, a drag or a resize, its list or details open, focus in it. */
 let lastTouch = 0;
 // C1's balloons are not the card's controls: the pointer moving over one is not using the card (only its button is).
-const touched = (event) => { if (event?.type === "pointermove" && format().id === "mascot" && !event.target.closest?.(".c1-handle, .c1-dock")) return; lastTouch = Date.now(); };
+const touched = (event) => { if (event?.type === "pointermove" && format().id === "mascot" && !event.target.closest?.(".c1-compact")) return; lastTouch = Date.now(); };
 function interacting() {
   const win = $("card-window");
   if (Date.now() - lastTouch < 600) return true;
@@ -496,133 +497,18 @@ function tailsToward() {
   c1Lay();
 }
 
-// ---------- C1: its controls (DECIDED, operator 2026-10-20: the arc, B, opened on hover) ----------
+// ---------- C1: its controls, the compact card (DECIDED, operator 2026-10-20) ----------
 
-/** C1's controls, OPEN (variant "c1Rail", 2026-10-20): "bar" — one bar, level with the
- *  creature's top, beside it on its open side — the title, the conversations control (its "!"), the room's round call
- *  buttons (mic, captions, skip, hang up) and open, settings, ×, always in that order, whichever side the bar is on (only
- *  its place mirrors). It grows out of the handle, its near cap, and folds back into it; the handle stays out while it is
- *  open (the hub: a click closes it). The balloons never move: they are the creature's width, straight over or under it,
- *  and the bar is beside it. Its list opens wherever there is room. */
-const c1Arc = () => format().id === "mascot";
-const BAR_PIECES = { s: { btn: 28, handle: 24, h: 40 }, m: { btn: 32, handle: 26, h: 44 }, l: { btn: 32, handle: 26, h: 44 } };
 const avatarSide = () => FORMATS.find((each) => each.id === "mascot").sizes[settings().size].w;
-/** The handle's gap to the creature's drawn outline (its bounding box, not the avatar's square box): 3 px. */
-const HANDLE_GAP = 3;
-let silCache = { key: "", box: null };
-/** Sets the bar's pieces' sizes for C1's size, and where the creature's drawing really is inside its box (its own group's
- *  bounding box, measured once per creature and size so an idle step never makes it jitter): callcard.css hangs the
- *  handle 3 px from it and the bar level with its top. */
-function c1LayBar() {
-  const win = $("card-window"), figure = win.querySelector(".c1x .m-figure"), fig = figure?.querySelector(".fig");
-  if (format().id !== "mascot" || win.hidden || !figure) return;
-  const pieces = BAR_PIECES[settings().size] ?? BAR_PIECES.m, set = (name, value) => win.style.setProperty(name, value);
-  set("--arc-btn", pieces.btn + "px"); set("--handle-d", pieces.handle + "px"); set("--bar-h", pieces.h + "px"); set("--handle-gap", HANDLE_GAP + "px");
-  const key = creature().id + "/" + settings().size;
-  if (silCache.key !== key) {
-    // Its rest pose, not whatever it is doing now (a mood moves its arms, a hop its body): a still copy, idle and quiet,
-    // the creature's size, out of sight, measured once per creature and size.
-    const size = avatarSide(), probe = document.createElement("span");
-    probe.style.cssText = `position:fixed;left:-10000px;top:0;width:${size}px;height:${size}px;visibility:hidden;pointer-events:none`;
-    probe.innerHTML = avatar("stage").replace('data-style="bichos"', 'data-style="bichos" data-mood="idle" data-idle="quiet"');
-    win.append(probe);
-    const still = probe.querySelector(".sv-avatar"); if (still) { still.style.width = still.style.height = "100%"; still.style.display = "block"; }
-    const b = probe.getBoundingClientRect(), r = probe.querySelector(".fig")?.getBoundingClientRect();
-    if (b.width && r?.width) silCache = { key, box: { top: r.top - b.top, left: r.left - b.left, right: r.right - b.left } };
-    probe.remove();
-  }
-  const sil = silCache.key === key ? silCache.box : { top: 0, left: 0, right: avatarSide() };
-  set("--sil-top", Math.round(sil.top) + "px"); set("--sil-left", Math.round(sil.left) + "px"); set("--sil-right", Math.round(sil.right) + "px");
-}
-
-/** C1's controls (DECIDED: B, opened on hover; refined 2026-10-20). The handle sits beside the creature on its open
- *  side, level with its top edge; opening, it stretches into a rail — a band in its own accent — and the room's round
- *  call buttons (mic, captions, skip, hang up) slide out of it along the rail, 8 px apart; closing, they slide back in
- *  and the rail shrinks into the handle. A click on the handle (their hub) closes them. The title line is a base right
- *  under the creature, or right over it where the balloons open below; centred on it, kept inside the screen; its list
- *  opens wherever there is room. The balloons never move: they are the creature's width, straight over or under it, so
- *  the rail (beside the creature) never meets them, and the base takes the side they do not use.
- *  OPEN (variant "c1Rail"): which way the rail runs — "row": outward, level with the creature's top; "column": down
- *  the creature's side, ending just over the base (or past the creature where the base is above it). */
-const C1_RAILS = { row: "Row: outward, level with its top", column: "Column: down its side", bar: "Bar: the row and the title as one, level with its top", compact: "Compact card below: A1's two rows, no handle" };
-const c1Rail = () => (pick.c1Rail in C1_RAILS ? pick.c1Rail : "row");
-/** OPEN (variant "c1CompactAt", operator 2026-10-20): where the compact card goes, and what makes room for it.
- *  "pushes" (A): below the creature, the creature (balloons and all) going up by the card's height to make room, as A1
- *    does at the screen's bottom edge; where the balloons open below (the top of the screen, no room to go up), A1's own
- *    way there: the card right under the creature, the balloons moved on past it.
- *  "after" (B): on the balloons' side, past the balloon showing; right against the creature when none shows.
- *  "first" (C): on the balloons' side, right against the creature; the balloons move on past it while it shows.
- *  "below-on" (D1): always below, moved up only where the screen ends below it (A1's fit); where the balloons open below,
- *    they move on past it. "below-after" (D2): the same, but where the balloons open below, the card goes past them. */
-const C1_COMPACT_AT = { pushes: "A · Pushes: below, the creature goes up", after: "B · After the balloon", first: "C · Card first: the balloon moves on", "below-on": "D1 · Always below; balloon below moves on", "below-after": "D2 · Always below; card after a balloon below" };
-const c1CompactAt = () => (pick.c1CompactAt in C1_COMPACT_AT ? pick.c1CompactAt : "pushes");
-const RAIL_PIECES = { s: { btn: 28, ring: 2, handle: 24, gap: 8 }, m: { btn: 32, ring: 2, handle: 26, gap: 8 }, l: { btn: 32, ring: 2, handle: 26, gap: 8 } };
-const ARC = { side: 6, baseGap: 6, baseH: 36 };
-/** The base's room past the creature (its gap, its height and 8 px to the screen's edge), less the window's own margin:
- *  what C1 keeps from the top and the bottom of the screen, at rest too, so nothing moves when its controls open. */
-const baseRoom = () => ARC.baseGap + ARC.baseH + 8 - PLACEMENT.margin;
-/** Lays out C1's controls from where the creature will be (the window's target place, not its rect mid-glide): the base's
- *  side and spot, the handle and the buttons along the rail (callcard.css reads them from the window's custom
- *  properties), and the rail's path. */
-function c1LayRail() {
-  const win = $("card-window"), figure = win.querySelector(".c1x .m-figure"), handle = win.querySelector(".c1x .c1-handle"), dock = win.querySelector(".c1x .c1-dock");
-  if (format().id !== "mascot" || !figure || !handle || !dock || win.hidden) return;
-  const w = avatarSide(), set = (name, value) => win.style.setProperty(name, value);
-  const pieces = RAIL_PIECES[settings().size] ?? RAIL_PIECES.m, half = pieces.btn / 2 + pieces.ring, hub = pieces.handle / 2;
-  set("--arc-btn", pieces.btn + "px"); set("--arc-ring", pieces.ring + "px"); set("--handle-d", pieces.handle + "px");
-  const work = $("work-area").getBoundingClientRect(), box = figure.closest(".c1x");
-  const at = { x: parseFloat(win.style.left) || 0, y: parseFloat(win.style.top) || 0 };
-  const mid = { x: work.left + at.x + box.offsetLeft + figure.offsetLeft + w / 2, y: work.top + at.y + box.offsetTop + figure.offsetTop + w / 2 };
-  const dir = win.dataset.side === "right" ? -1 : 1, balloonsDown = win.dataset.open === "down";
-  // The base: on the side the balloons do not use.
-  const baseBelow = !balloonsDown;
-  win.dataset.c1Base = baseBelow ? "below" : "above";
-  const baseNear = w / 2 + ARC.baseGap; // its near edge, from the creature's middle
-  set("--c1-base-y", Math.round(baseBelow ? baseNear : -baseNear - ARC.baseH) + "px");
-  const pill = dock.querySelector(":scope > .pip-head-1");
-  if (pill) {
-    const width = pill.offsetWidth, left = Math.min(Math.max(mid.x - width / 2, work.left + 8), work.right - 8 - width);
-    set("--c1-base-x", Math.round(left - mid.x) + "px");
-  }
-  // The handle and the buttons, centres from the creature's middle (x toward the open side).
-  const across = w / 2 + ARC.side + half; // beside the creature: the buttons' inner edge 6 px from it
-  const spots = [];
-  if (c1Rail() === "row") {
-    // Level with the creature's top edge (or just under the base where the base is above it), outward.
-    const y = baseBelow ? -w / 2 + half : -w / 2 + half + 2;
-    let x = w / 2 + ARC.side + hub; spots.push([x, y]);
-    x += hub + pieces.gap + half; spots.push([x, y]);
-    for (let k = 1; k < 4; k += 1) { x += 2 * half + pieces.gap; spots.push([x, y]); }
-  } else {
-    // Down the creature's side: from its top edge where the base is above; else ending just over the base.
-    const length = hub + pieces.gap + 4 * 2 * half + 3 * pieces.gap; // from the handle's centre to the hang-up's far edge
-    let y = baseBelow ? Math.min(-w / 2 + hub, baseNear - 4 - length) : -w / 2 + hub;
-    spots.push([across, y]);
-    y += hub + pieces.gap + half; spots.push([across, y]);
-    for (let k = 1; k < 4; k += 1) { y += 2 * half + pieces.gap; spots.push([across, y]); }
-    // The handle sits on the rail's line, beside the creature like the buttons.
-  }
-  // The buttons always read mic, captions, skip, hang up from left to right (top to bottom in a column): where a row
-  // runs leftward (the creature on the right), only its place mirrors, so the mic takes the far spot (operator, 2026-10-20).
-  if (c1Rail() === "row" && dir === -1) spots.splice(1, 4, ...spots.slice(1).reverse());
-  spots.forEach(([x, y], k) => { set(`--p${k}x`, dir * x + "px"); set(`--p${k}y`, y + "px"); });
-  set("--hub-x", dir * spots[0][0] + "px"); set("--hub-y", spots[0][1] + "px");
-  // The rail: a band from the handle to the hang-up, drawn from the handle's end.
-  const [x0, y0] = spots[0], [x4, y4] = spots[4], rail = dock.querySelector(".c1-rail");
-  if (rail) {
-    const d = `M${dir * x0} ${y0} L${dir * x4} ${y4}`;
-    for (const path of rail.querySelectorAll("path")) path.setAttribute("d", d);
-    set("--rail-len", Math.hypot(x4 - x0, y4 - y0) + "px");
-  }
-  win.dataset.c1Rail = c1Rail();
-}
-
-/** "compact": no handle; the pointer on the creature shows two lines of A1's card and nothing else — its first line
- *  (title, the conversations control with its "!", open, settings, ×) over its controls row — above or below the creature
- *  (never beside), centred on it and kept inside the screen; where, and what makes room, is "c1CompactAt" (above). Only
- *  the creature and its balloons' room are placed, dragged and snapped; the card shows over that (operator, 2026-10-20). */
+/** C1's controls (DECIDED, operator 2026-10-20): no handle. The pointer on the creature (never its balloons) shows two
+ *  rows of A1's card and nothing else — A1's first row (title, the conversations control with its "!", open, settings, ×)
+ *  over A1's controls row — always below the creature, centred on it and kept inside the screen: right under it, or,
+ *  where its balloons open below, just past them (D2). The window moves in only by what does not fit (A1's fit). Only
+ *  the creature and its balloons' room are placed, dragged and snapped; the card shows over that. */
 const BALLOON_ZONE = { s: 130, m: 150, l: 180 }; // the room the balloons take over or under the creature (place())
 const CC_GAP = 6, CC_EDGE = 8; // the card to the creature or the balloon; the card to the screen's edge
+/** Its width: A1's look, about the width the arc option took (operator, 2026-10-20); A1 is 340/390/450. */
+const COMPACT_W = { s: 264, m: 300, l: 344 };
 /** The compact card's measures, in the window's own pixels: the creature's centre and half side, the card's height
  *  (with its controls row), the balloons' near edge from the creature's centre, and the balloon showing's height (0: none). */
 function compactGeometry() {
@@ -634,42 +520,25 @@ function compactGeometry() {
   const balloon = stack && [...stack.querySelectorAll(".speech-bubble")].some((each) => each.offsetHeight) ? stack.offsetHeight : 0;
   return { w, r: w / 2, height, cx: box.offsetLeft + figure.offsetLeft + w / 2, cy: box.offsetTop + figure.offsetTop + w / 2, near: 0.42 * w, balloon };
 }
-/** For the pick and the balloons' side: the card's side, whether it goes past the balloon, and how far the balloons
- *  move on past the card (0: they stay). */
-function compactSide(up, g) {
-  const at = c1CompactAt(), withBalloons = at === "after" || at === "first" || !up;
-  const after = withBalloons && (at === "after" || at === "below-after");
-  return { side: withBalloons && up ? "above" : "below", after, shove: withBalloons && !after ? g.r + CC_GAP + g.height + CC_GAP - g.near : 0 };
-}
-/** The window's top while the compact card shows, from its rest top `y`: A goes up by the card's height; all of them
- *  then move in just enough that the balloons keep their room and the card is CC_EDGE inside the screen (A1's fit). The
- *  room counted on the balloons' side is always their whole zone, so a balloon coming or going never moves anything. */
+/** The window's top while the card shows, from its rest top `y`: moved in (up) just enough that the card is CC_EDGE
+ *  inside the screen. Where the balloons open below it counts their whole room, so a balloon coming or going never moves
+ *  the creature. */
 function compactTop(y, up, g, work, size) {
-  const { side, after, shove } = compactSide(up, g), room = BALLOON_ROOM[settings().size] ?? 150, card = CC_GAP + g.height;
-  let lo = 0, hi = work.height - size.height, want = y;
-  if (up) {
-    lo = room + shove;
-    if (side === "above" && after) lo = room + card + CC_EDGE;
-    if (side === "below") { hi = Math.min(hi, work.height - CC_EDGE - (g.cy + g.r + card)); if (c1CompactAt() === "pushes") want = y - card; }
-  } else {
-    hi = Math.min(hi, work.height - CC_EDGE - (g.cy + g.near + room + shove + (after ? card : 0)));
-  }
-  return Math.max(0, Math.min(work.height - size.height, Math.min(hi, Math.max(lo, want))));
+  const reach = (up ? g.r : g.near + (BALLOON_ZONE[settings().size] ?? 150)) + CC_GAP + g.height;
+  return Math.max(0, Math.min(y, work.height - size.height, work.height - CC_EDGE - g.cy - reach));
 }
-/** The balloons' size changes the card's place past them (B, D2): watched while it is the compact card. */
-const c1StackWatch = new ResizeObserver(() => { if (format().id === "mascot" && c1Rail() === "compact") c1LayCompact(); });
+/** A balloon under the creature changes where the card goes past it: watched. */
+const c1StackWatch = new ResizeObserver(() => { if (format().id === "mascot") c1LayCompact(); });
 let c1Watched = null;
 function c1LayCompact() {
   const win = $("card-window"), g = compactGeometry();
   if (!g) return;
   const set = (name, value) => win.style.setProperty(name, value);
-  const cardW = FORMATS.find((each) => each.id === "card").sizes[settings().size].w;
+  const cardW = COMPACT_W[settings().size] ?? COMPACT_W.m;
   set("--cc-w", cardW + "px");
-  const up = win.dataset.open === "up", { side, after, shove } = compactSide(up, g);
-  const reach = after && g.balloon ? g.near + g.balloon + CC_GAP : g.r + CC_GAP;
-  win.dataset.c1Card = side;
-  set("--cc-y", Math.round(side === "below" ? reach : -reach - g.height) + "px");
-  set("--bal-dy", Math.round(up ? -shove : shove) + "px");
+  // Right under the creature; where the balloons open below, 6px past the balloon showing (right under it with none).
+  const pastBalloon = win.dataset.open === "down" && g.balloon;
+  set("--cc-y", Math.round(pastBalloon ? g.near + g.balloon + CC_GAP : g.r + CC_GAP) + "px");
   // Centred on the creature; kept CC_EDGE inside the screen.
   const work = $("work-area").getBoundingClientRect(), mid = work.left + (parseFloat(win.style.left) || 0) + g.cx;
   const left = Math.min(Math.max(mid - cardW / 2, work.left + CC_EDGE), work.right - CC_EDGE - cardW);
@@ -677,21 +546,20 @@ function c1LayCompact() {
   const stack = win.querySelector(".c1x .c1x-stack");
   if (stack && stack !== c1Watched) { c1StackWatch.disconnect(); c1StackWatch.observe(stack); c1Watched = stack; }
 }
-/** While the creature is dragged, the compact card is put away (its controls cannot be used mid-drag; operator,
- *  2026-10-20): what is placed, snapped and kept inside the screen is the creature and its balloons' room alone. */
+/** While the creature is dragged, the card is put away (its controls cannot be used mid-drag; operator, 2026-10-20):
+ *  what is placed, snapped and kept inside the screen is the creature and its balloons' room alone. */
 function c1Stow() {
-  if (format().id !== "mascot" || c1Rail() !== "compact") return;
+  if (format().id !== "mascot") return;
   const win = $("card-window");
   clearTimeout(hoverTimer);
   c1Aim = null;
   win.toggleAttribute("data-expanded", false);
-  win.toggleAttribute("data-peek", false);
   for (const el of win.querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", false);
 }
-/** Dropped: it comes back out (making its room as it does on hover) when the pointer is still on the creature where the
- *  creature lands, or when Settings keeps it out. */
+/** Dropped: it comes back out (moving in as on hover) when the pointer is still on the creature where the creature
+ *  lands, or when Settings keeps it out. */
 function c1Unstow(event) {
-  if (format().id !== "mascot" || c1Rail() !== "compact") return;
+  if (format().id !== "mascot") return;
   if (settings().alwaysShown) { c1Go("open", true); return; }
   const win = $("card-window"), figure = win.querySelector(".c1x .m-figure");
   if (!figure || !Number.isFinite(event?.clientX)) return;
@@ -702,12 +570,10 @@ function c1Unstow(event) {
   c1Aim = null;
   c1Aimed(on ? "creature" : "none");
 }
-/** C1's controls, by the open question's pick (callcard.css scopes each option's rules to data-c1-rail). */
+/** C1's controls laid out for where the creature will be. */
 function c1Lay() {
-  const win = $("card-window");
-  if (format().id !== "mascot" || win.hidden) return;
-  win.dataset.c1Rail = c1Rail();
-  if (c1Rail() === "compact") c1LayCompact(); else if (c1Rail() === "bar") c1LayBar(); else c1LayRail();
+  if (format().id !== "mascot" || $("card-window").hidden) return;
+  c1LayCompact();
 }
 
 /** The work area's size, and the card window's (the card and its shadow margin). */
@@ -727,11 +593,8 @@ function place() {
   // C1's balloons go above the avatar when a three-line balloon fits there, else below (operator, 2026-10-19); the other
   // formats' captions open toward the screen's middle.
   win.dataset.open = format().id === "mascot" ? (at.y >= (BALLOON_ROOM[settings().size] ?? 150) ? "up" : "down") : opensDown(at, size, work) ? "down" : "up";
-  // Row and column keep their base's room from the top and the bottom of the screen (at rest too, so nothing moves when
-  // the controls open): the base goes under the creature, or over it where the balloons open below. The bar needs none.
-  // The compact card: placed by the creature and its balloons' room alone; while it shows, the window makes its room.
-  if (format().id === "mascot" && c1Rail() === "compact" && win.hasAttribute("data-expanded")) { const g = compactGeometry(); if (g) at.y = compactTop(at.y, win.dataset.open === "up", g, work, size); }
-  if (format().id === "mascot" && ["row", "column"].includes(c1Rail())) at.y = Math.max(Math.min(baseRoom(), work.height - size.height), Math.min(at.y, work.height - size.height - baseRoom()));
+  // C1: placed by the creature and its balloons' room alone; while its card shows, the window moves in just enough.
+  if (format().id === "mascot" && win.hasAttribute("data-expanded")) { const g = compactGeometry(); if (g) at.y = compactTop(at.y, win.dataset.open === "up", g, work, size); }
   win.style.left = at.x + "px";
   win.style.top = at.y + "px";
   lastRect = { x: at.x, y: at.y, w: size.width, h: size.height };
@@ -770,26 +633,19 @@ addEventListener("pointerup", (event) => {
   if (format().id === "mascot") { c1Aim = null; c1Aimed(c1ZoneAt(event)); return; }
   clearTimeout(hoverTimer); hoverTimer = setTimeout(() => expand(false), 500);
 });
-// ---------- C1: its controls behind a handle (operator, 2026-10-20) ----------
+// ---------- C1: when its card shows (operator, 2026-10-20) ----------
 
-/** C1's controls in three steps, all within the card's own window (the pointer outside it is never read; operator,
- *  2026-10-20): at rest, nothing; the pointer on the creature, a small handle beside it, on its open side, that says
- *  "this unfolds" (⋯ and a chevron toward where it opens); the pointer on the handle (or Enter on it), the handle itself
- *  unfolds into the controls card as it has always been (B1's title line over the room's call bar), and folds back into
- *  it (callcard.css). Stepping up waits the usual 120 ms, stepping back down the usual 500 ms. A balloon is not the
- *  creature: on one, things step back down. */
-const C1_STEPS = ["rest", "peek", "open"];
-const C1_FOLD_MS = 240;
-let c1Aim = null, c1ArriveTimer = 0;
-/** What the pointer is on: the handle or what it opened ("card"), the creature, or neither. */
-const c1Zone = (target) => target?.closest?.(".c1-handle, .c1-dock, .c1-compact") ? "card" : target?.closest?.(".c1x .m-figure") ? "creature" : "none";
-/** Once open, C1's controls hold while the pointer is anywhere in their hull: the box around the handle and everything
- *  it opened (the card, or the arc's buttons and title) and the gaps between them, C1_HULL_PX wider all round. Crossing a
- *  gap never folds them; leaving the hull does, after the usual 500 ms (operator, 2026-10-20). */
+/** The pointer on the creature (never its balloons) shows the card after the usual 120 ms; leaving the creature and the
+ *  card folds it after the usual 500 ms. Only the card's own window is read (never the pointer outside it). */
+let c1Aim = null;
+/** What the pointer is on: the card, the creature, or neither. */
+const c1Zone = (target) => target?.closest?.(".c1-compact") ? "card" : target?.closest?.(".c1x .m-figure") ? "creature" : "none";
+/** Once open, the card holds while the pointer is anywhere in its hull: the box around the creature and the card (and
+ *  whatever is between them), C1_HULL_PX wider all round. Crossing the gap never folds it; leaving the hull does, after
+ *  the usual 500 ms (operator, 2026-10-20). */
 const C1_HULL_PX = 16;
 function c1Hull() {
-  // The compact card's zone is the creature and the card together.
-  const parts = [...$("card-window").querySelectorAll(".c1x .c1-handle, .c1x .c1-dock button, .c1x .c1-dock > .pip-head-1, .c1x .c1-compact .call-card, #card-window[data-c1-rail=compact] .c1x .m-figure")]
+  const parts = [...$("card-window").querySelectorAll(".c1x .c1-compact .call-card, .c1x .m-figure")]
     .map((el) => el.getBoundingClientRect()).filter((r) => r.width && r.height);
   if (!parts.length) return null;
   return { left: Math.min(...parts.map((r) => r.left)) - C1_HULL_PX, right: Math.max(...parts.map((r) => r.right)) + C1_HULL_PX,
@@ -805,46 +661,30 @@ function c1ZoneAt(event) {
 }
 // The pointer moving inside the window's own area (no cursor outside it is ever read): the hull is checked as it moves.
 addEventListener("pointermove", (event) => { if (format().id === "mascot" && !drag && !resizing && event.pointerType === "mouse") c1Aimed(c1ZoneAt(event)); });
-const c1Step = () => { const win = $("card-window"); return win.hasAttribute("data-expanded") ? "open" : win.hasAttribute("data-peek") ? "peek" : "rest"; };
-/** The handle opens on hover (DECIDED, operator 2026-10-20), after the usual 120 ms; a click on it while they are open
- *  (it is their hub) closes them, and the hover does not open them again until the pointer has left it. */
-let c1ClickClosed = false;
-// Just closed by a click: the hover does not open them again, but on them it keeps them open.
-const c1Wanted = () => (c1Rail() === "compact" ? (c1Aim === "card" || c1Aim === "creature" ? "open" : "rest")
-  : c1Aim === "card" ? (c1ClickClosed && c1Step() !== "open" ? "peek" : "open") : c1Aim === "creature" ? "peek" : "rest");
+const c1Step = () => ($("card-window").hasAttribute("data-expanded") ? "open" : "rest");
+const c1Wanted = () => (c1Aim === "card" || c1Aim === "creature" ? "open" : "rest");
 /** Only a change of what the pointer is on restarts the delay (a balloon's words changing under a still pointer fire
  *  pointerover again and again). */
 function c1Aimed(zone) {
   if (zone === c1Aim) return;
   c1Aim = zone;
-  // Closed by a click on the handle: the hover does not open them again until the pointer has left the handle.
-  if (zone !== "card") c1ClickClosed = false;
   const want = c1Wanted();
   clearTimeout(hoverTimer);
-  hoverTimer = setTimeout(() => c1Go(want), C1_STEPS.indexOf(want) > C1_STEPS.indexOf(c1Step()) ? 120 : 500);
+  hoverTimer = setTimeout(() => c1Go(want), want === "open" && c1Step() === "rest" ? 120 : 500);
 }
-/** What holds the opened controls: their list open, a drag, focus in them, Settings' "always". */
-// The compact card is held by the keyboard's focus only: a control clicked with the pointer keeps focus, and must not
-// keep it out once the pointer has left (operator, 2026-10-20).
-const c1Held = () => settings().alwaysShown || pickerOpen || detailsOpen || !!drag || !!$("card-window").querySelector(".c1x .c1-dock:focus-within, .c1x .c1-compact :focus-visible");
+/** What holds the card out: its list open, a drag, the keyboard's focus in it, Settings' "always". Only the keyboard's
+ *  focus: a control clicked with the pointer keeps focus, and must not keep it out once the pointer has left (operator,
+ *  2026-10-20). */
+const c1Held = () => settings().alwaysShown || pickerOpen || detailsOpen || !!drag || !!$("card-window").querySelector(".c1x .c1-compact :focus-visible");
 function c1Go(want, force = false) {
-  if (!force && drag?.moved && c1Rail() === "compact") return; // put away while dragged (c1Stow); c1Unstow asks again
-  const win = $("card-window"), handle = win.querySelector(".c1-handle"), was = c1Step();
-  if (!force && want !== "open" && was === "open" && c1Held()) { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => c1Go(c1Wanted()), 500); return; }
-  win.toggleAttribute("data-peek", want !== "rest" || settings().alwaysShown);
+  if (!force && drag?.moved) return; // put away while dragged (c1Stow); c1Unstow asks again
+  if (!force && want !== "open" && c1Step() === "open" && c1Held()) { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => c1Go(c1Wanted()), 500); return; }
   expand(want === "open", true);
-  handle?.setAttribute("aria-expanded", String(win.hasAttribute("data-expanded")));
 }
-/** The handle: a small pill in the card's chrome, the more mark and a chevron toward where it opens. A real button:
- *  Tab reaches it (it shows when focused), Enter unfolds it into the card, focus inside. */
-/** The handle (DECIDED, operator 2026-10-20): a small round button in the accent's soft fill, hugging the creature's
- *  upper side on its open side, the chevron alone toward where it opens; arriving from rest it glows twice and the
- *  chevron nudges (callcard.css). A real button: Tab reaches it (it shows when focused); Enter unfolds it. */
-const c1Handle = () => `<button type="button" class="c1-handle" data-run="c1-open" data-theme="${scheme()}" aria-controls="c1-controls" aria-expanded="${$("card-window").hasAttribute("data-expanded")}" aria-label="${words("card.controls")}" title="${words("card.controls")}">${svg("chevron", 15).replace("<svg ", '<svg class="c1-handle-chevron" ')}</button>`;
 $("card-window").addEventListener("focusout", (event) => {
-  if (format().id !== "mascot" || event.relatedTarget?.closest?.(".c1x :is(.c1-handle, .c1-dock, .c1-compact), .cc-picker")) return;
+  if (format().id !== "mascot" || event.relatedTarget?.closest?.(".c1x .c1-compact, .cc-picker")) return;
   // Focus gone: back to what the pointer says.
-  setTimeout(() => { const win = $("card-window"); c1Aim = null; c1Aimed(win.querySelector(".c1-handle:hover, .c1-dock:hover, .c1-compact:hover") ? "card" : win.querySelector(".c1x .m-figure:hover") ? "creature" : "none"); });
+  setTimeout(() => { const win = $("card-window"); c1Aim = null; c1Aimed(win.querySelector(".c1-compact:hover") ? "card" : win.querySelector(".c1x .m-figure:hover") ? "creature" : "none"); });
 });
 
 function expand(on, force = false) {
@@ -929,11 +769,8 @@ ${group([
 function cardPreview(id) {
   const figure = previewFigure(id === "mascot" ? "stage" : "small"), out = settings().alwaysShown;
   const dots = '<i></i><i></i><i></i><i></i>';
-  // C1's controls, as its open question's current pick draws them, beside the creature (its open side, the screen's middle).
-  const c1Out = { row: `<span class="fcp-c1" data-rail="row"><b></b>${dots}</span><span class="fcp-c1-base"><span class="fcp-lines"><i></i></span></span>`,
-    column: `<span class="fcp-c1" data-rail="column"><b></b>${dots}</span><span class="fcp-c1-base"><span class="fcp-lines"><i></i></span></span>`,
-    bar: `<span class="fcp-c1" data-rail="bar"><b></b><span class="fcp-lines"><i></i></span>${dots}</span>`,
-    compact: `<span class="fcp-c1" data-rail="compact"><span class="fcp-lines"><i></i><i></i></span><span class="fcp-bar">${dots}</span></span>` }[c1Rail()];
+  // C1's controls out: its compact card right under the creature, drawn as A1's is: its title row over its controls row.
+  const c1Out = `<span class="fcp-card fcp-compact" data-out><span class="fcp-lines"><i></i></span><span class="fcp-bar">${dots}</span></span>`;
   const inner = id === "card" ? `<span class="fcp-card"${out ? " data-out" : ""}><span class="fcp-face">${figure}</span><span class="fcp-lines"><i></i><i></i><i></i></span>${out ? `<span class="fcp-bar">${dots}</span>` : ""}</span>`
     : id === "pip" ? `<span class="fcp-pip"><span class="fcp-lines"><i></i></span><span class="fcp-stage">${figure}</span><span class="fcp-bar"><i></i><i></i><i></i><i></i></span></span>`
     : `<span class="fcp-avatar">${figure}</span>${out ? c1Out : ""}`;
@@ -972,11 +809,11 @@ document.addEventListener("click", (event) => {
 });
 // Keyboard: Escape closes it; the arrows move between its rows.
 addEventListener("keydown", (event) => {
-  // C1: Escape inside the card folds it back into the handle, focus on the handle.
-  // C1: Escape folds what the handle opened (focus in it or on its handle, or nowhere in particular), back to the handle.
-  if (event.key === "Escape" && !pickerOpen && format().id === "mascot" && c1Step() === "open" && (document.activeElement?.closest("#card-window") || document.activeElement === document.body)) {
-    event.preventDefault(); const inside = !!document.activeElement?.closest("#card-window");
-    c1ClickClosed = true; c1Go("peek", true); if (inside) $("card-window").querySelector(".c1-handle")?.focus(); return;
+  // C1: Escape folds its card (focus in it, or nowhere in particular); focus leaves the hidden card.
+  if (event.key === "Escape" && !pickerOpen && !detailsOpen && format().id === "mascot" && c1Step() === "open" && (document.activeElement?.closest("#card-window") || document.activeElement === document.body)) {
+    event.preventDefault();
+    if (document.activeElement?.closest("#card-window")) document.activeElement.blur();
+    c1Go("rest", true); return;
   }
   if (detailsOpen && event.key === "Escape") { detailsOpen = false; drawCard(); $("card-window").querySelector("[data-run=details]")?.focus(); return; }
   if (!pickerOpen) return;
@@ -993,8 +830,7 @@ document.addEventListener("click", (event) => {
   const run = target.dataset.run, setting = target.dataset.setting;
   // The guard spares "Cancel sending" (it comes with your balloon, never with the controls) and the keyboard (Enter and
   // Space are never a click meant for something else: spec §2.4).
-  // Nor C1's handle: it was there before what it opened, and stays where it was.
-  if (target.closest("#card-window") && Date.now() < guardUntil && run !== "cancel-turn" && run !== "c1-open" && event.detail !== 0) return;
+  if (target.closest("#card-window") && Date.now() < guardUntil && run !== "cancel-turn" && event.detail !== 0) return;
   if (run === "mute") setState(muted() ? "listening" : "muted");
   if (run === "skip") setState("idle");
   // Taking the turn back: what was being said is dropped, its balloon (or line) goes, and the call listens again.
@@ -1006,18 +842,7 @@ document.addEventListener("click", (event) => {
     if (keyboard) $("card-window").querySelector("[data-run=mute]")?.focus(); else document.activeElement?.blur();
     return;
   }
-  // The handle: it opens (never closes: a click right after the hover opened it must not shut it); from the keyboard,
-  // when already open, it takes focus into what it opened.
-  if (run === "c1-open") {
-    clearTimeout(hoverTimer);
-    const keyboard = event.detail === 0;
-    // A mouse click leaves focus nowhere in the card (focus would hold it open); the keyboard goes into what opened.
-    if (!keyboard) target.blur();
-    if (c1Step() !== "open") { c1ClickClosed = false; c1Go("open", true); if (keyboard) $("card-window").querySelector(".c1-dock button:not(:disabled)")?.focus(); }
-    else { c1ClickClosed = true; c1Go("peek", true); }
-    return;
-  }
-  if (run === "c1-row") { c1RowOpen = !c1RowOpen; drawCard(); $("card-window").toggleAttribute("data-expanded", true); for (const el of $("card-window").querySelectorAll(".call-card")) el.toggleAttribute("data-expanded", true); return; }
+
   if (run === "switch") { detailsOpen = false; togglePicker(!pickerOpen); return; }
   if (run === "details") { pickerOpen = false; detailsOpen = !detailsOpen; drawCard(); if (detailsOpen) $("card-window").toggleAttribute("data-expanded", true); return; }
   if (run === "captions") { pick.captions = settings().captions ? "0" : "1"; localStorage.setItem(CAPTIONS_KEY, pick.captions); refresh(); }
@@ -1061,7 +886,7 @@ const DRAG_THRESHOLD_PX = 4;
 $("card-window").addEventListener("focusin", (event) => {
   noStubs();
   // The compact card has no handle: focus reaching it (Tab) opens it, room made as on hover.
-  if (format().id === "mascot" && c1Rail() === "compact" && event.target.closest?.(".c1-compact") && event.target.matches(":focus-visible") && !$("card-window").hasAttribute("data-expanded")) c1Go("open", true);
+  if (format().id === "mascot" && event.target.closest?.(".c1-compact") && event.target.matches(":focus-visible") && !$("card-window").hasAttribute("data-expanded")) c1Go("open", true);
 });
 $("card-window").addEventListener("focusout", () => setTimeout(noStubs));
 $("card-window").addEventListener("pointerdown", (event) => {
@@ -1366,7 +1191,6 @@ function drawPanel() {
     s.format === "pip" ? select("pipBar", "Picture's call bar", [["always", "Under it, always"], ["hover", "Under it, near the pointer"]], pick.pipBar) : "",
     s.format === "pip" ? select("pipIcons", "Picture's header icons", [["hover", "Near the pointer (and focus)"], ["always", "Always"]], pick.pipIcons === "always" ? "always" : "hover") : "",
     s.format === "card" ? select("a1Head", "Title card's header", [["corner", "Buttons in the corner (new)"], ["inline", "Buttons beside the wave (before)"]], pick.a1Head) : "",
-    `<fieldset class="panel-open"><legend>Open questions</legend>${select("c1Rail", "C1 · the handle's rail", Object.entries(C1_RAILS), c1Rail())}${select("c1CompactAt", "C1 compact · where the card goes", Object.entries(C1_COMPACT_AT), c1CompactAt())}</fieldset>`,
     select("spot", "Put the card", [["", "Where it is"], ["tl", "Top left"], ["tr", "Top right"], ["ml", "Middle left"], ["mr", "Middle right"], ["bl", "Bottom left"], ["br", "Bottom right"]], ""),
     `<label class="check"><input type="checkbox" data-pick="always"${s.alwaysShown ? " checked" : ""}> Keep the controls out (Settings' "Always show")</label>`,
     `<label class="check"><input type="checkbox" data-pick="unread"${pick.unread === "1" ? " checked" : ""}> Other conversations have unread replies (mock)</label>`,
@@ -1389,8 +1213,6 @@ $("controls").addEventListener("change", (event) => {
   else if (name === "card") pick.card = event.target.checked ? "1" : "0";
   else if (name === "unread") pick.unread = event.target.checked ? "1" : "0";
   else if (name === "always") pick.always = event.target.checked ? "1" : "0";
-  else if (name === "c1CompactAt") { pick.c1CompactAt = event.target.value; pick.c1Rail = "compact"; if (pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; }); }
-  else if (name === "c1Rail") { pick.c1Rail = event.target.value; if (pick.format !== "mascot") keepAnchor(() => { pick.format = "mascot"; }); }
   else if (name === "spot") {
     // A corner or the middle of a side of the work area, for the card's window as it is now.
     const work = workSize(), size = cardSize(), spot = event.target.value;
