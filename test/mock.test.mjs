@@ -20,8 +20,16 @@ const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
-test("no choice is open; every decided one stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS, []);
+test("the open choices are the model blocks'; every decided one stored goes; scenario seeding leaves choices alone", () => {
+  // The web's own names and values, in its order: the first is the page's default (sidevoice-web#339, #340).
+  assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]), [
+    ["modelLanguages", ["popover", "inline", "tooltip"]],
+    ["modelSummary", ["status", "facts", "advanced"]],
+    ["modelList", ["sized", "names"]],
+  ]);
+  for (const variant of VARIANTS) assert.ok(variant.label && variant.note && variant.values.every((option) => option.label), variant.name);
+  assert.deepEqual(prunedVariantChoices({ modelLanguages: "inline", modelSummary: "gone", modelList: "names" }), { modelLanguages: "inline", modelList: "names" },
+    "an open one's choice stays, a value it does not offer goes");
   assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d", titleDetail: "popover" }), {}, "the decided onboarding flow and call details are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});

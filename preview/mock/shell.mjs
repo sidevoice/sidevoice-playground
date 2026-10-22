@@ -17,7 +17,37 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [];
+export const VARIANTS = [
+  {
+    name: "modelLanguages",
+    label: "Model languages: how the rest are revealed",
+    note: "Settings › Transcription and Voice (and the first-run setup): the \"+N more\" after the Family/Model pickers; pick a model with many languages (Whisper, Supertonic 3), switch the interface language to see it come first, set Settings › Transcription › Language to see what is bold. Pick fastconformer-es-large or piper-en_US with another interface language to see the notice. sidevoice-web#339.",
+    values: [
+      { value: "popover", label: "A · popover on click (bold: the language in use)" },
+      { value: "inline", label: "B · expands inline (bold: interface and chosen language)" },
+      { value: "tooltip", label: "C · tooltip on hover/focus, tap on touch (bold: chosen language only)" },
+    ],
+  },
+  {
+    name: "modelSummary",
+    label: "Model size and where it runs, with Advanced closed",
+    note: "Transcription, Voice and Call › End-of-turn model blocks, local models only (remote ones have no size). sidevoice-web#340.",
+    values: [
+      { value: "status", label: "A · on the status line" },
+      { value: "facts", label: "B · a labelled row: Size · Memory · Runs on" },
+      { value: "advanced", label: "C · on the Advanced line, wrapped" },
+    ],
+  },
+  {
+    name: "modelList",
+    label: "Sizes in the Model list",
+    note: "Open the Model dropdown of a local model. sidevoice-web#340.",
+    values: [
+      { value: "sized", label: "A · under each model" },
+      { value: "names", label: "B · names only (as today)" },
+    ],
+  },
+];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
