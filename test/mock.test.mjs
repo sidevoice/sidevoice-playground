@@ -25,6 +25,7 @@ test("the open choices are the model blocks'; every decided one stored goes; sce
   assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]), [
     ["modelSummary", ["status", "facts", "advanced", "chip", "chipfacts", "chipadvanced"]],
     ["modelList", ["sized", "names", "twolines"]],
+    ["hardwareLabel", ["class", "technical", "both"]],
   ]);
   for (const variant of VARIANTS) assert.ok(variant.label && variant.note && variant.values.every((option) => option.label), variant.name);
   assert.deepEqual(prunedVariantChoices({ modelSummary: "gone", modelList: "twolines" }), { modelList: "twolines" },

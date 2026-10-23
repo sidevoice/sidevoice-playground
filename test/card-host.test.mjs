@@ -186,7 +186,8 @@ test("the card page gets the app's card seam and nothing else; the shell serves 
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
   assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");
   assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]),
-    [["modelSummary", ["status", "facts", "advanced", "chip", "chipfacts", "chipadvanced"]], ["modelList", ["sized", "names", "twolines"]]],
+    [["modelSummary", ["status", "facts", "advanced", "chip", "chipfacts", "chipadvanced"]], ["modelList", ["sized", "names", "twolines"]],
+      ["hardwareLabel", ["class", "technical", "both"]]],
     "the open choices are the model blocks', each first the web's default: the title's call details and the onboarding flow are decided");
 });
 

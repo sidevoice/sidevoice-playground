@@ -41,6 +41,16 @@ export const VARIANTS = [
       { value: "twolines", label: "C · two lines: name and memory, then download and hardware" },
     ],
   },
+  {
+    name: "hardwareLabel",
+    label: "Hardware label",
+    note: "Applies to every chip or row that names the hardware: Model size variants D, E, F and the Model list C (open the Model dropdown). Needs a local model whose builds report a hardware class: In the desktop app view Whisper tiny, base and small run on Metal (GPU) and most others on the CPU; in the browser view most run on WebGPU (GPU).",
+    values: [
+      { value: "class", label: "B · plain class: GPU / CPU / NPU, the technical name in a tooltip (default)" },
+      { value: "technical", label: "A · technical name: Metal, CUDA, WebGPU, CPU" },
+      { value: "both", label: "C · plain class, then the technical name in lighter text: GPU · Metal" },
+    ],
+  },
 ];
 
 /** What is kept of `choices`: only a value a variant still offers. */
