@@ -170,6 +170,19 @@ test("the local catalogue is the engine's v0.3.1, each build placed as the engin
   assert.equal(model("desktop", "smart-turn-v3.2").recommendedBuild, "smart-turn-v3.2/onnxruntime-fp32");
 });
 
+test("a build that runs says the kind of hardware its accelerator is, as the engine does; one that does not says none", () => {
+  const w = world();
+  const classes = (place, id) => Object.fromEntries(localModels(w, place).find((m) => m.id === id).builds.map((b) => [b.id.split("/")[1], b.acceleratorClass ?? null]));
+  assert.deepEqual(classes("desktop", "whisper-base"), {
+    "mlx-fp16": "gpu", "sherpa-onnx-int8": "cpu", "whisper-cpp-q5_1": "gpu", "transformers-js-fp16": null, "transformers-js-q8": null,
+  });
+  assert.deepEqual(classes("browser", "whisper-tiny"), {
+    "transformers-js-fp16": "gpu", "transformers-js-q8": "gpu", "mlx-fp16": null, "sherpa-onnx-int8": null, "whisper-cpp-q5_1": null,
+  });
+  w.patch({ "voice.webgpu": false });
+  assert.equal(classes("browser", "kokoro-82m-v1.0")["transformers-js-q8"], "cpu", "WebAssembly runs on the processor");
+});
+
 test("a model's last use: dated back in days by the scenario, until the world sees a newer one", () => {
   const now = Date.parse("2026-10-11T12:00:00Z");
   const voice = { installed: { "silero-vad": true, "whisper-small": true }, lastUsedDaysAgo: { "whisper-small": 45, "whisper-tiny": 3 } };

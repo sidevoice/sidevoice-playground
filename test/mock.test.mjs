@@ -22,6 +22,8 @@ const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
 test("no choice is open; every decided one stored goes; scenario seeding leaves choices alone", () => {
   assert.deepEqual(VARIANTS, []);
+  assert.deepEqual(prunedVariantChoices({ hardwareLabel: "both", modelSummary: "sheet", modelList: "sized", modelLanguages: "inline" }), {},
+    "the decided model languages, model block, Model list and hardware label (sidevoice-web#339, #340) are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d", titleDetail: "popover" }), {}, "the decided onboarding flow and call details are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});

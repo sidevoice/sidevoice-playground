@@ -38,6 +38,10 @@ const BACKEND_ACCELERATORS = {
 /** What the host reports: the Mac its CPU, Metal and Core ML; a page WebAssembly, and WebGPU when the world's browser
  * has it (`voice.webgpu`). */
 const hostAccelerators = (place, voice) => (place === "desktop" ? ["cpu", "metal", "coreml"] : voice.webgpu ? ["webgpu", "wasm"] : ["wasm"]);
+/** The kind of hardware each accelerator is, as the engine says it of a build that runs here (`acceleratorClass`): the
+ * web names the hardware from it, and shows none without it.
+ * @type {Record<string, ModelBuild["acceleratorClass"]>} */
+const ACCELERATOR_CLASS = { metal: "gpu", webgpu: "gpu", cuda: "gpu", coreml: "neural-engine", cpu: "cpu", wasm: "cpu" };
 
 /** @type {Requires} */ const WEBGPU = { accelerators: ["webgpu"] };
 /** @type {Requires} */ const WASM_CAP = { wasmMaxMb: 2048 };
@@ -232,7 +236,7 @@ export function localModels(world, place) {
       const { requires, ...shown } = spec;
       const fitted = fit(spec, place, voice);
       return "accelerator" in fitted
-        ? { ...shown, accelerator: fitted.accelerator, available: true, reasons: [], installed: false }
+        ? { ...shown, accelerator: fitted.accelerator, acceleratorClass: ACCELERATOR_CLASS[fitted.accelerator], available: true, reasons: [], installed: false }
         : { ...shown, available: false, reasons: [fitted.reason], installed: false };
     });
     builds.sort((a, b) => Number(b.available) - Number(a.available));
