@@ -17,18 +17,7 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [
-  {
-    name: "hardwareLabel",
-    label: "Hardware label",
-    note: "How the hardware is named in the model block's spec sheet (its Runs on / Will run on row) and in the Model list rows (open the Model dropdown), in Settings › Transcription, Voice and Call › End-of-turn model. Needs a local model whose builds report a hardware class: In the desktop app view Whisper tiny, base and small run on Metal (GPU) and most others on the CPU; in the browser view most run on WebGPU (GPU).",
-    values: [
-      { value: "both", label: "C · plain class, then the technical name in lighter text: GPU · Metal (default)" },
-      { value: "class", label: "B · plain class: GPU / CPU / NPU, the technical name in a tooltip" },
-      { value: "technical", label: "A · technical name: Metal, CUDA, WebGPU, CPU" },
-    ],
-  },
-];
+export const VARIANTS = [];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {

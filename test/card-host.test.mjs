@@ -185,9 +185,7 @@ test("the card page gets the app's card seam and nothing else; the shell serves 
   assert.equal(win.fetch, "untouched", "the card fetches nothing");
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
   assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");
-  assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]),
-    [["hardwareLabel", ["both", "class", "technical"]]],
-    "the hardware label is the one open choice, its first the web's default: the model block, the Model list, the title's call details and the onboarding flow are decided");
+  assert.deepEqual(VARIANTS, [], "no choice is open: the title's call details and the onboarding flow are decided");
 });
 
 test("removing visual sample turns leaves the scenario's seeded messages alone", () => {
