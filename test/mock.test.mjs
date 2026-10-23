@@ -23,15 +23,12 @@ const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 test("the open choices are the model blocks'; every decided one stored goes; scenario seeding leaves choices alone", () => {
   // The web's own names and values, in its order: the first is the page's default (sidevoice-web#340).
   assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]), [
-    ["modelSummary", ["status", "facts", "advanced", "chip", "chipfacts", "chipadvanced", "sheet"]],
-    ["modelList", ["sized", "names", "twolines"]],
-    ["hardwareLabel", ["class", "technical", "both"]],
+    ["hardwareLabel", ["both", "class", "technical"]],
   ]);
   for (const variant of VARIANTS) assert.ok(variant.label && variant.note && variant.values.every((option) => option.label), variant.name);
-  assert.deepEqual(prunedVariantChoices({ modelSummary: "gone", modelList: "twolines" }), { modelList: "twolines" },
-    "an open one's choice stays, a value it does not offer goes");
-  assert.deepEqual(prunedVariantChoices({ modelLanguages: "inline", modelSummary: "chip" }), { modelSummary: "chip" },
-    "the decided model languages (the popover, sidevoice-web#339) are pruned from a stored choice");
+  assert.deepEqual(prunedVariantChoices({ modelSummary: "sheet", modelList: "sized", modelLanguages: "inline", hardwareLabel: "both" }), { hardwareLabel: "both" },
+    "the decided model languages (#339), model block and Model list (#340) are pruned from a stored choice; the open one stays");
+  assert.deepEqual(prunedVariantChoices({ hardwareLabel: "chip" }), {}, "a value the hardware label does not offer goes");
   assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d", titleDetail: "popover" }), {}, "the decided onboarding flow and call details are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ "bubbles-style": "soft", old: "yes" }), {});
   assert.deepEqual(prunedVariantChoices(null), {});
