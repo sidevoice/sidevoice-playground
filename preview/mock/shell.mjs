@@ -19,32 +19,26 @@ const VARIANTS_KEY = "sidevoice.variants";
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
   {
-    name: "modelLanguages",
-    label: "Model languages: how the rest are revealed",
-    note: "Settings › Transcription and Voice (and the first-run setup): the \"+N more\" after the Family/Model pickers; pick a model with many languages (Whisper, Supertonic 3), switch the interface language to see it come first, set Settings › Transcription › Language to see what is bold. Pick fastconformer-es-large or piper-en_US with another interface language to see the notice. sidevoice-web#339.",
-    values: [
-      { value: "popover", label: "A · popover on click (bold: the language in use)" },
-      { value: "inline", label: "B · expands inline (bold: interface and chosen language)" },
-      { value: "tooltip", label: "C · tooltip on hover/focus, tap on touch (bold: chosen language only)" },
-    ],
-  },
-  {
     name: "modelSummary",
     label: "Model size and where it runs, with Advanced closed",
-    note: "Transcription, Voice and Call › End-of-turn model blocks, local models only (remote ones have no size). sidevoice-web#340.",
+    note: "Transcription, Voice and Call › End-of-turn model blocks, local models only (remote ones have no size). In D, E and F the hardware is a chip: the engine's pick for the build that runs here; a model not yet downloaded shows what the engine expects (\"Will run on Metal\", dashed), an installed one plainly (\"Metal\"). No chip means the engine did not say. sidevoice-web#340.",
     values: [
       { value: "status", label: "A · on the status line" },
       { value: "facts", label: "B · a labelled row: Size · Memory · Runs on" },
       { value: "advanced", label: "C · on the Advanced line, wrapped" },
+      { value: "chip", label: "D · hardware chip next to the state (Ready · Metal), sizes as text" },
+      { value: "chipfacts", label: "E · labelled row, hardware chip first" },
+      { value: "chipadvanced", label: "F · hardware chip on the Advanced line, sizes on the status line" },
     ],
   },
   {
     name: "modelList",
     label: "Sizes in the Model list",
-    note: "Open the Model dropdown of a local model. sidevoice-web#340.",
+    note: "Open the Model dropdown of a local model. In C the hardware is the engine's pick for the build that would run; none means the engine did not say. sidevoice-web#340.",
     values: [
       { value: "sized", label: "A · under each model" },
       { value: "names", label: "B · names only (as today)" },
+      { value: "twolines", label: "C · two lines: name and memory, then download and hardware" },
     ],
   },
 ];
