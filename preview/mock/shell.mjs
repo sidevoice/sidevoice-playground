@@ -21,7 +21,7 @@ export const VARIANTS = [
   {
     name: "modelSummary",
     label: "Model size and where it runs, with Advanced closed",
-    note: "Transcription, Voice and Call › End-of-turn model blocks, local models only (remote ones have no size). In D, E and F the hardware is a chip: the engine's pick for the build that runs here; a model not yet downloaded shows what the engine expects (\"Will run on Metal\", dashed), an installed one plainly (\"Metal\"). No chip means the engine did not say. sidevoice-web#340.",
+    note: "Transcription, Voice and Call › End-of-turn model blocks, local models only (remote ones have no size). In D, E and F the hardware is a chip: the engine's pick for the build that runs here; a model not yet downloaded shows what the engine expects (\"Will run on Metal\", dashed), an installed one plainly (\"Metal\"). No chip means the engine did not say. G is a spec sheet in Settings › Transcription, Voice and Call › End-of-turn model: Advanced under the pickers, then one block with the languages, the hardware (always class and technical name) and the sizes, the state alone under it. sidevoice-web#340.",
     values: [
       { value: "status", label: "A · on the status line" },
       { value: "facts", label: "B · a labelled row: Size · Memory · Runs on" },
@@ -29,6 +29,7 @@ export const VARIANTS = [
       { value: "chip", label: "D · hardware chip next to the state (Ready · Metal), sizes as text" },
       { value: "chipfacts", label: "E · labelled row, hardware chip first" },
       { value: "chipadvanced", label: "F · hardware chip on the Advanced line, sizes on the status line" },
+      { value: "sheet", label: "G · Spec sheet: languages, acceleration, size and state in one block, Advanced under the pickers (recommended)" },
     ],
   },
   {

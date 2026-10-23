@@ -23,7 +23,7 @@ const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 test("the open choices are the model blocks'; every decided one stored goes; scenario seeding leaves choices alone", () => {
   // The web's own names and values, in its order: the first is the page's default (sidevoice-web#340).
   assert.deepEqual(VARIANTS.map((variant) => [variant.name, variant.values.map((option) => option.value)]), [
-    ["modelSummary", ["status", "facts", "advanced", "chip", "chipfacts", "chipadvanced"]],
+    ["modelSummary", ["status", "facts", "advanced", "chip", "chipfacts", "chipadvanced", "sheet"]],
     ["modelList", ["sized", "names", "twolines"]],
     ["hardwareLabel", ["class", "technical", "both"]],
   ]);
