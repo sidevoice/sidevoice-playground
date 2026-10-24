@@ -17,7 +17,15 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [];
+export const VARIANTS = [{
+  name: "scrollbars",
+  label: "Scrollbars",
+  note: "Compare with a long conversation list, expanded cards, and both themes. Native follows the OS; both keep the scrollbar clear of the cards.",
+  values: [
+    { value: "native", label: "Native platform appearance (recommended)" },
+    { value: "themed", label: "Platform scrollbar with theme colours" },
+  ],
+}];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
