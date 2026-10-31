@@ -161,11 +161,11 @@ export function mockedWebSocket(win, { world, identities }) {
 /** Puts the mocks for `world` into the page `win` (the iframe's window). `desktop`: whether it is the app view.
  * The desktop's floating card page (the web's call-controls.html, in the frame beside the room) gets only the app's
  * card seam, `card()` — card-host.mjs, fed from the room frame —: it fetches nothing.
- * @param {Window & typeof globalThis & { __sidevoiceDesktop?: unknown }} win
+ * @param {Window & typeof globalThis & { __sidevoiceHost?: unknown }} win
  * @param {{ world: any, identities: any, desktop: boolean, onKey?: (event: KeyboardEvent) => void, card?: () => unknown }} options */
 export function attach(win, { world, identities, desktop, onKey, card }) {
   if (win.location.pathname.endsWith("/call-controls.html")) {
-    win.__sidevoiceDesktop = { host: { app: "sidevoice-desktop", callControls: card?.() ?? null } };
+    win.__sidevoiceHost = { host: { callControls: card?.() ?? null } };
     return;
   }
   const realFetch = win.fetch.bind(win);
@@ -195,7 +195,7 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
   // Restarting into an app update opens a new window: the page loads again, its session (sessionStorage: what it hid
   // for this run, an update notice's ×) started over, as a new window's is. The preview's own keys on this origin
   // (sidevoice-preview.*: the world kept over a reload) stay.
-  if (desktop) win.__sidevoiceDesktop = { host: desktopHost(world, identities, { relaunch: (/** @type {{ reset?: boolean, uninstalled?: boolean }} */ options = {}) => { const { reset, uninstalled } = options;
+  if (desktop) win.__sidevoiceHost = { host: desktopHost(world, identities, { relaunch: (/** @type {{ reset?: boolean, uninstalled?: boolean }} */ options = {}) => { const { reset, uninstalled } = options;
     if (reset) try {
       for (const key of Object.keys(win.localStorage)) if (key.startsWith("sidevoice.") && !key.startsWith("sidevoice-preview.")) win.localStorage.removeItem(key);
     } catch { /* The reset report still names what failed. */ }

@@ -1,5 +1,5 @@
 // The preview's floating call card host (sidevoice-web briefs/FLOATING-CARD-SPEC.md §8): the seam the desktop app gives
-// its card window (`window.__sidevoiceDesktop.host.callControls`, the web's call-controls/host.ts CallControlsHost),
+// its card window (`window.__sidevoiceHost.host.callControls`, the web's call-controls/host.ts CallControlsHost),
 // fed from the room frame beside it as the desktop's bridge feeds it from the room window — the room's own store
 // (`sidevoiceUI.store`, whose `callCard` is the card's whole snapshot), its microphone level and its caption channels,
 // and its actions (`sidevoiceActions`). The card page in the frame is the web's real one: what shows is what the app's

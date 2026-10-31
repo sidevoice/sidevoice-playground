@@ -1,5 +1,5 @@
-// The mocked preview's desktop app: `window.__sidevoiceDesktop.host` as the desktop bridge gives it to the page
-// (sidevoice-desktop docs/BRIDGE.md; the page's side is apps/web/src/services/desktop-host.ts), with its local host
+// The mocked preview's desktop app: `window.__sidevoiceHost.host` as the desktop bridge gives it to the page
+// (sidevoice-desktop docs/BRIDGE.md; the page's side is apps/web/src/host/native.ts), with its local host
 // (`localHost`) answering from the world: its state, its pairing, starting and stopping it, its pairing codes and its
 // version, and installing it as the desktop app does (`install`, `cancel`: download with its bytes, cancellable, then
 // verification, staging and the service's start), unless the world's app has no install seam (`local.appInstalls: false`),
@@ -10,7 +10,8 @@
 
 /** @typedef {import("./web-types").LocalHostStatus} LocalHostStatus */
 /** @typedef {import("./web-types").LocalHostBridge} LocalHostBridge */
-/** @typedef {import("./web-types").DesktopDataBridge} DesktopDataBridge */
+/** @typedef {import("./web-types").PairingsStore} PairingsStore */
+/** @typedef {import("./web-types").ResetBridge} ResetBridge */
 
 import { LOCAL_ID, LOCAL_URL, SERVICE_VERSION, mintCode, nextMinor, storedPairing } from "./machines.mjs";
 import { desktopEngine } from "./models.mjs";
@@ -21,7 +22,7 @@ import { appMicrophone } from "./microphone.mjs";
  *  the one installed, and the one the app bundles — a service's number, as every machine's (machines.mjs). */
 export const LOCAL_VERSION = SERVICE_VERSION;
 
-/** The local host's status (desktop-host.ts `LocalHostStatus`), from the world's `local`.
+/** The local host's status (the web's host/types.ts `LocalHostStatus`), from the world's `local`.
  * @returns {LocalHostStatus} */
 export function localStatus(local, now) {
   const running = local.state === "running";
@@ -57,8 +58,9 @@ const INSTALL_STEPS = [
 /** This computer's local host where a scenario names none: not installed yet, as on a desktop app just opened. */
 export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", participants: [] };
 
-/** The desktop host for the world: `{ app, version, computerName, voice, microphone, engine, localHost }`, as the bridge gives it:
- *  the app's voice and engine (voice.mjs, models.mjs), and its local host. Any scenario runs in the app: one whose
+/** The desktop host for the world, as the bridge gives it to the page (`window.__sidevoiceHost.host`): who it is (`os`,
+ *  `deviceName`, `build`), what it owns (`presence`, `reach`, `pairings`, `reset`, `microphone`), the app's voice and
+ *  engine (voice.mjs, models.mjs), and its local host. The mocked app is the macOS one. Any scenario runs in the app: one whose
  *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer (or,
  *  where the world's app has no install seam, `local.appInstalls: false`, shows only the install command).
  *  `relaunch`: what the app restarting into its update does to the page (attach.mjs: loads it again, as a restart
@@ -70,23 +72,24 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
   const set = (fields) => world.patch(Object.fromEntries(Object.entries(fields).map(([k, v]) => [`local.${k}`, v])));
   const jobs = new Map();
   let jobCount = 0;
-  // The reset seam (deleteAll, resetReport) is macOS only and newer than some webs (web #127); uninstall (desktop #95) is
-  // deleteAll ending with the app moved to the Trash instead of a relaunch.
-  /** @type {DesktopDataBridge & { deleteAll?: () => Promise<any>, resetReport?: () => Promise<any>, uninstall?: () => Promise<any> }} */
-  const data = {
-    pairings: {
-      async read() {
-        const saved = world.state.app?.pairings;
-        const pairings = Array.isArray(saved) ? saved : Object.keys(world.state.machines ?? {})
-          .filter((id) => world.state.machines[id].paired)
-          .map((id) => storedPairing(world.state, identities, id, world.now()));
-        return { pairings: structuredClone(pairings), pendingRevokes: structuredClone(world.state.app?.pendingRevokes ?? []) };
-      },
-      async write(value) {
-        if (!Array.isArray(value?.pairings) || !Array.isArray(value?.pendingRevokes)) throw { key: "data.pairings-invalid" };
-        world.patch({ "app.pairings": structuredClone(value.pairings), "app.pendingRevokes": structuredClone(value.pendingRevokes) });
-      },
+  /** The pairings the app keeps for the page (`host.pairings`). @type {PairingsStore} */
+  const pairings = {
+    async read() {
+      const saved = world.state.app?.pairings;
+      const list = Array.isArray(saved) ? saved : Object.keys(world.state.machines ?? {})
+        .filter((id) => world.state.machines[id].paired)
+        .map((id) => storedPairing(world.state, identities, id, world.now()));
+      return { pairings: structuredClone(list), pendingRevokes: structuredClone(world.state.app?.pendingRevokes ?? []) };
     },
+    async write(value) {
+      if (!Array.isArray(value?.pairings) || !Array.isArray(value?.pendingRevokes)) throw { key: "data.pairings-invalid" };
+      world.patch({ "app.pairings": structuredClone(value.pairings), "app.pendingRevokes": structuredClone(value.pendingRevokes) });
+    },
+  };
+  // The reset seam (`host.reset`: deleteAll, resetReport) is macOS only and newer than some webs (web #127); uninstall
+  // (desktop #95) is deleteAll ending with the app moved to the Trash instead of a relaunch.
+  /** @type {ResetBridge} */
+  const reset = {
     async deleteAll() {
       if (world.state.app?.resetFailure === "service") throw { key: "reset.service-failed" };
       if (world.state.local?.state === "installing") throw { key: "reset.busy" };
@@ -268,8 +271,13 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
   const voice = fakeVoice(world);
   world.voiceRuntime = voice;
   const host = {
-    app: "sidevoice-desktop",
-    version: "0.0.0-preview",
+    // Who the app is. The mocked app is the macOS one (its service is launchd, its reset and uninstall are macOS's).
+    os: "macos",
+    deviceName: local()?.computerName ?? "Mac de Ana",
+    // The app owns the system's media (macOS): the page makes no media element and registers no Media Session.
+    presence: { media: "app" },
+    // The webview sends plain http to a private address (the page's own origin would say it cannot).
+    reach: { plainHttpPrivate: true },
     // The app's call settings (after sidevoice-desktop #56): the mute shortcut and the call controls always shown.
     ...(world.state.app?.desktopSettings === false ? {} : { muteShortcut: muteShortcutOf(world), callControls: callControlsOf(world) }),
     // The app's own build (sidevoice-desktop #56): a release, a nightly or a development build, as the world says.
@@ -277,12 +285,12 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
     // A release's or a nightly's updater (sidevoice-desktop #56): its mode and its state are the world's
     // (`app.update`), stepped from the card or a scenario's options, and heard by the page as they change.
     ...(hasAppUpdater(world) ? { updater: appUpdaterOf(world) } : {}),
-    computerName: local()?.computerName ?? "Mac de Ana",
     voice: voice.host,
     // Where the app runs the call (macOS), the microphone's permission is the app's to ask for (sidevoice-desktop#93).
     microphone: appMicrophone(world),
     engine: desktopEngine(world),
-    data,
+    pairings,
+    reset,
     localHost,
   };
   // The app's number is the one it runs: APP_VERSION, or the update it restarted into (`app.version`).

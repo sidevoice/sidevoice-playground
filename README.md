@@ -229,7 +229,7 @@ of its own: nothing faked, and no model runs (the core offered is the room-only 
 desktop app's window, a phone), and the card. The site's `/voice/target.js` — the classic script a deployment puts
 before the web's module — hands the page to the shell, which puts in its mocks through the seams the web already has:
 `fetch` (the machines, the room and the page's own origin answer the routes the web asks: rendezvous, identity,
-pairing, devices, the presentation's reads) and, in the app view, `window.__sidevoiceDesktop.host` (the desktop
+pairing, devices, the presentation's reads) and, in the app view, `window.__sidevoiceHost.host` (the desktop
 bridge, with its local host). Identities are real P-256 keys and codes are real `SV1.` codes, so the web pairs with
 its own code.
 
