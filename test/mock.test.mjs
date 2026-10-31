@@ -590,6 +590,31 @@ test("a release's updater: automatic downloads what a check finds, manual waits 
   await assert.rejects(updater.setMode("sometimes"));
 });
 
+test("the updater's cancel stops a download as the app's does: available again, no error; automatic leaves it until download()", async () => {
+  const { world, identities } = await setup();
+  const updater = desktopHost(world, identities).updater;
+  // With no download running it resolves and changes nothing.
+  await updater.cancel();
+  assert.deepEqual(await updater.status(), { state: "idle" });
+  assert.equal((await updater.check()).state, "downloading");
+  await updater.cancel();
+  assert.deepEqual(await updater.status(), { state: "available", version: UPDATE_VERSION });
+  // The version cancelled is not downloaded again by itself, at a later check or when automatic mode is switched to.
+  await world.delay(DOWNLOAD_STEP_MS * 3);
+  assert.deepEqual(await updater.check(), { state: "available", version: UPDATE_VERSION });
+  await updater.setMode("manual");
+  await updater.setMode("automatic");
+  await world.delay(DOWNLOAD_STEP_MS * 3);
+  assert.deepEqual(await updater.status(), { state: "available", version: UPDATE_VERSION });
+  // download() (the person asking) lifts the cancel.
+  assert.equal((await updater.download()).state, "downloading");
+  while ((await updater.status()).state === "downloading") await new Promise((r) => setImmediate(r));
+  assert.deepEqual(await updater.status(), { state: "ready", version: UPDATE_VERSION });
+  // Nothing is downloading any more: a cancel leaves a ready update as it is.
+  await updater.cancel();
+  assert.equal((await updater.status()).state, "ready");
+});
+
 test("the updater's steps take the app's time: a check ~1.5 s, a download ~7 s in uneven steps; the app's own check too", async () => {
   // The world's clock, as its delays spend it.
   let elapsed = 0;
