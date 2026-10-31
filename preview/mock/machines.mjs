@@ -91,7 +91,7 @@ export function machineOf(state, id) {
 
 /** What this device keeps of its pairing with machine `id` (device-pairing.js's `Pairing`). A machine paired without
  *  encryption (`"insecure": true`) is kept as the web keeps one the person agreed to reach over plain http on a private
- *  network: at its local network's address alone, with no room, and saying so.
+ *  network: at its local network's address alone, and saying so.
  * @returns {Pairing} */
 export function storedPairing(state, identities, id, now) {
   const machine = state.machines[id];
@@ -99,7 +99,7 @@ export function storedPairing(state, identities, id, now) {
   const insecure = machine.insecure === true;
   return {
     fp: identity.fingerprint, public_key: identity.publicKey, host: machine.host, urls: [insecure ? lanUrl(id) : directUrl(id)],
-    rv: insecure ? null : { url: ROOM_URL, node: id }, device_id: identity.deviceId, token: identity.token,
+    device_id: identity.deviceId, token: identity.token,
     paired_at: Math.floor(now / 1000) - Math.round((machine.pairedDaysAgo ?? 1) * DAY),
     ...(insecure ? { insecure: true } : {}),
   };
@@ -163,13 +163,11 @@ export function mintCode(world, identities, id, variant = "valid") {
   const payload = {
     v: 1, fp: identities[id].fingerprint, host: machine?.host ?? null,
     urls: id === LOCAL_ID ? [LOCAL_URL] : [directUrl(id)],
-    rv: id === LOCAL_ID && world.state.local?.reach === "local-only" ? null : { url: ROOM_URL, node: id },
     secret, exp: now + 600,
   };
   if (variant === "expired") payload.exp = now - 60;
   if (variant === "plaintext") {
     payload.urls = ["http://192.168.1.20:8765"];
-    payload.rv = null;
   }
   codes(world).set(secret, { id, used: variant === "used", impostor: variant === "impostor" });
   const code = "SV1." + base64url(utf8(JSON.stringify(payload)));

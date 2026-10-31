@@ -77,7 +77,7 @@ test("in a browser: permissions.query reads it and hears it change; getUserMedia
 test("the voice's start asks the same way: blocked when asked is the microphone denied, none connected unavailable", async () => {
   for (const [mic, code] of [["prompt-block", "microphone-denied"], ["denied", "microphone-denied"], ["missing", "microphone-unavailable"]]) {
     const voice = fakeVoice(world(mic));
-    await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" } });
+    await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
     await assert.rejects(voice.host.start(), (e) => e.code === code, mic);
   }
 });

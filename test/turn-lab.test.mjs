@@ -477,7 +477,7 @@ test("mock voice discards short overlap but qualifies a sustained barge-in", asy
   const voice = fakeVoice(world);
   const turns = [];
   voice.host.onTurn((turn) => turns.push(turn));
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, barge_in_min_speech: 1 });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, barge_in_min_speech: 1 }, output: { tts: { catalog: "local", model: "kokoro" } } });
   await voice.host.start();
   const saying = voice.host.say("Long reply for the duration gate. ".repeat(50));
   await Promise.resolve();
@@ -500,7 +500,7 @@ test("mock voice completes three queued replies in FIFO order", async () => {
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
   await voice.host.start();
   const seen = [];
   const says = ["One.", "Two.", "Three."].map((text, index) => {
@@ -532,7 +532,7 @@ test("mock voice keeps A and B turns in separate running calls across an input r
   b.onTurn((event) => turns.push(["b", event]));
   a.onLevel((level) => { if (level === 0) aStoppedSpeaking(); });
   for (const call of [a, b]) {
-    await call.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, end_of_turn: "silence", patience: "normal" });
+    await call.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro" } } });
     await call.start();
   }
   await voice.host.routeInput(a);
@@ -566,7 +566,7 @@ async function sharedMicrophone() {
   for (const [key, call] of [["a", a], ["b", b]]) {
     call.onTurn((event) => log.push({ call: key, at: clock, event }));
     call.onLevel((level) => log.push({ call: key, at: clock, level }));
-    await call.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, end_of_turn: "silence", patience: "normal" });
+    await call.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro" } } });
     await call.start();
   }
   await voice.host.routeInput(a);
@@ -675,7 +675,7 @@ test("mock voice: a barge-in stops playback within a step and says what was hear
   const voice = fakeVoice(world);
   const states = [], events = [];
   voice.host.onState((state) => states.push(state.playback));
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" }, barge_in_min_speech: 1 });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, barge_in_min_speech: 1 }, output: { tts: { catalog: "local", model: "kokoro" } } });
   await voice.host.start();
   const text = "First sentence goes here. Second sentence goes here too. Third one is the last.";
   const saying = voice.host.say(text);
@@ -698,7 +698,7 @@ test("mock voice: a barge-in stops playback within a step and says what was hear
 test("mock voice: cutting the final sentence is never a success", async () => {
   const world = createWorld({ id: "final", title: "Final", summary: "", world: {}, options: [] }, {}, { tick: () => new Promise((r) => setImmediate(r)) });
   const voice = fakeVoice(world);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
   await voice.host.start();
   const text = "Only one long sentence that takes a while to be read out loud by the mock speaker";
   const saying = voice.host.say(text);
@@ -721,7 +721,7 @@ test("mock voice: endInput ends the open turn now, and does nothing without one"
   const voice = fakeVoice(world);
   const turns = [];
   voice.host.onTurn((turn) => turns.push(turn));
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro" } });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
   await voice.host.start();
   await voice.host.endInput();
   assert.equal(turns.length, 0);

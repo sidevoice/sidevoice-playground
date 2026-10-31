@@ -19,7 +19,7 @@ test("the mocked speaker has its own levels, including zero gaps during playback
   const stop = voice.host.onPlaybackLevel((level) => output.push([voice.state.playback, level]));
   voice.host.onLevel((level) => mic.push(level));
   voice.host.onState((state) => states.push(state.playback));
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" } });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   await voice.host.start();
   assert.deepEqual(await voice.host.say("Hello there.").outcome, { status: "heard" });
   assert.ok(output.some(([, level]) => level > 0));
@@ -204,7 +204,7 @@ test("a model is dated as used when a call or a try loads it, not when it is ins
   assert.equal(model("whisper-base").lastUsedAt, null, "installed, never loaded");
   now += 60_000;
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "openai", model: "tts-1" } });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "openai", model: "tts-1" } } });
   w.patch({ "voice.keys": { openai: "sk" } });
   await voice.host.start();
   assert.equal(model("whisper-base").lastUsedAt, now, "loaded by the start of a call or a try");
@@ -283,7 +283,7 @@ test("the browser's WebEngine reads the page's keys, lists by capability, and in
 test("a turn ends after the silence the settings wait; a pause shorter than it is still the turn; cut off, the person goes on in a new turn the cut one merges into", async () => {
   const w = world();
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "silence", patience: "calm" });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "calm" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const turns = [];
   const recognising = [];
   voice.host.onTurn((t) => turns.push(t));
@@ -294,7 +294,7 @@ test("a turn ends after the silence the settings wait; a pause shorter than it i
   assert.equal(turns[1].timings.endpoint_silence_ms, 3500);
   assert.equal(recognising.filter((n) => n === 1).length, 1, "the pause did not end the turn");
   turns.length = 0;
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "smart-turn", patience: "fast" });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "smart" }, patience: "fast" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   await voice.speak("uno dos tres cuatro", { cutOff: true });
   assert.deepEqual(turns.map((t) => `${t.phase}:${t.turn_id}${t.merged ? ":merged" : ""}`), ["started:mock-call-1-turn-2", "started:mock-call-1-turn-3", "cancelled:mock-call-1-turn-2:merged", "finished:mock-call-1-turn-3:merged"]);
   assert.equal(turns.at(-1).text, "uno dos tres cuatro");
@@ -306,7 +306,7 @@ test("the voice hears what the card says while it listens, and fails as the worl
   const voice = fakeVoice(w);
   assert.equal(await voice.speak("hola"), false, "not listening yet");
   await assert.rejects(voice.host.start(), (e) => e.code === "settings-missing");
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" } });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const turns = [];
   const states = [];
   voice.host.onTurn((t) => turns.push(t));
@@ -338,10 +338,10 @@ test("the voice hears what the card says while it listens, and fails as the worl
 test("in the desktop app a provider's model without its key is refused; in the browser the page's source decides", async () => {
   const w = world();
   const app = fakeVoice(w);
-  await app.host.setSettings({ stt: { catalog: "openai", model: "gpt-4o-transcribe" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" } });
+  await app.host.setSettings({ input: { stt: { catalog: "openai", model: "gpt-4o-transcribe" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   await assert.rejects(app.host.start(), (e) => e.code === "credential-missing");
   const page = fakeVoice(w, { source: { models: async () => { throw Object.assign(new Error("model-unknown"), { code: "model-unknown" }); } } });
-  await page.host.setSettings({ stt: {}, tts: {} });
+  await page.host.setSettings({ input: { stt: {} }, output: { tts: {} } });
   await assert.rejects(page.host.start(), (e) => e.code === "model-unknown");
 });
 
@@ -399,7 +399,7 @@ test("a try's take (web gap #40): asked for, what the voice heard from listening
   const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
   const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "silence", patience: "normal" });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const takes = [];
   const turns = [];
   voice.host.onTake((take) => takes.push(take));
@@ -445,7 +445,7 @@ test("a cut-off's take marks both turns: the end decided too soon, and the turn 
   const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
   const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "smart-turn", patience: "fast" });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "smart" }, patience: "fast" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const takes = [];
   voice.host.onTake((take) => takes.push(take));
   await voice.host.start({ take: true });
@@ -463,7 +463,7 @@ test("a take keeps silence while the person has the microphone muted, as the voi
   const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
   const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ stt: { catalog: "local", model: "whisper-base" }, tts: { catalog: "local", model: "kokoro-82m-v1.0" }, end_of_turn: "silence", patience: "normal" });
+  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const takes = [];
   voice.host.onTake((take) => takes.push(take));
   await voice.host.start({ take: true });
