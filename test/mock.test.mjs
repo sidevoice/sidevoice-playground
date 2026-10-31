@@ -122,7 +122,8 @@ test("desktop reset mock reports model cleanup failure only after relaunch", asy
 test("the app's host has the members the bridge gives the page, and not the ones it dropped", async () => {
   const { world, identities } = await setup();
   const host = desktopHost(world, identities);
-  assert.equal(host.os, "macos");
+  assert.equal(host.shortcutModifier, "⌘", "the macOS app's");
+  assert.equal("os" in host, false, "the page is not told the system");
   assert.equal(host.deviceName, "Mac", "the computer's name, from the world's local host");
   assert.deepEqual(host.presence, { media: "app" }, "the macOS app owns the system's media");
   assert.deepEqual(host.reach, { plainHttpPrivate: true });
@@ -137,7 +138,8 @@ test("the app view injects window.__sidevoiceHost, and nothing under the name it
   attach(/** @type {any} */ (win), { world, identities, desktop: true });
   assert.deepEqual(Object.keys(win).filter((key) => key.startsWith("__sidevoice")), ["__sidevoiceHost"]);
   assert.equal(typeof win.__sidevoiceHost.host.localHost.state, "function");
-  assert.equal(win.__sidevoiceHost.host.os, "macos");
+  assert.equal(win.__sidevoiceHost.host.shortcutModifier, "⌘");
+  assert.equal("os" in win.__sidevoiceHost.host, false);
 });
 
 test("a world is its scenario with the chosen values set over it", () => {

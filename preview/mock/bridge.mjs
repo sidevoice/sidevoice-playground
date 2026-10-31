@@ -58,7 +58,7 @@ const INSTALL_STEPS = [
 /** This computer's local host where a scenario names none: not installed yet, as on a desktop app just opened. */
 export const NO_LOCAL_HOST = { computerName: "Mac de Ana", state: "absent", installed: false, reach: "local-only", participants: [] };
 
-/** The desktop host for the world, as the bridge gives it to the page (`window.__sidevoiceHost.host`): who it is (`os`,
+/** The desktop host for the world, as the bridge gives it to the page (`window.__sidevoiceHost.host`): who it is (`shortcutModifier`,
  *  `deviceName`, `build`), what it owns (`presence`, `reach`, `pairings`, `reset`, `microphone`), the app's voice and
  *  engine (voice.mjs, models.mjs), and its local host. The mocked app is the macOS one. Any scenario runs in the app: one whose
  *  world has no local host gets one not installed (`NO_LOCAL_HOST`), so the page offers to prepare this computer (or,
@@ -271,8 +271,10 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
   const voice = fakeVoice(world);
   world.voiceRuntime = voice;
   const host = {
-    // Who the app is. The mocked app is the macOS one (its service is launchd, its reset and uninstall are macOS's).
-    os: "macos",
+    // Who the app is. The mocked app is the macOS one (its service is launchd, its reset and uninstall are macOS's). The page is
+    // never told the system: it is told what the system decides about its words, here the shortcut modifier and (below) the
+    // microphone's help.
+    shortcutModifier: "⌘",
     deviceName: local()?.computerName ?? "Mac de Ana",
     // The app owns the system's media (macOS): the page makes no media element and registers no Media Session.
     presence: { media: "app" },

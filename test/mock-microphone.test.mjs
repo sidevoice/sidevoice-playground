@@ -44,6 +44,15 @@ test("the app's host.microphone: the system's permission, allowed or not, and it
   assert.match(w.activity.at(-1).url, /System Settings/);
 });
 
+test("the app's host.microphone words a blocked one in the page's language, or English", () => {
+  const host = appMicrophone(world("denied"));
+  assert.match(host.help("en").steps[0], /^Open System Settings › Privacy & Security › Microphone/);
+  assert.equal(host.help("en").openSettings, "Open System Settings");
+  assert.match(host.help("es").steps[0], /^Abre Ajustes del Sistema/);
+  assert.equal(host.help("es-419").openSettings, "Abrir Ajustes del Sistema", "its primary language");
+  for (const other of ["de", "", undefined, "constructor"]) assert.deepEqual(host.help(other), host.help("en"), String(other));
+});
+
 /** A page's window, enough for the browser's side. */
 function page() {
   const listeners = {};
