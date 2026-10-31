@@ -200,12 +200,6 @@ export function desktopHost(world, identities, { relaunch = null } = {}) {
       await world.delay(300);
       return { code: mintCode(world, identities, LOCAL_ID, "valid"), expires_in: 600, reach: local().reach ?? "local-only" };
     },
-    async pairRoom(url, code) {
-      await world.delay(900);
-      if (local().pairRoom === "refused") throw Object.assign(new Error("refused"), { key: "pair-room.refused" });
-      set({ reach: "room" });
-      return { ok: true, url, code: code ? "accepted" : null };
-    },
   };
   /** Installing Sidevoice from the app (the desktop app's, from the npm platform package), unless the world's app has none. */
   const appInstall = {
@@ -392,8 +386,10 @@ export function updaterStatus(world) {
 }
 
 /** Whether the updater, in automatic mode, would be downloading what it found by now: found, and not a download that
- *  failed (that one waits for its Retry). Automatic never rests at "available". */
-const autoDownloads = (world) => updaterMode(world) === "automatic" && updateOf(world).state === "available" && !updateOf(world).error;
+ *  failed (that one waits for its Retry) nor one the person cancelled (`cancel`: it waits for their `download`).
+ *  Automatic never rests at "available" otherwise. */
+const autoDownloads = (world) => updaterMode(world) === "automatic" && updateOf(world).state === "available" && !updateOf(world).error
+  && updateOf(world).cancelled !== updaterStatus(world).version;
 
 /** How long the app's check takes, in the world's time: a request to the release feed, ~1.5 s. */
 export const CHECK_MS = 1500;
@@ -402,9 +398,9 @@ export const CHECK_MS = 1500;
 export const DOWNLOAD_STEPS = [0.04, 0.07, 0.09, 0.11, 0.1, 0.12, 0.1, 0.09, 0.11, 0.08, 0.06, 0.03];
 export const DOWNLOAD_STEP_MS = 600;
 
-/** Starts downloading what was found, moving on to ready on the world's clock. */
+/** Starts downloading what was found, moving on to ready on the world's clock. A download asked for lifts a cancel. */
 function startDownload(world) {
-  setUpdate(world, { state: "downloading", progress: 0, error: null });
+  setUpdate(world, { state: "downloading", progress: 0, error: null, cancelled: null });
   void driveDownload(world);
 }
 
@@ -423,7 +419,7 @@ export function setUpdaterMode(world, mode) {
 export function setUpdaterState(world, id) {
   const step = UPDATER_STATES.find((s) => s.id === id);
   if (!step) return;
-  setUpdate(world, { ...step.set, installed: false });
+  setUpdate(world, { ...step.set, installed: false, cancelled: null });
   if (step.set.state === "downloading" || autoDownloads(world)) startDownload(world);
 }
 
@@ -502,6 +498,13 @@ function appUpdaterOf(world) {
       log("download()");
       if (updateOf(world).state === "available") startDownload(world);
       return updaterStatus(world);
+    },
+    /** As the app's: stops a download in progress, the update staying known, `available` and without an error; the
+     *  version stopped is left alone by automatic mode until a `download()`. With none in progress it changes nothing. */
+    async cancel() {
+      log("cancel()");
+      if (updateOf(world).state !== "downloading") return;
+      setUpdate(world, { state: "available", progress: null, error: null, cancelled: updaterStatus(world).version });
     },
     async restart() {
       log("restart()");

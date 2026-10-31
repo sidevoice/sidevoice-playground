@@ -27,7 +27,7 @@ export const KEPT = 3;
 export const SUPPLIED = { "@sidevoice/engine": "engine", "@sidevoice/voice": "voice" };
 /** The mocked preview's modules, and those of them checked against the web's types. */
 export const MOCK_DIR = fileURLToPath(new URL("./mock/", import.meta.url));
-export const MOCK_CHECKED = ["world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "models.mjs", "voice.mjs", "web-types.d.ts"];
+export const MOCK_CHECKED = ["world.mjs", "machines.mjs", "bridge.mjs", "attach.mjs", "models.mjs", "microphone.mjs", "voice.mjs", "web-types.d.ts"];
 /** Where a site keeps what checking the mocks against its web said: `{ ok, errors }`. */
 export const MOCK_CHECK = ".preview-mock-check.json";
 const MOCK_TSCONFIG = {
