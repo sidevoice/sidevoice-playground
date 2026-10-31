@@ -157,7 +157,7 @@ test("the page loads with the pairings the world says it has", async () => {
   assert.equal(stored.in_use, identities.nuc.fingerprint);
   assert.deepEqual(stored.pairings.map((p) => p.host), ["NUC"]);
   assert.deepEqual(stored.pairings[0].urls, [directUrl("nuc")]);
-  assert.deepEqual(stored.pairings[0].rv, { url: ROOM_URL, node: "nuc" });
+  assert.equal("rv" in stored.pairings[0], false, "the web's Pairing has no room link");
   assert.equal(local["sidevoice.local-host-selected"], undefined);
   world.state.local.inUse = true;
   world.state.language = "en";
@@ -198,7 +198,7 @@ test("a machine paired without encryption is kept at its local network's address
   world.patch({ "machines.ws.paired": true, "machines.ws.insecure": true });
   const kept = JSON.parse(seededStorage(world.state, identities, 0)["sidevoice.pairings"]).pairings;
   const ws = kept.find((p) => p.host === "WS");
-  assert.deepEqual([ws.urls, ws.rv, ws.insecure], [["http://ws.local:8768"], null, true]);
+  assert.deepEqual([ws.urls, ws.insecure], [["http://ws.local:8768"], true]);
   assert.equal(kept.find((p) => p.host === "NUC").insecure, undefined, "only the one paired so");
   assert.deepEqual(placeOf(`${lanUrl("ws")}/api/x?a=1`, PAGE), { id: "ws", via: "direct", path: "/api/x", query: "?a=1" });
   assert.equal(placeOf("https://ws.local:8768/api/x", PAGE), null, "only plain http");
@@ -535,7 +535,7 @@ test("the desktop app's local host installs, starts, stops and pairs on the worl
   assert.equal(local.pairing().fp, identities[LOCAL_ID].fingerprint);
   const code = await local.pairingCode();
   assert.equal(code.reach, "local-only");
-  assert.equal(JSON.parse(Buffer.from(code.code.slice(4), "base64url")).rv, null);
+  assert.equal("rv" in JSON.parse(Buffer.from(code.code.slice(4), "base64url")), false, "the web's code has no room link");
   await local.stop();
   assert.equal(local.state().state, "stopped-by-person");
   assert.equal(local.pairing(), null);

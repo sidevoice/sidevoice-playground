@@ -84,7 +84,8 @@ export function pagePermission(win, world) {
     if (status) return status;
     const target = new win.EventTarget();
     let last = micPermission(world);
-    status = Object.assign(target, { name: "microphone", onchange: null });
+    // `state` is live: it reads the world each time (a PermissionStatus's changes as the setting does).
+    status = Object.assign(target, { name: "microphone", state: last, onchange: null });
     Object.defineProperty(status, "state", { enumerable: true, get: () => micPermission(world) });
     target.addEventListener("change", (event) => { if (typeof status?.onchange === "function") status.onchange.call(status, event); });
     const stop = world.subscribe(() => {
@@ -108,7 +109,7 @@ export function pagePermission(win, world) {
     if (answer === "missing") throw new win.DOMException("Requested device not found", "NotFoundError");
     if (answer !== "granted") throw new win.DOMException("Permission denied", "NotAllowedError");
     // A silent live audio track: the web refuses a stream without one ("no microphone").
-    const Ctx = win.AudioContext ?? win.webkitAudioContext;
+    const Ctx = win.AudioContext;
     if (Ctx) return new Ctx().createMediaStreamDestination().stream;
     return typeof win.MediaStream === "function" ? new win.MediaStream() : { getTracks: () => [], getAudioTracks: () => [] };
   };

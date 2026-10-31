@@ -105,6 +105,11 @@ export function endpointMs(settings) {
   return mode[/** @type {keyof typeof mode} */ (settings?.patience ?? "normal")] ?? mode.normal;
 }
 
+/** `endpointMs`'s settings (the turn lab's evidence names them `end_of_turn` and `patience`) for a call's input half:
+ *  its `endOfTurn.kind` (`silence` or `smart`) and `patience`. */
+const endOfTurnOf = (/** @type {VoiceSettings["input"]} */ input) =>
+  ({ end_of_turn: input?.endOfTurn?.kind === "silence" ? "silence" : "smart-turn", patience: input?.patience });
+
 export function fakeVoice(world, { source = null, shared = null } = {}) {
   /** @type {any} Mock-only routing group; each call still keeps independent turn and playback state. */
   const group = shared ?? { calls: [], active: null, nextId: 0, firstCreated: false };
@@ -158,7 +163,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       return;
     }
     const keys = voiceState(world).keys;
-    for (const slot of [next.stt, next.tts]) {
+    for (const slot of [next.input?.stt, next.output?.tts]) {
       if (slot?.catalog && slot.catalog !== LOCAL && !keys[String(slot.catalog)]) throw refusal("credential-missing");
     }
   }
@@ -192,7 +197,9 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       if (asked !== "granted") throw refusal("microphone-denied");
       started = true;
       // The models a call or a try loads were just used: this device's transcriber and voice, and the voice detector.
-      const used = [settings.stt?.catalog === LOCAL ? settings.stt.model : null, settings.tts?.catalog === LOCAL ? settings.tts.model : null, "silero-vad"].filter(Boolean);
+      const stt = settings.input?.stt;
+      const tts = settings.output?.tts;
+      const used = [stt?.catalog === LOCAL ? stt.model : null, tts?.catalog === LOCAL ? tts.model : null, "silero-vad"].filter(Boolean);
       world.patch({ "voice.lastUsed": { ...voice.lastUsed, ...Object.fromEntries(used.map((model) => [String(model), world.now()])) } });
       // Listening from now: sample 0 of a take, when one is asked for and the world's voice hands it.
       taking = options?.take && voice.take !== false ? { startedAt: world.now(), speech: [], turns: [], muted: muted ? [{ from: 0, to: Infinity }] : [] } : null;
@@ -375,7 +382,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     if (open && !open.ended) { await open.talk(text, durationMs); return true; }
     const overlapping = [...sayHandles].filter(([id]) => activeSays.has(id));
     if (overlapping.length) {
-      const threshold = Math.ceil(((/** @type {any} */ (settings))?.barge_in_min_speech ?? 1) * 1000);
+      const threshold = Math.ceil((settings?.input?.barge_in_min_speech ?? 1) * 1000);
       // Simulated detector gate: short or quiet overlap is discarded before any
       // turn event. In silence, the same short word remains an ordinary turn.
       if (durationMs < threshold || level < 0.8) { await world.delay(durationMs); return true; }
@@ -388,7 +395,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     const voice = voiceState(world);
     let turn = `${callId}-turn-${++turns}`;
     const startedAt = world.now();
-    const silence = endpointMs(settings);
+    const silence = endpointMs(endOfTurnOf(settings?.input));
     // The take this is said into, if one is kept: where in it each moment falls, and the turn's marks.
     const take = taking;
     const at = () => (take ? world.now() - take.startedAt : 0);
@@ -483,7 +490,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     }
     const endedAt = world.now();
     emit("turn", /** @type {VoiceTurnEvent} */ ({
-      phase: "finished", turn_id: turn, text: heardText, ...(settings?.stt?.language ? { language: String(settings.stt.language) } : {}),
+      phase: "finished", turn_id: turn, text: heardText, ...(settings?.input?.stt?.language ? { language: String(settings.input.stt.language) } : {}),
       started_at: startedAt, ended_at: endedAt, merged: cutOff,
       timings: { audio_ms: endedAt - startedAt, endpoint_silence_ms: silence, recognition_ms: 500 },
     }));
@@ -516,7 +523,7 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     emit("devices", deviceList());
   }
 
-  const runtime = { host, speak: (...args) => group.active?.host === host ? speak(...args) : group.active?.speak(...args) ?? false,
+  const runtime = { host, speak: (text, how) => group.active?.host === host ? speak(text, how) : group.active?.speak(text, how) ?? false,
     plugHeadset, outputSelectable, get devices() { return { ...devices }; },
     get state() { return group.active?.host !== host && group.active ? group.active.state : { ...state, started }; } };
   group.calls.push(runtime);
