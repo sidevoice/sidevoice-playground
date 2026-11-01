@@ -3,12 +3,11 @@
 // levels and states a real one goes through; what the page asks it to say is "heard" at a reading pace, chunk by
 // chunk. The world's `voice` says what fails: the microphone (its permission, or none connected: microphone.mjs), transcription, speech.
 //
-// In the browser the page's own model source (`source`, its voice-source.ts over the mocked engine) is asked for the
-// settings' models before the call starts, so its refusals (a model it does not know, a key missing) are the page's
-// own. In the desktop app there is no source: the app's voice checks the choices itself, as here.
+// The seam is @sidevoice/voice's `VoiceHost` / `VoiceCallHost` (the web's apps/web/src/host/types.ts, `VoiceMember.host()`):
+// `start(settings, options)` answers a call at once, and its `ready` says when it works or why it cannot (a key missing,
+// the microphone refused). The page's own voice in a browser and the desktop app's are the same mock.
 //
-// A try's take (sidevoice-web contract gap #40; @sidevoice/voice's `VoiceTake`, sidevoice-voice#28, and the desktop app's
-// `host.voice`, sidevoice-desktop#71): started with `{take: true}`, the voice keeps what its microphone "gave" from the
+// A try's take (@sidevoice/voice's `VoiceTake`, and the desktop app's `host.voice`, sidevoice-desktop#71): started with `{take: true}`, the voice keeps what its microphone "gave" from the
 // moment it listens until it stops, silence while muted, and hands it to `onTake` before `stop()` resolves. With no
 // microphone, it is made up from what the voice told: a low hiss throughout, a voiced tone at the levels it told while
 // the person spoke, the pauses quiet, and the marks of the turns it told, where it told them. The world's `voice.take`
@@ -19,6 +18,7 @@ import { LOCAL, voiceState } from "./models.mjs";
 import { askMicrophone } from "./microphone.mjs";
 
 /** @typedef {import("./web-types").VoiceHost} VoiceHost */
+/** @typedef {import("./web-types").VoiceCallHost} VoiceCallHost */
 /** @typedef {import("./web-types").VoiceSettings} VoiceSettings */
 /** @typedef {import("./web-types").VoiceTurnEvent} VoiceTurnEvent */
 /** @typedef {import("./web-types").VoiceCallState} VoiceCallState */
@@ -26,7 +26,6 @@ import { askMicrophone } from "./microphone.mjs";
 /** @typedef {import("./web-types").VoiceSayOutcome} VoiceSayOutcome */
 /** @typedef {import("./web-types").VoiceSaying} VoiceSaying */
 /** @typedef {import("./web-types").VoiceTake} VoiceTake */
-/** @typedef {import("./web-types").TakingVoiceHost} TakingVoiceHost */
 
 const refusal = (code) => Object.assign(new Error(code), { code });
 
@@ -96,7 +95,6 @@ export function speechLevel(ms, seed = 0) {
   return word < 1 ? 0.12 : Math.max(0.03, Math.min(0.85, 0.3 + 0.55 * syllable * phrase * uneven));
 }
 
-/** The voice host of `world`; `source` is the page's model source (browser), or none (the desktop app's). */
 /** How long a silence ends a turn, as the settings say: the voice detector's wait alone (Silence), or shorter where
  *  the end-of-turn model decides (Smart); longer the calmer the patience. */
 const ENDPOINT_MS = { silence: { fast: 2000, normal: 2500, calm: 3500 }, "smart-turn": { fast: 600, normal: 900, calm: 1300 } };
@@ -110,14 +108,15 @@ export function endpointMs(settings) {
 const endOfTurnOf = (/** @type {VoiceSettings["input"]} */ input) =>
   ({ end_of_turn: input?.endOfTurn?.kind === "silence" ? "silence" : "smart-turn", patience: input?.patience });
 
-export function fakeVoice(world, { source = null, shared = null } = {}) {
-  /** @type {any} Mock-only routing group; each call still keeps independent turn and playback state. */
-  const group = shared ?? { calls: [], active: null, nextId: 0, firstCreated: false };
+/**
+ * One call of the voice host `group` (mock-only: the calls it routes the shared microphone between), begun with `initial` settings.
+ * Each call keeps its own turn and playback state; the first call of a host is the one the microphone routes to.
+ * @param {any} world @param {any} group @param {VoiceSettings} initial @param {{ take?: boolean }} [options] With `take`, a take is kept from the moment it listens.
+ */
+function fakeCall(world, group, initial, options) {
   const callId = `mock-call-${++group.nextId}`;
   /** @type {Record<string, Set<Function>>} */
-  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), error: new Set(), devices: new Set(), take: new Set() };
-  // The devices: the headset plugged in, nothing chosen (the system's defaults), the speaker choosable.
-  const devices = group.devices ??= { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
+  const listeners = { turn: new Set(), state: new Set(), level: new Set(), playbackLevel: new Set(), error: new Set(), take: new Set() };
   const emit = (kind, value) => {
     for (const listener of [...listeners[kind]]) listener(value);
   };
@@ -125,9 +124,10 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     listeners[kind].add(listener);
     return () => listeners[kind].delete(listener);
   };
-  /** @type {VoiceSettings | null} */
-  let settings = null;
+  /** @type {VoiceSettings} */
+  let settings = initial;
   let started = false;
+  let stopped = false;
   let muted = false;
   let turns = 0;
   /** @type {{ ended: boolean, hold: boolean, closing: Promise<void> | null, force: () => void, close: () => Promise<void>, lastSpeechAt: number, parts: { words: string[], captured: number, steps: number }[], talk: ((part: string, ms?: number) => Promise<void>) | null } | null} The turn in progress, until its end of turn is decided. */
@@ -156,71 +156,40 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     if (state.playback !== playback) setState({ playback });
   };
 
-  /** The models the settings name: the page's source in the browser; in the app, the app's own check. */
+  /** The models the settings name: a provider's needs its key. */
   async function check(next) {
-    if (source) {
-      await source.models(next);
-      return;
-    }
     const keys = voiceState(world).keys;
     for (const slot of [next.input?.stt, next.output?.tts]) {
       if (slot?.catalog && slot.catalog !== LOCAL && !keys[String(slot.catalog)]) throw refusal("credential-missing");
     }
   }
 
-  /** @type {any} The owner exposes createCall/routeInput; each call exposes the current call surface. */
+  /** @type {VoiceCallHost} */
   const host = {
     id: callId,
-    createCall() {
-      if (!group.firstCreated) { group.firstCreated = true; return host; }
-      return fakeVoice(world, { source, shared: group }).host;
-    },
-    async routeInput(target) {
-      const call = target == null ? null : group.calls.find((item) => item.host === target);
-      if (target != null && !call) throw refusal("unknown-voice-call");
-      group.active = call;
-      world.log({ method: "VOICE", url: `routeInput(${target?.id ?? "none"})`, status: "ok", mocked: true });
-    },
-    async setSettings(next) {
+    ready: /** @type {Promise<void>} */ (/** @type {unknown} */ (null)),
+    async update(change) {
+      const next = { ...settings, ...change };
+      if (!next.input && !next.output) throw new TypeError("voice settings need an input or an output half");
+      // A model that cannot be used is an error, and that half stays as it was.
+      try { await check(next); } catch (error) { emit("error", error); return; }
       settings = next;
     },
-    /** @param {{ take?: boolean }} [options] With `take`, a take is kept from the moment it listens (web gap #40). */
-    async start(options) {
-      if (!settings) throw refusal("settings-missing");
-      await check(settings);
-      const voice = voiceState(world);
-      // The models load, as a call's first start loads them.
-      await world.delay(600);
-      // Opening the microphone asks for it, as the platform does: a prompt where it was never answered (microphone.mjs).
-      const asked = await askMicrophone(world);
-      if (asked === "missing") throw refusal("microphone-unavailable");
-      if (asked !== "granted") throw refusal("microphone-denied");
-      started = true;
-      // The models a call or a try loads were just used: this device's transcriber and voice, and the voice detector.
-      const stt = settings.input?.stt;
-      const tts = settings.output?.tts;
-      const used = [stt?.catalog === LOCAL ? stt.model : null, tts?.catalog === LOCAL ? tts.model : null, "silero-vad"].filter(Boolean);
-      world.patch({ "voice.lastUsed": { ...voice.lastUsed, ...Object.fromEntries(used.map((model) => [String(model), world.now()])) } });
-      // Listening from now: sample 0 of a take, when one is asked for and the world's voice hands it.
-      taking = options?.take && voice.take !== false ? { startedAt: world.now(), speech: [], turns: [], muted: muted ? [{ from: 0, to: Infinity }] : [] } : null;
-      setState({ listening: muted ? "muted" : "listening" });
-    },
     async stop() {
+      stopped = true;
       ++playbackRun;
       activeSays.clear();
       silence();
+      stopFailing();
+      const at = group.calls.findIndex((item) => item.host === host);
+      if (at >= 0) group.calls.splice(at, 1);
+      if (group.active?.host === host) group.active = null;
       if (!started) return;
       started = false;
       const kept = taking;
       taking = null;
       if (kept) emit("take", synthesisedTake(kept, world.now()));
       setState({ listening: "idle", recognising: 0, playback: "idle" });
-    },
-    async dispose() {
-      await host.stop();
-      stopFailing();
-      group.calls.splice(group.calls.findIndex((item) => item.host === host), 1);
-      if (group.active?.host === host) group.active = null;
     },
     say(text, options) {
       const id = `say-${++says}`;
@@ -254,7 +223,8 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       };
       const outcome = (async () => {
         if (previousPlayback) await previousPlayback;
-        await Promise.resolve();
+        // Said before the call works: after it does.
+        await (started ? Promise.resolve() : host.ready.catch(() => {}));
         if (!started) return /** @type {VoiceSayOutcome} */ ({ status: "not-played", reason: "stopped" });
         activeSays.set(id, "synthesizing");
         refreshPlayback();
@@ -343,22 +313,6 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
       turn.force();
       await turn.close();
     },
-    // The microphone and the speaker (@sidevoice/voice 0.3.0): what there is, which are chosen (null: the system's
-    // default), whether the speaker can be chosen, and the list as it changes (the card plugs a headset in and out).
-    audioDevices: async () => deviceList(),
-    async setAudioDevices(choice) {
-      if ("output" in choice && choice.output != null && !devices.outputSelectable) throw Object.assign(new Error("audio-output-unselectable"), { code: "audio-output-unselectable" });
-      for (const kind of /** @type {const} */ (["input", "output"])) {
-        if (!(kind in choice)) continue;
-        const id = choice[kind] ?? null;
-        const list = kind === "input" ? present().inputs : present().outputs;
-        if (id !== null && !list.some((device) => device.id === id)) throw Object.assign(new Error(kind === "input" ? "microphone-unavailable" : "audio-output-failed"), { code: kind === "input" ? "microphone-unavailable" : "audio-output-failed" });
-        devices[kind] = id;
-      }
-      world.log({ method: "VOICE", url: "setAudioDevices(" + JSON.stringify(choice) + ")", status: "ok", mocked: true });
-      return deviceList();
-    },
-    onAudioDevices: on("devices"),
     onTurn: on("turn"),
     onState: on("state"),
     onLevel: on("level"),
@@ -499,6 +453,54 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
     await close();
     return true;
   }
+  // Listening begins once the models are loaded and the microphone is open, as a call's first state says.
+  /** @type {{ ready: Promise<void> }} */ (host).ready = (async () => {
+    await check(settings);
+    // The models load, as a call's first start loads them.
+    await world.delay(600);
+    if (stopped) throw refusal("stopped");
+    // Opening the microphone asks for it, as the platform does: a prompt where it was never answered (microphone.mjs).
+    if (settings.input) {
+      const asked = await askMicrophone(world);
+      if (stopped) throw refusal("stopped");
+      if (asked === "missing") throw refusal("microphone-unavailable");
+      if (asked !== "granted") throw refusal("microphone-denied");
+    }
+    started = true;
+    // The models a call or a try loads were just used: this device's transcriber and voice, and the voice detector.
+    const voice = voiceState(world);
+    const stt = settings.input?.stt;
+    const tts = settings.output?.tts;
+    const used = [stt?.catalog === LOCAL ? stt.model : null, tts?.catalog === LOCAL ? tts.model : null, "silero-vad"].filter(Boolean);
+    world.patch({ "voice.lastUsed": { ...voice.lastUsed, ...Object.fromEntries(used.map((model) => [String(model), world.now()])) } });
+    // Listening from now: sample 0 of a take, when one is asked for and the world's voice hands it.
+    taking = options?.take && settings.input && voice.take !== false ? { startedAt: world.now(), speech: [], turns: [], muted: muted ? [{ from: 0, to: Infinity }] : [] } : null;
+    setState({ listening: !settings.input ? "off" : muted ? "muted" : "listening" });
+  })();
+  // A call that failed to start is not left holding the microphone's route.
+  host.ready.catch(() => { const at = group.calls.findIndex((item) => item.host === host); if (at >= 0) group.calls.splice(at, 1); if (group.active?.host === host) group.active = null; });
+
+  const runtime = { host, speak, get state() { return { ...state, started }; } };
+  const first = !group.calls.length;
+  group.calls.push(runtime);
+  if (first) group.active = runtime;
+  // The preview's "Force a voice error" button: the active call's voice reports a failure, as a request that threw does.
+  const failers = world.voiceFailers ??= new Set();
+  const fail = () => { if (group.active?.host === host) emit("error", new TypeError("Failed to fetch")); };
+  failers.add(fail);
+  const stopFailing = () => failers.delete(fail);
+  return runtime;
+}
+
+/** The headset-and-route owner of the calls: a `VoiceHost` whose `start` begins a call, and the preview's own handles
+ *  on it (`speak` for the person, the devices, the state of the call the microphone routes to). */
+export function fakeVoice(world) {
+  /** @type {any} Mock-only routing group; each call still keeps independent turn and playback state. */
+  const group = { calls: [], active: null, nextId: 0 };
+  /** @type {Set<(devices: any) => void>} */
+  const listeners = new Set();
+  // The devices: the headset plugged in, nothing chosen (the system's defaults), the speaker choosable.
+  const devices = { headset: true, input: /** @type {string | null} */ (null), output: /** @type {string | null} */ (null), outputSelectable: true };
   /** The headset (the card plugs it in and out): its microphone and its speaker, beside the computer's own. */
   function present() {
     const inputs = [{ id: "mic-builtin", label: "MacBook Pro Microphone" }, ...(devices.headset ? [{ id: "mic-headset", label: "AirPods Pro" }] : [])];
@@ -508,30 +510,63 @@ export function fakeVoice(world, { source = null, shared = null } = {}) {
   function deviceList(lost) {
     return { ...present(), input: devices.input, output: devices.output, outputSelectable: devices.outputSelectable, ...(lost ? { lost } : {}) };
   }
+  const tell = (list) => { for (const listener of [...listeners]) listener(list); };
   /** Plugs the headset in or out: a chosen headset device that goes is lost, the default in use from then on. */
   function plugHeadset(plugged) {
     devices.headset = plugged;
     const lost = {};
     if (!plugged && devices.input === "mic-headset") { lost.input = devices.input; devices.input = null; }
     if (!plugged && devices.output === "out-headset") { lost.output = devices.output; devices.output = null; }
-    emit("devices", deviceList(Object.keys(lost).length ? lost : undefined));
+    tell(deviceList(Object.keys(lost).length ? lost : undefined));
   }
   /** Whether the speaker can be chosen (a browser without setSinkId cannot). */
   function outputSelectable(selectable) {
     devices.outputSelectable = selectable;
     if (!selectable) devices.output = null;
-    emit("devices", deviceList());
+    tell(deviceList());
   }
+  /** Settings with neither half do not make a call. */
+  const checked = (settings) => {
+    if (!settings || (!settings.input && !settings.output)) throw new TypeError("voice settings need an input or an output half");
+  };
 
-  const runtime = { host, speak: (text, how) => group.active?.host === host ? speak(text, how) : group.active?.speak(text, how) ?? false,
-    plugHeadset, outputSelectable, get devices() { return { ...devices }; },
-    get state() { return group.active?.host !== host && group.active ? group.active.state : { ...state, started }; } };
-  group.calls.push(runtime);
-  if (!shared) group.active = runtime;
-  // The preview's "Force a voice error" button: the active call's voice reports a failure, as a request that threw does.
-  const failers = world.voiceFailers ??= new Set();
-  const fail = () => { if (group.active?.host === host) emit("error", new TypeError("Failed to fetch")); };
-  failers.add(fail);
-  const stopFailing = () => failers.delete(fail);
-  return runtime;
+  /** @type {VoiceHost} */
+  const host = {
+    start(settings, options) {
+      checked(settings);
+      const call = fakeCall(world, group, settings, options);
+      return call.host;
+    },
+    async preload(settings) {
+      checked(settings);
+    },
+    async routeInput(target) {
+      const call = target == null ? null : group.calls.find((item) => item.host === target);
+      if (target != null && !call) throw refusal("unknown-voice-call");
+      group.active = call;
+      world.log({ method: "VOICE", url: `routeInput(${target?.id ?? "none"})`, status: "ok", mocked: true });
+    },
+    // The microphone and the speaker: what there is, which are chosen (null: the system's default), whether the speaker
+    // can be chosen, and the list as it changes (the card plugs a headset in and out).
+    audioDevices: async () => deviceList(),
+    async setAudioDevices(choice) {
+      if ("output" in choice && choice.output != null && !devices.outputSelectable) throw Object.assign(new Error("audio-output-unselectable"), { code: "audio-output-unselectable" });
+      for (const kind of /** @type {const} */ (["input", "output"])) {
+        if (!(kind in choice)) continue;
+        const id = choice[kind] ?? null;
+        const list = kind === "input" ? present().inputs : present().outputs;
+        if (id !== null && !list.some((device) => device.id === id)) throw Object.assign(new Error(kind === "input" ? "microphone-unavailable" : "audio-output-failed"), { code: kind === "input" ? "microphone-unavailable" : "audio-output-failed" });
+        devices[kind] = id;
+      }
+      world.log({ method: "VOICE", url: "setAudioDevices(" + JSON.stringify(choice) + ")", status: "ok", mocked: true });
+      return deviceList();
+    },
+    onAudioDevices(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+
+  return { host, speak: (text, how) => group.active?.speak(text, how) ?? false, plugHeadset, outputSelectable, get devices() { return { ...devices }; },
+    get state() { return group.active ? group.active.state : { listening: "idle", recognising: 0, playback: "idle", microphone: "live", started: false }; } };
 }

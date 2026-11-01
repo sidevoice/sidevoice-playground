@@ -476,10 +476,10 @@ test("mock voice discards short overlap but qualifies a sustained barge-in", asy
   });
   const voice = fakeVoice(world);
   const turns = [];
-  voice.host.onTurn((turn) => turns.push(turn));
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, barge_in_min_speech: 1 }, output: { tts: { catalog: "local", model: "kokoro" } } });
-  await voice.host.start();
-  const saying = voice.host.say("Long reply for the duration gate. ".repeat(50));
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, barge_in_min_speech: 1 }, output: { tts: { catalog: "local", model: "kokoro" } } });
+  call.onTurn((turn) => turns.push(turn));
+  await call.ready;
+  const saying = call.say("Long reply for the duration gate. ".repeat(50));
   await Promise.resolve();
   await voice.speak("ajá", { durationMs: 990 });
   assert.equal(turns.length, 0);
@@ -491,7 +491,7 @@ test("mock voice discards short overlap but qualifies a sustained barge-in", asy
   assert.ok(outcome.heard_chars >= 0 && outcome.heard_chars < [..."Long reply for the duration gate. ".repeat(50)].length);
   await voice.speak("vale", { durationMs: 300 });
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 2);
-  await voice.host.stop();
+  await call.stop();
 });
 
 test("mock voice completes three queued replies in FIFO order", async () => {
@@ -500,17 +500,17 @@ test("mock voice completes three queued replies in FIFO order", async () => {
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
-  await voice.host.start();
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
+  await call.ready;
   const seen = [];
   const says = ["One.", "Two.", "Three."].map((text, index) => {
-    const saying = voice.host.say(text);
+    const saying = call.say(text);
     saying.onEvent((event) => { if (["playing", "done"].includes(event.type)) seen.push(`${event.type}:${index + 1}`); });
     return saying;
   });
   await Promise.all(says.map((say) => say.outcome));
   assert.deepEqual(seen, ["playing:1", "done:1", "playing:2", "done:2", "playing:3", "done:3"]);
-  await voice.host.stop();
+  await call.stop();
 });
 
 test("mock voice keeps A and B turns in separate running calls across an input route", async () => {
@@ -519,7 +519,8 @@ test("mock voice keeps A and B turns in separate running calls across an input r
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);
-  const a = voice.host.createCall(), b = voice.host.createCall();
+  const settings = { input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro" } } };
+  const a = voice.host.start(settings), b = voice.host.start(settings);
   assert.notEqual(a.id, b.id);
   assert.equal(typeof voice.host.setCaptureBoundary, "undefined");
   assert.equal(typeof a.onAgentInterrupted, "undefined");
@@ -532,8 +533,7 @@ test("mock voice keeps A and B turns in separate running calls across an input r
   b.onTurn((event) => turns.push(["b", event]));
   a.onLevel((level) => { if (level === 0) aStoppedSpeaking(); });
   for (const call of [a, b]) {
-    await call.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro" } } });
-    await call.start();
+    await call.ready;
   }
   await voice.host.routeInput(a);
   const first = voice.speak("Words for A");
@@ -548,8 +548,8 @@ test("mock voice keeps A and B turns in separate running calls across an input r
   assert.ok(turns.every(([, event]) => !Object.hasOwn(event, "capture_boundary_id")));
   await voice.host.routeInput(null);
   assert.equal(await voice.speak("No routed call"), false);
-  await a.dispose();
-  await b.dispose();
+  await a.stop();
+  await b.stop();
 });
 
 // The microphone is shared: once the route (or the mute) moves away from a call speaking, that call hears silence
@@ -561,13 +561,13 @@ async function sharedMicrophone() {
     now: () => clock, tick: async (ms) => { clock += ms; await Promise.resolve(); },
   });
   const voice = fakeVoice(world);
-  const a = voice.host.createCall(), b = voice.host.createCall();
+  const settings = { input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro" } } };
+  const a = voice.host.start(settings), b = voice.host.start(settings);
   const log = [];
   for (const [key, call] of [["a", a], ["b", b]]) {
     call.onTurn((event) => log.push({ call: key, at: clock, event }));
     call.onLevel((level) => log.push({ call: key, at: clock, level }));
-    await call.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro" } } });
-    await call.start();
+    await call.ready;
   }
   await voice.host.routeInput(a);
   return { voice, a, b, log, now: () => clock };
@@ -595,8 +595,8 @@ for (const [name, leave] of [
     assert.ok(end.event.text.length > 0 && end.event.text.length < FULL.length && FULL.startsWith(end.event.text), `A keeps only its captured words, got ${end.event.text}`);
     assert.ok(end.at - leftAt >= 2500, `the terminal came ${end.at - leftAt} ms after the change; the endpoint is 2500 ms`);
     assert.ok(end.at - leftAt <= 2500 + TRANSCRIBING_MS + 160, `the terminal came ${end.at - leftAt} ms after the change; the endpoint plus ${TRANSCRIBING_MS} ms recognition (and one 80 ms step) is the most`);
-    await m.a.dispose();
-    await m.b.dispose();
+    await m.a.stop();
+    await m.b.stop();
   });
 }
 
@@ -609,8 +609,8 @@ test("mock voice: A→B mid-speech leaves B its own words and A its own, with no
   assert.equal(finished(m.log, "b")[0].event.text, "Words for B");
   assert.ok(FULL.startsWith(finished(m.log, "a")[0].event.text));
   assert.ok(!finished(m.log, "a")[0].event.text.includes("B"));
-  await m.a.dispose();
-  await m.b.dispose();
+  await m.a.stop();
+  await m.b.stop();
 });
 
 test("mock voice: speech routed back to A before its endpoint continues the same open turn", async () => {
@@ -625,8 +625,8 @@ test("mock voice: speech routed back to A before its endpoint continues the same
   assert.equal(starts.length, 1, "one open turn");
   assert.equal(finished(m.log, "a").length, 1);
   assert.match(finished(m.log, "a")[0].event.text, /^first part and then more$/);
-  await m.a.dispose();
-  await m.b.dispose();
+  await m.a.stop();
+  await m.b.stop();
 });
 
 test("mock voice: speech after the endpoint is a new turn, and an unrouted call cannot start one", async () => {
@@ -637,8 +637,8 @@ test("mock voice: speech after the endpoint is a new turn, and an unrouted call 
   await m.voice.speak("for b");
   assert.equal(m.log.filter((item) => item.call === "a" && item.event?.phase === "started").length, 1);
   assert.equal(finished(m.log, "b")[0].event.text, "for b");
-  await m.a.dispose();
-  await m.b.dispose();
+  await m.a.stop();
+  await m.b.stop();
 });
 
 test("mock voice: A closes at its configured endpoint while a longer utterance goes on elsewhere, and a late return opens a new turn", async () => {
@@ -666,19 +666,19 @@ test("mock voice: A closes at its configured endpoint while a longer utterance g
   const starts = m.log.filter((item) => item.call === "a" && item.event?.phase === "started");
   assert.equal(starts.length, 2, "the return after the endpoint starts a new turn");
   assert.notEqual(starts[0].event.turn_id, starts[1].event.turn_id);
-  await m.a.dispose();
-  await m.b.dispose();
+  await m.a.stop();
+  await m.b.stop();
 });
 
 test("mock voice: a barge-in stops playback within a step and says what was heard", async () => {
   const world = createWorld({ id: "barge", title: "Barge", summary: "", world: {}, options: [] }, {}, { tick: () => new Promise((r) => setImmediate(r)) });
   const voice = fakeVoice(world);
   const states = [], events = [];
-  voice.host.onState((state) => states.push(state.playback));
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, barge_in_min_speech: 1 }, output: { tts: { catalog: "local", model: "kokoro" } } });
-  await voice.host.start();
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, barge_in_min_speech: 1 }, output: { tts: { catalog: "local", model: "kokoro" } } });
+  call.onState((state) => states.push(state.playback));
+  await call.ready;
   const text = "First sentence goes here. Second sentence goes here too. Third one is the last.";
-  const saying = voice.host.say(text);
+  const saying = call.say(text);
   saying.onEvent((event) => events.push(event));
   for (let i = 0; i < 200 && !events.some((event) => event.type === "progress" && event.heard_chars > 0); i++) await new Promise((r) => setImmediate(r));
   assert.equal(voice.state.playback, "playing");
@@ -692,16 +692,16 @@ test("mock voice: a barge-in stops playback within a step and says what was hear
   assert.equal(voice.state.playback, "idle", "playback is idle as soon as the say is cut");
   assert.equal(events.filter((event) => event.type === "done").length, 1);
   await speaking;
-  await voice.host.stop();
+  await call.stop();
 });
 
 test("mock voice: cutting the final sentence is never a success", async () => {
   const world = createWorld({ id: "final", title: "Final", summary: "", world: {}, options: [] }, {}, { tick: () => new Promise((r) => setImmediate(r)) });
   const voice = fakeVoice(world);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
-  await voice.host.start();
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
+  await call.ready;
   const text = "Only one long sentence that takes a while to be read out loud by the mock speaker";
-  const saying = voice.host.say(text);
+  const saying = call.say(text);
   const done = [];
   saying.onEvent((event) => { if (event.type === "done") done.push(event.outcome); });
   for (let i = 0; i < 200 && voice.state.playback !== "playing"; i++) await new Promise((r) => setImmediate(r));
@@ -710,7 +710,7 @@ test("mock voice: cutting the final sentence is never a success", async () => {
   assert.deepEqual(await saying.outcome, { status: "heard-up-to", heard_chars: 0, reason: "cancelled" });
   await new Promise((r) => setImmediate(r));
   assert.equal(done.length, 1);
-  await voice.host.stop();
+  await call.stop();
 });
 
 test("mock voice: endInput ends the open turn now, and does nothing without one", async () => {
@@ -720,14 +720,14 @@ test("mock voice: endInput ends the open turn now, and does nothing without one"
   });
   const voice = fakeVoice(world);
   const turns = [];
-  voice.host.onTurn((turn) => turns.push(turn));
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
-  await voice.host.start();
-  await voice.host.endInput();
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro" } } });
+  call.onTurn((turn) => turns.push(turn));
+  await call.ready;
+  await call.endInput();
   assert.equal(turns.length, 0);
   // The person is cut off after twelve levels of speech (a quarter of it), from inside the call's own step.
   let levels = 0, before = 0, ending = null;
-  voice.host.onLevel(() => { if (++levels === 12) { before = clock; ending = voice.host.endInput(); } });
+  call.onLevel(() => { if (++levels === 12) { before = clock; ending = call.endInput(); } });
   const speaking = voice.speak("one two three four five six", { durationMs: 3000 });
   while (!ending) await new Promise((r) => setImmediate(r));
   await ending;
@@ -736,9 +736,9 @@ test("mock voice: endInput ends the open turn now, and does nothing without one"
   const finished = turns.filter((turn) => turn.phase === "finished");
   assert.equal(finished.length, 1);
   assert.equal(finished[0].text, "one two", "only what was captured so far");
-  await voice.host.endInput();
+  await call.endInput();
   assert.equal(turns.filter((turn) => turn.phase === "started").length, 1);
-  await voice.host.stop();
+  await call.stop();
 });
 
 test("source builds resolve cargo from the configured toolchain, not the inherited PATH, and fail clearly without it", async () => {
