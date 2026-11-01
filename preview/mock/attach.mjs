@@ -22,8 +22,8 @@ export function mockModule(kind, world) {
   if (kind === "engine") return { default: init, initSync: () => undefined, WebEngine: { create: async (host) => webEngine(world, host) } };
   return {
     default: init, initSync: () => undefined,
-    createVoiceHost: (source) => {
-      const voice = fakeVoice(world, { source });
+    createVoiceHost: () => {
+      const voice = fakeVoice(world);
       world.voiceRuntime = voice;
       return voice.host;
     },

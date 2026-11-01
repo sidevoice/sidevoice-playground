@@ -16,25 +16,25 @@ test("the mocked speaker has its own levels, including zero gaps during playback
   const w = world();
   const voice = fakeVoice(w);
   const output = [], mic = [], states = [];
-  const stop = voice.host.onPlaybackLevel((level) => output.push([voice.state.playback, level]));
-  voice.host.onLevel((level) => mic.push(level));
-  voice.host.onState((state) => states.push(state.playback));
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
-  await voice.host.start();
-  assert.deepEqual(await voice.host.say("Hello there.").outcome, { status: "heard" });
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  const stop = call.onPlaybackLevel((level) => output.push([voice.state.playback, level]));
+  call.onLevel((level) => mic.push(level));
+  call.onState((state) => states.push(state.playback));
+  await call.ready;
+  assert.deepEqual(await call.say("Hello there.").outcome, { status: "heard" });
   assert.ok(output.some(([, level]) => level > 0));
   assert.ok(output.some(([phase, level]) => phase === "playing" && level === 0));
   assert.equal(output.at(-1)[1], 0);
   assert.deepEqual(mic, [], "speaker output never leaks into the microphone channel");
-  const first = voice.host.say("Short.");
-  const second = voice.host.say("A much longer overlapping reply that keeps sounding after the first finishes.");
+  const first = call.say("Short.");
+  const second = call.say("A much longer overlapping reply that keeps sounding after the first finishes.");
   assert.deepEqual(await first.outcome, { status: "heard" });
   assert.equal(voice.state.playback, "playing", "one completed reply cannot idle another");
   assert.deepEqual(await second.outcome, { status: "heard" });
   assert.ok(output.filter(([, level]) => level > 0).every(([phase]) => phase === "playing"), "positive output is always reported under playing");
   assert.equal(output.at(-1)[1], 0);
-  const running = voice.host.say("A longer sentence, with enough time to cancel.");
-  const continuing = voice.host.say("Another long reply that continues to sound after its neighbor is cancelled.");
+  const running = call.say("A longer sentence, with enough time to cancel.");
+  const continuing = call.say("Another long reply that continues to sound after its neighbor is cancelled.");
   for (let i = 0; i < 12 && voice.state.playback !== "playing"; i++) await new Promise((resolve) => setImmediate(resolve));
   running.cancel();
   await running.outcome;
@@ -42,14 +42,14 @@ test("the mocked speaker has its own levels, including zero gaps during playback
   await continuing.outcome;
   assert.equal(output.at(-1)[1], 0);
   w.patch({ "voice.tts": "error" });
-  await voice.host.say("Failure").outcome;
+  await call.say("Failure").outcome;
   assert.equal(output.at(-1)[1], 0);
   w.patch({ "voice.tts": "ok" });
   const beforeStop = output.length;
-  const stopping = voice.host.say("This reply is long enough to stop while its envelope is still moving.");
+  const stopping = call.say("This reply is long enough to stop while its envelope is still moving.");
   for (let i = 0; i < 12 && !output.slice(beforeStop).some(([phase, level]) => phase === "playing" && level > 0); i++) await new Promise((resolve) => setImmediate(resolve));
   assert.ok(output.slice(beforeStop).some(([phase, level]) => phase === "playing" && level > 0));
-  await voice.host.stop();
+  await call.stop();
   await stopping.outcome;
   const stoppedCount = output.length;
   await new Promise((resolve) => setImmediate(resolve));
@@ -57,7 +57,7 @@ test("the mocked speaker has its own levels, including zero gaps during playback
   assert.equal(output.length, stoppedCount, "the stopped reply publishes no late levels");
   stop();
   const count = output.length;
-  await voice.host.say("Not started").outcome;
+  await call.say("Not started").outcome;
   assert.equal(output.length, count);
   assert.ok(states.includes("synthesizing") && states.includes("playing"));
 });
@@ -204,9 +204,9 @@ test("a model is dated as used when a call or a try loads it, not when it is ins
   assert.equal(model("whisper-base").lastUsedAt, null, "installed, never loaded");
   now += 60_000;
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "openai", model: "tts-1" } } });
   w.patch({ "voice.keys": { openai: "sk" } });
-  await voice.host.start();
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "openai", model: "tts-1" } } });
+  await call.ready;
   assert.equal(model("whisper-base").lastUsedAt, now, "loaded by the start of a call or a try");
   assert.equal(model("silero-vad").lastUsedAt, now);
 });
@@ -283,20 +283,23 @@ test("the browser's WebEngine reads the page's keys, lists by capability, and in
 test("a turn ends after the silence the settings wait; a pause shorter than it is still the turn; cut off, the person goes on in a new turn the cut one merges into", async () => {
   const w = world();
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "calm" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "calm" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const turns = [];
   const recognising = [];
-  voice.host.onTurn((t) => turns.push(t));
-  voice.host.onState((s) => recognising.push(s.recognising));
-  await voice.host.start();
+  call.onTurn((t) => turns.push(t));
+  call.onState((s) => recognising.push(s.recognising));
+  await call.ready;
   await voice.speak("uno dos tres cuatro", { pause: true });
   assert.deepEqual(turns.map((t) => t.phase), ["started", "finished"]);
   assert.equal(turns[1].timings.endpoint_silence_ms, 3500);
   assert.equal(recognising.filter((n) => n === 1).length, 1, "the pause did not end the turn");
   turns.length = 0;
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "smart" }, patience: "fast" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  await call.stop();
+  const second = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "smart" }, patience: "fast" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  second.onTurn((t) => turns.push(t));
+  await second.ready;
   await voice.speak("uno dos tres cuatro", { cutOff: true });
-  assert.deepEqual(turns.map((t) => `${t.phase}:${t.turn_id}${t.merged ? ":merged" : ""}`), ["started:mock-call-1-turn-2", "started:mock-call-1-turn-3", "cancelled:mock-call-1-turn-2:merged", "finished:mock-call-1-turn-3:merged"]);
+  assert.deepEqual(turns.map((t) => `${t.phase}:${t.turn_id}${t.merged ? ":merged" : ""}`), ["started:mock-call-2-turn-1", "started:mock-call-2-turn-2", "cancelled:mock-call-2-turn-1:merged", "finished:mock-call-2-turn-2:merged"]);
   assert.equal(turns.at(-1).text, "uno dos tres cuatro");
   assert.equal(turns.at(-1).timings.endpoint_silence_ms, 600);
 });
@@ -305,44 +308,42 @@ test("the voice hears what the card says while it listens, and fails as the worl
   const w = world();
   const voice = fakeVoice(w);
   assert.equal(await voice.speak("hola"), false, "not listening yet");
-  await assert.rejects(voice.host.start(), (e) => e.code === "settings-missing");
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  assert.throws(() => voice.host.start({}), TypeError, "no half, no call");
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
   const turns = [];
   const states = [];
-  voice.host.onTurn((t) => turns.push(t));
-  voice.host.onState((s) => states.push(s.listening));
-  await voice.host.start();
+  call.onTurn((t) => turns.push(t));
+  call.onState((s) => states.push(s.listening));
+  await call.ready;
   assert.equal(await voice.speak("Hola, ¿me oyes?"), true);
   assert.deepEqual(turns.map((t) => t.phase), ["started", "finished"]);
   assert.equal(turns[1].text, "Hola, ¿me oyes?");
   assert.ok(states.includes("speaking"));
   w.patch({ "voice.stt": "error" });
   const errors = [];
-  voice.host.onError((e) => errors.push(e.code));
+  call.onError((e) => errors.push(e.code));
   await voice.speak("otra");
   assert.deepEqual(errors, ["transcription-failed"]);
-  const saying = voice.host.say("Una frase. Y otra.");
+  const saying = call.say("Una frase. Y otra.");
   const events = [];
   saying.onEvent((e) => events.push(e.type));
   assert.deepEqual(await saying.outcome, { status: "heard" });
   await new Promise((r) => setImmediate(r));
   assert.equal(events.at(-1), "done");
   w.patch({ "voice.tts": "error" });
-  assert.equal((await voice.host.say("x").outcome).code, "speech-failed");
-  await voice.host.stop();
-  assert.equal((await voice.host.say("x").outcome).status, "not-played");
+  assert.equal((await call.say("x").outcome).code, "speech-failed");
+  await call.stop();
+  assert.equal((await call.say("x").outcome).status, "not-played");
   w.patch({ "voice.mic": "denied" });
-  await assert.rejects(voice.host.start(), (e) => e.code === "microphone-denied");
+  await assert.rejects(voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } }).ready, (e) => e.code === "microphone-denied");
 });
 
-test("in the desktop app a provider's model without its key is refused; in the browser the page's source decides", async () => {
+test("a provider's model without its key is refused when the call starts", async () => {
   const w = world();
   const app = fakeVoice(w);
-  await app.host.setSettings({ input: { stt: { catalog: "openai", model: "gpt-4o-transcribe" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
-  await assert.rejects(app.host.start(), (e) => e.code === "credential-missing");
-  const page = fakeVoice(w, { source: { models: async () => { throw Object.assign(new Error("model-unknown"), { code: "model-unknown" }); } } });
-  await page.host.setSettings({ input: { stt: {} }, output: { tts: {} } });
-  await assert.rejects(page.host.start(), (e) => e.code === "model-unknown");
+  const call = app.host.start({ input: { stt: { catalog: "openai", model: "gpt-4o-transcribe" } }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  await assert.rejects(call.ready, (e) => e.code === "credential-missing");
+  assert.equal(app.state.started, false, "a refused call is not listening");
 });
 
 test("package chunks are told by their exports, and served as the shell's mocks under the same names", () => {
@@ -399,18 +400,18 @@ test("a try's take (web gap #40): asked for, what the voice heard from listening
   const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
   const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } }, { take: true });
   const takes = [];
   const turns = [];
-  voice.host.onTake((take) => takes.push(take));
-  voice.host.onTurn((turn) => turns.push(turn));
-  await voice.host.start({ take: true });
+  call.onTake((take) => takes.push(take));
+  call.onTurn((turn) => turns.push(turn));
+  await call.ready;
   const listened = clock;
   clock += 1000;
   // "uno dos" (990 ms), a pause shorter than the 2.5 s the end waits (1.5 s), "tres cuatro" (990 ms), then the end.
   await voice.speak("uno dos tres cuatro", { pause: true });
   assert.deepEqual(takes, [], "handed only once the voice stops");
-  await voice.host.stop();
+  await call.stop();
   assert.equal(takes.length, 1);
   const [take] = takes;
   assert.equal(take.sampleRate, 16000);
@@ -430,13 +431,15 @@ test("a try's take (web gap #40): asked for, what the voice heard from listening
   assert.ok(take.samples.every((x) => Math.abs(x) <= 1), "within full scale");
 
   // Not asked for (a call), or a voice without takes (0.3.x): nothing.
-  await voice.host.start();
-  await voice.speak("hola");
-  await voice.host.stop();
-  w.patch({ "voice.take": false });
-  await voice.host.start({ take: true });
-  await voice.speak("hola");
-  await voice.host.stop();
+  const settings = { input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } };
+  for (const [options, take] of [[undefined, true], [{ take: true }, false]]) {
+    w.patch({ "voice.take": take });
+    const plain = voice.host.start(settings, options);
+    plain.onTake((kept) => takes.push(kept));
+    await plain.ready;
+    await voice.speak("hola");
+    await plain.stop();
+  }
   assert.equal(takes.length, 1);
 });
 
@@ -445,12 +448,12 @@ test("a cut-off's take marks both turns: the end decided too soon, and the turn 
   const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
   const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "smart" }, patience: "fast" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "smart" }, patience: "fast" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } }, { take: true });
   const takes = [];
-  voice.host.onTake((take) => takes.push(take));
-  await voice.host.start({ take: true });
+  call.onTake((take) => takes.push(take));
+  await call.ready;
   await voice.speak("uno dos tres cuatro", { cutOff: true });
-  await voice.host.stop();
+  await call.stop();
   // 990 ms said, 600 ms to the cut, 400 ms recognising, then the rest: 990 ms, and 600 ms to its end.
   assert.deepEqual(takes[0].turns, [
     { turn_id: "mock-call-1-turn-1", speech_ms: 0, pauses: [], end_ms: 2100 },
@@ -463,20 +466,20 @@ test("a take keeps silence while the person has the microphone muted, as the voi
   const timed = { now: () => clock, tick: (ms) => { clock += ms; return new Promise((r) => setImmediate(r)); } };
   const w = createWorld({ id: "v", title: "v", summary: "v", options: [], world: { machines: {}, local: null, voice: {} } }, {}, timed);
   const voice = fakeVoice(w);
-  await voice.host.setSettings({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } });
+  const call = voice.host.start({ input: { stt: { catalog: "local", model: "whisper-base" }, endOfTurn: { kind: "silence" }, patience: "normal" }, output: { tts: { catalog: "local", model: "kokoro-82m-v1.0" } } }, { take: true });
   const takes = [];
-  voice.host.onTake((take) => takes.push(take));
-  await voice.host.start({ take: true });
+  call.onTake((take) => takes.push(take));
+  await call.ready;
   const listened = clock;
   clock += 1000;
-  voice.host.mute(true);
+  call.mute(true);
   const muted = clock - listened;
   clock += 1500;
   assert.equal(await voice.speak("no me oyes"), false, "muted: not heard");
-  voice.host.mute(false);
+  call.mute(false);
   const unmuted = clock - listened;
   clock += 1000;
-  await voice.host.stop();
+  await call.stop();
   const [take] = takes;
   const part = (from, to) => take.samples.subarray((from * 16000) / 1000, (to * 16000) / 1000);
   assert.ok(part(muted, unmuted).every((x) => x === 0), "silence while muted");
