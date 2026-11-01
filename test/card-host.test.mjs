@@ -181,7 +181,7 @@ test("the card page gets the app's card seam and nothing else; the shell serves 
   const seam = { subscribe() {} };
   const win = { location: { pathname: "/voice/call-controls.html" }, fetch: "untouched" };
   attach(/** @type {any} */ (win), { world: null, identities: null, desktop: true, card: () => seam });
-  assert.deepEqual(win.__sidevoiceDesktop, { host: { app: "sidevoice-desktop", callControls: seam } });
+  assert.deepEqual(win.__sidevoiceHost, { host: { callControls: seam } });
   assert.equal(win.fetch, "untouched", "the card fetches nothing");
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
   assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");

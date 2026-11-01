@@ -47,8 +47,23 @@ export const micPlugged = (world) => mic(world) !== "missing";
  *  system knows the devices, so the bridge owns it; sidevoice-desktop#93). */
 const appState = (world) => micPlugged(world) ? micPermission(world) : "missing";
 
+/** How the macOS app words a blocked microphone (sidevoice-desktop `desktop/core/src/i18n.rs`, `microphone.help_macos`): English
+ *  and Spanish, as its native catalogue has them. */
+export const MACOS_HELP = Object.freeze({
+  en: Object.freeze({ steps: ["Open System Settings › Privacy & Security › Microphone and turn on Sidevoice. Then check again."], openSettings: "Open System Settings" }),
+  es: Object.freeze({ steps: ["Abre Ajustes del Sistema › Privacidad y seguridad › Micrófono y activa Sidevoice. Después vuelve a comprobar."], openSettings: "Abrir Ajustes del Sistema" }),
+});
+
+/** The help for the page's language, as the app answers it: that language's words, or its primary language's (`es` for
+ *  `es-419`), else English. */
+export function macosHelp(language) {
+  const tag = String(language ?? "");
+  const own = (key) => (Object.hasOwn(MACOS_HELP, key) ? MACOS_HELP[key] : undefined);
+  return own(tag) ?? own(tag.split(/[-_]/)[0].toLowerCase()) ?? MACOS_HELP.en;
+}
+
 /** The desktop app's `host.microphone` (macOS, where the app runs the call): the system's permission for the app, and
- *  whether a microphone is connected. */
+ *  whether a microphone is connected, and the app's words for a blocked one. */
 export function appMicrophone(world) {
   return Object.freeze({
     state: async () => appState(world),
@@ -66,6 +81,8 @@ export function appMicrophone(world) {
       });
     },
     openSettings: async () => { world.log({ method: "MIC", url: "open System Settings › Privacy & Security › Microphone", status: "ok", mocked: true }); },
+    // Asked in the page's language, and answered at once.
+    help: macosHelp,
   });
 }
 

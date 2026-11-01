@@ -12,6 +12,7 @@ import {
   CHECK_MS, DOWNLOAD_STEPS, DOWNLOAD_STEP_MS, UPDATER_STATES, UPDATE_VERSION, checkForUpdate, desktopHost, hasAppUpdater, localStatus, setUpdaterMode, setUpdaterState,
   updaterMode,
 } from "../preview/mock/bridge.mjs";
+import { attach } from "../preview/mock/attach.mjs";
 import { DESKTOP, VARIANTS, chooseMockOption, deviceBox, mergeSeed, prunedVariantChoices, readParams, writeParams } from "../preview/mock/shell.mjs";
 import { APP_VERSION, LOCAL_VERSION } from "../preview/mock/bridge.mjs";
 import { nextMinor } from "../preview/mock/machines.mjs";
@@ -64,25 +65,25 @@ async function setup(chosen = {}) {
   return { world, identities, ask };
 }
 
-test("desktop data mock keeps pairings and reports deletion only after relaunch", async () => {
+test("desktop reset mock keeps pairings and reports deletion only after relaunch", async () => {
   const { world, identities } = await setup();
   const relaunched = [];
-  const data = desktopHost(world, identities, { relaunch: (what) => relaunched.push(what) }).data;
-  assert.equal((await data.pairings.read()).pairings.length, 1);
-  await data.pairings.write({ pairings: [], pendingRevokes: [] });
-  assert.deepEqual(await data.pairings.read(), { pairings: [], pendingRevokes: [] });
-  const started = await data.deleteAll();
+  const { pairings, reset } = desktopHost(world, identities, { relaunch: (what) => relaunched.push(what) });
+  assert.equal((await pairings.read()).pairings.length, 1);
+  await pairings.write({ pairings: [], pendingRevokes: [] });
+  assert.deepEqual(await pairings.read(), { pairings: [], pendingRevokes: [] });
+  const started = await reset.deleteAll();
   assert.equal(started.state, "needs-restart");
   assert.equal(world.state.app?.resetReport, undefined, "helper has not finished when native call returns");
   await new Promise((resolve) => { const stop = world.subscribe(() => { if (world.state.app?.resetReport) { stop(); resolve(); } }); });
   assert.deepEqual(relaunched, [{ reset: true }]);
-  assert.equal((await data.resetReport()).state, "complete");
+  assert.equal((await reset.resetReport()).state, "complete");
   assert.deepEqual(world.state.voice?.installed, {});
   assert.deepEqual(world.state.voice?.keys, {});
   assert.equal(world.state.app?.shortcut, null);
-  assert.equal(await data.resetReport(), null);
+  assert.equal(await reset.resetReport(), null);
   world.patch({ "app.resetFailure": "service", "local.state": "running" });
-  await assert.rejects(data.deleteAll(), (failure) => failure.key === "reset.service-failed");
+  await assert.rejects(reset.deleteAll(), (failure) => failure.key === "reset.service-failed");
   assert.equal(world.state.local.state, "running");
 });
 
@@ -91,31 +92,54 @@ test("desktop uninstall mock deletes everything, then quits to the Trash without
   world.patch({ "voice.installed": { "whisper-base": true }, "voice.keys": { openai: "mock-secret" } });
   let quit;
   const relaunched = new Promise((resolve) => { quit = resolve; });
-  const data = desktopHost(world, identities, { relaunch: (what) => quit(what) }).data;
-  const started = await data.uninstall();
+  const { reset } = desktopHost(world, identities, { relaunch: (what) => quit(what) });
+  const started = await reset.uninstall();
   assert.equal(started.state, "needs-quit");
   assert.ok(started.pending.includes("app"));
   assert.deepEqual(await relaunched, { reset: true, uninstalled: true });
   assert.deepEqual(world.state.voice.installed, {});
   assert.deepEqual(world.state.voice.keys, {});
-  assert.equal(await data.resetReport(), null);
+  assert.equal(await reset.resetReport(), null);
   world.patch({ "app.resetFailure": "unremovable" });
-  await assert.rejects(data.uninstall(), (failure) => failure.key === "reset.app-unremovable");
+  await assert.rejects(reset.uninstall(), (failure) => failure.key === "reset.app-unremovable");
 });
 
 test("desktop reset mock reports model cleanup failure only after relaunch", async () => {
   const { world, identities } = await setup();
   world.patch({ "app.resetFailure": "models", "voice.installed": { "whisper-base": true }, "voice.keys": { openai: "mock-secret" } });
-  const data = desktopHost(world, identities).data;
-  const started = await data.deleteAll();
+  const { reset } = desktopHost(world, identities);
+  const started = await reset.deleteAll();
   assert.equal(started.state, "needs-restart");
   assert.deepEqual(started.failed, []);
   await new Promise((resolve) => { const stop = world.subscribe(() => { if (world.state.app?.resetReport) { stop(); resolve(); } }); });
-  const final = await data.resetReport();
+  const final = await reset.resetReport();
   assert.equal(final.state, "partial");
   assert.deepEqual(final.failed, [{ step: "models", key: "remove" }]);
   assert.equal(world.state.voice.installed["whisper-base"], true);
   assert.deepEqual(world.state.voice.keys, {});
+});
+
+test("the app's host has the members the bridge gives the page, and not the ones it dropped", async () => {
+  const { world, identities } = await setup();
+  const host = desktopHost(world, identities);
+  assert.equal(host.shortcutModifier, "⌘", "the macOS app's");
+  assert.equal("os" in host, false, "the page is not told the system");
+  assert.equal(host.deviceName, "Mac", "the computer's name, from the world's local host");
+  assert.deepEqual(host.presence, { media: "app" }, "the macOS app owns the system's media");
+  assert.deepEqual(host.reach, { plainHttpPrivate: true });
+  assert.deepEqual(Object.keys(host.reset).sort(), ["deleteAll", "resetReport", "uninstall"]);
+  assert.deepEqual(Object.keys(host.pairings).sort(), ["read", "write"]);
+  for (const dropped of ["app", "version", "computerName", "mediaKeys", "data"]) assert.equal(dropped in host, false, dropped);
+});
+
+test("the app view injects window.__sidevoiceHost, and nothing under the name it had", async () => {
+  const { world, identities } = await setup();
+  const win = Object.assign(new EventTarget(), { location: { pathname: "/voice/", origin: PAGE }, fetch() {}, WebSocket: class {}, EventTarget });
+  attach(/** @type {any} */ (win), { world, identities, desktop: true });
+  assert.deepEqual(Object.keys(win).filter((key) => key.startsWith("__sidevoice")), ["__sidevoiceHost"]);
+  assert.equal(typeof win.__sidevoiceHost.host.localHost.state, "function");
+  assert.equal(win.__sidevoiceHost.host.shortcutModifier, "⌘");
+  assert.equal("os" in win.__sidevoiceHost.host, false);
 });
 
 test("a world is its scenario with the chosen values set over it", () => {
