@@ -17,7 +17,15 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [];
+export const VARIANTS = [
+  { name: "connectAgent", label: "New conversation: connect your agent", note: "The panel behind New conversation (the + at the foot of the list; the rail's +) and the setup's last step. Same words to say, drawn four ways. sidevoice-web#463.", values: [
+    { value: "current", label: "Today's · title, line, quoted phrase" },
+    { value: "creature", label: "A · creature waiting on the dark stage, one Copy button" },
+    { value: "chip", label: "B · the phrase as a chip, tool name in code" },
+    { value: "steps", label: "C · three steps, the creature waiting" },
+    { value: "minimal", label: "D · a line and the phrase" },
+  ] },
+];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
