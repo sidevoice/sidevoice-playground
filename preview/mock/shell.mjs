@@ -16,7 +16,7 @@ import { cardHost } from "./card-host.mjs";
 // variant and its values, the first being the page's default.
 const VARIANTS_KEY = "sidevoice.variants";
 
-/** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
+/** @type {{ name: string, label: string, note: string, sheet?: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
   { name: "pairingScan", label: "Pairing: scanning the QR code", note: "Where Scan sits on the pairing screen of the mobile app, and how the viewfinder looks. Shown in the phone view (its mock camera: a scan lasts until Cancel). sidevoice-web#466.", values: [
     { value: "current", label: "Today's · button under the field, plain frame" },
@@ -24,6 +24,11 @@ export const VARIANTS = [
     { value: "twoWays", label: "B · Scan and Type the code, two equal tiles" },
     { value: "scanFirst", label: "C · scan first: the viewfinder in the card" },
     { value: "labelRow", label: "D · Scan pill in the field's label row" },
+  ] },
+  { name: "duckLevel", label: "Other apps' media: the level it is lowered to", sheet: "/duck-level", note: "Settings > Call, row \"Other apps' media\": Lower, default 25 %, is the only mode with a level; the control goes with Pause and Do nothing. The web has no such control yet: the design sheet draws the row in Spanish, light and dark, and follows this pick. sidevoice-web#468.", values: [
+    { value: "presets", label: "A · 3 presets: Un poco 50 % · Mucho 25 % (default) · Silenciar 0 %" },
+    { value: "slider", label: "B · slider 0–100 % with its value, default 25 %" },
+    { value: "windows", label: "C · Windows-style: Silenciar · 80 % · 50 % · Nada (reductions)" },
   ] },
 ];
 
@@ -65,6 +70,15 @@ function drawVariants(body, { forceVoiceError } = {}) {
     note.className = "variant-note";
     note.textContent = variant.note;
     group.append(legend, note);
+    if (variant.sheet) {
+      const link = document.createElement("a");
+      link.className = "variant-sheet";
+      link.href = variant.sheet;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Open the design sheet";
+      group.append(link);
+    }
     const current = variant.values.some((option) => option.value === picked[variant.name]) ? picked[variant.name] : variant.values[0].value;
     for (const option of variant.values) {
       const label = document.createElement("label");
