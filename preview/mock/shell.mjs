@@ -17,7 +17,15 @@ import { cardHost } from "./card-host.mjs";
 const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, values: { value: string, label: string }[] }[]} */
-export const VARIANTS = [];
+export const VARIANTS = [
+  { name: "pairingScan", label: "Pairing: scanning the QR code", note: "Where Scan sits on the pairing screen of the mobile app, and how the viewfinder looks. Shown in the phone view (its mock camera: a scan lasts until Cancel). sidevoice-web#466.", values: [
+    { value: "current", label: "Today's · button under the field, plain frame" },
+    { value: "inField", label: "A · camera inside the code field" },
+    { value: "twoWays", label: "B · Scan and Type the code, two equal tiles" },
+    { value: "scanFirst", label: "C · scan first: the viewfinder in the card" },
+    { value: "labelRow", label: "D · Scan pill in the field's label row" },
+  ] },
+];
 
 /** What is kept of `choices`: only a value a variant still offers. */
 export function prunedVariantChoices(choices) {
@@ -319,7 +327,7 @@ async function run(card) {
   };
 
   window.__sidevoicePreview = {
-    attach: (win) => attach(win, { world, identities, desktop: view() === "app", onKey: shortcut, card: () => float.host(() => world) }),
+    attach: (win) => attach(win, { world, identities, desktop: view() === "app", phone: view() === "phone", onKey: shortcut, card: () => float.host(() => world) }),
     module: (kind) => mockModule(kind, world),
   };
 
