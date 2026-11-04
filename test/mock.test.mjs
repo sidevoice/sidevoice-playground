@@ -21,8 +21,9 @@ const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
-test("no choice is open; every decided one stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS, []);
+test("one choice is open (pairingScan); every decided one stored goes; scenario seeding leaves choices alone", () => {
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["pairingScan"]);
+  assert.deepEqual(prunedVariantChoices({ pairingScan: "scanFirst", other: "x" }), { pairingScan: "scanFirst" }, "an open choice is kept");
   assert.deepEqual(prunedVariantChoices({ hardwareLabel: "both", modelSummary: "sheet", modelList: "sized", modelLanguages: "inline" }), {},
     "the decided model languages, model block, Model list and hardware label (sidevoice-web#339, #340) are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d", titleDetail: "popover" }), {}, "the decided onboarding flow and call details are pruned from a stored choice");
@@ -140,6 +141,22 @@ test("the app view injects window.__sidevoiceHost, and nothing under the name it
   assert.equal(typeof win.__sidevoiceHost.host.localHost.state, "function");
   assert.equal(win.__sidevoiceHost.host.shortcutModifier, "⌘");
   assert.equal("os" in win.__sidevoiceHost.host, false);
+});
+
+test("the phone view gets the mobile app's camera and nothing else of an app; the browser view gets none", async () => {
+  const { world, identities } = await setup();
+  const page = () => Object.assign(new EventTarget(), { location: { pathname: "/voice/", origin: PAGE }, fetch() {}, WebSocket: class {}, EventTarget, navigator: {} });
+  const phone = page();
+  attach(/** @type {any} */ (phone), { world, identities, desktop: false, phone: true });
+  assert.deepEqual(Object.keys(phone.__sidevoiceHost.host), ["codeScanner"]);
+  const camera = phone.__sidevoiceHost.host.codeScanner;
+  assert.equal(await camera.request(), "granted");
+  const scan = camera.scan();
+  await camera.cancel();
+  assert.deepEqual(await scan, { status: "cancelled" });
+  const browser = page();
+  attach(/** @type {any} */ (browser), { world, identities, desktop: false });
+  assert.equal("__sidevoiceHost" in browser, false);
 });
 
 test("a world is its scenario with the chosen values set over it", () => {

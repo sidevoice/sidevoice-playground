@@ -158,12 +158,29 @@ export function mockedWebSocket(win, { world, identities }) {
   return WebSocket;
 }
 
+/** The mobile app's camera for the pairing QR code (`host.codeScanner`, sidevoice-web PairMachine), given to the phone view so
+ *  the pairing screen shows Scan and its viewfinder (VARIANTS `pairingScan`). The camera is always allowed and never reads
+ *  a code: a scan lasts until Cancel. Behind the page there is no camera, only the frame's ground. The rest of the phone
+ *  view stays a phone's browser: the page takes every other member from the browser. */
+export function phoneCamera() {
+  /** @type {((result: { status: "cancelled" }) => void) | null} */
+  let finish = null;
+  return {
+    permission: async () => "granted",
+    request: async () => "granted",
+    scan: () => new Promise((resolve) => { finish = resolve; }),
+    cancel: async () => { finish?.({ status: "cancelled" }); finish = null; },
+    openSettings: async () => {},
+  };
+}
+
 /** Puts the mocks for `world` into the page `win` (the iframe's window). `desktop`: whether it is the app view.
  * The desktop's floating card page (the web's call-controls.html, in the frame beside the room) gets only the app's
  * card seam, `card()` — card-host.mjs, fed from the room frame —: it fetches nothing.
  * @param {Window & typeof globalThis & { __sidevoiceHost?: unknown }} win
- * @param {{ world: any, identities: any, desktop: boolean, onKey?: (event: KeyboardEvent) => void, card?: () => unknown }} options */
-export function attach(win, { world, identities, desktop, onKey, card }) {
+ * `phone`: the phone view, which gets the mobile app's camera (`phoneCamera`).
+ * @param {{ world: any, identities: any, desktop: boolean, phone?: boolean, onKey?: (event: KeyboardEvent) => void, card?: () => unknown }} options */
+export function attach(win, { world, identities, desktop, phone = false, onKey, card }) {
   if (win.location.pathname.endsWith("/call-controls.html")) {
     win.__sidevoiceHost = { host: { callControls: card?.() ?? null } };
     return;
@@ -192,6 +209,7 @@ export function attach(win, { world, identities, desktop, onKey, card }) {
   // In a browser the page asks for the microphone itself (the setup's microphone step): the world's permission answers.
   // In the app it asks the app (`host.microphone`, bridge.mjs).
   if (!desktop) pagePermission(win, world);
+  if (phone) win.__sidevoiceHost = { host: { codeScanner: phoneCamera() } };
   // Restarting into an app update opens a new window: the page loads again, its session (sessionStorage: what it hid
   // for this run, an update notice's ×) started over, as a new window's is. The preview's own keys on this origin
   // (sidevoice-preview.*: the world kept over a reload) stay.
