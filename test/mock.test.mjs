@@ -21,9 +21,11 @@ const PAGE = "https://preview.example";
 const nonce = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const instant = { tick: () => new Promise((r) => setImmediate(r)) };
 
-test("one choice is open (pairingScan); every decided one stored goes; scenario seeding leaves choices alone", () => {
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["pairingScan"]);
+test("two choices are open (pairingScan, duckLevel); every decided one stored goes; scenario seeding leaves choices alone", () => {
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["pairingScan", "duckLevel"]);
   assert.deepEqual(prunedVariantChoices({ pairingScan: "scanFirst", other: "x" }), { pairingScan: "scanFirst" }, "an open choice is kept");
+  assert.deepEqual(prunedVariantChoices({ duckLevel: "slider" }), { duckLevel: "slider" }, "an open choice is kept");
+  assert.deepEqual(prunedVariantChoices({ duckLevel: "four" }), {}, "a value the choice no longer offers goes");
   assert.deepEqual(prunedVariantChoices({ hardwareLabel: "both", modelSummary: "sheet", modelList: "sized", modelLanguages: "inline" }), {},
     "the decided model languages, model block, Model list and hardware label (sidevoice-web#339, #340) are pruned from a stored choice");
   assert.deepEqual(prunedVariantChoices({ onboardingFlow: "d", titleDetail: "popover" }), {}, "the decided onboarding flow and call details are pruned from a stored choice");

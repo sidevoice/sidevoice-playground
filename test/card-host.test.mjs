@@ -185,7 +185,7 @@ test("the card page gets the app's card seam and nothing else; the shell serves 
   assert.equal(win.fetch, "untouched", "the card fetches nothing");
   assert.ok(await mockFile("/preview-mock/card-host.mjs"));
   assert.ok(!VARIANTS.some((variant) => variant.name === "floating-card"), "the floating card's options are out of this release");
-  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["pairingScan"], "one choice is open: where Scan sits on the pairing screen (sidevoice-web#466); the title's call details and the onboarding flow are decided");
+  assert.deepEqual(VARIANTS.map((variant) => variant.name), ["pairingScan", "duckLevel"], "two choices are open: where Scan sits on the pairing screen (sidevoice-web#466) and the level other apps' media is lowered to (sidevoice-web#468); the title's call details and the onboarding flow are decided");
 });
 
 test("removing visual sample turns leaves the scenario's seeded messages alone", () => {

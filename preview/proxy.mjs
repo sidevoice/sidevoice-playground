@@ -10,7 +10,7 @@
 // saw it. The access cookie stays.
 //
 // A mocked run serves no core: `/` is the shell (mock/shell.html), with the card, that holds the web in a frame;
-// `/preview-mock/…` its modules and its scenarios; and the site's `/voice/target.js` is the mocks' (mock/frame.js),
+// `/duck-level` the design sheet for a VARIANTS choice; `/preview-mock/…` its modules and its scenarios; and the site's `/voice/target.js` is the mocks' (mock/frame.js),
 // which hands the page to the shell before the web starts. The rest of the site is served as it was built.
 
 import { request as httpRequest } from "node:http";
@@ -28,6 +28,7 @@ const OBSERVE = fileURLToPath(new URL("./turn-lab/observe.js", import.meta.url))
  *  types, its scenarios and the page's target are not served under it. */
 export const MOCK_FILE = /^[a-z0-9][a-z0-9-]*\.(?:mjs|css)$/;
 export const MOCK_PATH = "/preview-mock/";
+export const DUCK_LEVEL_PATH = "/duck-level";
 
 /** The mocked preview's scenarios (mock/scenarios/*.json), in their files' order, each with the voice's and the
  *  models' options (mock/voice-options.json) after its own. An option starts at its first value, or at the one the
@@ -260,6 +261,8 @@ export function previewOrigin({ runs, onReset = () => runs.resetDone() }) {
 /** What a mocked run serves of its own at `pathname`: `{ type, body }`, or null for the site's files. */
 export async function mockFile(pathname) {
   if (pathname === "/") return { type: TYPES[".html"], body: await readFile(join(MOCK_DIR, "shell.html")) };
+  // The duck level's design sheet: a page of its own, beside the shell, that follows the VARIANTS panel's pick.
+  if (pathname === DUCK_LEVEL_PATH) return { type: TYPES[".html"], body: await readFile(join(MOCK_DIR, "duck-level.html")) };
   // A dev server writes the page's `/voice/target.js` under its base again: `/voice/voice/target.js`.
   if (pathname === "/voice/target.js" || pathname === "/voice/voice/target.js") {
     return { type: TYPES[".js"], body: await readFile(join(MOCK_DIR, "frame.js")) };

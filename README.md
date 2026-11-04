@@ -190,6 +190,23 @@ puts the web's markup on them. To draw them again from another commit: `node scr
 <sidevoice-web tree> --sha <commit> --esbuild <node_modules/esbuild>`. The page reloads itself when one of its files is
 saved.
 
+## Duck-level design sheet
+
+The VARIANTS panel's `duckLevel` choice (sidevoice-web#468): the level other apps' media is lowered to, in Settings >
+Call > "Other apps' media", for Lower only (default 25 % of the volume). The web has no such control yet, so the
+choice has a page of its own, **`/duck-level`** on the preview origin (the panel's card links to it): Settings >
+Llamada in Spanish, light and dark side by side (`?theme=light|dark|both`), with the panel's pick (A 3 presets, B slider,
+C Windows-style) or all three (`?v=presets|slider|windows|all`). The row works: the mode hides the level row with Pause and
+Do nothing, the presets and the slider move, and `?width=390` shows a phone's width. The sheet follows the panel's pick live and
+never writes it. The options and their words are data (`preview/mock/duck-level-data.mjs`); the row's own words are
+the web's Spanish catalogue's, and the rest stays here.
+
+Nothing of the app is redrawn: `scripts/duck-level-styles.mjs --web <sidevoice-web tree> --sha <commit>` copies the
+stylesheets the row is drawn with (tokens, theme, ui, app, settings) into `preview/mock/duck-level-web.css`, and the
+page puts the web's Row, Group, Segmented and speed-slider markup on them. `scripts/duck-level-screenshots.mjs --web
+<sidevoice-web tree> --out <dir>` captures every option in both themes, and a phone's width, with the web tree's Playwright.
+Once the level is decided, the choice goes from VARIANTS and this sheet with it.
+
 ## Web preview
 
 ### Turn Lab: real spoken conversation

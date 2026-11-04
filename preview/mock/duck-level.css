@@ -1,0 +1,25 @@
+/* The duck-level design sheet's own chrome: the bar and the frames around the Settings content. The content is drawn
+ * with the web's stylesheets (duck-level-web.css, copied from sidevoice-web), never with a look of its own here. */
+html, body.sheet { height: auto; overflow: auto; }
+body.sheet { padding: 0 0 48px; background: #e6e4ec; color: #1d1b24; font: 13px/1.45 var(--sv-font-sans); }
+.sheet-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; padding: 12px 24px; background: #1d1b24; color: #f4f2f8; }
+.sheet-bar h1 { margin: 0; font-size: 15px; font-weight: 700; }
+.sheet-bar .bar-group { display: inline-flex; align-items: center; gap: 8px; }
+.sheet-bar .bar-group b { font-weight: 600; opacity: .75; }
+.sheet-bar .bar-choice { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: #3a3744; }
+.sheet-bar .bar-choice button, .sheet-bar .bar-choice span { padding: 3px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.sheet-bar .bar-choice [aria-checked="true"] { background: #f4f2f8; color: #1d1b24; }
+.sheet-bar a { color: #cdbbf0; }
+.sheet-intro { max-width: 78ch; margin: 16px 24px 0; }
+.sheet-intro p { margin: 0 0 6px; }
+.sheet-block { margin: 24px 24px 0; }
+.sheet-block h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+.sheet-block h2 small { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #1d1b24; color: #f4f2f8; font-size: 11px; font-weight: 600; vertical-align: 2px; }
+.sheet-block .why { max-width: 90ch; margin: 0 0 10px; }
+.sheet-windows { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.sheet-window { flex: none; width: var(--window, 720px); max-width: 100%; }
+.sheet-window > b { display: block; margin: 0 0 4px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .65; }
+/* A Settings content pane as a floating frame: the theme's own background, and the column the web gives it. */
+.duck-window { overflow: hidden; border: 1px solid rgb(0 0 0 / 18%); border-radius: 12px; background: var(--sv-bg); box-shadow: 0 10px 30px rgb(29 27 36 / 14%); }
+.duck-window .settings-column { padding-block: var(--sv-space-6) var(--sv-space-8); }
+.sheet-note { margin: 24px; }
