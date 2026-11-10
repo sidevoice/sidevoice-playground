@@ -149,16 +149,23 @@ test("the sheet adds no word of its own to the screens: the only addition is the
   }
 });
 
-test("«Recomendado» is the app's tag, in two places only: the end of Modelo's label row, and the entry in the open list (compact, so it stays on one line)", async () => {
+test("«Recomendado» is the one badge \"Avanzado\" draws (a plain accent Badge), the same everywhere: label row, model list, family list", async () => {
   assert.equal("REC_VARIANTS" in data, false, "no open decision is left");
   const code = await readFile(new URL("../preview/mock/recommender.mjs", import.meta.url), "utf8");
-  assert.match(code, /isRecommended \? recommended\(\) : ""\)/, "the tag in the Field's aside, while the model shown is the recommended one");
-  assert.match(code, /const recommended = \(\) => badge\(esc\(COPY\["runtime\.recommended"\]\), "accent", false, true\)/, "one single variant, the Badge's compact tag");
-  assert.equal(code.includes("recommended(true)"), false, "no second variant");
-  assert.equal((code.match(/recommended\(\)/g) ?? []).length, 3, "the label row, the model entry and the family entry, and no other place");
-  assert.match(code, /badge: family\.recommended \? recommended\(\) : ""/, "the recommended family, in the open Familia list");
+  // One definition, and it is ModelRuntime.tsx's `<Badge tone="accent">{t("runtime.recommended")}</Badge>`: no `tag`, no dot, no class of its own.
+  assert.match(code, /const recommended = \(\) => badge\(esc\(COPY\["runtime\.recommended"\]\), "accent"\);/);
+  assert.match(code, /const badge = \(text, tone = "neutral", dot = false\) => `<span class="ui-badge" data-tone="\$\{tone\}">/, "a Badge has no variant to pick");
+  assert.equal(/data-tag|\btag\b *=|recommended\(true\)/.test(code), false, "the compact tag variant is not used");
+  assert.equal(code.split('COPY["runtime.recommended"]').length - 1, 1, "the string is said in one place only: that definition");
+  const uses = code.match(/recommended\(\)/g) ?? [];
+  assert.equal(uses.length, 4, "four uses: label row, model entry, family entry, Avanzado");
+  assert.match(code, /isRecommended \? recommended\(\) : ""\)/, "the label row, the Field's aside");
+  assert.match(code, /badge: isRecommended \? `<span class="rec-badges">\$\{recommended\(\)\}/, "the model entry");
+  assert.match(code, /badge: family\.recommended \? recommended\(\) : ""/, "the family entry");
+  assert.match(code, /build\.id === sel\.model\.best\.id \? \[recommended\(\)\]/, "Avanzado's own, through the same function");
   for (const gone of ["leading", "sparkle", "REC_VARIANTS", "data-rec", "matrix", "decision("]) assert.equal(code.includes(gone), false, `${gone} is gone`);
   const css = await readFile(new URL("../preview/mock/recommender.css", import.meta.url), "utf8");
+  assert.equal(css.includes("data-tag") || /\.ui-badge[^{]*\{/.test(css), false, "the sheet restyles no Badge: only the app's own rules apply");
   assert.equal(css.includes("grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr)"), false, "the Modelo column is not widened");
   assert.match(css, /text-overflow: ellipsis; white-space: nowrap/, "an entry stays on one line");
 });

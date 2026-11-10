@@ -49,11 +49,11 @@ const ICON = {
 const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
 const mark = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="1.5" y="9" width="3" height="6" rx="1.5"/><rect x="6" y="6" width="3" height="12" rx="1.5"/><rect x="10.5" y="1.5" width="3" height="21" rx="1.5"/><rect x="15" y="6" width="3" height="12" rx="1.5" style="fill:var(--sv-voice)"/><rect x="19.5" y="9" width="3" height="6" rx="1.5"/></svg>`;
 
-const badge = (text, tone = "neutral", dot = false, tag = false) => `<span class="ui-badge" data-tone="${tone}"${tag ? " data-tag" : ""}>${dot ? '<span class="ui-badge-dot" aria-hidden="true"></span>' : ""}${text}</span>`;
-/** The app's «Recomendado» tag (runtime.recommended): the one way the recommendation is said, in one single variant (the Badge's
- *  compact `tag`, with its quiet border) in every place it is: Modelo's label row, the model list, the family list. "Avanzado" keeps
- *  its own plain badge (not this sheet's to change). */
-const recommended = () => badge(esc(COPY["runtime.recommended"]), "accent", false, true);
+const badge = (text, tone = "neutral", dot = false) => `<span class="ui-badge" data-tone="${tone}">${dot ? '<span class="ui-badge-dot" aria-hidden="true"></span>' : ""}${text}</span>`;
+/** The app's «Recomendado» badge (runtime.recommended), exactly the one "Avanzado: cómo se ejecuta" draws next to a build
+ *  (ModelRuntime.tsx: `<Badge tone="accent">`, no other variant): the one way the recommendation is said, and the same markup
+ *  and classes in every place it is: Modelo's label row, the model list, the family list, and "Avanzado". */
+const recommended = () => badge(esc(COPY["runtime.recommended"]), "accent");
 const button = ({ label, variant = "secondary", tone, size, id, act, extra = "", disabled = false, cls = "" }) =>
   `<button type="button" class="ui-button ui-button--${variant}${tone ? ` ui-button--${tone}` : ""}${size ? ` ui-button--${size}` : " ui-button--md"}${cls ? ` ${cls}` : ""}"${act ? ` data-act="${act}"` : ""}${id ? ` data-key="${id}"` : ""}${extra}${disabled ? " disabled" : ""}><span class="ui-button-content">${label}</span></button>`;
 const row = ({ label, control = "", block = false }) =>
@@ -83,7 +83,7 @@ const frameState = (key) => (state.frames[key] ??= { model: null, build: null, o
 const openOf = (f, which) => (f.open === undefined ? state.lists === which : f.open === which);
 
 /** A model of the Modelo list as the app lists it: its download size at the end of the name's line, its hardware under it
- *  (model-facts.tsx listedOption); «Recomendado» on the recommended one (the same tag everywhere), before the size at the end of the line; a model that does not speak the language says so quietly under it (the app's «No admite …»), and stays
+ *  (model-facts.tsx listedOption); «Recomendado» on the recommended one (the same badge everywhere), before the size at the end of the line; a model that does not speak the language says so quietly under it (the app's «No admite …»), and stays
  *  selectable. */
 function modelItem(model, e) {
   const label = hardware(model.best);
@@ -135,7 +135,7 @@ function runtimeBlock(sel, f, frame, locked) {
 <span class="model-runtime-copy"><span class="model-runtime-title">${esc(title)}${badges.join("")}</span><span class="model-runtime-detail">${esc(detail)}</span>${why ? `<span class="model-runtime-why">${why}</span>` : ""}</span></label>`;
   };
   const builds = sel.model.builds.map((build) => option(build.id, describeBuild(build), buildSizes(build),
-    [...(build.id === sel.model.best.id ? [badge(esc(COPY["runtime.recommended"]), "accent")] : []), ...(f.installed[build.id] ? [badge(esc(COPY["runtime.onDisk"]), "positive")] : [])],
+    [...(build.id === sel.model.best.id ? [recommended()] : []), ...(f.installed[build.id] ? [badge(esc(COPY["runtime.onDisk"]), "positive")] : [])],
     build.available, build.available ? "" : withReasons("runtime.notHere", build.reasons)));
   return `<div class="model-runtime"><div class="model-runtime-head"><button type="button" class="model-runtime-toggle" aria-expanded="${f.advanced}" data-act="advanced" data-frame="${frame}" data-key="${frame}-advanced">
 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${f.advanced ? "model-runtime-chevron-open" : ""}">${ICON.chevron}</svg>${esc(COPY["runtime.advanced"])}</button><span class="model-runtime-summary">${esc(engineOf(sel.build))}</span></div>
