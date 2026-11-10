@@ -7,7 +7,8 @@
 //   why not when it does not.
 //   HARD filters (a candidate that fails any cannot run here; a model with none left is disabled, with why):
 //     1. build allowed here   the backend is in this build of the engine on this device
-//     2. GPU builds off       where the device allows none (iPhone, until sidevoice-engine#154)
+//     2. GPU builds off       where the device allows none (iPhone, until sidevoice-engine#154); said with the app's own
+//                             «necesita un acelerador que este dispositivo no tiene» (build-accelerator)
 //     3. fits memory          its memory is within the budget (60 %) of the memory it runs on
 //   SOFT filter (a model that fails stays selectable, but is never recommended): the person's language is one of its own.
 //   ORDER BY, one sort, first criterion decides:  comfortable (hint) > quality (hand-written list) > accelerator class
@@ -41,7 +42,7 @@ export function resolveBuild(model, spec, device) {
   const place = device.engines[spec.backend];
   const reasons = [];
   if (!place) reasons.push("backend-not-in-this-build");
-  else if (place.class === "gpu" && !device.gpuBuilds) reasons.push("platform-gpu");
+  else if (place.class === "gpu" && !device.gpuBuilds) reasons.push("build-accelerator"); // the app's closest existing reason: GPU builds are not offered here
   if (place && spec.memoryMb > budgetMb(device)) reasons.push("memory");
   const comfortOn = COMFORTABLE_ON[model.id] ?? COMFORTABLE_ON.default;
   return {

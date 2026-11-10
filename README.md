@@ -209,15 +209,16 @@ Once the level is decided, the choice goes from VARIANTS and this sheet with it.
 
 ## Model recommender design sheet
 
-The recommender decided on 2026-11-10 (the best model a device runs comfortably, preselected; sidevoice-engine#124, core#33), seen before it
+The recommender decided on 2026-11-10 (the best model a device runs comfortably, selected by default; sidevoice-engine#124, core#33), seen before it
 exists: **`/recommender`** on the preview origin, a page of its own beside the shell (`?device=mac|windows|iphone&lang=es|it&theme=light|dark`;
-`?open=model|family|closed` says which list is drawn open, `?new=off` hides the NEW marks). Transcripción and Voz, in Settings and in the
-first-run setup, in Spanish: the recommended model preselected with «Recomendado» and a line of why, «Volver a lo recomendado» while the
-selection differs, each family's own pick for the device, models that cannot run here disabled under «No disponibles aquí» with the
-app's «no funciona aquí: …», and models that do not speak the language still selectable with «No admite …». The controls work (family,
-model, build under "Avanzado", Descargar). A bar switches the example device and the person's language; the strings the app does not
-have yet are marked NEW and listed in a legend; each decision still open is a switch labelled "Decision for Rubén", with its two
-options side by side on request; a table says why each ranking is what it is.
+`?open=model|family` draws that list open on every screen, closed by default as the app loads). Transcripción and Voz, in Settings and in the
+first-run setup, in Spanish, with the app's own components. The recommendation is said one way only, with the app's own «Recomendado» tag,
+inside the Select: on the selected value of Modelo when it is the recommended model, on its entry in the open list, and on the recommended
+family in the open Familia list. Each family comes with its own best model for the device. A model that cannot run here is left out of the
+lists, as the app does today (its builds say why in "Avanzado", with the app's «No funciona aquí: …»); one that does not speak the person's
+language stays selectable and says «No admite …» quietly under its name. No word of the app's catalogue is added. The controls work (family,
+model, build under "Avanzado", Descargar). A bar switches the example device, the person's language and the theme; a table at the foot says
+why each ranking is what it is.
 
 **Example data.** Models, builds, sizes and languages mirror sidevoice-engine's catalogue (`CATALOGUE_SOURCE` in
 `preview/mock/recommender-data.mjs`); the devices, their memory, the "comfortable on" hints and so the ranking are invented, nothing is

@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { MOCK_FILE, RECOMMENDER_PATH, mockFile } from "../preview/proxy.mjs";
-import { BUDGET, CATALOGUE, COPY, DEVICES, DEVICE_IDS, NEW_COPY, QUALITY, TURN_MB } from "../preview/mock/recommender-data.mjs";
+import * as data from "../preview/mock/recommender-data.mjs";
+import { BUDGET, CATALOGUE, COPY, DEVICES, DEVICE_IDS, QUALITY, TURN_MB } from "../preview/mock/recommender-data.mjs";
 import { budgetMb, evaluate, languageSupported, orderLanguages, rank, recommend } from "../preview/mock/recommender-logic.mjs";
 import { describeBuild, hardware, mb, sizeText } from "../preview/mock/recommender-format.mjs";
 
@@ -21,8 +22,9 @@ test("the recommendation per device: turbo only where it is comfortable (a graph
   assert.equal(model("stt", "windows", "es", "whisper-large-v3-turbo").best.acceleratorClass, "cpu");
 });
 
-test("quality order: STT turbo > parakeet-v3 > whisper small/base/tiny; TTS Supertonic 3 > 2 > Kokoro > Piper", () => {
-  assert.deepEqual(order("stt", "mac", "es").slice(0, 5), QUALITY.stt);
+test("quality order: STT turbo > parakeet-v3 > qwen3-asr > whisper small/base/tiny; TTS Supertonic 3 > 2 > Kokoro > Piper", () => {
+  assert.deepEqual(QUALITY.stt.slice(0, 4), ["whisper-large-v3-turbo", "parakeet-tdt-0.6b-v3", "qwen3-asr-0.6b", "whisper-small"]);
+  assert.deepEqual(order("stt", "mac", "es").slice(0, 6), QUALITY.stt);
   assert.deepEqual(QUALITY.tts.slice(0, 4), ["supertonic-3", "supertonic-2", "kokoro-82m-v1.0", "piper-es_ES-carlfm-x_low"]);
   // Supertonic 2 only has the browser's build: in the apps it is hard-excluded, so the next of the order stands in.
   assert.deepEqual(order("tts", "mac", "es").slice(0, 3), ["supertonic-3", "kokoro-82m-v1.0", "piper-es_ES-carlfm-x_low"]);
@@ -31,15 +33,16 @@ test("quality order: STT turbo > parakeet-v3 > whisper small/base/tiny; TTS Supe
 test("a model not named in the quality order is ranked after those that are", () => {
   const ids = order("stt", "windows", "es");
   const named = QUALITY.stt.filter((id) => ids.includes(id));
-  assert.deepEqual(ids.slice(0, 4), ["parakeet-tdt-0.6b-v3", "whisper-small", "whisper-base", "whisper-tiny"]);
+  assert.deepEqual(ids.slice(0, 5), ["parakeet-tdt-0.6b-v3", "qwen3-asr-0.6b", "whisper-small", "whisper-base", "whisper-tiny"]);
   assert.ok(ids.indexOf("canary-180m-flash") > ids.indexOf(named.filter((id) => model("stt", "windows", "es", id).comfortable).at(-1)));
 });
 
-test("hard exclusions: memory, an engine not in this build, GPU builds on iPhone; each says why and is not recommendable", () => {
+test("hard exclusions: memory, an engine not in this build, GPU builds on iPhone; each says why in the app's own words and is not recommendable", () => {
   const turbo = model("stt", "iphone", "es", "whisper-large-v3-turbo");
   assert.equal(turbo.available, false);
-  assert.deepEqual(new Set(turbo.reasons), new Set(["memory", "platform-gpu"]));
-  assert.ok(turbo.builds.some((build) => build.reasons.includes("platform-gpu") && build.acceleratorClass === "gpu"), "its GPU build is removed, not ranked lower");
+  assert.deepEqual(new Set(turbo.reasons), new Set(["memory", "build-accelerator"]));
+  assert.ok(turbo.builds.some((build) => build.reasons.includes("build-accelerator") && build.acceleratorClass === "gpu"), "its GPU build is removed, not ranked lower");
+  for (const code of turbo.reasons) assert.ok(COPY[`voice.unfit.${code}`], `the app already says ${code}`);
   for (const device of DEVICE_IDS) {
     const two = model("tts", device, "es", "supertonic-2");
     assert.equal(two.available, false);
@@ -133,15 +136,17 @@ test("sizes and builds are said as the app says them", () => {
   assert.deepEqual(hardware(model("stt", "windows", "es", "parakeet-tdt-0.6b-v3").best), { main: "CPU", name: "" });
 });
 
-test("the NEW strings are only those the app does not have; the rest of the copy is the app's own", () => {
-  for (const key of Object.keys(NEW_COPY)) assert.equal(key in COPY, false, `${key} is NEW: the app has no such key`);
-  assert.deepEqual(Object.keys(NEW_COPY).sort(), ["recommend.back", "recommend.notRecommended", "recommend.unavailable", "recommend.why", "recommend.whyFamily", "voice.unfit.platform-gpu"]);
-  assert.equal(NEW_COPY["recommend.back"].text, "Volver a lo recomendado");
-  assert.equal(NEW_COPY["recommend.why"].text, "El mejor que va con soltura aquí");
+test("the sheet adds no word of its own to the screens: the only addition is the app's «Recomendado»", async () => {
+  assert.equal("NEW_COPY" in data, false);
   assert.equal(COPY["runtime.recommended"], "Recomendado");
-  assert.equal(COPY["voice.model.unfit"], "no funciona aquí: {reasons}");
   assert.equal(COPY["voice.source.local"], "En este dispositivo");
   assert.equal(COPY["voice.family"], "Familia");
+  assert.equal(COPY["voice.languages.unsupported"], "No admite {language}");
+  assert.equal(COPY["runtime.notHere"], "No funciona aquí: {reasons}");
+  const code = await readFile(new URL("../preview/mock/recommender.mjs", import.meta.url), "utf8");
+  for (const gone of ["Volver a lo recomendado", "No disponibles aquí", "No recomendados", "soltura", "para este dispositivo", "tarjeta gráfica en este sistema", "NEW_COPY", "rec-new"]) {
+    assert.equal(code.includes(gone), false, `${gone} is not on the sheet`);
+  }
 });
 
 test("every key the page asks for exists", async () => {
@@ -150,7 +155,6 @@ test("every key the page asks for exists", async () => {
   const keys = [...code.matchAll(/COPY\["([^"]+)"\]/g)].map((match) => match[1]);
   for (const key of keys) assert.ok(key in COPY, `COPY has ${key}`);
   for (const match of code.matchAll(/\bt\("([^"]+)"/g)) assert.ok(match[1] in COPY, `COPY has ${match[1]}`);
-  for (const match of code.matchAll(/\bnw\("([^"]+)"/g)) assert.ok(match[1] in NEW_COPY, `NEW_COPY has ${match[1]}`);
   assert.ok(keys.length > 20);
 });
 

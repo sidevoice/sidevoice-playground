@@ -68,11 +68,10 @@ export const CATALOGUE = [
   whisper("whisper-large-v3-turbo", "q5_0", { sherpa: [1290, 1037], cpp: [720, 574], fp16: [2010, 1621], q8: [1350, 1088] }),
 ].map((model, index) => ({ ...model, index }));
 
-/** Quality, hand-written per capability (decided 2026-11-10): the models it names, best first. A model it does not
- *  name is ranked after those it does, in the catalogue's order — canary, fastconformer, qwen3-asr and whisper-large-v3
- *  are not placed yet (open: where they go). */
+/** Quality, hand-written per capability (decided 2026-11-10; Transcripción's third is qwen3-asr, 2026-11-11): the models it
+ *  names, best first. A model it does not name is ranked after those it does, in the catalogue's order. */
 export const QUALITY = {
-  stt: ["whisper-large-v3-turbo", "parakeet-tdt-0.6b-v3", "whisper-small", "whisper-base", "whisper-tiny"],
+  stt: ["whisper-large-v3-turbo", "parakeet-tdt-0.6b-v3", "qwen3-asr-0.6b", "whisper-small", "whisper-base", "whisper-tiny"],
   tts: ["supertonic-3", "supertonic-2", "kokoro-82m-v1.0", "piper-es_ES-carlfm-x_low", "piper-en_US-ljspeech-medium"],
 };
 
@@ -130,13 +129,11 @@ export const COPY = {
   "voice.source.local": "En este dispositivo",
   "voice.family": "Familia",
   "voice.model": "Modelo",
-  "voice.model.unfit": "no funciona aquí: {reasons}",
-  "voice.model.unfitUnknown": "no funciona aquí",
   "voice.unfit.memory": "no cabe en la memoria de este dispositivo",
+  "voice.unfit.build-accelerator": "necesita un acelerador que este dispositivo no tiene",
   "voice.unfit.backend-not-in-this-build": "su motor no está en esta versión",
   "voice.languages.unsupported": "No admite {language}",
   "voice.languages.more": "+{n} idiomas más",
-  "voice.languages.moreLabel": "+{n} idiomas más",
   "voice.languages.title": "Idiomas que admite este modelo ({n})",
   "voice.prepare.badge.absent": "Sin descargar",
   "voice.prepare.badge.ready": "Listo",
@@ -145,7 +142,6 @@ export const COPY = {
   "voice.prepare.downloading": "Descargando…",
   "voice.prepare.downloadingAt": "Descargando… {percent}%",
   "voice.prepare.progress": "{done} de {size}",
-  "voice.prepare.verifying": "Comprobando el modelo…",
   "voice.prepare.onDevice": "{size} en este dispositivo",
   "voice.prepare.lockedHint": "Cancela la descarga para elegir otro modelo.",
   "runtime.recommended": "Recomendado",
@@ -178,42 +174,4 @@ export const COPY = {
   "wizard.continueWithoutTrying": "Continuar sin probar",
   "wizard.skip.later": "Saltar por ahora",
   "try.tryIt": "Probar",
-  "settings.save.waitTranscription": "El modelo de transcripción aún no está listo.",
-  "settings.save.waitVoice": "El modelo de voz aún no está listo.",
-};
-
-/** What the recommender adds where the app has nothing: proposed keys (`recommend.*`, `voice.unfit.platform-gpu`) and
- *  the words. The sheet marks each one NEW, and its legend lists them (`where` is for the legend). */
-export const NEW_COPY = {
-  "recommend.why": { text: "El mejor que va con soltura aquí", where: "Under the pickers, on the recommended model: why it is the one." },
-  "recommend.whyFamily": { text: "El mejor de {family} para este dispositivo", where: "Under the pickers, after switching family: the family's own pick (when it is not the recommended model)." },
-  "recommend.back": { text: "Volver a lo recomendado", where: "Under the pickers, only while the selection (model or build) differs from the recommendation." },
-  "recommend.unavailable": { text: "No disponibles aquí", where: "Last group of the Familia and Modelo lists: what cannot run here, disabled, with the existing «no funciona aquí: …»." },
-  "voice.unfit.platform-gpu": { text: "no se permite la tarjeta gráfica en este sistema", where: "A reason of «no funciona aquí: …» (needs its own reason code from the engine): GPU builds on iPhone." },
-  "recommend.notRecommended": { text: "No recomendados", where: "Variant B only: group of the Modelo list for what is selectable but never recommended." },
-};
-export const NEW_KEYS = Object.keys(NEW_COPY);
-
-/** The sheet's two open decisions, each with its two options (the keys are the sheet's `?soft=` and `?family=`). */
-export const DECISIONS = {
-  soft: {
-    title: "How a not-recommended model is listed",
-    question: "Soft exclusions (the model does not support the language) stay selectable. Where do they sit in the Modelo list?",
-    try: "Voz › Familia › Piper in Español (piper-en_US is the one not recommended), or Idioma › Italiano and pick Kokoro or Piper (all of them are); in Transcripción, Canary and Fastconformer in Italiano.",
-    compareNote: "Voz, Piper family picked: in Español one of its models is not recommended; Idioma › Italiano makes both of them (and every Kokoro) so.",
-    options: {
-      a: { label: "A · In place, quiet reason", text: "After the recommendable ones, in the same list: the reason (existing «No admite italiano») under the name, no header." },
-      b: { label: "B · Own group", text: "Under a «No recomendados» header (NEW), same reason under the name: scannable, louder, one more group before «No disponibles aquí»." },
-    },
-  },
-  family: {
-    title: "Does the Familia list mark the recommendation?",
-    question: "The Modelo list carries «Recomendado» on the recommended model. Should the Familia list mark the family it lives in?",
-    try: "Open the Familia list (bar › List open › Familia); after picking another family, the marked one tells where the recommendation is.",
-    compareNote: "Both screens with the Familia list open.",
-    options: {
-      a: { label: "A · Marked", text: "«Recomendado» on the recommended family: you find the way back without opening Modelo. Two badges on one choice." },
-      b: { label: "B · Not marked", text: "Families are plain names; only the model is badged. Quieter; the way back is the «Volver a lo recomendado» button." },
-    },
-  },
 };
