@@ -1,0 +1,85 @@
+/* The model recommender design sheet's own chrome: the bar, the decisions, the legend, the frames around the screens,
+ * and the few pieces of layout the recommender adds to the app's model block. The screens are drawn with the web's
+ * stylesheets (recommender-web.css, copied from sidevoice-web), never with a look of their own here. */
+html, body.sheet { height: auto; overflow: auto; }
+body.sheet { padding: 0 0 64px; background: #e6e4ec; color: #1d1b24; font: 13px/1.45 var(--sv-font-sans); }
+.sheet-bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; padding: 12px 24px; background: #1d1b24; color: #f4f2f8; }
+.sheet-bar h1 { margin: 0; font-size: 15px; font-weight: 700; }
+.bar-group { display: inline-flex; align-items: center; gap: 8px; }
+.bar-group b { font-weight: 600; opacity: .75; }
+.bar-choice { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border-radius: 8px; background: #3a3744; }
+.bar-choice button { padding: 3px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.bar-choice [aria-checked="true"] { background: #f4f2f8; color: #1d1b24; }
+.sheet-intro { max-width: 96ch; margin: 16px 24px 0; }
+.sheet-intro p { margin: 0 0 6px; }
+.rec-example { padding: 6px 10px; border-left: 4px solid #e0a82e; background: #fff8e6; }
+.rec-device { padding: 6px 10px; border-left: 4px solid #8a76b3; background: #f1edf9; }
+
+/* The two open decisions, each with its switch. */
+.rec-decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; margin: 16px 24px 0; }
+.rec-decision { padding: 12px 16px; border: 1px solid #cfcad8; border-left: 4px solid #e0a82e; border-radius: 10px; background: #fff; }
+.rec-decision h3 { margin: 0 0 4px; font-size: 14px; }
+.rec-decision p { margin: 0 0 6px; }
+.rec-decision ul { margin: 0 0 8px; padding-left: 18px; }
+.rec-decision .rec-try { color: #4a4656; }
+.rec-decision .bar-choice { background: #e6e4ec; }
+.rec-decision .bar-choice [aria-checked="true"] { background: #1d1b24; color: #f4f2f8; }
+.rec-tag { margin-right: 8px; padding: 1px 8px; border-radius: 999px; background: #1d1b24; color: #f4f2f8; font-size: 11px; font-weight: 600; vertical-align: 1px; }
+
+/* Frames. */
+.sheet-block { margin: 24px 24px 0; }
+.sheet-block h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+.sheet-block .why { max-width: 90ch; margin: 0 0 10px; }
+.sheet-windows { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.sheet-window { flex: none; width: var(--window, 720px); max-width: 100%; }
+.sheet-window > b { display: block; margin: 0 0 4px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .65; }
+.rec-window { overflow: hidden; border: 1px solid rgb(0 0 0 / 18%); border-radius: 12px; background: var(--sv-bg); box-shadow: 0 10px 30px rgb(29 27 36 / 14%); color: var(--sv-text); }
+.rec-window .settings-column { padding-block: var(--sv-space-6) var(--sv-space-8); }
+.rec-window[data-phone] .settings-column { padding: var(--sv-space-5) var(--sv-space-4) var(--sv-space-8); }
+/* The setup's dialog as a frame: its own width and a height that follows its content, on the quiet ground it has behind it. */
+.rec-wizard { padding: 16px; border-radius: 12px; background: var(--sv-bg-subtle); color: var(--sv-text); box-shadow: 0 10px 30px rgb(29 27 36 / 14%); }
+.rec-wizard .wizard-dialog { position: static; width: 100%; height: auto; margin: 0; }
+.rec-wizard .wizard-body { overflow: visible; }
+.sheet-window[style*="390px"] .rec-wizard { padding: 0; }
+.rec-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 600px), 1fr)); gap: 24px; align-items: start; }
+.rec-column { display: grid; gap: 16px; }
+.rec-column h3 { margin: 0; font-size: 14px; }
+
+/* What the recommender adds to the model block: drawn with the app's tokens, so the real change is this CSS and its markup. */
+.model-prepare-pickers { align-items: start; }
+.rec-select { position: relative; min-width: 0; }
+/* An open list is drawn in flow, under the pickers and under its own box's side, so the line under it stays in sight; in the app it floats over it. */
+.rec-list { display: flex; margin-top: calc(-1 * var(--sv-space-1)); }
+.rec-list[data-which="model"] { justify-content: flex-end; }
+.rec-list .ui-select-content { position: static; width: min(100%, 28rem); animation: none; max-width: none; }
+.rec-list .ui-select-content { max-height: none; }
+.rec-list .ui-select-viewport { overflow: visible; }
+.rec-list .ui-select-item:not([data-disabled]):hover { background: var(--sv-accent-soft); }
+.rec-badges { display: inline-flex; align-items: center; gap: var(--sv-space-2); }
+.ui-select-item-badge .rec-badges, .ui-select-item-badge > .ui-badge { margin-top: 0; }
+.rec-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sv-space-1) var(--sv-space-3); }
+.rec-why { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-2); }
+.rec-line .ui-button { margin-inline-start: calc(-1 * var(--sv-space-2)); }
+.rec-line .rec-why + .ui-button { margin-inline-start: auto; }
+.rec-pop { position: relative; }
+.rec-pop .ui-popover { position: absolute; inset-inline-start: 0; top: 100%; margin-top: 4px; }
+
+/* The NEW strings, marked (the bar turns the marks off). */
+.rec-new { border-radius: 3px; }
+body[data-new="on"] .rec-new { background: color-mix(in srgb, #ffcf33 42%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, #ffcf33 42%, transparent); color: inherit; }
+body[data-new="on"] .rec-new::after { content: "NEW"; margin-inline-start: 5px; padding: 0 3px; border-radius: 3px; background: #b45309; color: #fff; font: 700 8px/12px var(--sv-font-sans); letter-spacing: .04em; vertical-align: 2px; }
+.rec-legend .rec-new::after, .sheet-intro .rec-new::after { content: none !important; }
+
+/* The legend and the ranking tables. */
+.rec-legend, .rec-why-sheet { max-width: 1200px; margin: 28px 24px 0; }
+.rec-legend h2, .rec-why-sheet h2 { margin: 0 0 4px; font-size: 16px; }
+.rec-legend table, .rec-why-sheet table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+.rec-legend th, .rec-legend td, .rec-why-sheet th, .rec-why-sheet td { padding: 5px 10px; border-bottom: 1px solid #e6e4ec; text-align: left; vertical-align: top; }
+.rec-legend th, .rec-why-sheet th { background: #f1edf9; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.rec-legend code, .rec-why-sheet code { font-size: 12px; }
+.rec-legend details { margin-top: 10px; }
+.rec-why-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; }
+.rec-why-sheet h3 { margin: 8px 0 4px; font-size: 14px; }
+.rec-hard { color: #b3261e; font-weight: 600; }
+.rec-soft-tag { color: #8a5a00; font-weight: 600; }
+.sheet-note { margin: 24px; }

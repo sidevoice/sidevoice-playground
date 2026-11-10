@@ -1,0 +1,1549 @@
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/styles/tokens.css by scripts/recommender-styles.mjs. */
+:root {
+  --sv-bg: #14171b;
+  --sv-surface: #1c2128;
+  --sv-surface-raised: #252b33;
+  --sv-border: #303742;
+  --sv-text: #e8edf1;
+  --sv-muted: #a1acb9;
+  /* The brand accent (from the Sidevoice brand kit): lila on dark, noche on lila, and mustard for the
+     mark's fourth bar. The rest are the same hue, stepped for text, fills and selection. */
+  --sv-primary: #c9b6ec;
+  --sv-on-primary: #2a1a40;
+  --sv-voice: #e0a82e;
+  --sv-primary-soft: #e4dbf6;
+  --sv-primary-dim: #b7a6d6;
+  --sv-primary-muted: #3a2f52;
+  --sv-selected: #2a2438;
+  --sv-selected-border: #8a76b3;
+  --sv-positive: #75d6ad;
+  --sv-danger: #ea4335;
+  --sv-radius-sm: 10px;
+  --sv-radius-md: 18px;
+  --sv-radius-pill: 999px;
+  --sv-shadow-dialog: 0 24px 80px rgb(0 0 0 / 55%);
+  --sv-header-height: 64px;
+  /* The colour of an agent's state (the same wherever the app shows it as a colour: a conversation's dot and its light, the
+     floating card's), scheme E: green while it listens (and transcribes), blue while it speaks, violet while it works. The
+     operator chose it over the others (decided 2026-11-05; the alternatives were Sidevoice's violet for the voice, iOS system
+     colours and the call apps'). Swapping is these seven lines. A working conversation's dot blinks in its working colour (operator, final). Muted is the microphone's switch over any state, not a state.
+     The dark theme lightens the chromatic ones about 40% toward white (below), the greys as they are: they already read there. */
+  --sv-state-listening: #2fb67c;
+  --sv-state-speaking: #3d8bfd;
+  --sv-state-working: #6b4fd8;
+  --sv-state-attention: #e0a82e;
+  --sv-state-muted: #e5484d;
+  /* Muted as a filled mark with a white glyph on it (the floating card's avatar format): the light theme's muted in both themes,
+     white on it 3.9:1; the dark theme's lighter muted would give white only 2.3:1. Not lightened below. */
+  --sv-state-muted-solid: #e5484d;
+  --sv-state-idle: #b9b3c4;
+  --sv-state-offline: #8a8594;
+}
+[data-theme="dark"] {
+  --sv-state-listening: #82d3b0;
+  --sv-state-speaking: #8bb9fe;
+  --sv-state-working: #a695e8;
+  --sv-state-attention: #eccb82;
+  --sv-state-muted: #ef9194;
+}
+
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/styles/theme.css by scripts/recommender-styles.mjs. */
+/* Sidevoice's design tokens: the landing's brand (sidevoice/landing, public/assets/site.css) at an app's density.
+ * Light is the default; `data-theme="dark"` on any element turns it and everything in it dark, and `data-theme="light"`
+ * back. Which one the page wears is lib/theme.ts's: the person's choice, else the system's. Components use these
+ * tokens only — never a raw colour, radius or spacing of their own. Contrast measured for WCAG AA in both themes. */
+
+/* The brand's typeface, bundled with its licence (public/fonts/OFL.txt). */
+@font-face { font-family: "DM Sans"; src: url("/voice/fonts/DMSans-Variable-latin.woff2") format("woff2"); font-weight: 100 1000; font-display: swap; }
+
+:root {
+  /* Type: DM Sans, as the landing; a 15px body on a desktop (17px on a phone, below), a tool's density. 12px is the floor on a desktop. */
+  --sv-font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, var(--sv-font-cjk), var(--sv-font-indic), sans-serif;
+  /* DM Sans has no Chinese, Japanese, Korean or Hindi: the system's own faces, never a webfont, in the page language's order
+   * (below) so Han characters take that language's forms; after the Latin ones, which keep Latin text in them. Hangul has
+   * its faces in the same list, and Devanagari (Hindi) its own. */
+  --sv-font-cjk: "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", "Noto Sans CJK JP", "Microsoft YaHei", "Yu Gothic", "Meiryo", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR";
+  --sv-font-indic: "Kohinoor Devanagari", "Devanagari Sangam MN", "Nirmala UI", "Noto Sans Devanagari", "Mangal";
+  --sv-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace, var(--sv-font-cjk);
+  /* Each is its base size times the phone's own text scale (--sv-text-scale, lib/text-scale.ts: 1 on a desktop, and wherever
+   * the person has not changed it). Only type scales: spacing, icons and the stage keep their size. The bases are in rem,
+   * and the root's font-size is fixed at 15px (below), so a rem is 15px everywhere: the px in the comments are what is
+   * drawn (a desktop's, which is not the 15/13/12 the names once promised). A phone's bases are the next block's. */
+  /* Text that names no size inherits the body's: 15px, and a phone's 17px, as it always was. */
+  --sv-font-body-base: 15px;
+  --sv-font-body: calc(var(--sv-font-body-base) * var(--sv-text-scale, 1));
+  --sv-font-xs-base: .75rem;     /* 11.25 — badges, timestamps */
+  --sv-font-sm-base: .8125rem;   /* 12.2 — hints, descriptions, labels */
+  --sv-font-md-base: .9375rem;   /* 14.1 — body, controls, rows */
+  --sv-font-lg-base: 1.0625rem;  /* 15.9 — card and dialog titles */
+  --sv-font-xl-base: 1.25rem;    /* 18.8 — page and section titles */
+  --sv-font-2xl-base: 1.625rem;  /* 24.4 — onboarding headline, empty states */
+  --sv-font-xs: calc(var(--sv-font-xs-base) * var(--sv-text-scale, 1));
+  --sv-font-sm: calc(var(--sv-font-sm-base) * var(--sv-text-scale, 1));
+  --sv-font-md: calc(var(--sv-font-md-base) * var(--sv-text-scale, 1));
+  --sv-font-lg: calc(var(--sv-font-lg-base) * var(--sv-text-scale, 1));
+  --sv-font-xl: calc(var(--sv-font-xl-base) * var(--sv-text-scale, 1));
+  --sv-font-2xl: calc(var(--sv-font-2xl-base) * var(--sv-text-scale, 1));
+  /* Line heights go with the sizes: a fixed one (in rem or px, beside a token) is its length times --sv-line-k, which is the
+   * text scale and the phone's step (1 on a desktop, ~1.12 on a phone), so a row's lines grow with its text. */
+  --sv-line-step: 1;
+  /* The stage's own text (the balloons, the person's live text, the name and chips over the creature) lives in a frame that
+   * is sized in stage units and holds three lines a page: it follows the text size only a little, 0.9-1.25, so it fits. */
+  --sv-stage-text-scale: clamp(.9, var(--sv-text-scale, 1), 1.25);
+  --sv-line-k: calc(var(--sv-text-scale, 1) * var(--sv-line-step));
+  --sv-weight-regular: 400;
+  --sv-weight-medium: 550;
+  --sv-weight-semibold: 650;
+  --sv-weight-bold: 700;
+  --sv-weight-heavy: 750;
+
+  /* Space: these and no other. */
+  --sv-space-0-5: 2px;
+  --sv-space-1: 4px;
+  --sv-space-1-5: 6px;
+  --sv-space-2: 8px;
+  --sv-space-3: 12px;
+  --sv-space-4: 16px;
+  --sv-space-5: 20px;
+  --sv-space-6: 24px;
+  --sv-space-8: 32px;
+  --sv-space-10: 40px;
+  --sv-space-12: 48px;
+  --sv-space-16: 64px;
+
+  /* Shape: an inner radius is the outer one less its inset. */
+  --sv-radius-xs: 6px;
+  --sv-radius-sm: 8px;
+  --sv-radius-md: 10px;
+  --sv-radius-lg: 14px;
+  --sv-radius-xl: 18px;
+  --sv-radius-2xl: 24px;
+  --sv-radius-pill: 999px;
+
+  /* Sizes. */
+  --sv-control-sm: 32px;
+  --sv-control-md: 40px;
+  --sv-control-lg: 48px;
+  --sv-call-button: 48px;
+  --sv-header-height: 64px;
+
+  /* Motion. Closing takes 70% of opening. */
+  --sv-dur-fast: 120ms;
+  --sv-dur-base: 180ms;
+  --sv-dur-slow: 260ms;
+  --sv-ease: cubic-bezier(.2, 0, 0, 1);
+}
+:root:lang(ja) { --sv-font-cjk: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Yu Gothic", "Meiryo", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei"; }
+:root:lang(zh) { --sv-font-cjk: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", "Hiragino Sans", "Noto Sans CJK JP", "Yu Gothic", "Meiryo"; }
+:root:lang(ko) { --sv-font-cjk: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", "PingFang SC", "Hiragino Sans", "Noto Sans CJK SC", "Microsoft YaHei"; }
+@media (pointer: coarse) { :root { --sv-control-sm: 36px; --sv-control-md: 44px; --sv-call-button: 56px; } }
+@media (max-width: 767px) { :root { --sv-header-height: 56px; } }
+/* A phone (a touch screen that is narrow, or short in landscape) reads at arm's length: the body is iOS's own 17px, the
+ * hints 15px and the small print 13px, in px as drawn (a rem is 15px, so these are 17/15, 15/15 and 13/15 of it). The
+ * root font-size stays at 15px: rem spacing would grow with it. */
+@media (pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
+  :root { --sv-font-xs-base: 13px; --sv-font-sm-base: 15px; --sv-font-md-base: 17px; --sv-font-body-base: 17px; --sv-line-step: 1.12; }
+}
+@media (prefers-reduced-motion: reduce) { :root { --sv-dur-base: var(--sv-dur-fast); --sv-dur-slow: var(--sv-dur-fast); } }
+
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --sv-bg: #ffffff;
+  --sv-bg-subtle: #f7f4fb;
+  --sv-bg-sunken: #f3eefa;
+  --sv-surface: #ffffff;
+  --sv-surface-raised: #ffffff;
+  --sv-input-bg: #ffffff;
+  --sv-hover: rgb(74 47 107 / 6%);
+  --sv-pressed: rgb(74 47 107 / 10%);
+  --sv-border: #e4dcef;
+  --sv-border-strong: #8c7fa3;
+  --sv-text: #1b1d24;
+  --sv-text-muted: #545766;
+  --sv-text-subtle: #686b7a;
+  --sv-accent: #4a2f6b;
+  --sv-on-accent: #ffffff;
+  --sv-accent-hover: #3b2456;
+  --sv-accent-active: #2f1c46;
+  --sv-accent-soft: #ece4f7;
+  --sv-accent-soft-hover: #e2d6f2;
+  --sv-accent-text: #4a2f6b;
+  --sv-focus: #6d4f96;
+  --sv-positive: #1d6b45;
+  --sv-positive-soft: #e2f3e9;
+  --sv-warning: #9a4a00;
+  --sv-warning-soft: #fdeedd;
+  --sv-danger: #b3261e;
+  --sv-danger-soft: #fbe8e6;
+  --sv-danger-fill: #b3261e;
+  --sv-danger-fill-hover: #8f1d17;
+  --sv-on-danger-fill: #ffffff;
+  /* The other voice: fills only, never text on white. */
+  --sv-voice: #e0a82e;
+  --sv-on-voice: #2a1a40;
+  --sv-voice-soft: #fbf0d4;
+  --sv-voice-text: #7d5300;
+  --sv-disabled-bg: #efebf4;
+  /* 3:1 on the disabled fill, as the dark theme's: what a disabled control draws still reads as a shape. */
+  --sv-disabled-text: #85818f;
+  --sv-scrim: rgb(27 18 40 / 45%);
+  /* Soft brand: the accent's lavender, its text on it, a hairline of the accent and a soft violet shadow. */
+  /* The toast keeps what the tooltip had before it took the soft brand look: a dark card. */
+  --sv-toast-bg: #2a1a40;
+  --sv-toast-text: #ffffff;
+  --sv-tooltip-bg: var(--sv-accent-soft);
+  --sv-tooltip-text: var(--sv-text);
+  --sv-tooltip-border: color-mix(in srgb, var(--sv-accent) 28%, transparent);
+  --sv-tooltip-shadow: 0 6px 18px rgb(42 26 64 / 12%);
+  /* The chat's bubbles, the agent's and the person's, in the transcript and on the stage: a fill, its text and its
+   * quieter text (the time, the marks, what is not said yet), 4.5:1 and more on the fill (16.8 and 5.3; 11.0 and 7.4).
+   * The agent a white card; the person the brand's lila itself, with white text and its own inks for what sits on it
+   * (transcript.css): white marks, a failure in pink (6.5), an unconfirmed mark a quieter lila (4.3).
+   * Soft cards (decided 2026-10-14), on the stage and in the transcript alike: an edge in a touch of the brand's lila,
+   * and a low, wide shadow that lifts them off any scene. */
+  --sv-bubble-edge: #c5b9d5; --sv-bubble-shadow: 0 3px 8px rgb(42 26 64 / 10%), 0 16px 36px -18px rgb(74 47 107 / 45%);
+  /* A phrase to say to an agent, on one line (the landing's message for the agent, its How it works step 3): an edge in
+   * the brand's lila, a soft lila ring round it and a low violet shadow, as a command palette's line sits. */
+  --sv-quote-edge: #c9b6ec; --sv-quote-ring: #f1ebf9; --sv-quote-shadow: 0 0 0 5px var(--sv-quote-ring), 0 18px 40px -24px rgb(74 47 107 / 45%);
+  --sv-chat-agent-bg: #ffffff; --sv-chat-agent-fg: #1b1d24; --sv-chat-agent-subtle: #686b7a;
+  --sv-chat-person-bg: #4a2f6b; --sv-chat-person-fg: #ffffff; --sv-chat-person-subtle: #d9cfe8;
+  --sv-chat-person-mark: #ffffff; --sv-chat-person-quiet: #ab9bc8; --sv-chat-person-danger: #ffb4ab; --sv-chat-person-wash: rgb(255 255 255 / 14%); --sv-chat-person-wash-hover: rgb(255 255 255 / 20%); --sv-chat-person-wash-pressed: rgb(255 255 255 / 30%);
+  --sv-stage-bg: radial-gradient(ellipse at 12% 0%, #eee4fa 0, transparent 50%), linear-gradient(145deg, #faf8fd, #f7f2e9);
+  --sv-shadow-xs: 0 1px 2px rgb(42 26 64 / 8%);
+  --sv-shadow-sm: 0 1px 2px rgb(42 26 64 / 5%), 0 8px 20px -14px rgb(42 26 64 / 22%);
+  --sv-shadow-md: 0 2px 6px rgb(42 26 64 / 6%), 0 16px 34px rgb(42 26 64 / 14%);
+  --sv-shadow-lg: 0 8px 24px rgb(42 26 64 / 10%), 0 30px 70px -30px rgb(42 26 64 / 50%);
+  /* Buttons: a 1px inner highlight on fills, a hairline raise, and the secondary's own fill. */
+  --sv-button-highlight: rgb(255 255 255 / 16%);
+  --sv-button-raise: 0 1px 2px rgb(42 26 64 / 10%);
+  --sv-button-secondary-bg: #ffffff; --sv-button-secondary-hover: #f7f4fb; --sv-button-secondary-active: #efe9f6; --sv-button-border: #d6cce3;
+}
+
+/* Dark (Grafito): untinted greys and near-white text, so the brand's lila and mostaza are the only colours on screen.
+ * Elevation is lighter surfaces and borders; shadows only lift what floats. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --sv-bg: #0f0f11; --sv-bg-subtle: #141416; --sv-bg-sunken: #0a0a0b; --sv-surface: #18181b; --sv-surface-raised: #212125; --sv-input-bg: #131315;
+  --sv-hover: rgb(255 255 255 / 6%); --sv-pressed: rgb(255 255 255 / 10%); --sv-border: #2b2b30; --sv-border-strong: #77777f;
+  --sv-text: #fafafa; --sv-text-muted: #b8b8c0; --sv-text-subtle: #93939c;
+  --sv-accent: #c9b6ec; --sv-on-accent: #2a1a40; --sv-accent-hover: #d7c8f3; --sv-accent-active: #e3d9f7;
+  --sv-accent-soft: #2f2741; --sv-accent-soft-hover: #3a3050; --sv-accent-text: #cdbbf0; --sv-focus: #c9b6ec;
+  --sv-positive: #74d3a6; --sv-positive-soft: #14271e; --sv-warning: #f5a35c; --sv-warning-soft: #2e1f10;
+  --sv-danger: #ffb4ab; --sv-danger-soft: #3a1a18; --sv-danger-fill: #d0382d; --sv-danger-fill-hover: #b52e25; --sv-on-danger-fill: #ffffff;
+  --sv-voice: #e0a82e; --sv-on-voice: #2a1a40; --sv-voice-soft: #2d2412; --sv-voice-text: #ecbe5c;
+  --sv-disabled-bg: #26262b; --sv-disabled-text: #73737c;
+  --sv-scrim: rgb(0 0 0 / 70%); --sv-toast-bg: #fafafa; --sv-toast-text: #18181b; --sv-tooltip-bg: var(--sv-accent-soft); --sv-tooltip-text: var(--sv-text); --sv-tooltip-border: color-mix(in srgb, var(--sv-accent) 28%, transparent); --sv-tooltip-shadow: 0 6px 18px rgb(0 0 0 / 40%);
+  /* 15.4 and 5.3 on the agent's fill; 10.5 and 7.0 on the person's (a failure 6.2, an unconfirmed mark 4.6). */
+  --sv-bubble-edge: #4b4756; --sv-bubble-shadow: 0 12px 32px rgb(0 0 0 / 60%);
+  /* The phrase's line on Grafito: the lila edge and ring dimmed to sit on the raised surface, the shadow a dark one. */
+  --sv-quote-edge: #5f4f82; --sv-quote-ring: #2a2436; --sv-quote-shadow: 0 0 0 5px var(--sv-quote-ring), 0 18px 40px -24px rgb(0 0 0 / 70%);
+  --sv-chat-agent-bg: #212125; --sv-chat-agent-fg: #fafafa; --sv-chat-agent-subtle: #93939c;
+  --sv-chat-person-bg: #46366a; --sv-chat-person-fg: #ffffff; --sv-chat-person-subtle: #d9cfe8;
+  --sv-chat-person-mark: #ffffff; --sv-chat-person-quiet: #b3a4ce; --sv-chat-person-danger: #ffb4ab; --sv-chat-person-wash: rgb(255 255 255 / 14%); --sv-chat-person-wash-hover: rgb(255 255 255 / 20%); --sv-chat-person-wash-pressed: rgb(255 255 255 / 30%);
+  --sv-stage-bg: radial-gradient(ellipse at 12% 0%, rgb(201 182 236 / 14%) 0, transparent 50%), linear-gradient(145deg, #161518, #111113);
+  --sv-shadow-xs: 0 1px 2px rgb(0 0 0 / 60%); --sv-shadow-sm: none; --sv-shadow-md: 0 16px 34px rgb(0 0 0 / 55%); --sv-shadow-lg: 0 30px 80px rgb(0 0 0 / 70%);
+  /* Buttons: a 1px inner highlight on fills, a hairline raise, and the secondary's own fill. */
+  --sv-button-highlight: rgb(255 255 255 / 12%);
+  --sv-button-raise: 0 1px 2px rgb(0 0 0 / 45%);
+  --sv-button-secondary-bg: rgb(255 255 255 / 6%); --sv-button-secondary-hover: rgb(255 255 255 / 10%);
+  --sv-button-secondary-active: rgb(255 255 255 / 14%); --sv-button-border: rgb(255 255 255 / 14%);
+}
+
+/* What every themed box inherits: the theme's text, in the brand's type. */
+:root, [data-theme] {
+  color: var(--sv-text);
+  font-family: var(--sv-font-sans);
+  font-size: var(--sv-font-body);
+  line-height: 1.4667;
+  -webkit-font-smoothing: antialiased;
+  font-optical-sizing: auto;
+  /* The browser/OS chooses the thumb, track and overlay behaviour, in this surface's color-scheme. */
+  scrollbar-color: auto;
+}
+
+/* The root's font-size is the 15px every rem is measured in (it was the body size, which is the same number at a text scale of
+ * 1): it must not follow the text scale, or spacing in rem would grow with it. The body takes the size that inherited text
+ * has, scaled. */
+:root, :root[data-theme] { font-size: .9375rem; }
+body { font-size: var(--sv-font-body); }
+
+/* The type scale, for text that is not inside a component. Sentence case throughout. */
+.sv-text-2xl { margin: 0; font-size: var(--sv-font-2xl); line-height: calc(2rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-heavy); letter-spacing: -.02em; }
+.sv-text-xl { margin: 0; font-size: var(--sv-font-xl); line-height: calc(1.625rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-bold); letter-spacing: -.015em; }
+.sv-text-lg { margin: 0; font-size: var(--sv-font-lg); line-height: calc(1.5rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-bold); letter-spacing: -.01em; }
+.sv-text-md { margin: 0; font-size: var(--sv-font-md); line-height: calc(1.375rem * var(--sv-line-k, 1)); }
+.sv-text-sm { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.sv-text-xs { margin: 0; font-size: var(--sv-font-xs); line-height: calc(1rem * var(--sv-line-k, 1)); font-weight: 600; color: var(--sv-text-subtle); }
+
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/components/ui/ui.css by scripts/recommender-styles.mjs. */
+/* The shared components (components/ui), on the design tokens (styles/theme.css) alone. */
+
+/* ----- Button: soft solid. 10px corners like the fields beside it, medium weight, an inner highlight and a hairline
+ * raise on fills, a neutral secondary, a 2% shrink on press. Content always centred. Hover only where there is a
+ * pointer, so it never sticks on touch. */
+.ui-button {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--sv-space-2);
+  min-width: 0; min-height: var(--sv-control-md); padding: 0 var(--sv-space-4); margin: 0;
+  border: 1px solid transparent; border-radius: var(--sv-radius-md); background: transparent; box-shadow: none;
+  font: var(--sv-weight-medium) var(--sv-font-md) / 1 var(--sv-font-sans); letter-spacing: -.005em; white-space: nowrap; text-align: center; text-decoration: none;
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--sv-dur-fast) var(--sv-ease), border-color var(--sv-dur-fast) var(--sv-ease), color var(--sv-dur-fast) var(--sv-ease),
+    box-shadow var(--sv-dur-fast) var(--sv-ease), transform var(--sv-dur-fast) var(--sv-ease);
+}
+.ui-button-content { display: inline-flex; align-items: center; justify-content: center; gap: inherit; min-width: 0; }
+.ui-button svg { flex: none; width: 18px; height: 18px; }
+.ui-button:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.ui-button--primary { background: var(--sv-accent); color: var(--sv-on-accent); box-shadow: inset 0 1px 0 var(--sv-button-highlight), var(--sv-button-raise); }
+.ui-button--secondary { background: var(--sv-button-secondary-bg); border-color: var(--sv-button-border); color: var(--sv-text); box-shadow: inset 0 1px 0 var(--sv-button-highlight), var(--sv-button-raise); }
+.ui-button--ghost { color: var(--sv-accent-text); }
+.ui-button--ghost.ui-button--neutral { color: var(--sv-text-muted); }
+.ui-button--ghost.ui-button--danger-text { color: var(--sv-danger); }
+.ui-button--danger { background: var(--sv-danger-fill); color: var(--sv-on-danger-fill); box-shadow: inset 0 1px 0 var(--sv-button-highlight), var(--sv-button-raise); }
+@media (hover: hover) {
+  .ui-button--primary:not(:disabled, [aria-disabled="true"]):hover { background: var(--sv-accent-hover); }
+  .ui-button--secondary:not(:disabled, [aria-disabled="true"]):hover { background: var(--sv-button-secondary-hover); }
+  .ui-button--ghost:not(:disabled, [aria-disabled="true"]):hover { background: var(--sv-accent-soft); }
+  .ui-button--ghost.ui-button--neutral:not(:disabled, [aria-disabled="true"]):hover { background: var(--sv-hover); color: var(--sv-text); }
+  .ui-button--ghost.ui-button--danger-text:not(:disabled, [aria-disabled="true"]):hover { background: var(--sv-danger-soft); }
+  .ui-button--danger:not(:disabled, [aria-disabled="true"]):hover { background: var(--sv-danger-fill-hover); }
+}
+.ui-button:not(:disabled, [aria-disabled="true"]):active { transform: scale(.98); }
+.ui-button--primary:not(:disabled, [aria-disabled="true"]):active { background: var(--sv-accent-active); }
+.ui-button--secondary:not(:disabled, [aria-disabled="true"]):active { background: var(--sv-button-secondary-active); }
+.ui-button--ghost:not(:disabled, [aria-disabled="true"]):active { background: var(--sv-accent-soft-hover); }
+.ui-button--ghost.ui-button--neutral:not(:disabled, [aria-disabled="true"]):active { background: var(--sv-pressed); color: var(--sv-text); }
+.ui-button--ghost.ui-button--danger-text:not(:disabled, [aria-disabled="true"]):active { background: var(--sv-danger-soft); }
+.ui-button--danger:not(:disabled, [aria-disabled="true"]):active { background: var(--sv-danger-fill-hover); }
+@media (prefers-reduced-motion: reduce) { .ui-button:active { transform: none !important; } }
+/* On touch a small icon button reaches 44px, further than it shows (36px there, theme.css; the inset counts from inside
+ * its 1px border). */
+@media (pointer: coarse) { .ui-button--icon.ui-button--sm::after { content: ""; position: absolute; inset: -5px; } }
+/* Disabled says so in its colours, never by fading: no hover, no press, no raise. */
+.ui-button:is(:disabled, [aria-disabled="true"]):not([data-loading]) { background: var(--sv-disabled-bg); border-color: var(--sv-disabled-bg); color: var(--sv-disabled-text); box-shadow: none; cursor: not-allowed; }
+.ui-button--ghost:is(:disabled, [aria-disabled="true"]):not([data-loading]) { background: transparent; border-color: transparent; }
+.ui-button[data-loading] { cursor: progress; }
+.ui-button[data-loading] .ui-button-content { visibility: hidden; }
+.ui-button--sm { min-height: var(--sv-control-sm); padding: 0 var(--sv-space-3); gap: var(--sv-space-1-5); border-radius: var(--sv-radius-sm); font-size: var(--sv-font-sm); }
+.ui-button--sm svg { width: 16px; height: 16px; }
+.ui-button--lg { min-height: var(--sv-control-lg); padding: 0 var(--sv-space-5); border-radius: var(--sv-radius-lg); font-size: calc(1rem * var(--sv-text-scale, 1)); }
+.ui-button--lg svg { width: 20px; height: 20px; }
+.ui-button--icon { width: var(--sv-control-md); padding: 0; }
+.ui-button--icon.ui-button--sm { width: var(--sv-control-sm); }
+/* A disclosure (DisclosureButton): its chevron points up while what it opens shows. */
+.ui-disclosure-chevron--open { transform: rotate(180deg); }
+.ui-button--block { display: flex; width: 100%; }
+.ui-spinner { position: absolute; inset: 0; margin: auto; width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: ui-spin .7s linear infinite; }
+.ui-spinner--inline { position: static; flex: none; margin: 0; }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* ----- Field: label, control, error, hint. */
+.ui-field { display: grid; gap: var(--sv-space-1-5); min-width: 0; }
+.ui-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sv-space-2); min-width: 0; }
+.ui-field-label { font-size: var(--sv-font-sm); font-weight: 600; line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text); }
+.ui-field-aside { font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+.ui-field-control { display: grid; gap: var(--sv-space-1-5); min-width: 0; }
+.ui-field-hint, .ui-field-error { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); }
+.ui-field-hint { color: var(--sv-text-muted); }
+.ui-field-error { color: var(--sv-danger); }
+.ui-field-error svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+
+/* ----- Input, Select, Textarea: one box. */
+.ui-input, .ui-select, .ui-textarea {
+  display: block; width: 100%; min-width: 0; margin: 0;
+  border: 1px solid var(--sv-border-strong); border-radius: var(--sv-radius-md); background-color: var(--sv-input-bg); color: var(--sv-text);
+  font: var(--sv-weight-regular) var(--sv-font-md) / 1.5 var(--sv-font-sans);
+  transition: border-color var(--sv-dur-fast) var(--sv-ease);
+}
+.ui-input, .ui-select { min-height: var(--sv-control-md); padding: 0 var(--sv-space-3); }
+.ui-textarea { padding: 10px var(--sv-space-3); resize: none; overflow-y: hidden; }
+.ui-input::placeholder, .ui-textarea::placeholder { color: var(--sv-text-subtle); opacity: 1; }
+@media (hover: hover) { .ui-input:hover, .ui-select:hover, .ui-textarea:hover { border-color: var(--sv-text-muted); } }
+.ui-input:focus-visible, .ui-select:focus-visible, .ui-textarea:focus-visible, .ui-input:focus, .ui-textarea:focus { outline: 2px solid var(--sv-focus); outline-offset: 1px; border-color: var(--sv-focus); }
+.ui-input[aria-invalid="true"], .ui-select[aria-invalid="true"], .ui-textarea[aria-invalid="true"] { border-color: var(--sv-danger); }
+.ui-input:read-only:not(:disabled) { background-color: var(--sv-bg-subtle); border-color: var(--sv-border); }
+.ui-input:disabled, .ui-select:disabled, .ui-textarea:disabled { background-color: var(--sv-disabled-bg); border-color: var(--sv-border); color: var(--sv-disabled-text); cursor: not-allowed; }
+/* The select's box: what is chosen (its icon, its label cut short), then the chevron, which turns while the list is open. */
+.ui-select { display: flex; align-items: center; gap: var(--sv-space-2); padding-inline-end: 10px; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ui-select[data-state="open"] { border-color: var(--sv-focus); }
+/* Radix's value span, which takes no class of its own, fills the box up to the chevron. */
+.ui-select > span:first-child { flex: 1; min-width: 0; }
+.ui-select-value { display: flex; align-items: center; gap: var(--sv-space-2); min-width: 0; }
+.ui-select-value-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-select-placeholder { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sv-text-subtle); }
+.ui-select-chevron { display: flex; flex: none; color: var(--sv-text-muted); transition: transform var(--sv-dur-fast) var(--sv-ease); }
+.ui-select[data-state="open"] .ui-select-chevron { transform: rotate(180deg); }
+.ui-select:disabled .ui-select-chevron, .ui-select:disabled .ui-select-placeholder { color: var(--sv-disabled-text); }
+.ui-control--sm { min-height: var(--sv-control-sm); padding-inline-start: 10px; font-size: var(--sv-font-sm); }
+.ui-select.ui-control--sm { padding-inline-end: var(--sv-space-2); gap: var(--sv-space-1-5); }
+/* 16px is the floor of an input on a touch screen (below it iOS zooms the page on focus), and the body's size where that is
+ * more: a phone's 17px, times the text scale. */
+@media (any-pointer: coarse) { .ui-input, .ui-select, .ui-textarea { font-size: max(16px, var(--sv-font-md)); } }
+
+/* ----- Card, choice card, Section, Row, inline alert. */
+.ui-card { min-width: 0; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-xl); background: var(--sv-surface); box-shadow: var(--sv-shadow-sm); color: var(--sv-text); }
+.ui-card--padded { padding: var(--sv-space-5); }
+.ui-card--interactive { position: relative; cursor: pointer; text-align: start; font: inherit; transition: border-color var(--sv-dur-fast) var(--sv-ease); }
+@media (hover: hover) { .ui-card--interactive:hover { border-color: var(--sv-border-strong); } }
+.ui-card--interactive:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.ui-card--interactive:active { background-image: linear-gradient(var(--sv-pressed), var(--sv-pressed)); }
+.ui-card[data-selected] { border-color: var(--sv-accent); box-shadow: inset 0 0 0 1px var(--sv-accent); background: var(--sv-accent-soft); }
+.ui-card-check { position: absolute; top: var(--sv-space-3); inset-inline-end: var(--sv-space-3); color: var(--sv-accent-text); }
+.ui-section { display: grid; gap: var(--sv-space-6); min-width: 0; }
+.ui-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sv-space-4); }
+.ui-section-title { margin: 0; font-size: var(--sv-font-xl); line-height: calc(1.625rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-bold); letter-spacing: -.015em; color: var(--sv-text); text-transform: none; }
+.ui-section-description { max-width: 60ch; margin: var(--sv-space-1) 0 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.ui-section-actions { display: flex; gap: var(--sv-space-2); flex: none; }
+.ui-section-body { display: grid; gap: var(--sv-space-6); min-width: 0; }
+.ui-group { display: grid; gap: var(--sv-space-2); min-width: 0; }
+.ui-group-title { margin: 0; font-size: var(--sv-font-sm); font-weight: var(--sv-weight-semibold); color: var(--sv-text-muted); }
+.ui-group-card { container-type: inline-size; min-width: 0; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-xl); background: var(--sv-surface); box-shadow: var(--sv-shadow-sm); }
+.ui-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sv-space-6); row-gap: var(--sv-space-2); min-height: 56px; padding: 14px var(--sv-space-5); }
+.ui-row + .ui-row { border-top: 1px solid var(--sv-border); }
+.ui-row-text { min-width: 0; }
+.ui-row-label { display: block; font-size: var(--sv-font-md); font-weight: 600; line-height: calc(1.375rem * var(--sv-line-k, 1)); color: var(--sv-text); }
+.ui-row-description { margin: 2px 0 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.ui-row-control { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+/* A row another setting turns off: its words in the disabled ink (its control is disabled by its owner). */
+.ui-row[data-disabled] :is(.ui-row-label, .ui-row-description) { color: var(--sv-disabled-text); }
+.ui-row-control:has(> .ui-select, > .ui-input) { width: 280px; }
+.ui-row-control > .ui-select, .ui-row-control > .ui-input { width: 100%; }
+.ui-row--block { grid-template-columns: minmax(0, 1fr); }
+.ui-row--block .ui-row-control { display: block; width: auto; }
+@container (max-width: 560px) {
+  .ui-row:not(:has(.ui-switch)) { grid-template-columns: minmax(0, 1fr); }
+  .ui-row:not(:has(.ui-switch)) .ui-row-control { width: auto; justify-content: flex-start; }
+}
+.ui-alert { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--sv-space-3); padding: var(--sv-space-3) 14px; border-radius: var(--sv-radius-md); background: var(--sv-accent-soft); border: 1px solid color-mix(in srgb, var(--sv-accent) 30%, transparent); }
+.ui-alert > svg { width: 18px; height: 18px; margin-top: 2px; color: var(--sv-accent-text); }
+.ui-alert-title { margin: 0; font-size: var(--sv-font-md); font-weight: var(--sv-weight-semibold); line-height: calc(1.375rem * var(--sv-line-k, 1)); color: var(--sv-text); }
+.ui-alert-body { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.ui-alert-action { align-self: center; }
+.ui-alert[data-tone="danger"] { background: var(--sv-danger-soft); border-color: color-mix(in srgb, var(--sv-danger) 30%, transparent); }
+.ui-alert[data-tone="danger"] > svg { color: var(--sv-danger); }
+.ui-alert[data-tone="warning"] { background: var(--sv-warning-soft); border-color: color-mix(in srgb, var(--sv-warning) 30%, transparent); }
+.ui-alert[data-tone="warning"] > svg { color: var(--sv-warning); }
+.ui-alert[data-tone="positive"] { background: var(--sv-positive-soft); border-color: color-mix(in srgb, var(--sv-positive) 30%, transparent); }
+.ui-alert[data-tone="positive"] > svg { color: var(--sv-positive); }
+
+/* ----- A failure's sentence, and what was raw about it closed behind "Details" (ErrorText.tsx). */
+.ui-error-text > p { margin: 0; }
+.ui-error-said { color: var(--sv-text-muted); }
+.ui-error-details { margin-top: var(--sv-space-1); font-size: var(--sv-font-xs); line-height: calc(1rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.ui-error-details > summary { width: fit-content; cursor: pointer; border-radius: var(--sv-radius-sm); }
+.ui-error-details > pre { margin: var(--sv-space-1) 0 0; max-height: 8rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--sv-text-muted); }
+
+/* ----- Tabs (views of one thing) and Segmented (one value of a few). */
+.ui-tabs { display: flex; gap: var(--sv-space-1); min-width: 0; overflow-x: auto; border-bottom: 1px solid var(--sv-border); scrollbar-width: none; }
+.ui-tab {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sv-space-2); flex: none;
+  min-height: var(--sv-control-md); padding: 0 var(--sv-space-3); margin: 0; border: 0; border-radius: 0;
+  background: transparent; color: var(--sv-text-muted); font: 600 var(--sv-font-md) / 1 var(--sv-font-sans); cursor: pointer; white-space: nowrap;
+}
+.ui-tab svg { width: 16px; height: 16px; }
+@media (hover: hover) { .ui-tab:hover:not(:disabled) { color: var(--sv-text); } }
+.ui-tab[aria-selected="true"] { color: var(--sv-text); box-shadow: inset 0 -2px 0 var(--sv-accent); }
+.ui-tab:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: -2px; }
+.ui-tab:disabled { color: var(--sv-disabled-text); cursor: not-allowed; }
+.ui-segmented { display: inline-flex; align-items: stretch; max-width: 100%; min-height: var(--sv-control-md); padding: 3px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-pill); background: var(--sv-bg-sunken); }
+.ui-segment {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sv-space-1-5); flex: 1 1 auto; min-width: 0;
+  padding: 0 14px; margin: 0; border: 0; border-radius: var(--sv-radius-pill);
+  background: transparent; color: var(--sv-text-muted); font: 600 var(--sv-font-sm) / 1 var(--sv-font-sans); white-space: nowrap; cursor: pointer;
+  transition: background-color var(--sv-dur-base) var(--sv-ease), color var(--sv-dur-base) var(--sv-ease), box-shadow var(--sv-dur-base) var(--sv-ease);
+}
+.ui-segment svg { width: 16px; height: 16px; }
+@media (hover: hover) { .ui-segment:hover:not(:disabled) { color: var(--sv-text); } }
+.ui-segment[aria-checked="true"] { background: var(--sv-surface); color: var(--sv-text); box-shadow: var(--sv-shadow-xs); }
+[data-theme="dark"] .ui-segment[aria-checked="true"] { background: var(--sv-surface-raised); }
+.ui-segment:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: -2px; }
+.ui-tab:not(:disabled):active, .ui-segment:not(:disabled):active { color: var(--sv-text); background-image: linear-gradient(var(--sv-pressed), var(--sv-pressed)); }
+.ui-segment:disabled { color: var(--sv-disabled-text); cursor: not-allowed; }
+.ui-segmented--sm { min-height: var(--sv-control-sm); }
+.ui-segmented--sm .ui-segment { padding: 0 var(--sv-space-3); font-size: var(--sv-font-xs); }
+
+/* ----- Navigation list: a page's sections beside its content. */
+.ui-nav { display: grid; align-content: start; gap: var(--sv-space-0-5); }
+.ui-nav-item {
+  position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 var(--sv-space-3); margin: 0;
+  border: 0; border-radius: var(--sv-radius-md); background: transparent; color: var(--sv-text-muted);
+  font: var(--sv-weight-medium) var(--sv-font-md) / 1 var(--sv-font-sans); text-align: start; white-space: nowrap; cursor: pointer;
+}
+.ui-nav-item svg { flex: none; width: 18px; height: 18px; }
+/* An entry never overflows: its label gives way (an ellipsis), its marks (a dot, a badge) never. */
+.ui-nav-item { min-width: 0; overflow: hidden; }
+.ui-nav-item > span:not([class]) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ui-nav-item > .ui-badge { flex: none; }
+@media (hover: hover) { .ui-nav-item:hover { background: var(--sv-hover); color: var(--sv-text); } }
+.ui-nav-item[aria-current="page"] { background: var(--sv-accent-soft); color: var(--sv-accent-text); font-weight: var(--sv-weight-semibold); }
+.ui-nav-item:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: -2px; }
+.ui-nav-dirty { width: 6px; height: 6px; margin-inline-start: auto; border-radius: 50%; background: var(--sv-accent); }
+
+/* ----- Badge: the word carries the meaning; the colour repeats it. */
+.ui-badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sv-space-1-5); flex: none;
+  min-height: 22px; padding: 0 var(--sv-space-2); border-radius: var(--sv-radius-pill);
+  font: 600 var(--sv-font-xs) / 1 var(--sv-font-sans); white-space: nowrap; font-variant-numeric: tabular-nums;
+  background: var(--sv-bg-sunken); color: var(--sv-text-muted);
+}
+.ui-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+/* A row's status beside its name: small and soft, a quiet border in its own colour, as a tag rather than a button. */
+.ui-badge[data-tag] { min-height: 20px; font-weight: 500; letter-spacing: .01em; border: 1px solid color-mix(in srgb, currentColor 24%, transparent); }
+.ui-badge[data-tone="accent"] { background: var(--sv-accent-soft); color: var(--sv-accent-text); }
+.ui-badge[data-tone="positive"] { background: var(--sv-positive-soft); color: var(--sv-positive); }
+.ui-badge[data-tone="warning"] { background: var(--sv-warning-soft); color: var(--sv-warning); }
+.ui-badge[data-tone="danger"] { background: var(--sv-danger-soft); color: var(--sv-danger); }
+
+/* ----- Switch. */
+.ui-switch {
+  position: relative; flex: none; width: 40px; height: 24px; padding: 0; margin: 0; border: 1px solid var(--sv-border-strong); border-radius: var(--sv-radius-pill);
+  background: var(--sv-bg-sunken); cursor: pointer; transition: background-color var(--sv-dur-base) var(--sv-ease), border-color var(--sv-dur-base) var(--sv-ease);
+}
+.ui-switch-thumb { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--sv-text-subtle); transition: transform var(--sv-dur-base) var(--sv-ease), background-color var(--sv-dur-base) var(--sv-ease); }
+.ui-switch[aria-checked="true"] { background: var(--sv-accent); border-color: var(--sv-accent); }
+.ui-switch[aria-checked="true"] .ui-switch-thumb { transform: translateX(16px); background: var(--sv-on-accent); }
+.ui-switch:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.ui-switch:disabled { background: var(--sv-disabled-bg); border-color: var(--sv-border); cursor: not-allowed; }
+.ui-switch:disabled .ui-switch-thumb { background: var(--sv-disabled-text); }
+
+/* ----- Progress. */
+.ui-progress { position: relative; height: 6px; overflow: hidden; isolation: isolate; border-radius: var(--sv-radius-pill); background: var(--sv-bg-sunken); }
+[data-theme="dark"] .ui-progress { background: var(--sv-border); }
+.ui-progress-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--sv-accent); transition: width var(--sv-dur-slow) linear; }
+/* Unknown length: a block 35% of the track wide slides across it by transform, so it moves on the compositor and lays nothing
+   out (a percentage in translateX is of the block's own width: from one block before the track, -100%, to the track's far
+   edge, 100% / 35% = 285.7143%; the same path as its left, -35% to 100%, was). */
+.ui-progress[data-indeterminate] .ui-progress-fill { width: 35%; animation: ui-indeterminate 1.2s var(--sv-ease) infinite; }
+@keyframes ui-indeterminate { from { transform: translateX(-100%); } to { transform: translateX(285.7143%); } }
+@media (prefers-reduced-motion: reduce) { .ui-progress[data-indeterminate] .ui-progress-fill { animation: none; left: 0; width: 100%; opacity: .35; } .ui-spinner { animation-duration: 2s; } }
+
+/* ----- Dialog and the full-screen page: a head, a body that alone scrolls, a footer in sight. */
+.ui-dialog { padding: 0; border: 0; background: transparent; color: var(--sv-text); max-width: none; max-height: none; overflow: visible; }
+.ui-dialog[open] { display: flex; }
+.ui-dialog::backdrop { background: var(--sv-scrim); }
+.ui-dialog[data-layout="dialog"] { width: min(var(--ui-dialog-width, 560px), calc(100vw - 32px)); margin: auto; }
+.ui-dialog[data-size="sm"] { --ui-dialog-width: 440px; }
+.ui-dialog[data-size="lg"] { --ui-dialog-width: 640px; }
+.ui-dialog-surface { display: flex; flex-direction: column; width: 100%; min-height: 0; overflow: hidden; background: var(--sv-surface); color: var(--sv-text); }
+[data-theme="dark"] .ui-dialog-surface { background: var(--sv-surface-raised); }
+/* The card is as tall as what it holds, up to its cap, which it carries itself: never a percentage of the dialog
+ * around it. A dialog's own height is the browser's fit-content, and WebKit up to Safari 26 (the macOS app's
+ * WKWebView) resolves a child's `max-height: 100%` against it as 0: the card drew as a 2px line. */
+.ui-dialog[data-layout="dialog"] .ui-dialog-surface { max-height: min(85dvh, 760px); }
+.ui-dialog[data-layout="dialog"] .ui-dialog-surface, .ui-dialog-surface--card { border: 1px solid var(--sv-border); border-radius: var(--sv-radius-2xl); box-shadow: var(--sv-shadow-lg); }
+.ui-dialog[data-layout="page"] { position: fixed; inset: 0; width: auto; max-width: none; height: 100dvh; margin: 0; }
+.ui-dialog[data-layout="page"] .ui-dialog-surface { height: 100%; background: var(--sv-bg); }
+.ui-dialog[data-layout="page"] .ui-dialog-head { min-height: var(--sv-header-height); padding-block: var(--sv-space-3); border-bottom: 1px solid var(--sv-border); }
+.ui-dialog[data-layout="page"] .ui-dialog-title { font-size: var(--sv-font-xl); line-height: calc(1.625rem * var(--sv-line-k, 1)); }
+.ui-dialog[data-layout="page"] .ui-dialog-foot { background: var(--sv-surface); }
+.ui-dialog-head { display: flex; align-items: center; gap: var(--sv-space-3); flex: none; min-height: 64px; padding: var(--sv-space-5) var(--sv-space-6) var(--sv-space-3); }
+.ui-dialog-titles { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ui-dialog-eyebrow { font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.ui-dialog-title { margin: 0; font-size: var(--sv-font-lg); line-height: calc(1.5rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-bold); letter-spacing: -.01em; color: var(--sv-text); text-transform: none; }
+.ui-dialog-close { flex: none; margin-inline-end: calc(-1 * var(--sv-space-2)); }
+.ui-dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 var(--sv-space-6) var(--sv-space-6); display: grid; align-content: start; gap: var(--sv-space-4); }
+.ui-dialog-body > p { margin: 0; }
+.ui-dialog-body--flush { padding: 0; display: block; overflow: hidden; }
+.ui-dialog-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sv-space-2); flex: none; padding: var(--sv-space-4) var(--sv-space-6); border-top: 1px solid var(--sv-border); }
+.ui-dialog-reason { margin: 0 auto 0 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+@media (max-width: 599px) {
+  /* The whole screen: stretched between the screen's edges (`inset: 0`, `width: auto`), its head, body and footer a gutter in
+   * from each side (never less than the notch's or the rounded corners' inset when the screen is turned). */
+  .ui-dialog[data-layout="dialog"] { position: fixed; inset: 0; width: auto; max-width: none; height: 100dvh; margin: 0; }
+  .ui-dialog[data-layout="dialog"] .ui-dialog-surface { height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+  .ui-dialog-head { min-height: 56px; padding: calc(var(--sv-space-3) + env(safe-area-inset-top)) max(var(--sv-space-4), env(safe-area-inset-right)) var(--sv-space-3) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  .ui-dialog-body { padding: 0 max(var(--sv-space-4), env(safe-area-inset-right)) var(--sv-space-4) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  .ui-dialog-body--flush { padding: 0; }
+  .ui-dialog-foot { flex-wrap: wrap; padding: var(--sv-space-3) max(var(--sv-space-4), env(safe-area-inset-right)) calc(var(--sv-space-3) + env(safe-area-inset-bottom)) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  .ui-dialog-foot > .ui-button { flex: 1 1 0; }
+  .ui-dialog-reason { flex: 1 0 100%; }
+}
+
+
+/* ----- Popover: a small panel anchored to its trigger. */
+.ui-popover { z-index: 60; display: grid; gap: var(--sv-space-3); width: min(20rem, calc(100vw - 24px)); padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-surface-raised); color: var(--sv-text); box-shadow: var(--sv-shadow-md); font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); }
+.ui-popover:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.ui-popover-title { margin: 0; font-size: var(--sv-font-md); font-weight: var(--sv-weight-semibold); line-height: calc(1.375rem * var(--sv-line-k, 1)); }
+.ui-popover p { margin: 0; color: var(--sv-text-muted); }
+
+/* ----- Select's list: dropped from its box, at least as wide (wider for what its options say), up to 24rem tall and
+ * never past the screen's edge; it goes up when there is no room below. Pointing at an option and moving to it with
+ * the keyboard are one highlight; the chosen one has a check; a disabled one is greyed, with why under it. */
+.ui-select-content {
+  z-index: 90; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
+  min-width: var(--radix-select-trigger-width); max-width: min(28rem, var(--radix-select-content-available-width, 28rem));
+  max-height: min(24rem, var(--radix-select-content-available-height, 24rem));
+  border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-surface-raised); color: var(--sv-text); box-shadow: var(--sv-shadow-md);
+  font: var(--sv-weight-regular) var(--sv-font-md) / calc(1.375rem * var(--sv-line-k, 1)) var(--sv-font-sans);
+  transform-origin: var(--radix-select-content-transform-origin); animation: ui-select-in var(--sv-dur-fast) var(--sv-ease);
+}
+.ui-select-content[data-side="top"] { animation-name: ui-select-in-up; }
+@keyframes ui-select-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes ui-select-in-up { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ui-select-content { animation: none; } }
+.ui-select-viewport { padding: var(--sv-space-1-5); }
+.ui-select-item {
+  position: relative; display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 7px var(--sv-space-2) 7px 10px;
+  border-radius: var(--sv-radius-sm); color: var(--sv-text); outline: none; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.ui-select-item[data-highlighted] { background: var(--sv-accent-soft); }
+.ui-select-item:not([data-disabled]):active { background-image: linear-gradient(var(--sv-pressed), var(--sv-pressed)); }
+.ui-select:not(:disabled):active { background-image: linear-gradient(var(--sv-pressed), var(--sv-pressed)); }
+.ui-select-item[data-state="checked"] { font-weight: var(--sv-weight-medium); }
+.ui-select-item[data-disabled] { color: var(--sv-disabled-text); cursor: not-allowed; }
+.ui-select-item-text { display: grid; flex: 1; min-width: 0; }
+.ui-select-item-description, .ui-select-item-reason { font-size: var(--sv-font-sm); font-weight: var(--sv-weight-regular); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.ui-select-item[data-disabled] .ui-select-item-description { color: var(--sv-disabled-text); }
+/* Icon, badge and check sit on the label's line, however many lines follow it. */
+.ui-select-icon, .ui-select-item-badge, .ui-select-item-check { display: flex; flex: none; align-items: center; height: 1.375rem; }
+.ui-select-icon { color: var(--sv-text-muted); }
+.ui-select-icon > svg { width: 16px; height: 16px; }
+.ui-select-item[data-disabled] .ui-select-icon { color: var(--sv-disabled-text); }
+.ui-select-item-check { justify-content: center; width: 16px; color: var(--sv-accent-text); }
+.ui-select-label { padding: var(--sv-space-2) 10px var(--sv-space-1); font-size: var(--sv-font-xs); font-weight: var(--sv-weight-semibold); line-height: calc(1rem * var(--sv-line-k, 1)); color: var(--sv-text-subtle); }
+.ui-select-separator { height: 1px; margin: var(--sv-space-1-5) calc(-1 * var(--sv-space-1-5)); background: var(--sv-border); }
+.ui-select-scroll { display: flex; flex: none; align-items: center; justify-content: center; height: 24px; color: var(--sv-text-muted); cursor: default; }
+.ui-select-content[data-size="sm"] { font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); }
+.ui-select-content[data-size="sm"] .ui-select-item { min-height: 32px; padding-block: 6px; }
+.ui-select-content[data-size="sm"] :is(.ui-select-icon, .ui-select-item-badge, .ui-select-item-check) { height: 1.25rem; }
+/* A finger's size where there is no mouse. */
+@media (pointer: coarse) {
+  .ui-select-item, .ui-select-content[data-size="sm"] .ui-select-item { min-height: 44px; padding-block: 11px; }
+}
+
+/* ----- Snippet · Quote: something to copy as it is (Snippet.tsx). A Snippet in monospace, wrapping, scrolling once
+ * tall; a Quote between guillemets, as the landing quotes it. The text is selected whole on a tap or a click. */
+.ui-copy { position: relative; min-width: 0; }
+.ui-snippet { display: flex; align-items: flex-start; gap: var(--sv-space-2); padding: var(--sv-space-1) var(--sv-space-1) var(--sv-space-1) var(--sv-space-3); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); background: var(--sv-bg-sunken); }
+/* 6px above and below a 20px line: one line stands as tall as the button beside it. */
+.ui-snippet-text { flex: 1; min-width: 0; max-height: 16rem; margin: 0; padding: 6px 0; overflow: auto; font: var(--sv-font-sm) / calc(1.25rem * var(--sv-line-k, 1)) var(--sv-font-mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--sv-text); cursor: text; user-select: all; -webkit-user-select: all; }
+/* Several lines: any part of them may be selected, as in any text (the button copies them whole). */
+.ui-snippet-text[data-lines="many"] { user-select: text; -webkit-user-select: text; }
+.ui-snippet-text code { font: inherit; }
+.ui-quote-box { display: flex; align-items: center; justify-content: center; gap: var(--sv-space-1); margin: 0; padding: var(--sv-space-5) 44px var(--sv-space-5) var(--sv-space-6);
+  border: 1px solid color-mix(in srgb, var(--sv-accent) 25%, var(--sv-border)); border-radius: var(--sv-radius-md); background: linear-gradient(120deg, color-mix(in srgb, var(--sv-accent-soft) 70%, var(--sv-surface-raised)), var(--sv-surface-raised) 75%);
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--sv-accent) 55%, transparent), var(--sv-shadow-xs); text-align: center; }
+.ui-quote-box::before, .ui-quote-box::after { flex: none; color: var(--sv-accent-text); font: 700 1.4rem / 1 Georgia, serif; pointer-events: none; }
+.ui-quote-box::before { content: "«"; }
+.ui-quote-box::after { content: "»"; }
+.ui-quote-text { min-width: 0; margin: 0; color: var(--sv-text); font-size: var(--sv-font-sm); font-weight: var(--sv-weight-semibold); line-height: 1.45; overflow-wrap: anywhere; cursor: text; user-select: all; -webkit-user-select: all; }
+.ui-quote .ui-copy-button { position: absolute; top: var(--sv-space-2); right: var(--sv-space-2); }
+/* The copy button: a ✓ once copied, a warning when the clipboard refused, then the copy button again. */
+.ui-copy-button { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: var(--sv-radius-sm); background: color-mix(in srgb, var(--sv-accent) 8%, transparent); color: var(--sv-accent-text); cursor: pointer;
+  transition: opacity var(--sv-dur-fast) var(--sv-ease), color var(--sv-dur-fast) var(--sv-ease), background-color var(--sv-dur-fast) var(--sv-ease), border-color var(--sv-dur-fast) var(--sv-ease); }
+@media (hover: hover) { .ui-copy-button:not([data-state]):hover { background: color-mix(in srgb, var(--sv-accent) 16%, transparent); border-color: color-mix(in srgb, var(--sv-accent) 30%, transparent); } }
+.ui-copy-button:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.ui-copy-button[data-state="copied"] { border-color: var(--sv-accent); background: var(--sv-accent); color: var(--sv-on-accent); }
+.ui-copy-button[data-state="failed"] { border-color: var(--sv-danger); background: var(--sv-danger-soft); color: var(--sv-danger); }
+/* On touch it reaches 44px, further than it shows. */
+@media (pointer: coarse) { .ui-copy-button { position: relative; } .ui-copy-button::after { content: ""; position: absolute; inset: -6px; } }
+/* How visible it is waits on VARIANTS copy-button. Faint: low contrast until the pointer is over the snippet or the
+ * focus is in it. Hover: not shown until then — but always on a touch screen, which has no pointer over anything. Never
+ * while it says how a copy went; and keyboard focus (focus-within) always shows it, so it is only ever made transparent,
+ * never taken out of the tab order. */
+/* Faint until the pointer is over the snippet or the keyboard is in it. */
+@media (hover: hover) { .ui-copy:not(:hover, :focus-within) .ui-copy-button:not([data-state]) { background: transparent; color: var(--sv-text-subtle); } }
+/* What the button says to a screen reader, out of sight. */
+.ui-copy-failed { position: absolute; z-index: 1; inset-block-start: calc(100% + 4px); inset-inline-end: 0; padding: 2px var(--sv-space-2); border-radius: var(--sv-radius-sm); background: var(--sv-danger-soft); color: var(--sv-danger); font-size: var(--sv-font-xs); font-weight: var(--sv-weight-semibold); white-space: nowrap; pointer-events: none; }
+.ui-copy-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* ----- Tooltip: a few words more about what it points at, on hover or focus; never what one must know to act. */
+.ui-tooltip { z-index: 70; max-width: 300px; padding: 6px 10px; border-radius: var(--sv-radius-sm); background: var(--sv-tooltip-bg); color: var(--sv-tooltip-text); border: 1px solid var(--sv-tooltip-border); font: var(--sv-weight-regular) var(--sv-font-sm) / calc(1.25rem * var(--sv-line-k, 1)) var(--sv-font-sans); box-shadow: var(--sv-tooltip-shadow); }
+.ui-tooltip-arrow { fill: var(--sv-tooltip-bg); }
+.ui-infotip { width: 24px; height: 24px; color: var(--sv-text-subtle); vertical-align: middle; }
+.ui-infotip svg { width: 16px; height: 16px; }
+/* A row with a trailing badge (the Model list's size): the check sits next to the label and the badge stays alone at the far end. */
+.ui-select-item:has(.ui-select-item-badge) .ui-select-item-text { flex: 0 1 auto; }
+.ui-select-item:has(.ui-select-item-badge) .ui-select-item-check { order: 1; margin-left: calc(-1 * var(--sv-space-1)); }
+.ui-select-item:has(.ui-select-item-badge) .ui-select-item-badge { order: 2; margin-left: auto; }
+
+/* ----- a state's icon (StateGlyph in Icons.tsx): the colour of the state it tells, from the one set of tokens (styles/tokens.css
+ * --sv-state-*), on every surface that draws one. Only the icon wears it: the words beside it are never tinted. Listening and
+ * transcribing are one state's colour (it is the person's turn); working blinks as its dot does everywhere (1.2 s). */
+.state-glyph { flex: none; }
+.state-glyph-listening, .state-glyph-transcribing { color: var(--sv-state-listening); }
+.state-glyph-speaking { color: var(--sv-state-speaking); }
+.state-glyph-working { color: var(--sv-state-working); animation: state-glyph-blink 1.2s ease-in-out infinite; }
+.state-glyph-muted { color: var(--sv-state-muted); }
+.state-glyph-holding { color: var(--sv-state-attention); }
+.state-glyph-offline { color: var(--sv-state-offline); }
+@keyframes state-glyph-blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .state-glyph-working { animation: none; } }
+
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/styles/app.css by scripts/recommender-styles.mjs. */
+/* The room's page: the box model, the page itself on the theme's background, and the room's shell — header, the call,
+ * the call bar — filling the screen. Each part styles itself in its own feature's CSS; the tokens and shared components
+ * are styles/theme.css and components/ui/ui.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+/* The screen's own edges (the notch, the status bar, the home indicator), 0 in a browser window. Named once so the shell pads by them and a test can stand in for a phone's. */
+/* Registered as lengths, so the engine resolves env() when it computes them and a script reads pixels (lib/safe-area.ts);
+ * unregistered, a custom property reads back as its text, "env(safe-area-inset-top, 0px)", which is no number. */
+@property --sv-inset-top { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --sv-inset-right { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --sv-inset-bottom { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --sv-inset-left { syntax: "<length>"; inherits: true; initial-value: 0px; }
+:root { --sv-inset-top: env(safe-area-inset-top, 0px); --sv-inset-right: env(safe-area-inset-right, 0px); --sv-inset-bottom: env(safe-area-inset-bottom, 0px); --sv-inset-left: env(safe-area-inset-left, 0px); }
+[hidden] { display: none !important; }
+html, body, #root { width: 100%; max-width: 100%; min-width: 0; height: 100%; margin: 0; }
+body { overflow: hidden; background: var(--sv-bg); color: var(--sv-text); }
+#root { height: 100dvh; max-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+/* A tap is a tap: no wait for a second one (double-tap to zoom) before a control answers, on any engine that still keeps it. */
+html, button, a, summary, label, [role="button"], input, select, textarea { touch-action: manipulation; }
+/* The page is a screen, not a document, under the finger as under the mouse: no grey flash over what is tapped (each
+ * control says it is pressed in its own colours, :active), no rubber band or pull-to-refresh of the whole page behind
+ * its fixed header and call bar (what scrolls inside it contains its own), and no text inflated by the engine when a
+ * phone turns sideways. */
+html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Where nothing hovers (a phone, a tablet), a press holding on a control or a label does not start selecting its text
+ * or bring up the system's link and image menu, as in an app; what is there to read and keep stays selectable: what
+ * is typed, the conversation's words, and what the page offers to copy (a code, a command: they say so themselves). A
+ * mouse selects as it always did. */
+@media (hover: none) and (pointer: coarse) {
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  :is(input, textarea, [contenteditable="true"], [contenteditable=""], .chat-bubble, .ui-error-details pre) { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+  img, svg { -webkit-user-drag: none; }
+}
+h1, h2, h3, h4, h5, p { margin: 0; }
+code, kbd, pre, output { font-family: var(--sv-font-mono); }
+:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+/* The main region holds focus only as where to read on from, once what had it closes (lib/focus-return.ts): no ring
+ * around the whole page. */
+main[tabindex="-1"]:focus { outline: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.muted { color: var(--sv-text-muted); }
+
+/* The room (header, call, call bar) is one box, so the first-run setup can hide it whole. */
+#root > .room-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-inline: var(--sv-inset-left) var(--sv-inset-right); }
+#root > .room-shell > header { flex: none; }
+#root > .room-shell > main { flex: 1; min-width: 0; min-height: 0; display: flex; overflow: hidden; }
+#root > .room-shell > main.call-layout { position: relative; flex-direction: row; }
+.call-column { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.call-column > .call-bar { flex: none; }
+@media (max-width: 559px), (max-width: 899px) and (pointer: coarse) { #root > .room-shell > main.call-layout { flex-direction: column; } }
+/* A full page (Settings) is opaque and covers the whole room: while it is open, what moves behind it waits (the creatures, the
+ * dots, the poster), and goes on from where it was when the page closes. */
+#root > .room-shell:has(> .ui-dialog[data-layout="page"][open]) > :not(.ui-dialog),
+#root > .room-shell:has(> .ui-dialog[data-layout="page"][open]) > :not(.ui-dialog) * { animation-play-state: paused !important; }
+/* Nor is it styled or laid out: what Settings does (a list opening, a page sliding in) touches the whole document's style
+ * (a modal list sets the body's pointer-events; a focus change matches :has()), and the room behind it, the creatures
+ * most, made each of those cost three times what Settings alone does (a phone took seconds to open a list). Its boxes
+ * keep their sizes (`auto`: the one last drawn), so nothing in it resizes as Settings comes and goes. */
+#root > .room-shell > :not(.ui-dialog) { contain-intrinsic-size: auto none; }
+#root > .room-shell:has(> .ui-dialog[data-layout="page"][open]) > :not(.ui-dialog) { content-visibility: hidden; }
+
+.startup-error { width: min(34rem, calc(100% - 2rem)); min-height: 100dvh; margin: auto; padding: var(--sv-space-8); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--sv-space-3); }
+.setup-main { flex: 1; display: grid; place-items: center; min-height: 0; padding: var(--sv-space-4); overflow: auto; background: var(--sv-bg-subtle); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/features/settings/settings.css by scripts/recommender-styles.mjs. */
+/* Settings (SettingsDialog): a full-screen page — its sections beside the content on a desktop, a menu of them on a
+ * phone, each section a page of its own under it (settings-levels.tsx) — on the design system's dialog shell
+ * (components/ui/ui.css `.ui-dialog`). What fails is said in one line under the header (#settings-error), outside both:
+ * at the content's head on a desktop, the whole width on a phone, whichever level shows. */
+
+.settings-page .ui-dialog-body--flush { display: flex; min-height: 0; }
+.settings-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; margin: 0; }
+.settings-nav { grid-column: 1; grid-row: 1 / -1; min-height: 0; padding: var(--sv-space-3); overflow: auto; overscroll-behavior: contain; border-inline-end: 1px solid var(--sv-border); background: var(--sv-bg-subtle); }
+.settings-content { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.settings-column { width: 100%; max-width: 760px; padding: var(--sv-space-8) var(--sv-space-10) var(--sv-space-12); }
+.settings-pane { min-width: 0; }
+.settings-note { margin-top: var(--sv-space-4); font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); }
+.settings-build { font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+/* The build of a nightly is a button (the way into Developer options): it looks as the text did. */
+button.settings-build-gesture { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button.settings-build-gesture code { font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+button.settings-build-gesture:focus-visible { outline: 2px solid var(--sv-focus, currentColor); outline-offset: 2px; border-radius: 2px; }
+.settings-error { margin: 0 auto 0 0; color: var(--sv-danger); font-size: var(--sv-font-sm); }
+.settings-error:empty { display: none; }
+.settings-page .ui-dialog-reason { margin-inline: auto 0; }
+.settings-error:not(:empty) + .ui-dialog-reason { margin-inline-start: 0; }
+#reset-settings-note:empty { display: none; }
+
+/* A provider: its mark beside its name; its key's field, and what saving said, before its actions. */
+.provider-name { display: inline-flex; align-items: center; gap: var(--sv-space-3); }
+.provider-mark { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-sm); background: var(--sv-surface); color: var(--sv-text); }
+.provider-mark:empty { display: none; }
+/* A voice slot's provider without its key (ProviderConnect.tsx): the badge, then Connect. */
+.provider-key-needed .ui-row-control { gap: var(--sv-space-3); flex-wrap: wrap; }
+.provider-key-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sv-space-2); }
+.provider-key-actions [role="status"] { margin: 0 auto 0 0; font-size: var(--sv-font-sm); }
+.provider-key-actions [role="status"]:empty { visibility: hidden; }
+
+/* A voice slot: the model's block under its row, its try in it (model-prepare.css); the speed with its value. */
+.ui-row--block .model-prepare { margin-top: var(--sv-space-3); }
+/* How quick a try was: one plain line, the slow hint after it, each phase in its (i). */
+.voice-try-timing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-1) var(--sv-space-2); margin: 0; color: var(--sv-text-muted); }
+.voice-try-timing > span:first-child { color: var(--sv-text); font-weight: var(--sv-weight-semibold); }
+.voice-try-slow { color: var(--sv-warning); }
+.stage-try-error { margin: 0; color: var(--sv-danger); }
+.voice-speed { display: flex; align-items: center; gap: var(--sv-space-3); width: 100%; }
+.voice-speed input[type="range"] { flex: 1; min-width: 0; accent-color: var(--sv-accent); }
+.voice-speed output { min-width: 3.5em; font-size: var(--sv-font-sm); font-variant-numeric: tabular-nums; text-align: end; color: var(--sv-text-muted); }
+/* The thinking sound's volume and its frequency, each its value and ↺ (the shortcut field's, here always in place: disabled
+ * at the default); its try, the button, then while it plays how far it has got and the seconds left. The frequency's value
+ * is held wide enough for its longer readings, so that the slider does not resize under the pointer as it is dragged. */
+.thinking-sound-volume, .thinking-sound-frequency, .thinking-sound-try { display: flex; align-items: center; gap: var(--sv-space-3); width: 100%; }
+.ui-row-control:has(> .thinking-sound-volume), .ui-row-control:has(> .thinking-sound-frequency), .ui-row-control:has(> .thinking-sound-try) { width: 280px; }
+:is(.thinking-sound-volume, .thinking-sound-frequency) input[type="range"] { flex: 1; min-width: 0; accent-color: var(--sv-accent); }
+:is(.thinking-sound-volume, .thinking-sound-frequency) input[type="range"]:disabled { accent-color: var(--sv-disabled-text); cursor: not-allowed; }
+:is(.thinking-sound-volume, .thinking-sound-frequency) output, .thinking-sound-left { font-size: var(--sv-font-sm); font-variant-numeric: tabular-nums; text-align: end; color: var(--sv-text-muted); }
+.thinking-sound-volume output { min-width: 4.2em; }
+.thinking-sound-frequency output { min-width: 8.2em; white-space: nowrap; }
+.thinking-sound-left { min-width: 2.6em; }
+.ui-row[data-disabled] :is(.thinking-sound-volume, .thinking-sound-frequency) output { color: var(--sv-disabled-text); }
+:is(.thinking-sound-volume, .thinking-sound-frequency) .thinking-sound-restore { margin: 0; opacity: 1; }
+:is(.thinking-sound-volume, .thinking-sound-frequency) .thinking-sound-restore:disabled { opacity: .4; cursor: not-allowed; background: color-mix(in srgb, var(--sv-text) 9%, transparent); color: var(--sv-text-muted); }
+.thinking-sound-try .ui-progress { flex: 1; min-width: 0; }
+.thinking-sound-try .ui-progress-fill { transition: none; }
+
+
+.provider-remove { margin: 0 0 0 48px; padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-bg-subtle); }
+.provider-key-link { display: inline-flex; align-items: center; gap: var(--sv-space-1); justify-self: start; font-size: var(--sv-font-sm); font-weight: 600; color: var(--sv-accent-text); text-decoration: none; }
+@media (hover: hover) { .provider-key-link:hover { text-decoration: underline; } }
+/* The eye sits inside the box at its end; the box leaves it room. */
+.provider-key-input { position: relative; display: flex; align-items: center; }
+.provider-key-input .ui-input { flex: 1; padding-inline-end: 40px; }
+.provider-key-reveal { position: absolute; inset-inline-end: 4px; }
+.provider-key-cost, .provider-key-replacing { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.provider-remove p { margin: 0 0 var(--sv-space-3); font-size: var(--sv-font-sm); }
+@media (max-width: 767px) {
+  .provider-remove { margin-inline-start: 0; }
+}
+/* A section whose chosen model is not ready says so in the nav, in words. */
+.ui-nav-badge { margin-inline-start: auto; }
+/* Needs attention: the warning dot, as on the stage's title. */
+.settings-attention { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--sv-warning); box-shadow: 0 0 0 2px var(--sv-surface); }
+/* This device's entry: a machine's (MachineEntryCopy), "This device" in the other sections' size, its state under it
+   only where it is said in words (Not working); else one line, as any section. A
+   phone's menu says it on its row's line (settings-levels.tsx). */
+.ui-nav-item.this-device-entry { height: auto; min-height: 40px; padding-block: 6px; }
+.ui-nav-item.this-device-entry:has(.machine-state) { min-height: 52px; }
+.this-device-entry .machine-nav-name { font-size: var(--sv-font-md); line-height: calc(1.375rem * var(--sv-line-k, 1)); }
+
+/* Advanced → Downloaded models: one line each, its size, and Delete asking in place. */
+.downloaded-models { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sv-space-2); margin-top: var(--sv-space-2); }
+.downloaded-model { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sv-space-2); }
+.downloaded-model-main { display: flex; align-items: center; justify-content: space-between; gap: var(--sv-space-3); min-height: 36px; }
+.downloaded-model-copy { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); min-width: 0; }
+.downloaded-model-name { font-size: var(--sv-font-sm); overflow-wrap: anywhere; }
+.downloaded-model-size { font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+.downloaded-model .provider-remove { margin: 0; }
+.downloaded-model-error { margin: 0; font-size: var(--sv-font-sm); color: var(--sv-danger); }
+
+/* Settings › Providers, as a catalogue of connections: where keys are kept in one line, then "Your providers" — a row
+ * each: mark, name with how its key stands right after it, what it is for, and Disconnect at the end — and "Add a
+ * provider": a search at its head and the rest as cards in a grid, three across, each its own height, one across on a
+ * phone. Connect and Disconnect weigh the same. */
+.providers { display: grid; gap: var(--sv-space-5); }
+.provider-keys-where { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.provider-keys-where svg { flex: none; margin-top: 3px; color: var(--sv-warning); }
+.providers-card { display: grid; gap: var(--sv-space-4); padding: var(--sv-space-5); }
+.providers-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sv-space-4); }
+.providers-card-head h3 { margin: 0; font-size: var(--sv-font-md); font-weight: var(--sv-weight-semibold); line-height: calc(1.375rem * var(--sv-line-k, 1)); color: var(--sv-text); }
+.providers-card-head { align-items: center; min-height: 32px; }
+.providers-card > .muted { margin: 0; font-size: var(--sv-font-sm); }
+.provider-row .provider-mark, .provider-card .provider-mark { width: 40px; height: 40px; border-radius: var(--sv-radius-md); }
+.provider-rows { display: grid; gap: var(--sv-space-2); }
+.provider-row { display: flex; align-items: flex-start; gap: var(--sv-space-3); min-width: 0; padding: var(--sv-space-3) var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); }
+.provider-row:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+.provider-row-copy { display: grid; gap: 2px; flex: 1; min-width: 0; min-height: 40px; align-content: center; }
+/* Its pills are Badge tags (ui.css), as an agent's row says where it stands. */
+.provider-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); }
+.provider-row-line, .provider-card-purpose { font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.provider-row-problem { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); margin-top: var(--sv-space-2); font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text); }
+.provider-row-problem > svg { flex: none; color: var(--sv-warning); }
+.provider-row-problem p { flex: 1 1 14rem; margin: 0; }
+.provider-row-why { flex: 1 1 14rem; min-width: 0; }
+.provider-row[data-state="rejected"] .provider-row-problem > svg, .provider-row[data-state="unreadable"] .provider-row-problem > svg { color: var(--sv-danger); }
+.provider-key-detail { color: var(--sv-text-muted); }
+.provider-row-action { flex: none; margin-top: 4px; }
+/* As many across as fit with the name and Connect on one line (three where the column is wide), one on a phone. */
+.provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: var(--sv-space-3); }
+/* A provider is one line, as a row of Your providers is: its mark, its name over what it offers, Connect at the end. */
+.provider-card { display: flex; align-items: center; gap: var(--sv-space-3); min-width: 0; padding: var(--sv-space-3) var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); }
+.provider-card-copy { display: grid; gap: 2px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.provider-card-action { flex: none; }
+.provider-search { position: relative; display: flex; align-items: center; flex: none; width: 14rem; }
+.provider-search .ui-input { width: 100%; padding-inline: 32px; }
+.provider-search .ui-input::-webkit-search-cancel-button { appearance: none; }
+.provider-search-icon { position: absolute; inset-inline-start: 10px; color: var(--sv-text-subtle); pointer-events: none; }
+.provider-search-clear { position: absolute; inset-inline-end: 2px; }
+/* The key's dialog: the box with Show beside it; under it, where to get a key and where it is kept; the provider's own
+ * words after a refusal, muted. */
+.provider-key-help { display: grid; justify-items: start; gap: 2px; }
+.provider-key-help .provider-key-link { display: inline-flex; align-items: center; gap: var(--sv-space-1); }
+.provider-key-error { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-danger); }
+.provider-key-error svg { flex: none; margin-top: 2px; }
+.provider-key-dialog .ui-dialog-reason:empty, .provider-disconnect-dialog .ui-dialog-reason:empty { flex: 0 0 0; }
+.provider-disconnect-dialog p { margin: 0 0 var(--sv-space-3); }
+.provider-disconnect-in-use { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); }
+.provider-disconnect-in-use svg { flex: none; margin-top: 3px; color: var(--sv-warning); }
+@media (max-width: 599px) {
+  .providers-card { padding: var(--sv-space-4); }
+  .providers-card-head { flex-direction: column; align-items: stretch; }
+  .provider-search { width: 100%; }
+  /* Too narrow for the name and its button side by side: the button goes under the name, at its start. */
+  .provider-row, .provider-card { flex-wrap: wrap; }
+  .provider-row-copy, .provider-card-copy { flex: 1 1 9rem; }
+  .provider-row-action, .provider-card-action { margin-inline-start: calc(40px + var(--sv-space-3)); }
+}
+
+/* "Saved", beside the title for a moment; the error line at the content's head. */
+.settings-saved { display: inline-flex; align-items: center; gap: var(--sv-space-1); margin-inline-start: var(--sv-space-3); font-size: var(--sv-font-sm); font-weight: var(--sv-weight-regular); color: var(--sv-text-muted); vertical-align: middle; }
+.settings-layout > .settings-error { grid-column: 2; grid-row: 1; margin: var(--sv-space-3) var(--sv-space-10) 0; }
+.settings-saved svg { color: var(--sv-positive); }
+
+/* A control pointed at (what's new's Set up): its row lit for a moment. */
+.ui-row.settings-highlight { border-radius: var(--sv-radius-md); background: var(--sv-accent-soft); box-shadow: 0 0 0 2px var(--sv-accent); transition: background-color var(--sv-dur-slow) var(--sv-ease); }
+@media (prefers-reduced-motion: reduce) { .ui-row.settings-highlight { transition: none; } }
+.downloaded-unused-confirm { margin: 0 0 var(--sv-space-2); }
+/* A downloaded model is one line: its name with its tags right after it (what it is for, a quiet chip with its icon,
+   then In use), its size at the end, and Delete. On a narrow screen the size
+   wraps under the name. */
+.downloaded-models:focus { outline: none; }
+.downloaded-model-copy { flex: 1 1 auto; justify-content: space-between; gap: var(--sv-space-3); }
+.downloaded-model-title { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); min-width: 0; }
+.downloaded-model-size { margin-inline-start: auto; }
+.model-purpose { display: inline-flex; align-items: center; gap: 4px; padding: 1px var(--sv-space-2); border-radius: var(--sv-radius-pill); background: var(--sv-bg-sunken); color: var(--sv-text-muted); font-size: var(--sv-font-xs); line-height: calc(1.125rem * var(--sv-line-k, 1)); white-space: nowrap; }
+.model-purpose svg { width: 13px; height: 13px; }
+.downloaded-remove-all { display: grid; gap: var(--sv-space-2); justify-items: start; margin-top: var(--sv-space-2); }
+.downloaded-models .downloaded-model + .downloaded-model { padding-top: var(--sv-space-2); border-top: 1px solid var(--sv-border); }
+
+
+/* ----- a phone: Settings as a menu of levels (settings-levels.tsx). One level shows at a time, in one place under the
+ * header and the error line; the one left is hidden once its slide ends (never only covered or transparent: what is new
+ * on it would be taken as seen). Every edge keeps clear of the screen's own (viewport-fit=cover). */
+@media (max-width: 767px) {
+  .ui-dialog.settings-page[data-layout] .ui-dialog-head { gap: var(--sv-space-2); min-height: var(--sv-header-height);
+    padding: calc(var(--sv-space-3) + env(safe-area-inset-top)) max(var(--sv-space-4), env(safe-area-inset-right)) var(--sv-space-3) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  /* One line, cut short when long (a machine's name: whole on its page). Focus goes to it, never by Tab. */
+  .settings-page .ui-dialog-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .settings-page .ui-dialog-title:focus { outline: none; }
+  .settings-back { flex: none; width: 44px; height: 44px; margin-inline-start: calc(-1 * var(--sv-space-2)); }
+  .settings-back svg:dir(rtl) { transform: scaleX(-1); }
+
+  .settings-layout { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+  .settings-layout > .settings-error { grid-column: 1; margin: 0; padding: var(--sv-space-2) max(var(--sv-space-4), env(safe-area-inset-right)) var(--sv-space-2) max(var(--sv-space-4), env(safe-area-inset-left));
+    border-bottom: 1px solid var(--sv-border); }
+  .settings-nav, .settings-content { grid-column: 1; grid-row: 2; background: var(--sv-bg); }
+  .settings-layout > .settings-nav { display: block; padding: var(--sv-space-4) max(var(--sv-space-4), env(safe-area-inset-right)) calc(var(--sv-space-8) + env(safe-area-inset-bottom)) max(var(--sv-space-4), env(safe-area-inset-left));
+    overflow: hidden auto; overscroll-behavior: contain; border: 0; }
+  .settings-column { padding: var(--sv-space-5) max(var(--sv-space-4), env(safe-area-inset-right)) calc(var(--sv-space-8) + env(safe-area-inset-bottom)) max(var(--sv-space-4), env(safe-area-inset-left)); }
+  .settings-layout > .settings-nav[hidden], .settings-layout > .settings-content[hidden], .settings-sublevel[hidden] { display: none; }
+  /* The header says the section: its title is not repeated on the page (it still names it), its description stays as
+     the page's first paragraph. This device's page keeps its own: this device's name, and its rename. */
+  .settings-pane:not(#pane-this-computer) > .ui-section > .ui-section-head .ui-section-title { display: none; }
+  .settings-pane:not(#pane-this-computer) > .ui-section > .ui-section-head:not(:has(.ui-section-description, .ui-section-actions)) { display: none; }
+
+  /* A menu: one card of rows, a hairline between them from the label on. A row: its icon (with the "new" dot), its
+     label over its line, its badge or its state's dot, and the chevron of a page of its own. The label never gives
+     way; the line does first. */
+  .settings-menu { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-surface); }
+  .settings-menu > li { position: relative; }
+  .settings-menu > li + li::before { content: ""; position: absolute; z-index: 1; top: 0; inset-inline: calc(var(--sv-space-4) + 20px + var(--sv-space-3)) 0; border-top: 1px solid var(--sv-border); pointer-events: none; }
+  .settings-menu-row { display: flex; align-items: center; gap: var(--sv-space-3); width: 100%; min-height: 56px; margin: 0; padding: var(--sv-space-2) var(--sv-space-3) var(--sv-space-2) var(--sv-space-4);
+    border: 0; background: none; color: var(--sv-text); font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .settings-menu-row[data-lines="2"] { min-height: 64px; }
+  .settings-menu-row:active { background: var(--sv-hover); }
+  .settings-menu-row:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: -2px; }
+  .settings-menu-icon { display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--sv-text-muted); }
+  .settings-menu-icon .new-on-icon { --new-ground: var(--sv-surface); }
+  .settings-menu-text { display: grid; flex: 1; min-width: 0; }
+  .settings-menu-label { font-size: var(--sv-font-md); line-height: calc(1.375rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-medium); color: var(--sv-text); overflow-wrap: anywhere; }
+  .settings-menu-summary { min-height: 1.25rem; overflow: hidden; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); white-space: nowrap; text-overflow: ellipsis; }
+  .settings-menu-summary .machine-state { font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); }
+  .settings-menu-row > .ui-badge { flex: none; }
+  .settings-menu-chevron { display: inline-grid; flex: none; color: var(--sv-text-subtle); }
+  .settings-menu-chevron svg:dir(rtl) { transform: scaleX(-1); }
+  /* Add a machine opens a dialog, not a page: the accent's words, no chevron. A machine's name, unlike a label, is cut. */
+  .settings-menu-row--add .settings-menu-icon, .settings-menu-row--add .settings-menu-label { color: var(--sv-accent-text); }
+  .machines-menu .settings-menu-label { display: flex; align-items: center; gap: var(--sv-space-1); min-width: 0; }
+  .machines-menu .settings-menu-label .machine-nav-name { min-width: 0; overflow: hidden; font-size: var(--sv-font-md); line-height: calc(1.375rem * var(--sv-line-k, 1)); white-space: nowrap; text-overflow: ellipsis; }
+
+  /* Machines' list and a machine's page, in the one place of the page they share. */
+  .settings-sublevels { display: grid; min-width: 0; }
+  .settings-sublevel { display: grid; align-content: start; gap: var(--sv-space-4); grid-area: 1 / 1; min-width: 0; background: var(--sv-bg); }
+  .settings-sublevel > .ui-section-description { margin: 0; }
+
+  /* The slide: the next level in from the inline end, the one left a quarter of the way out; back is its mirror. The one
+     left by a slide inside a page stays where it was scrolled (--level-shift). */
+  .settings-layout { --level-way: 1; }
+  .settings-layout:dir(rtl) { --level-way: -1; }
+  .settings-page [data-motion] { animation: var(--sv-dur-slow) var(--sv-ease) both; }
+  .settings-page [data-motion="in-forward"] { z-index: 1; animation-name: settings-level-in; }
+  .settings-page [data-motion="out-forward"] { animation-name: settings-level-out; }
+  .settings-page [data-motion="in-back"] { animation-name: settings-level-back-in; }
+  .settings-page [data-motion="out-back"] { z-index: 1; animation-name: settings-level-back-out; }
+  .settings-sublevel[data-motion^="out"] { translate: 0 var(--level-shift, 0px); }
+}
+@keyframes settings-level-in { from { transform: translateX(calc(100% * var(--level-way, 1))); } }
+@keyframes settings-level-out { to { transform: translateX(calc(-25% * var(--level-way, 1))); } }
+@keyframes settings-level-back-in { from { transform: translateX(calc(-25% * var(--level-way, 1))); } }
+@keyframes settings-level-back-out { to { transform: translateX(calc(100% * var(--level-way, 1))); } }
+/* No slide under reduced motion: the levels swap at once (settings-levels.tsx never starts one; this is its guard). */
+@media (prefers-reduced-motion: reduce) { .settings-page [data-motion] { animation: none; } }
+
+/* Shortcuts. The desktop app's mute shortcut: the keys as they read, Change (recording the next combination) and Clear;
+   a shortcut another app has, with others to pick; a clash with VoiceOver said under it. The keys the room answers
+   (`shortcut-keys`) wear the same key cap, with nothing to change. */
+.desktop-shortcut { display: grid; gap: var(--sv-space-2); min-width: 0; }
+.desktop-shortcut p { margin: 0; font-size: var(--sv-font-sm); }
+.desktop-shortcut-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-2); }
+/* Each key its own cap, as macOS menus and keyboards draw them: a small raised tile (a thicker bottom edge), the
+   system font, centred; the caps of one shortcut side by side. */
+.shortcut-keys { display: inline-flex; align-items: center; gap: 4px; font: inherit; }
+.shortcut-key { display: inline-grid; place-items: center; min-width: 26px; min-height: 26px; padding: 0 7px; border: 1px solid var(--sv-border-strong); border-bottom-width: 2px; border-radius: 7px; background: var(--sv-surface); font: 600 calc(12.5px * var(--sv-text-scale, 1)) / 1 var(--sv-font-sans); color: var(--sv-text); white-space: nowrap; }
+
+.desktop-shortcut-refused { display: grid; gap: var(--sv-space-2); color: var(--sv-text); }
+.desktop-shortcut-alternatives { display: flex; flex-wrap: wrap; gap: var(--sv-space-2); }
+.desktop-shortcut-note { color: var(--sv-text-muted); }
+.desktop-shortcut-error { color: var(--sv-danger); font-size: var(--sv-font-sm); }
+/* Leaving Settings: the back arrow before the title, at every width (a phone's sizes it above). */
+.settings-page .ui-dialog-head > .settings-back { flex: none; margin-inline-start: calc(-1 * var(--sv-space-2)); }
+.settings-page .settings-back[hidden] { display: none; }
+.settings-back svg:dir(rtl) { transform: scaleX(-1); }
+/* The Danger zone, last in Advanced: its title in red, its rows in a red-bordered group. */
+.danger-zone .ui-group-title { color: var(--sv-danger); }
+.danger-group .ui-group-card { border-color: var(--sv-danger); }
+.ui-dialog .ui-disclosure + p.muted { margin-block-start: var(--sv-space-2); }
+/* The reset's result stays legible after the confirmation closes. */
+.data-reset-note { margin: var(--sv-space-2) 0 0; color: var(--sv-text-muted); font-size: var(--sv-font-sm); }
+.data-reset-note[role="alert"] { color: var(--sv-danger); }
+.data-reset-note ul { margin: var(--sv-space-2) 0 0; padding-inline-start: 1.25em; }
+.data-reset-result { position: fixed; z-index: 100; inset-block-start: calc(var(--sv-space-4) + var(--sv-inset-top)); inset-inline: max(var(--sv-space-4), var(--sv-inset-left)) auto;
+  width: min(34rem, calc(100vw - 2 * var(--sv-space-4))); max-height: min(70vh, 32rem); overflow: auto;
+  padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg);
+  background: var(--sv-surface); box-shadow: var(--sv-shadow-lg); color: var(--sv-text); }
+.data-reset-result[role="alert"] { border-color: var(--sv-danger); }
+.wizard-dialog > .data-reset-result {
+  position: static; order: -1; flex: none; box-sizing: border-box; width: auto;
+  margin: var(--sv-space-3) var(--sv-space-6) 0; max-height: min(28dvh, 14rem);
+  box-shadow: none;
+}
+.data-reset-result p { margin: 0 0 var(--sv-space-2); }
+.data-reset-result ul { margin: 0 0 var(--sv-space-2); padding-inline-start: 1.25em; }
+.data-reset-dismiss { float: right; margin-inline-start: var(--sv-space-2); }
+/* Downloaded models (DownloadedModels.tsx), three fixed columns so nothing shifts from row to row: the name with its
+   tags and, when unused, how long ago it was used; its size, right-aligned; Delete as an icon (an empty slot where the
+   model is in use). Remove all unused: a quiet action under the list, at its end. */
+.downloaded-model-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.downloaded-model-size { margin-inline-start: 0; text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.downloaded-model-used { font-size: var(--sv-font-xs); color: var(--sv-text-muted); }
+.downloaded-model-action { flex: none; display: inline-grid; place-items: center; width: 32px; min-height: 32px; }
+.downloaded-remove-all { justify-items: end; }
+/* The size, then Delete at the far end; every row one line and the same height (the name ends in an ellipsis rather than wrapping). */
+.downloaded-model-copy { grid-template-columns: minmax(0, 1fr) 7ch 32px; }
+.downloaded-model-main { min-height: 40px; }
+.downloaded-model-title { flex-wrap: nowrap; overflow: hidden; }
+.downloaded-model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.downloaded-model-title > .downloaded-model-name { flex: 0 1 auto; min-width: 0; }
+.downloaded-model-title > :not(.downloaded-model-name) { flex: none; }
+/* The (i) right by the model's name: no room of its own either side, it reads as part of the name. */
+.downloaded-model-title > .ui-infotip { width: 18px; margin-inline: -6px -4px; }
+/* A phone has no room for the name and its tags on one line: the tags go under it, the name never cut to nothing. */
+@media (max-width: 559px), (max-width: 899px) and (pointer: coarse) {
+  .downloaded-model-title { flex-wrap: wrap; }
+  .downloaded-model-title > .downloaded-model-name { flex: 1 0 100%; max-width: calc(100% - 22px); }
+  /* and a tag too long for a narrow phone ends in an ellipsis inside the row, never past it. */
+  .downloaded-model-title > :not(.downloaded-model-name):not(.ui-infotip) { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+/* A tooltip that says its shortcut: the label, then its key caps, on the tooltip's own ground. The caps are the Shortcuts
+   screen's, adapted to the lavender tooltip. The mic's has a second, lighter line: what holding a key does. */
+.shortcut-tip { display: inline-flex; align-items: center; gap: 8px; }
+.shortcut-tip-stack { display: grid; gap: 2px; }
+.shortcut-tip-label { font-weight: var(--sv-weight-semibold); }
+.shortcut-tip-hint { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; opacity: .8; }
+.shortcut-tip-hint .shortcut-keys { vertical-align: middle; }
+.ui-tooltip .shortcut-keys { gap: 3px; }
+.ui-tooltip .shortcut-key { min-width: 20px; min-height: 20px; padding: 0 5px; border: 1px solid color-mix(in srgb, var(--sv-accent) 35%, transparent); border-bottom-width: 2px; border-radius: 6px; background: var(--sv-surface); color: var(--sv-accent-text); font: 600 calc(11.5px * var(--sv-text-scale, 1)) / 1 var(--sv-font-sans); opacity: 1; }
+
+/* Settings → Floating card (FloatingCardSettings.tsx): the three styles, each with a still, simplified picture of it on
+ * a corner of a screen in the page's theme; the four corners a card first appears in. */
+.floating-card-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sv-space-3); width: 100%; }
+@media (max-width: 559px) { .floating-card-choices { grid-template-columns: 1fr; } }
+.floating-card-choice { position: relative; display: grid; gap: 4px; justify-items: start; align-content: start; text-align: start; font: inherit; color: inherit; }
+.floating-card-choice small { color: var(--sv-text-muted); font-size: var(--sv-font-xs); line-height: calc(1rem * var(--sv-line-k, 1)); }
+.floating-card-choice[data-selected] { border-color: var(--sv-accent); box-shadow: 0 0 0 1px var(--sv-accent); }
+.floating-card-choice[data-selected] strong { color: var(--sv-accent-text); }
+.floating-card-preview { position: relative; display: block; width: 100%; height: 104px; margin-bottom: 6px; overflow: hidden; border-radius: var(--sv-radius-md);
+  background: radial-gradient(130% 120% at 85% 0%, #3b3f78 0%, #262a4d 45%, #1a1d33 100%); }
+[data-theme="light"] .floating-card-preview { background: radial-gradient(130% 120% at 85% 0%, #dfe3f3 0%, #cfd5ea 45%, #c3cae2 100%); }
+.floating-card-preview .sv-avatar { display: block; width: 100%; height: 100%; }
+.floating-card-preview :is(.fcp-card, .fcp-pip) { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; padding: 6px; border: 1px solid var(--sv-border);
+  border-radius: 10px; background: var(--sv-bg); box-shadow: 0 6px 16px rgb(0 0 0 / 30%); }
+.fcp-card { align-items: center; width: 62%; }
+.fcp-face { flex: none; width: 26px; height: 26px; overflow: hidden; border-radius: 30%; background: color-mix(in srgb, var(--av-color, #c9b6ec) 30%, var(--sv-surface)); }
+.fcp-lines { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.fcp-lines i { display: block; height: 4px; border-radius: 2px; background: var(--sv-text); opacity: .8; }
+.fcp-lines i + i { width: 70%; opacity: .35; }
+.fcp-lines i + i + i { width: 40%; background: var(--sv-voice, #e0a82e); opacity: .9; }
+.fcp-pip { flex-direction: column; width: 50%; }
+.fcp-pip .fcp-lines i { width: 60%; }
+.fcp-stage { display: grid; place-items: end center; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px;
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--av-color, #c9b6ec) 30%, transparent), transparent 60%), var(--sv-stage-bg); }
+.fcp-stage .sv-avatar { width: 40%; height: auto; aspect-ratio: 1; }
+.fcp-bar { display: flex; justify-content: center; gap: 4px; }
+.fcp-bar i { width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--sv-text) 25%, transparent); }
+.fcp-bar i:last-child { width: 13px; border-radius: 5px; background: var(--sv-danger, #dc362e); }
+.fcp-avatar { position: absolute; top: 10px; right: 26px; width: 48px; height: 48px; }
+.floating-card-corners { display: grid; grid-template-columns: repeat(2, 28px); grid-template-rows: repeat(2, 18px); gap: 4px 34px; padding: 6px 8px;
+  border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); }
+.floating-card-corner { width: 28px; height: 18px; padding: 0; border: 1.5px solid var(--sv-border-strong, var(--sv-border)); border-radius: 4px; background: none; cursor: pointer; }
+.floating-card-corner[aria-checked="true"] { border-color: var(--sv-accent); background: color-mix(in srgb, var(--sv-accent) 35%, transparent); }
+.floating-card-corner:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; }
+
+/* The floating card switched off: the section's other controls stay in view, faded, their words in the disabled ink and out of
+ * the Tab order (the app's pattern for a control that cannot act now; decided 2026-10-20). */
+.floating-card-choice:disabled, .floating-card-corner:disabled { opacity: .45; cursor: not-allowed; }
+.floating-card-choice:disabled { color: var(--sv-disabled-text); }
+.floating-card-choice:disabled strong, .floating-card-choice:disabled small { color: var(--sv-disabled-text); }
+.floating-card-choice[data-selected]:disabled { box-shadow: none; border-color: var(--sv-border); }
+.floating-card-corner:disabled { pointer-events: none; }
+
+/* The previews hold still (decided 2026-10-19, briefs/UX-DECISIONS-2026-10-19.md: "Simplified static previews"): nothing in a
+ * tile moves — no creature, no idle step, no transition on the tile itself. */
+.floating-card-choice { transition: none; }
+.floating-card-preview, .floating-card-preview *, .floating-card-preview *::before, .floating-card-preview *::after { animation: none !important; transition: none !important; }
+/* The chosen tile's check lies over its preview (which comes later in the tile and would paint over it): on a small chip of the
+ * tile's own surface, above the preview. */
+.floating-card-choice .ui-card-check { z-index: 2; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--sv-surface); box-shadow: 0 0 0 1px var(--sv-accent); }
+
+/* "Always show the call controls" on: each preview draws its format with its controls out, still like the rest. */
+.fcp-card { flex-wrap: wrap; }
+.fcp-card-controls, .fcp-actions { display: flex; gap: 3px; }
+.fcp-card-controls { flex-basis: 100%; justify-content: center; }
+.fcp-card-controls i, .fcp-actions i { width: 8px; height: 8px; border-radius: 50%; background: color-mix(in srgb, var(--sv-text) 25%, transparent); }
+.fcp-card-controls i:last-child { width: 12px; border-radius: 4px; background: var(--sv-danger, #dc362e); }
+.fcp-pip .fcp-lines { display: flex; align-items: center; justify-content: space-between; }
+.fcp-pip .fcp-lines .fcp-actions { flex: none; }
+/* Just the avatar with its controls out: the compact card, small (the creature 48px at top 10px in a 104px tile; the card 2px under it,
+ * 84px wide, A1's title line over its controls row spread across: mic left, hang-up right), well short of the tile's foot. */
+.floating-card-preview .fcp-card.fcp-compact { top: 60px; right: 8px; width: 84px; padding: 3px 5px; row-gap: 3px; border-radius: 8px; }
+.fcp-compact > .fcp-bar i { width: 6px; height: 6px; }
+.fcp-compact > .fcp-bar i:last-child { width: 9px; border-radius: 3px; }
+.fcp-compact > .fcp-lines i { width: 62%; }
+.fcp-compact > .fcp-bar { flex-basis: 100%; justify-content: space-between; }
+.fcp-lines .fcp-actions i { width: 8px; height: 8px; border-radius: 50%; opacity: 1; background: color-mix(in srgb, var(--sv-text) 25%, transparent); }
+/* Developer options (DeveloperOptions): a row's how-to, a line each. */
+.developer-howto { display: block; }
+.developer-howto + .developer-howto { margin-top: var(--sv-space-1); }
+
+/* The shortcut field (components/ui/ShortcutField.tsx): the whole field is the button; the keys as caps, a Default button
+   and a round quiet x inside it, a clear margin from its right edge. */
+.shortcut-item + .shortcut-item { border-top: 1px solid var(--sv-border); }
+.shortcut-item > .ui-row { padding-bottom: 14px; }
+.shortcut-item > .ui-row + .ui-row { border-top: 0; }
+.shortcut-note { margin: 0 var(--sv-space-5) 14px; }
+.shortcut-managed { margin: -6px var(--sv-space-5) 12px; font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+.ui-group-card > .shortcut-note { margin-top: 0; }
+.shortcut-tip-note { margin: 0 0 var(--sv-space-1); align-items: center; }
+.shortcut-tip-note .shortcut-key { min-height: 20px; min-width: 20px; padding: 0 5px; font-size: calc(11.5px * var(--sv-text-scale, 1)); vertical-align: 1px; }
+.ui-shortcut-wrap { display: grid; justify-items: end; gap: 5px; min-width: 0; }
+.ui-shortcut { display: inline-flex; align-items: stretch; width: 240px; max-width: 100%; min-height: 34px; border: 1px solid var(--sv-border-strong); border-radius: 10px; background: var(--sv-surface); transition: border-color .15s, box-shadow .15s, background-color .15s; }
+@media (hover: hover) { .ui-shortcut:hover { border-color: var(--sv-accent); } }
+.ui-shortcut[data-state="recording"] { border-color: var(--sv-accent); background: var(--sv-accent-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-accent) 22%, transparent); }
+.ui-shortcut[data-invalid] { border-color: var(--sv-danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-danger) 18%, transparent); }
+.ui-shortcut-field { display: inline-flex; flex: 1; min-width: 0; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 10px 0 0 10px; background: none; color: inherit; font: inherit; cursor: pointer; text-align: start; }
+.ui-shortcut-field:only-child, .ui-shortcut-field:last-child { border-radius: 10px; }
+.ui-shortcut-field:focus-visible, .ui-shortcut-clear:focus-visible, .ui-shortcut-restore:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: -2px; }
+.ui-shortcut .shortcut-key { min-height: 22px; min-width: 22px; padding: 0 6px; font-size: calc(12px * var(--sv-text-scale, 1)); }
+.shortcut-how { margin-left: 2px; font: 600 calc(11.5px * var(--sv-text-scale, 1)) / 1 var(--sv-font-sans); color: var(--sv-text-muted); }
+.ui-shortcut-placeholder { font: 500 calc(13px * var(--sv-text-scale, 1)) var(--sv-font-sans); color: var(--sv-text-subtle); }
+.ui-shortcut-rec { display: inline-flex; align-items: center; gap: 6px; font: 600 calc(13px * var(--sv-text-scale, 1)) var(--sv-font-sans); color: var(--sv-accent-text); white-space: nowrap; }
+.ui-shortcut-rec i { width: 8px; height: 8px; border-radius: 50%; background: var(--sv-danger); }
+.ui-shortcut-esc { margin-left: auto; padding: 2px 5px; border: 1px solid var(--sv-border-strong); border-radius: 5px; font: 600 calc(10.5px * var(--sv-text-scale, 1)) var(--sv-font-sans); color: var(--sv-text-muted); }
+.ui-shortcut-clear { align-self: center; display: grid; place-items: center; flex: none; width: 20px; height: 20px; margin: 0 8px 0 4px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--sv-text) 9%, transparent); color: var(--sv-text-muted); cursor: pointer; opacity: .75; transition: opacity .15s, background-color .15s; }
+@media (hover: hover) {
+  .ui-shortcut:hover .ui-shortcut-clear { opacity: 1; }
+  .ui-shortcut-clear:hover { background: color-mix(in srgb, var(--sv-text) 16%, transparent); color: var(--sv-text); }
+  .ui-shortcut:hover .ui-shortcut-restore { opacity: 1; }
+  .ui-shortcut-restore:hover { background: color-mix(in srgb, var(--sv-text) 16%, transparent); color: var(--sv-text); }
+}
+/* ↺ is the × 's size and look, beside it; alone (no × without keys) it takes the × 's right margin. */
+.ui-shortcut-restore { align-self: center; display: grid; place-items: center; flex: none; width: 20px; height: 20px; margin: 0 0 0 4px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--sv-text) 9%, transparent); color: var(--sv-text-muted); cursor: pointer; opacity: .75; transition: opacity .15s, background-color .15s; }
+.ui-shortcut > .ui-shortcut-restore:last-child { margin-right: 8px; }
+.ui-shortcut-error { max-width: 240px; text-align: start; }
+
+/* Call › Other apps' media: what the choice lacks, in the group's card under the row (amber), or, allowed and waiting for a
+ * restart, Restart now (accent). The margins are the rows' own padding. */
+.media-need { display: flex; align-items: center; gap: var(--sv-space-3); margin: 0 var(--sv-space-5) 14px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--sv-state-attention) 12%, transparent); }
+.media-need[data-kind="restart"] { background: color-mix(in srgb, var(--sv-accent) 10%, transparent); }
+.media-need-icon { display: inline-flex; flex: none; color: color-mix(in srgb, var(--sv-state-attention) 70%, #000); }
+.media-need[data-kind="restart"] .media-need-icon { color: var(--sv-accent-text, var(--sv-accent)); }
+.media-need-text { flex: 1; min-width: 0; margin: 0; font-size: var(--sv-font-md); color: var(--sv-text); }
+.media-need-action { flex: none; display: inline-flex; }
+/* A phone's larger text (data-text-large, lib/text-scale.ts) leaves the name no room beside the size and Delete: the name and
+   its tags take the row, and the size and Delete go under it, at the end. */
+:root[data-text-large] .downloaded-model-copy { grid-template-columns: minmax(0, 1fr) auto 32px; }
+:root[data-text-large] .downloaded-model-title { grid-column: 1 / -1; }
+:root[data-text-large] .downloaded-model-size { grid-column: 2; }
+:root[data-text-large] .downloaded-model-action { grid-column: 3; }
+
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/features/settings/model-prepare.css by scripts/recommender-styles.mjs. */
+/* A chosen model made ready (ModelPrepare.tsx): the same block in the first-run setup and in Settings. */
+.model-prepare { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sv-space-3); min-width: 0; padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-bg-subtle); color: var(--sv-text); }
+.model-prepare-pickers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--sv-space-3); }
+.model-prepare-meta { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.model-prepare-pickers + .model-prepare-status, .model-prepare-meta + .model-prepare-status, .model-prepare-notice + .model-prepare-status { padding-top: var(--sv-space-3); border-top: 1px solid var(--sv-border); }
+/* Which languages the model supports (ModelLanguages): the one in use in bold; "+N more" a link in the text that opens
+   all of them in a popover. */
+.model-prepare-meta strong { font-weight: 600; color: var(--sv-text); }
+.model-languages-more { display: inline; padding: 0; border: 0; background: none; color: var(--sv-accent-text); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.model-languages-more:focus-visible { outline: 2px solid var(--sv-focus); outline-offset: 2px; border-radius: 2px; }
+/* All of them (Whisper has about a hundred): the popover itself scrolls, so the focus in it scrolls it with the keys;
+   two columns where it is wide enough, one on a phone. A shadow at an edge says there is more beyond it: covers in the
+   popover's own colour scroll with the list (local) over shadows that stay at its edges (scroll), so at either end, or
+   with all of it in sight, a cover hides the shadow. Its background colour stays the popover's own. */
+.ui-popover.model-languages-popover { width: min(22rem, calc(100vw - 24px)); max-height: min(24rem, 60vh); overflow-y: auto; overscroll-behavior: contain;
+  background-image: linear-gradient(var(--sv-surface-raised) 30%, transparent), linear-gradient(transparent, var(--sv-surface-raised) 70%),
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--sv-text) 22%, transparent), transparent),
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--sv-text) 22%, transparent), transparent);
+  background-size: 100% 2.5rem, 100% 2.5rem, 100% 0.75rem, 100% 0.75rem;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+  background-position: center top, center bottom, center top, center bottom; }
+.model-languages-popover .ui-popover-title { color: var(--sv-text); }
+.model-languages-list { margin: 0; padding: 0; list-style: none; column-width: 9rem; column-gap: var(--sv-space-4); color: var(--sv-text); }
+.model-languages-list li { break-inside: avoid; }
+.model-languages-list strong { font-weight: 600; }
+/* The language in use is not one of the model's: in the warning's colour and with its mark, so not by colour alone. Its
+   region stays in the block, empty while there is nothing to say. */
+.model-prepare-notice { display: flex; align-items: flex-start; gap: var(--sv-space-1-5); margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-warning); }
+.model-prepare-notice:empty { display: none; }
+.model-prepare-notice svg { flex: none; margin-top: 2px; }
+.model-prepare-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sv-space-3); min-height: 48px; min-width: 0; }
+.model-prepare-state { display: flex; align-items: center; gap: var(--sv-space-2); min-width: 0; }
+.model-prepare-note { white-space: nowrap; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); font-variant-numeric: tabular-nums; }
+/* The hardware as a chip, in the spec sheet: the engine's pick for this device, in the accent's weight. It wraps rather
+   than overflow a narrow block. */
+.ui-badge.model-hardware { flex: 0 1 auto; max-width: 100%; height: auto; min-height: 22px; padding-block: 2px; border: 1px solid transparent; line-height: 1.2; white-space: normal; text-align: start; }
+/* "both": the technical name after the class, lighter. */
+.model-hardware-name { font-weight: var(--sv-weight-regular); color: var(--sv-text-muted); }
+.model-prepare-working { font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text); }
+.model-prepare-state .ui-spinner { color: var(--sv-accent-text); }
+.model-prepare-progress { display: grid; gap: var(--sv-space-2); flex: 1; min-width: 0; }
+.model-prepare-progress-line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sv-space-3); }
+.model-prepare-progress-line strong { font-size: var(--sv-font-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
+.model-prepare-alert { flex: 1; }
+
+/* A ready model's try (ModelSetup.tsx TryPanel), in its block under the state: getting ready, then the microphone's
+   level or the sentence lit as it is heard, then what was heard and how quick it was. In the try's dialog, the same. */
+.model-prepare > .model-try { padding-top: var(--sv-space-3); border-top: 1px solid var(--sv-border); }
+.model-try { display: grid; gap: var(--sv-space-3); min-width: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); }
+.model-try[data-empty] { display: none; }
+.model-try-live { display: grid; gap: var(--sv-space-2); min-width: 0; }
+.model-try-live:empty { display: none; }
+.model-try-hint, .model-try-state { margin: 0; color: var(--sv-text-muted); }
+.model-try-state { display: flex; align-items: center; gap: var(--sv-space-2); }
+.model-try-state .ui-spinner { color: var(--sv-accent-text); }
+.model-try-listening { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-3); min-width: 0; }
+/* How long the take has run, filling to its longest (MAX_TAKE_MS, set as the element's animation-duration, which the fill takes) from
+   when it listens. The fill is a layer scaled from its left edge, by transform: composited, nothing painted again on each frame;
+   the track's round ends clip it. */
+.model-try-take { position: relative; overflow: hidden; flex: 1 0 100%; height: 3px; border-radius: 2px; background-color: var(--sv-bg-sunken); }
+.model-try-take::before { content: ""; position: absolute; inset: 0; background: var(--sv-accent); transform: scaleX(0); transform-origin: 0 50%;
+  animation: model-try-take linear forwards; animation-duration: inherit; }
+@keyframes model-try-take { to { transform: scaleX(1); } }
+/* The take ended (Stop, its longest, a silence): its length stays where it stopped while it is transcribed. */
+.model-try-take[data-ended]::before { animation-play-state: paused; }
+.model-try-wave { display: inline-flex; flex: none; color: var(--sv-accent-text); }
+.model-try .voice-wave { width: min(9rem, 36vw); height: 28px; }
+/* The voice's sentence: what was heard in the text's colour, the rest quieter until it is. */
+.model-try-sentence { margin: 0; font-size: var(--sv-font-md); line-height: calc(1.5rem * var(--sv-line-k, 1)); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--sv-text); }
+.model-try-unsaid { color: var(--sv-text-subtle); }
+/* What was heard, quoted: two lines in the block, the rest behind See all (a Popover); in full in the dialog. */
+.model-try-heard { display: grid; justify-items: start; gap: var(--sv-space-1); margin: 0; min-width: 0; }
+.model-try-heard figcaption { color: var(--sv-text-muted); }
+.model-try-heard blockquote { justify-self: stretch; margin: 0; padding-inline-start: var(--sv-space-3); border-inline-start: 3px solid var(--sv-accent); font-size: var(--sv-font-md); line-height: calc(1.5rem * var(--sv-line-k, 1)); color: var(--sv-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.model-try-heard blockquote[data-clamped] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.model-try-heard .model-try-all { margin-inline-start: calc(-1 * var(--sv-space-2)); }
+.ui-popover .model-try-full { max-height: 14rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--sv-text); }
+/* With the try in its dialog, the block keeps one line on how the last one went. */
+.model-try-summary { margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--sv-text-muted); }
+.model-try-summary q { color: var(--sv-text); }
+.model-try-summary[data-failed] { color: var(--sv-danger); }
+
+/* How a model runs (ModelRuntime): folded under its block; this device's capabilities, then each build to choose. */
+.model-runtime { margin-top: var(--sv-space-2); }
+.model-runtime-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sv-space-1); min-width: 0; }
+.model-runtime-info { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.model-runtime-toggle { display: inline-flex; align-items: center; gap: var(--sv-space-1-5); max-width: 100%; padding: var(--sv-space-1) var(--sv-space-2) var(--sv-space-1) var(--sv-space-1); border: 0; border-radius: var(--sv-radius-sm); background: none; color: var(--sv-text-muted); font: 600 var(--sv-font-sm) / calc(1.25rem * var(--sv-line-k, 1)) var(--sv-font-sans); cursor: pointer; }
+@media (hover: hover) { .model-runtime-toggle:hover { background: var(--sv-hover); color: var(--sv-text); } }
+.model-runtime-toggle svg { transform: rotate(-90deg); transition: transform var(--sv-dur-fast) var(--sv-ease); }
+.model-runtime-toggle svg.model-runtime-chevron-open { transform: none; }
+.model-runtime-toggle:active { background: var(--sv-pressed); color: var(--sv-text); }
+.model-runtime-summary { min-width: 0; max-width: 100%; overflow: hidden; font-weight: 400; color: var(--sv-text-subtle); white-space: nowrap; text-overflow: ellipsis; }
+.model-runtime-summary:not(:empty)::before { content: "· "; }
+.model-runtime-panel { display: grid; gap: var(--sv-space-3); margin-top: var(--sv-space-2); padding: var(--sv-space-4); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-surface); }
+.model-runtime-device { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.model-runtime-options { display: grid; gap: var(--sv-space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.model-runtime-option { display: flex; align-items: flex-start; gap: var(--sv-space-3); padding: var(--sv-space-3); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); cursor: pointer; }
+@media (hover: hover) { .model-runtime-option:hover { border-color: var(--sv-border-strong); } }
+.model-runtime-option[data-checked] { border-color: var(--sv-accent); box-shadow: inset 0 0 0 1px var(--sv-accent); background: color-mix(in srgb, var(--sv-accent-soft) 50%, transparent); }
+.model-runtime-option[data-disabled] { cursor: not-allowed; opacity: 1; }
+.model-runtime-option:not([data-disabled]):active { background-image: linear-gradient(var(--sv-pressed), var(--sv-pressed)); }
+.model-runtime-option[data-disabled] .model-runtime-title, .model-runtime-option[data-disabled] .model-runtime-detail { color: var(--sv-disabled-text); }
+.model-runtime-option input { margin: 3px 0 0; accent-color: var(--sv-accent); }
+.model-runtime-copy { display: grid; gap: 2px; min-width: 0; }
+.model-runtime-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sv-space-2); font-size: var(--sv-font-sm); font-weight: 600; }
+.model-runtime-detail, .model-runtime-why { font-size: var(--sv-font-xs); line-height: calc(1rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.model-runtime-why { color: var(--sv-warning); }
+
+/* The model in use stays until this one is ready (there is no Save: it switches by itself). */
+.model-prepare-pending { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+
+/* The voice's sentence in its try (TtsTry): editable in place, its pencil beside it. */
+.voice-try-text { flex: 1; min-width: 0; }
+.tts-try-sentence { display: flex; align-items: flex-start; gap: var(--sv-space-2); min-width: 0; }
+.tts-try-sentence > :first-child { flex: 1; min-width: 0; }
+.tts-try-said { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: start; font: inherit; font-size: var(--sv-font-md); line-height: calc(1.5rem * var(--sv-line-k, 1)); color: var(--sv-text); cursor: text; }
+.tts-try-said::before { content: "“"; } .tts-try-said::after { content: "”"; }
+
+/* The transcription try (SttTry): the button and the microphone's level on one row, always; under it an area that grows
+   with what it holds — listening and the take's length, then what was heard — and takes no room while empty. */
+.stt-try { display: grid; gap: var(--sv-space-2); min-width: 0; }
+.stt-try-head { display: flex; align-items: center; gap: var(--sv-space-3); min-height: 32px; }
+.stt-try-head .model-try-wave { flex: 1; min-width: 0; }
+/* The level takes the room the button leaves, up to its width elsewhere: a longer label (another language, Play again)
+   narrows it rather than pushing the try past its card. */
+.stt-try-head { min-width: 0; }
+.stt-try-head .voice-wave { width: 100%; max-width: 9rem; }
+/* The try's button keeps one width through its states (Try it, Stop, again): the level or the sentence beside it stays put,
+   and Stop is under the pointer that pressed Try it. */
+.stt-try-head > .ui-button { min-width: 6.5rem; }
+.stt-try-area { display: grid; align-content: start; gap: var(--sv-space-1-5); min-width: 0; }
+.stt-try-area:empty { display: none; }
+.stt-try-area .model-try-take { flex: none; width: 100%; }
+/* The model's own settings (VoiceSettings), in a card of their own between the model and its try, once it is ready. */
+.model-settings-card { display: grid; }
+/* The voice's try: the sentence beside the button, where the transcription try draws the microphone's level. */
+.stt-try-head .tts-try-sentence { flex: 1; min-width: 0; }
+/* The voice try's row: the button and the sentence centred on each other, however many lines the sentence takes,
+   and the sentence reads as a quote — a bar at its start. */
+.tts-try .stt-try-head { align-items: center; }
+.stt-try-head .tts-try-sentence { padding-inline-start: var(--sv-space-3); border-inline-start: 3px solid color-mix(in srgb, var(--sv-accent) 45%, transparent); }
+/* On a phone the try's first row stacks: the button on its line, then the level, the take or the sentence at full width
+   (side by side they leave neither room). */
+@media (max-width: 520px) {
+  .stt-try-head { flex-wrap: wrap; }
+  .stt-try-head > .model-try-wave, .stt-try-head > .try-take, .stt-try-head > .tts-try-sentence { flex-basis: 100%; }
+  .stt-try-head .voice-wave { max-width: none; }
+}
+.model-prepare-stalled { color: var(--sv-warning); }
+/* A model's download size at the end of its name's line in the Model list, quieter than its name. */
+.model-list-size { font-size: var(--sv-font-sm); font-weight: var(--sv-weight-regular); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The spec sheet (ModelSheet): what the model is in one bordered block, a label column and a value column, tight;
+   on a narrow phone each label above its value. */
+.model-prepare-sheet { padding: var(--sv-space-2) var(--sv-space-3); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-md); background: var(--sv-surface); }
+.model-sheet { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: var(--sv-space-1) var(--sv-space-3); margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); font-variant-numeric: tabular-nums; }
+.model-sheet dt { color: var(--sv-text-muted); }
+.model-sheet dd { margin: 0; min-width: 0; color: var(--sv-text); }
+.model-sheet strong { font-weight: 600; }
+.model-sheet .model-sheet-size { color: var(--sv-text-muted); }
+/* The notice right after the languages, a small chip in the warning's soft tone (with its mark: not by colour alone);
+   under them when both do not fit. */
+.model-sheet .model-sheet-languages { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sv-space-1) var(--sv-space-2); }
+.model-sheet-languages .model-prepare-notice { align-items: center; padding: 0 var(--sv-space-1-5); border-radius: var(--sv-radius-sm); background: var(--sv-warning-soft); }
+.model-sheet-languages .model-prepare-notice svg { margin-top: 0; }
+/* Its state, the last row; what to do about it (download, cancel, retry) at the card's foot, full width on a phone. */
+.model-sheet-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sv-space-2); min-height: 22px; }
+.model-sheet-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sv-space-3); margin-top: var(--sv-space-2); padding-top: var(--sv-space-2); border-top: 1px solid var(--sv-border); }
+@media (max-width: 360px) { .model-sheet-footer > .ui-button { flex: 1 1 100%; } }
+@media (max-width: 360px) {
+  .model-sheet { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .model-sheet dd + dt { margin-top: var(--sv-space-1-5); }
+}
+/* A phone's larger text (data-text-large, lib/text-scale.ts) is a narrow phone as well: the label above its value. */
+:root[data-text-large] .model-sheet { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+:root[data-text-large] .model-sheet dd + dt { margin-top: var(--sv-space-1-5); }
+
+/* COPIED from sidevoice-web@b95f87aef22a7bc62a5342ae9ae93d5451f0c620 apps/web/src/features/onboarding/onboarding.css by scripts/recommender-styles.mjs. */
+/* The first-run setup (Wizard): a fixed-height dialog, so nothing jumps between steps — its brand, the
+ * step in words and a five-part bar, the title, a body that alone scrolls, and a footer with Back at the start and the
+ * step's main action at the end. The whole screen on a phone, its footer pinned. From the design system's "First-run setup" pattern. */
+
+.wizard-dialog {
+  width: min(640px, calc(100vw - 32px)); height: min(720px, calc(100dvh - 32px)); max-width: none; max-height: none; margin: auto; padding: 0;
+  overflow: hidden; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-2xl); background: var(--sv-surface); color: var(--sv-text); box-shadow: var(--sv-shadow-lg);
+}
+[data-theme="dark"] .wizard-dialog { background: var(--sv-surface-raised); }
+.wizard-dialog[open] { display: flex; flex-direction: column; }
+/* Nothing of the room is behind it yet: the page's quiet ground, not a scrim over an empty room. */
+.wizard-dialog::backdrop { background: var(--sv-bg-subtle); }
+
+.wizard-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sv-space-3); flex: none; min-height: 32px; padding: var(--sv-space-5) var(--sv-space-6) 0; }
+.wizard-brand { display: inline-flex; align-items: center; gap: var(--sv-space-2); font-size: var(--sv-font-sm); font-weight: var(--sv-weight-semibold); color: var(--sv-text-muted); }
+.wizard-brand svg { color: var(--sv-accent-text); }
+/* Feature styles load before ui.css: a rule that moves a shared button says where it is, to outweigh the button's own. */
+
+.wizard-stepper { display: grid; gap: var(--sv-space-2); flex: none; padding: var(--sv-space-4) var(--sv-space-6) 0; }
+.wizard-stepper-label { margin: 0; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.wizard-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sv-space-1); margin: 0; padding: 0; list-style: none; }
+.wizard-steps li { height: 4px; border-radius: var(--sv-radius-pill); background: var(--sv-bg-sunken); }
+[data-theme="dark"] .wizard-steps li { background: var(--sv-border); }
+.wizard-steps li[data-state="done"], .wizard-steps li[data-state="current"] { background: var(--sv-accent); }
+
+/* The space under the title is the title's, not the body's: scrolled content then stops short of it. */
+.wizard-title { flex: none; margin: 0; padding: var(--sv-space-4) var(--sv-space-6) var(--sv-space-3); font-size: var(--sv-font-2xl); line-height: calc(2rem * var(--sv-line-k, 1)); font-weight: var(--sv-weight-heavy); letter-spacing: -.02em; color: var(--sv-text); }
+.wizard-title:focus { outline: none; }
+
+.wizard-body { display: grid; align-content: start; gap: var(--sv-space-4); flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sv-space-1) var(--sv-space-6) var(--sv-space-6); }
+/* A new step slides in from the side it came from (Continue: the right; Back: the left), once, in 200 ms; under reduced
+   motion it is simply there. */
+.wizard-body[data-travel] { animation: wizard-step-in 200ms var(--sv-ease) both; }
+.wizard-body[data-travel="back"] { --wizard-from: -16px; }
+@keyframes wizard-step-in { from { opacity: 0; transform: translateX(var(--wizard-from, 16px)); } }
+@media (prefers-reduced-motion: reduce) { .wizard-body[data-travel] { animation: none; } }
+.wizard-title:has(+ .wizard-body[data-scrolled]) { position: relative; z-index: 1; box-shadow: 0 1px 0 var(--sv-border); }
+.wizard-body[data-scrolled] { mask-image: linear-gradient(to bottom, transparent 0, #000 var(--sv-space-4)); }
+.wizard-body > section { display: grid; align-content: start; gap: var(--sv-space-4); min-width: 0; }
+.wizard-body > section > p { margin: 0; line-height: calc(1.5rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.wizard-loading { display: flex; align-items: center; gap: var(--sv-space-2); margin: 0; font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+/* Prepare this computer, installed but not running: what it says of itself, then its one action under it. */
+.wizard-prepare-recover { display: grid; justify-items: start; gap: var(--sv-space-3); min-width: 0; }
+.wizard-prepare-recover > p { margin: 0; line-height: calc(1.5rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+
+.wizard-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--sv-space-2); flex: none; padding: var(--sv-space-4) var(--sv-space-6); border-top: 1px solid var(--sv-border); }
+.wizard-actions:not(:has(.ui-button)) { display: none; }
+.wizard-actions .wizard-back { margin-inline-end: auto; }
+.wizard-actions .ui-dialog-reason { margin: 0; }
+/* A model step's footer is always one line, at every width and in every language: Back, then why it waits (cut short,
+   its whole text kept for hover and assistive tech), then its actions, none of them wrapping. */
+.wizard-actions .ui-button { white-space: nowrap; }
+.wizard-actions .wizard-back { gap: var(--sv-space-1); }
+.wizard-actions[data-model-step] { flex-wrap: nowrap; }
+.wizard-actions[data-model-step] > .ui-button { flex: none; }
+.wizard-actions .wizard-reason { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: end; font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+/* The pairing form's Connect lands here, laid out as one of the footer's own buttons. */
+.wizard-slot { display: contents; }
+
+.wizard-chips { display: flex; flex-wrap: wrap; gap: var(--sv-space-2); margin: 0; padding: 0; list-style: none; }
+
+/* ----- transcription and voice: the choices (Settings' own), the try in the model's block; the sentence to hear is
+   edited there too, or beside it while the try has its own dialog */
+.wizard-stage-step { display: grid; align-content: start; gap: var(--sv-space-4); min-width: 0; }
+.wizard-stage-step > p { margin: 0; line-height: calc(1.5rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+.wizard-stage { min-width: 0; }
+
+
+/* ----- Ready (ReadyStep): the mark arriving, the title, what was set up, what to tell an agent; Enter in the footer —
+   in the setup's frame, its last bar mustard. Only transform and opacity move; nothing arrives later than half a second;
+   Enter, Back and the phrase never move. Under reduced motion all of it shows as it ends. */
+.wizard-ready { display: grid; gap: var(--sv-space-3); min-width: 0; }
+.wizard-ready-hero { display: grid; justify-items: center; gap: var(--sv-space-2); text-align: center; }
+.wizard-ready-title { padding: 0; text-wrap: balance; }
+.wizard-ready-mark { display: grid; place-items: center; color: var(--sv-accent-text); }
+.wizard-ready-mark rect { transform-box: fill-box; transform-origin: center; animation: wizard-ready-bar 560ms var(--sv-ease) both; }
+.wizard-ready-mark rect:nth-child(2) { animation-delay: 70ms; }
+.wizard-ready-mark rect:nth-child(3) { animation-delay: 140ms; }
+.wizard-ready-mark rect:nth-child(4) { animation-delay: 210ms; }
+.wizard-ready-mark rect:nth-child(5) { animation-delay: 280ms; }
+@keyframes wizard-ready-bar { 0% { transform: scaleY(.2); opacity: 0; } 60% { transform: scaleY(1.12); opacity: 1; } }
+@keyframes wizard-ready-rise { from { transform: translateY(8px); opacity: 0; } }
+@keyframes wizard-ready-pop { 0% { transform: scale(0); } 70% { transform: scale(1.15); } }
+.wizard-ready-title { animation: wizard-ready-rise var(--sv-dur-slow) var(--sv-ease) 200ms both; }
+
+.wizard-recap { display: grid; gap: var(--sv-space-2); min-width: 0; }
+.wizard-recap-list { display: grid; gap: var(--sv-space-2); margin: 0; }
+.wizard-recap-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) 16px; grid-template-areas: "icon label check" "icon value check"; align-items: center; column-gap: var(--sv-space-3); min-width: 0; animation: wizard-ready-rise var(--sv-dur-slow) var(--sv-ease) both; }
+.wizard-recap-row:nth-child(1) { animation-delay: 280ms; }
+.wizard-recap-row:nth-child(2) { animation-delay: 330ms; }
+.wizard-recap-row:nth-child(3) { animation-delay: 380ms; }
+.wizard-recap-row:nth-child(4) { animation-delay: 430ms; }
+.wizard-recap-row:nth-child(5) { animation-delay: 480ms; }
+.wizard-recap-row:nth-child(6) { animation-delay: 530ms; }
+.wizard-recap-icon { grid-area: icon; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--sv-radius-md); background: var(--sv-accent-soft); color: var(--sv-accent-text); }
+.wizard-recap-row dt { grid-area: label; font-size: var(--sv-font-sm); line-height: calc(1.25rem * var(--sv-line-k, 1)); color: var(--sv-text-muted); }
+/* One line, whatever the model's name: what does not fit ends in an ellipsis (the whole name on hover). */
+.wizard-recap-row dd { grid-area: value; margin: 0; font-weight: var(--sv-weight-semibold); line-height: calc(1.375rem * var(--sv-line-k, 1)); color: var(--sv-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wizard-recap-detail { font-weight: var(--sv-weight-regular, 400); color: var(--sv-text-muted); }
+.wizard-recap-check { grid-area: check; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--sv-positive-soft); color: var(--sv-positive); animation: wizard-ready-pop 220ms var(--sv-ease) both; }
+.wizard-recap-row:nth-child(1) .wizard-recap-check { animation-delay: 420ms; }
+.wizard-recap-row:nth-child(2) .wizard-recap-check { animation-delay: 470ms; }
+.wizard-recap-row:nth-child(3) .wizard-recap-check { animation-delay: 520ms; }
+.wizard-recap-row:nth-child(4) .wizard-recap-check { animation-delay: 570ms; }
+.wizard-recap-row:nth-child(5) .wizard-recap-check { animation-delay: 620ms; }
+.wizard-recap-row:nth-child(6) .wizard-recap-check { animation-delay: 670ms; }
+.wizard-recap-check svg { width: 12px; height: 12px; }
+.wizard-recap-note { margin: 0; font-size: var(--sv-font-sm); color: var(--sv-text-muted); }
+.wizard-ready-connect { min-width: 0; }
+.wizard-ready-error { scroll-margin: var(--sv-space-4); }
+.wizard-actions .wizard-enter svg { transition: transform var(--sv-dur-fast) var(--sv-ease); }
+@media (hover: hover) { .wizard-actions .wizard-enter:hover svg { transform: translateX(2px); } }
+
+/* The stepper's last bar mustard, drawn in; the mark in a halo; recap as four tiles, then the phrase under a rule. */
+[data-ready] .wizard-steps li:last-child { background: var(--sv-voice); transform-origin: left; animation: wizard-ready-draw 400ms var(--sv-ease) 300ms both; }
+@keyframes wizard-ready-draw { from { transform: scaleX(0); } }
+/* Six recap rows and the connect block fit above the footer unscrolled (2026-10-16; again with the creature's panel,
+   2026-11-08): the mark kept at 64px, tighter gaps and rows, the connect block compact. */
+.wizard-ready .wizard-ready-mark { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(closest-side, var(--sv-accent-soft), transparent); animation: wizard-ready-halo 400ms var(--sv-ease) both; }
+.wizard-ready .wizard-ready-mark svg { width: 48px; height: 48px; }
+[data-theme="dark"] .wizard-ready .wizard-ready-mark { background: radial-gradient(closest-side, color-mix(in srgb, var(--sv-accent) 18%, transparent), transparent); }
+@keyframes wizard-ready-halo { from { transform: scale(.85); opacity: 0; } }
+.wizard-ready .wizard-recap-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wizard-ready .wizard-recap-row { padding: var(--sv-space-1) var(--sv-space-3); border: 1px solid var(--sv-border); border-radius: var(--sv-radius-lg); background: var(--sv-bg-subtle); }
+[data-theme="dark"] .wizard-ready .wizard-recap-row { background: var(--sv-surface); }
+.wizard-ready .wizard-ready-connect { padding-top: var(--sv-space-3); border-top: 1px solid var(--sv-border); }
+
+@media (max-width: 599px), (max-height: 520px) {
+  .wizard-ready .wizard-ready-title { padding: 0; font-size: var(--sv-font-xl); line-height: calc(1.625rem * var(--sv-line-k, 1)); }
+  .wizard-ready .wizard-ready-mark { width: 56px; height: 56px; }
+  .wizard-ready .wizard-ready-mark svg { width: 40px; height: 40px; }
+  .wizard-ready .wizard-recap-list { grid-template-columns: 1fr; gap: 0; border: 1px solid var(--sv-border); border-radius: var(--sv-radius-xl); }
+  .wizard-ready .wizard-recap-row { min-height: 44px; padding-block: var(--sv-space-0-5); border: 0; border-radius: 0; background: none; }
+  [data-theme="dark"] .wizard-ready .wizard-recap-row { background: none; }
+  .wizard-ready .wizard-recap-row + .wizard-recap-row { border-top: 1px solid var(--sv-border); }
+}
+@media (max-height: 520px) { .wizard-ready-mark { display: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-ready] *, [data-ready] *::before, [data-ready] *::after, [data-ready] .wizard-steps li { animation: none !important; }
+}
+/* ----- the call's own space while something is missing: one card, centred */
+.call-column--waiting { display: grid; place-items: center; padding: var(--sv-space-6); overflow: auto; }
+
+/* ----- a phone, or a screen too short for the dialog: the whole screen, the footer pinned at the bottom */
+@media (max-width: 599px), (max-height: 520px) {
+  .wizard-dialog { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .wizard-head { padding: calc(var(--sv-space-3) + env(safe-area-inset-top)) var(--sv-space-4) 0; }
+  .wizard-stepper { padding: var(--sv-space-3) var(--sv-space-4) 0; }
+  .wizard-title { padding: var(--sv-space-3) var(--sv-space-4); font-size: var(--sv-font-xl); line-height: calc(1.625rem * var(--sv-line-k, 1)); }
+  .wizard-body { padding: var(--sv-space-1) var(--sv-space-4) var(--sv-space-4); }
+  .wizard-actions { padding: var(--sv-space-3) var(--sv-space-4) calc(var(--sv-space-3) + env(safe-area-inset-bottom)); }
+  .wizard-actions > .ui-button--primary, .wizard-slot > .ui-button { flex: 1 1 auto; }
+  .wizard-actions .ui-dialog-reason { flex: 1 0 100%; }
+  /* A model step on a phone keeps its one line: Back is its chevron (its name still said), the actions their own width. */
+  .wizard-actions[data-model-step] > .ui-button--primary { flex: none; }
+  .wizard-actions[data-model-step] .wizard-back { padding-inline: var(--sv-space-2); }
+  .wizard-actions[data-model-step] .wizard-back-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .wizard-actions[data-model-step] > .ui-button:not(.wizard-back) { padding-inline: var(--sv-space-3); }
+  /* A footer with a quiet second action (Skip for now, Continue without trying) is one row on a phone, never a partial
+     wrap and never wider than the card: Back and the quiet action are text buttons at their own width, the main action
+     the rest, gaps and paddings tight. When even that does not fit (a narrow phone, a long language), the footer is
+     deliberately stacked instead: the main action full width on top, then Back at the start and the quiet action at
+     the end of one row. The dialog is the container, so the choice is the CSS's, by the width the footer really has. */
+  .wizard-dialog { container: wizard-dialog / inline-size; }
+  .wizard-actions:has(> .wizard-quiet) { flex-wrap: nowrap; gap: var(--sv-space-1); }
+  .wizard-actions:has(> .wizard-quiet) > .ui-button { padding-inline: var(--sv-space-3); }
+  .wizard-actions:has(> .wizard-quiet) > .wizard-back { padding-inline: var(--sv-space-2); }
+  .wizard-actions:has(> .wizard-quiet) > .wizard-quiet { flex: none; }
+  .wizard-actions:has(> .wizard-quiet) > .ui-button--primary, .wizard-actions:has(> .wizard-quiet) .wizard-slot > .ui-button { flex: 1 1 auto; min-width: 0; }
+}
+@container wizard-dialog (max-width: 23rem) {
+  .wizard-actions:has(> .wizard-quiet) { flex-wrap: wrap; row-gap: var(--sv-space-2); }
+  .wizard-actions:has(> .wizard-quiet) > .ui-button--primary, .wizard-actions:has(> .wizard-quiet) .wizard-slot > .ui-button { order: -1; flex: 1 0 100%; }
+  .wizard-actions:has(> .wizard-quiet) > .wizard-reason { order: -2; flex: 1 0 100%; white-space: normal; text-align: start; }
+  .wizard-actions:has(> .wizard-quiet) > .wizard-back { padding-inline: var(--sv-space-3); }
+  .wizard-actions[data-model-step]:has(> .wizard-quiet) .wizard-back-label { position: static; width: auto; height: auto; clip-path: none; }
+}
+/* At a phone's larger text sizes (lib/text-scale.ts sets data-text-large from 1.2) the one-line footers cannot hold: the
+ * labels wrap and so do the actions, before anything leaves the screen. The one-line look is the default's. */
+:root[data-text-large] .wizard-actions { flex-wrap: wrap; }
+:root[data-text-large] .wizard-actions .ui-button { max-width: 100%; white-space: normal; line-height: 1.25; padding-block: var(--sv-space-2); }
+:root[data-text-large] .wizard-actions > .ui-button:not(.wizard-back) { flex: 1 1 auto; }
+/* Ready, read live: a row not there yet wears a neutral dash, never red; one downloading, nothing. */
+.wizard-recap-dash { grid-area: check; display: grid; place-items: center; width: 16px; height: 16px; color: var(--sv-text-muted); font-weight: var(--sv-weight-semibold); }
+.wizard-recap-row[data-state="missing"] dd { color: var(--sv-text-muted); }

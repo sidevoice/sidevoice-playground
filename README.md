@@ -207,6 +207,29 @@ page puts the web's Row, Group, Segmented and speed-slider markup on them. `scri
 <sidevoice-web tree> --out <dir>` captures every option in both themes, and a phone's width, with the web tree's Playwright.
 Once the level is decided, the choice goes from VARIANTS and this sheet with it.
 
+## Model recommender design sheet
+
+The recommender decided on 2026-11-10 (the best model a device runs comfortably, preselected; sidevoice-engine#124, core#33), seen before it
+exists: **`/recommender`** on the preview origin, a page of its own beside the shell (`?device=mac|windows|iphone&lang=es|it&theme=light|dark`;
+`?open=model|family|closed` says which list is drawn open, `?new=off` hides the NEW marks). Transcripción and Voz, in Settings and in the
+first-run setup, in Spanish: the recommended model preselected with «Recomendado» and a line of why, «Volver a lo recomendado» while the
+selection differs, each family's own pick for the device, models that cannot run here disabled under «No disponibles aquí» with the
+app's «no funciona aquí: …», and models that do not speak the language still selectable with «No admite …». The controls work (family,
+model, build under "Avanzado", Descargar). A bar switches the example device and the person's language; the strings the app does not
+have yet are marked NEW and listed in a legend; each decision still open is a switch labelled "Decision for Rubén", with its two
+options side by side on request; a table says why each ranking is what it is.
+
+**Example data.** Models, builds, sizes and languages mirror sidevoice-engine's catalogue (`CATALOGUE_SOURCE` in
+`preview/mock/recommender-data.mjs`); the devices, their memory, the "comfortable on" hints and so the ranking are invented, nothing is
+measured (sidevoice-engine#155). The rules (`recommender-logic.mjs`, tested by `test/recommender.test.mjs`) replicate the decided pipeline
+for the preview; the engine owns the real one.
+
+Nothing of the app is redrawn: `scripts/recommender-styles.mjs --web <sidevoice-web tree> --sha <commit>` copies the stylesheets the
+screens are drawn with (tokens, theme, ui, app, settings, the model block's, the setup's) into `preview/mock/recommender-web.css`, and the
+page puts the web's markup on them. To see it without a preview running:
+`node scripts/recommender-serve.mjs --web <sidevoice-web tree holding apps/web/public/fonts> [--port 5480]` (static example data: it has no
+access gate). Once the recommender is built in the app, the sheet goes with it.
+
 ## Web preview
 
 ### Turn Lab: real spoken conversation
