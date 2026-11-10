@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { MOCK_FILE, RECOMMENDER_PATH, mockFile } from "../preview/proxy.mjs";
 import * as data from "../preview/mock/recommender-data.mjs";
-import { BUDGET, CATALOGUE, COPY, DEVICES, DEVICE_IDS, QUALITY, REC_VARIANTS, TURN_MB } from "../preview/mock/recommender-data.mjs";
+import { BUDGET, CATALOGUE, COPY, DEVICES, DEVICE_IDS, QUALITY, TURN_MB } from "../preview/mock/recommender-data.mjs";
 import { budgetMb, evaluate, languageSupported, orderLanguages, rank, recommend } from "../preview/mock/recommender-logic.mjs";
 import { describeBuild, hardware, mb, sizeText } from "../preview/mock/recommender-format.mjs";
 
@@ -149,15 +149,16 @@ test("the sheet adds no word of its own to the screens: the only addition is the
   }
 });
 
-test("the one open decision is three ways to show «Recomendado» in the closed Modelo box, none of which adds a word", async () => {
-  assert.deepEqual(Object.keys(REC_VARIANTS), ["a", "b", "c"]);
+test("«Recomendado» is the app's tag, in two places only: the end of Modelo's label row, and the entry in the open list (compact, so it stays on one line)", async () => {
+  assert.equal("REC_VARIANTS" in data, false, "no open decision is left");
   const code = await readFile(new URL("../preview/mock/recommender.mjs", import.meta.url), "utf8");
-  assert.match(code, /rec === "b" && isRecommended \? recommended\(\)/, "B: the tag, in the Field's aside");
-  assert.match(code, /rec === "c" && isRecommended/, "C: the sparkle");
-  assert.match(code, /aria-label="\$\{esc\(COPY\["runtime\.recommended"\]\)\}" title=/, "C says «Recomendado» as its label and tooltip, with the app's own string");
+  assert.match(code, /isRecommended \? recommended\(\) : ""\)/, "the tag in the Field's aside, while the model shown is the recommended one");
+  assert.match(code, /recommended\(true\)/, "its entry in the list wears the Badge's compact tag form");
+  assert.match(code, /badge: family\.recommended \? recommended\(\) : ""/, "the recommended family, in the open Familia list");
+  for (const gone of ["leading", "sparkle", "REC_VARIANTS", "data-rec", "matrix", "decision("]) assert.equal(code.includes(gone), false, `${gone} is gone`);
   const css = await readFile(new URL("../preview/mock/recommender.css", import.meta.url), "utf8");
-  assert.match(css, /\[data-rec="a"\] \.model-prepare-pickers \{ grid-template-columns/, "only A widens the Modelo column");
-  assert.equal((css.match(/model-prepare-pickers \{ grid-template-columns/g) ?? []).length, 1);
+  assert.equal(css.includes("grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr)"), false, "the Modelo column is not widened");
+  assert.match(css, /text-overflow: ellipsis; white-space: nowrap/, "an entry stays on one line");
 });
 
 test("every key the page asks for exists", async () => {

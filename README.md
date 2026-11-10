@@ -212,16 +212,14 @@ Once the level is decided, the choice goes from VARIANTS and this sheet with it.
 The recommender decided on 2026-11-10 (the best model a device runs comfortably, selected by default; sidevoice-engine#124, core#33), seen before it
 exists: **`/recommender`** on the preview origin, a page of its own beside the shell (`?device=mac|windows|iphone&lang=es|it&theme=light|dark`;
 `?open=model|family` draws that list open on every screen, closed by default as the app loads). Transcripción and Voz, in Settings and in the
-first-run setup, in Spanish, with the app's own components. The recommendation is said one way only, with the app's own «Recomendado» tag,
-inside the Select: on the selected value of Modelo when it is the recommended model, on its entry in the open list, and on the recommended
-family in the open Familia list. Each family comes with its own best model for the device. A model that cannot run here is left out of the
+first-run setup, in Spanish, with the app's own components. The recommendation is said one way only, with the app's own «Recomendado» tag:
+at the end of Modelo's label row (the Field's aside) while the recommended model is the one selected, on its entry in the open list (the
+Badge's compact `tag` form, so an entry stays on one line, the list being wider than its box on a phone), and on the recommended family in
+the open Familia list. Each family comes with its own best model for the device. A model that cannot run here is left out of the
 lists, as the app does today (its builds say why in "Avanzado", with the app's «No funciona aquí: …»); one that does not speak the person's
 language stays selectable and says «No admite …» quietly under its name. No word of the app's catalogue is added. The controls work (family,
 model, build under "Avanzado", Descargar). A bar switches the example device, the person's language and the theme; a table at the foot says
-why each ranking is what it is. One decision is open, a switch labelled "Decision for Rubén" (`?rec=a|b|c`): how the *closed* Modelo box
-shows «Recomendado» without a wider box on a phone: A, the tag inside the box (the Modelo column is wider); B, the same tag at the end of the
-field's label row (the Field's aside); C, the app's sparkle before the name (the Select's leading icon) with «Recomendado» as its label.
-It flips every screen, and the three are shown side by side at 640 and 390 px.
+why each ranking is what it is.
 
 **Example data.** Models, builds, sizes and languages mirror sidevoice-engine's catalogue (`CATALOGUE_SOURCE` in
 `preview/mock/recommender-data.mjs`); the devices, their memory, the "comfortable on" hints and so the ranking are invented, nothing is
