@@ -153,7 +153,9 @@ test("«Recomendado» is the app's tag, in two places only: the end of Modelo's 
   assert.equal("REC_VARIANTS" in data, false, "no open decision is left");
   const code = await readFile(new URL("../preview/mock/recommender.mjs", import.meta.url), "utf8");
   assert.match(code, /isRecommended \? recommended\(\) : ""\)/, "the tag in the Field's aside, while the model shown is the recommended one");
-  assert.match(code, /recommended\(true\)/, "its entry in the list wears the Badge's compact tag form");
+  assert.match(code, /const recommended = \(\) => badge\(esc\(COPY\["runtime\.recommended"\]\), "accent", false, true\)/, "one single variant, the Badge's compact tag");
+  assert.equal(code.includes("recommended(true)"), false, "no second variant");
+  assert.equal((code.match(/recommended\(\)/g) ?? []).length, 3, "the label row, the model entry and the family entry, and no other place");
   assert.match(code, /badge: family\.recommended \? recommended\(\) : ""/, "the recommended family, in the open Familia list");
   for (const gone of ["leading", "sparkle", "REC_VARIANTS", "data-rec", "matrix", "decision("]) assert.equal(code.includes(gone), false, `${gone} is gone`);
   const css = await readFile(new URL("../preview/mock/recommender.css", import.meta.url), "utf8");
