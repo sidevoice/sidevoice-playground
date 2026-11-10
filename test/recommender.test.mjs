@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { MOCK_FILE, RECOMMENDER_PATH, mockFile } from "../preview/proxy.mjs";
 import * as data from "../preview/mock/recommender-data.mjs";
-import { BUDGET, CATALOGUE, COPY, DEVICES, DEVICE_IDS, QUALITY, TURN_MB } from "../preview/mock/recommender-data.mjs";
+import { BUDGET, CATALOGUE, COPY, DEVICES, DEVICE_IDS, QUALITY, REC_VARIANTS, TURN_MB } from "../preview/mock/recommender-data.mjs";
 import { budgetMb, evaluate, languageSupported, orderLanguages, rank, recommend } from "../preview/mock/recommender-logic.mjs";
 import { describeBuild, hardware, mb, sizeText } from "../preview/mock/recommender-format.mjs";
 
@@ -147,6 +147,17 @@ test("the sheet adds no word of its own to the screens: the only addition is the
   for (const gone of ["Volver a lo recomendado", "No disponibles aquí", "No recomendados", "soltura", "para este dispositivo", "tarjeta gráfica en este sistema", "NEW_COPY", "rec-new"]) {
     assert.equal(code.includes(gone), false, `${gone} is not on the sheet`);
   }
+});
+
+test("the one open decision is three ways to show «Recomendado» in the closed Modelo box, none of which adds a word", async () => {
+  assert.deepEqual(Object.keys(REC_VARIANTS), ["a", "b", "c"]);
+  const code = await readFile(new URL("../preview/mock/recommender.mjs", import.meta.url), "utf8");
+  assert.match(code, /rec === "b" && isRecommended \? recommended\(\)/, "B: the tag, in the Field's aside");
+  assert.match(code, /rec === "c" && isRecommended/, "C: the sparkle");
+  assert.match(code, /aria-label="\$\{esc\(COPY\["runtime\.recommended"\]\)\}" title=/, "C says «Recomendado» as its label and tooltip, with the app's own string");
+  const css = await readFile(new URL("../preview/mock/recommender.css", import.meta.url), "utf8");
+  assert.match(css, /\[data-rec="a"\] \.model-prepare-pickers \{ grid-template-columns/, "only A widens the Modelo column");
+  assert.equal((css.match(/model-prepare-pickers \{ grid-template-columns/g) ?? []).length, 1);
 });
 
 test("every key the page asks for exists", async () => {

@@ -15,6 +15,19 @@ body.sheet { padding: 0 0 64px; background: #e6e4ec; color: #1d1b24; font: 13px/
 .rec-example { padding: 6px 10px; border-left: 4px solid #e0a82e; background: #fff8e6; }
 .rec-device { padding: 6px 10px; border-left: 4px solid #8a76b3; background: #f1edf9; }
 
+/* The decision for Rubén. */
+.rec-decisions { display: grid; margin: 16px 24px 0; }
+.rec-decision { max-width: 900px; padding: 12px 16px; border: 1px solid #cfcad8; border-left: 4px solid #e0a82e; border-radius: 10px; background: #fff; }
+.rec-decision h3 { margin: 0 0 4px; font-size: 14px; }
+.rec-decision p { margin: 0 0 6px; }
+.rec-decision ul { margin: 0 0 8px; padding-left: 18px; }
+.rec-decision .rec-try { margin: 8px 0 0; color: #4a4656; }
+.rec-decision .bar-choice { background: #e6e4ec; }
+.rec-decision .bar-choice [aria-checked="true"] { background: #1d1b24; color: #f4f2f8; }
+.rec-tag { margin-right: 8px; padding: 1px 8px; border-radius: 999px; background: #1d1b24; color: #f4f2f8; font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.rec-row { margin-top: 14px; }
+.rec-row h3 { margin: 0 0 6px; font-size: 14px; }
+
 /* Frames. */
 .sheet-block { margin: 24px 24px 0; }
 .sheet-block h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
@@ -36,9 +49,10 @@ body.sheet { padding: 0 0 64px; background: #e6e4ec; color: #1d1b24; font: 13px/
  * floats under its box as the app's does (the box's, right-aligned for Modelo, which is the right column). */
 .model-prepare-pickers { align-items: start; }
 /* The Modelo box carries the tag after the model's name: it takes the room the Familia box does not need (the pickers stack on a phone). */
-@container (min-width: 30rem) { .model-prepare-pickers { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); } }
+@container (min-width: 30rem) { [data-rec="a"] .model-prepare-pickers { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); } }
 .rec-select { position: relative; min-width: 0; }
 .rec-select .ui-select-value { flex-wrap: nowrap; }
+.rec-glyph { color: var(--sv-accent-text); }
 .rec-select .ui-select-content { position: absolute; top: calc(100% + 4px); inset-inline-start: 0; width: max-content; min-width: 100%; max-width: min(28rem, 90vw); animation: none; }
 .rec-select .ui-select-content[data-which="model"] { inset-inline: auto 0; }
 .rec-window[data-phone] .rec-select .ui-select-content, .rec-wizard[data-phone] .rec-select .ui-select-content { width: 100%; max-width: 100%; inset-inline: 0; }

@@ -175,3 +175,11 @@ export const COPY = {
   "wizard.skip.later": "Saltar por ahora",
   "try.tryIt": "Probar",
 };
+
+/** The one open decision: how the closed Modelo box shows «Recomendado» (the keys are `?rec=`). The words are the sheet's own
+ *  chrome, for Rubén; the screens add no word: every option uses the app's «Recomendado» and its components. */
+export const REC_VARIANTS = {
+  a: { label: "A · Tag inside the box", text: "«Recomendado» after the model's name, inside the closed box, as it is now: the clearest, and the Modelo column is wider than Familia's (on a phone the name is cut short)." },
+  b: { label: "B · Tag in the label row", text: "The same tag at the end of the field's label row, next to «Modelo» (the Field's own aside): the box keeps its normal width and its whole name." },
+  c: { label: "C · Sparkle in the box", text: "The app's sparkle before the name, in the closed box (the Select's leading icon), with «Recomendado» as its label and tooltip: the box keeps its width; the meaning is in the glyph." },
+};

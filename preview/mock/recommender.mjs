@@ -12,7 +12,8 @@
 //   ?lang=es|it                  the person's language (default es)
 //   ?theme=light|dark            the frames' theme (default light)
 //   ?open=closed|model|family    which list every screen has open (default closed, as the app loads)
-import { CATALOGUE_SOURCE, COPY, DEVICES, DEVICE_IDS, LANGUAGES, TASKS } from "./recommender-data.mjs";
+//   ?rec=a|b|c                   how the closed Modelo box shows «Recomendado» (default a): the decision for Rubén
+import { CATALOGUE_SOURCE, COPY, DEVICES, DEVICE_IDS, LANGUAGES, REC_VARIANTS, TASKS } from "./recommender-data.mjs";
 import { budgetMb, evaluate, familyName, languagePrimary, languageSupported, orderLanguages } from "./recommender-logic.mjs";
 import { buildSizes, describeBuild, engineOf, fmt, hardware, languageName, mb } from "./recommender-format.mjs";
 
@@ -25,6 +26,7 @@ const state = {
   language: one(query.get("lang"), Object.keys(LANGUAGES), "es"),
   theme: one(query.get("theme"), ["light", "dark"], "light"),
   lists: one(query.get("open"), ["closed", "model", "family"], "closed"),
+  rec: one(query.get("rec"), Object.keys(REC_VARIANTS), "a"),
   /** The screens' own state, by frame key: what was picked, what is open, what is on disk. Reset with the device or language. */
   frames: {},
 };
@@ -44,8 +46,10 @@ const ICON = {
   chevron: '<path d="m6 9 6 6 6-6"/>', back: '<path d="m15 18-6-6 6-6"/>', check: '<path d="M20 6 9 17l-5-5"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
   alert: '<circle cx="12" cy="12" r="9.2"/><path d="M12 7.4v5.4M12 16.6h.01"/>',
+  // lucide's sparkle, the one the app draws filled (NewSparkleIcon in components/ui/Icons.tsx).
+  sparkle: '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/>',
 };
-const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
+const icon = (name, size = 18, fill = "none") => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${fill}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
 const mark = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="1.5" y="9" width="3" height="6" rx="1.5"/><rect x="6" y="6" width="3" height="12" rx="1.5"/><rect x="10.5" y="1.5" width="3" height="21" rx="1.5"/><rect x="15" y="6" width="3" height="12" rx="1.5" style="fill:var(--sv-voice)"/><rect x="19.5" y="9" width="3" height="6" rx="1.5"/></svg>`;
 
 const badge = (text, tone = "neutral", dot = false) => `<span class="ui-badge" data-tone="${tone}">${dot ? '<span class="ui-badge-dot" aria-hidden="true"></span>' : ""}${text}</span>`;
@@ -55,13 +59,14 @@ const button = ({ label, variant = "secondary", tone, size, id, act, extra = "",
   `<button type="button" class="ui-button ui-button--${variant}${tone ? ` ui-button--${tone}` : ""}${size ? ` ui-button--${size}` : " ui-button--md"}${cls ? ` ${cls}` : ""}"${act ? ` data-act="${act}"` : ""}${id ? ` data-key="${id}"` : ""}${extra}${disabled ? " disabled" : ""}><span class="ui-button-content">${label}</span></button>`;
 const row = ({ label, control = "", block = false }) =>
   `<div class="ui-row${block ? " ui-row--block" : ""}"><div class="ui-row-text"><span class="ui-row-label">${esc(label)}</span></div><div class="ui-row-control">${control}</div></div>`;
-const field = (label, control) => `<div class="ui-field"><div class="ui-field-head"><span class="ui-field-label">${esc(label)}</span></div><div class="ui-field-control">${control}</div></div>`;
+/** The app's Field: its label, and at the label's end an `aside` (a node), then the control. */
+const field = (label, control, aside = "") => `<div class="ui-field"><div class="ui-field-head"><span class="ui-field-label">${esc(label)}</span>${aside ? `<span class="ui-field-aside">${aside}</span>` : ""}</div><div class="ui-field-control">${control}</div></div>`;
 
 /**
- * The Select as the app draws it: its box, with the chosen option's `tag` after its name (the label is a node in the app),
- * and its list when open, floating under the box. `items`: options.
+ * The Select as the app draws it: its box, with the chosen option's `tag` after its name (the label is a node in the app) or a
+ * `leading` icon before it (the Select's own prop), and its list when open, floating under the box. `items`: options.
  */
-function select({ frame, which, label, value, items, open, disabled }) {
+function select({ frame, which, label, value, items, open, disabled, leading = "" }) {
   const chosen = items.find((option) => option.value === value);
   const itemHtml = (option) => {
     const checked = option.value === value;
@@ -71,7 +76,7 @@ ${option.badge ? `<span class="ui-select-item-badge">${option.badge}</span>` : "
   };
   const list = open ? `<div class="ui-select-content" data-size="md" data-which="${which}" role="listbox" aria-label="${esc(label)}"><div class="ui-select-viewport">${items.map(itemHtml).join("")}</div></div>` : "";
   return `<div class="rec-select"><button type="button" role="combobox" class="ui-select" aria-label="${esc(label)}" aria-expanded="${!!open}" data-state="${open ? "open" : "closed"}" data-act="toggle" data-frame="${frame}" data-which="${which}" data-key="${frame}-${which}"${disabled ? " disabled" : ""}>
-<span class="ui-select-value"><span class="ui-select-value-text">${esc(chosen?.label ?? "")}</span>${chosen?.tag ?? ""}</span><span class="ui-select-chevron">${icon("chevron", 16)}</span></button>${list}</div>`;
+<span class="ui-select-value">${leading}<span class="ui-select-value-text">${esc(chosen?.label ?? "")}</span>${chosen?.tag ?? ""}</span><span class="ui-select-chevron">${icon("chevron", 16)}</span></button>${list}</div>`;
 }
 
 // ----- one screen's model block -----
@@ -164,13 +169,20 @@ ${footer ? `<div class="model-sheet-footer">${footer}</div>` : ""}</div>`;
 }
 
 /** The Origen and Modelo rows: what Settings and the setup both show for a slot. */
-function slotGroup(task, frame) {
+function slotGroup(task, frame, rec) {
   const e = evals[task];
   const f = frameState(frame);
   const sel = selection(e, f);
   const locked = !!f.download;
+  // The closed Modelo box says «Recomendado» when the model shown is the recommended one: A, the tag after the name; B, the same
+  // tag at the end of the field's label row; C, a sparkle before the name, «Recomendado» its label and tooltip.
+  const isRecommended = sel.model.id === e.recommended;
+  const items = modelItems(e, sel.family.id).map((item) => (rec === "a" ? item : { ...item, tag: "" }));
+  const glyph = rec === "c" && isRecommended
+    ? `<span class="ui-select-icon rec-glyph" role="img" aria-label="${esc(COPY["runtime.recommended"])}" title="${esc(COPY["runtime.recommended"])}">${icon("sparkle", 16, "currentColor")}</span>` : "";
   const pickers = field(COPY["voice.family"], select({ frame, which: "family", label: COPY["voice.family"], value: sel.family.id, items: familyItems(e), open: openOf(f, "family"), disabled: locked }))
-    + field(COPY["voice.model"], select({ frame, which: "model", label: COPY["voice.model"], value: sel.model.id, items: modelItems(e, sel.family.id), open: openOf(f, "model"), disabled: locked }));
+    + field(COPY["voice.model"], select({ frame, which: "model", label: COPY["voice.model"], value: sel.model.id, items, open: openOf(f, "model"), disabled: locked, leading: glyph }),
+      rec === "b" && isRecommended ? recommended() : "");
   const model = `<div class="model-prepare" data-status="${f.installed[sel.build.id] ? "ready" : f.download ? "downloading" : "absent"}"><div class="model-prepare-pickers">${pickers}</div>
 ${locked ? `<p class="model-prepare-meta">${esc(COPY["voice.prepare.lockedHint"])}</p>` : ""}
 ${runtimeBlock(sel, f, frame, locked)}${sheet(sel, f, frame)}</div>`;
@@ -183,22 +195,22 @@ ${runtimeBlock(sel, f, frame, locked)}${sheet(sel, f, frame)}</div>`;
 const SECTION = { stt: { title: "settings.section.transcription", hint: "settings.transcription.description", wizard: "wizard.title.stt", intro: "wizard.sttIntro", group: "wizard.group.transcription", step: 5 },
   tts: { title: "settings.section.voice", hint: "settings.voice.description", wizard: "wizard.title.tts", intro: "wizard.ttsIntro", group: "wizard.group.voice", step: 6 } };
 
-function settingsFrame(task, width) {
-  const { html } = slotGroup(task, `settings-${task}`);
+function settingsFrame(task, width, rec = state.rec, suffix = "") {
+  const { html } = slotGroup(task, `settings-${task}${suffix}`, rec);
   const s = SECTION[task];
-  return `<div class="sheet-window" style="--window:${width}px"><b>Settings · ${esc(t(s.title))}</b><div class="rec-window" data-theme="${state.theme}"${width < 500 ? " data-phone" : ""}><div class="settings-column">
+  return `<div class="sheet-window" style="--window:${width}px"><b>Settings · ${esc(t(s.title))}</b><div class="rec-window" data-theme="${state.theme}" data-rec="${rec}"${width < 500 ? " data-phone" : ""}><div class="settings-column">
 <section class="ui-section"><header class="ui-section-head"><div><h2 class="ui-section-title">${esc(t(s.title))}</h2><p class="ui-section-description">${esc(t(s.hint))}</p></div></header><div class="ui-section-body">${html}</div></section></div></div></div>`;
 }
 
-function setupFrame(task, width) {
-  const { html, sel, f } = slotGroup(task, `setup-${task}`);
+function setupFrame(task, width, rec = state.rec) {
+  const { html, sel, f } = slotGroup(task, `setup-${task}`, rec);
   const s = SECTION[task];
   const ready = !!f.installed[sel.build.id];
   const steps = Array.from({ length: 8 }, (_, index) => `<li data-state="${index + 1 < s.step ? "done" : index + 1 === s.step ? "current" : "next"}"${index + 1 === s.step ? ' aria-current="step"' : ""}></li>`).join("");
   const footer = `${button({ label: `${icon("back", 16)}<span class="wizard-back-label">${esc(t("wizard.back"))}</span>`, variant: "ghost", tone: "neutral", cls: "wizard-back" })}
 ${ready ? button({ label: esc(t("wizard.continueWithoutTrying")), variant: "ghost", tone: "neutral", cls: "wizard-quiet" }) : button({ label: esc(t("wizard.skip.later")), variant: "ghost", tone: "neutral", cls: "wizard-quiet" })}
 ${button({ label: esc(t("try.tryIt")), variant: "primary", disabled: !ready })}`;
-  return `<div class="sheet-window" style="--window:${width}px"><b>First-run setup · ${esc(t(s.group))}</b><div class="rec-wizard" data-theme="${state.theme}"${width < 500 ? " data-phone" : ""}><div class="wizard-dialog" open data-step="${task === "stt" ? "W4" : "W4v"}">
+  return `<div class="sheet-window" style="--window:${width}px"><b>First-run setup · ${esc(t(s.group))}</b><div class="rec-wizard" data-theme="${state.theme}" data-rec="${rec}"${width < 500 ? " data-phone" : ""}><div class="wizard-dialog" open data-step="${task === "stt" ? "W4" : "W4v"}">
 <header class="wizard-head"><span class="wizard-brand">${mark}${esc(t("wizard.eyebrow"))}</span></header>
 <div class="wizard-stepper"><p class="wizard-stepper-label">${esc(fmt(COPY["wizard.stepOf"], { n: s.step, total: 8, group: t(s.group) }))}</p><ol class="wizard-steps" aria-label="${esc(t("wizard.progress"))}">${steps}</ol></div>
 <h2 class="wizard-title">${esc(t(s.wizard))}</h2>
@@ -231,6 +243,21 @@ function whyTables() {
 <div class="rec-why-tables">${table("stt", "Transcripción")}${table("tts", "Voz")}</div></section>`;
 }
 
+/** The decision for Rubén: how the closed Modelo box shows «Recomendado» without a wider box. Flips every screen at once. */
+function decision() {
+  const buttons = Object.entries(REC_VARIANTS).map(([id, variant]) => choice("rec", id, state.rec === id, esc(variant.label))).join("");
+  const text = Object.entries(REC_VARIANTS).map(([id, variant]) => `<li><b>${id.toUpperCase()}</b> ${esc(variant.text)}</li>`).join("");
+  return `<section class="rec-decisions"><article class="rec-decision"><h3><span class="rec-tag">Decision for Rubén</span>The closed Modelo box: where does «Recomendado» go?</h3>
+<p>The open list always has the tag on its entry. The question is the closed box, on a phone above all: the tag inside it needs a wider column; the other two keep the box's normal width.</p><ul>${text}</ul>
+<span class="bar-choice" role="radiogroup" aria-label="Where «Recomendado» goes">${buttons}</span><p class="rec-try">The switch flips every screen below; the three, at a desktop and at a phone's width, are side by side after them.</p></article></section>`;
+}
+
+/** A, B and C side by side, each at a desktop's width and at a phone's: Settings › Transcripción, the longest name. */
+function matrix() {
+  const rows = Object.entries(REC_VARIANTS).map(([id, variant]) => `<div class="rec-row"><h3>${esc(variant.label)}</h3><div class="sheet-windows">${settingsFrame("stt", 640, id, `-${id}-640`)}${settingsFrame("stt", 390, id, `-${id}-390`)}</div></div>`).join("");
+  return `<section class="sheet-block"><h2>The three, side by side</h2><p class="why">Settings › Transcripción on the device and language above, at 640 px and at 390 px.</p>${rows}</section>`;
+}
+
 let evals = {};
 
 function screens() {
@@ -249,9 +276,9 @@ ${bar("Theme", [choice("theme", "light", state.theme === "light", "Light"), choi
 ${bar("Open every list", [choice("lists", "closed", state.lists === "closed", "None"), choice("lists", "model", state.lists === "model", "Modelo"), choice("lists", "family", state.lists === "family", "Familia")])}</header>
 <div class="sheet-intro"><p>Transcripción and Voz as the app draws them (its own stylesheets and markup, Spanish as in its catalogue), with the model recommender decided on 2026-11-10: the recommended model is the one selected, and the app's «Recomendado» tag marks it, on the selected value and in the lists. Each family comes with its own best model for the device. A model that does not run here is left out of the lists, as today; one that does not speak the language stays selectable and says so quietly. Pick things: they work.</p>
 <p class="rec-example"><b>EXAMPLE devices and data.</b> Models, builds, sizes and languages mirror the engine's catalogue; the devices, their memory, the comfort hints and the ranking they give are invented for this preview, nothing is measured.</p>${deviceCard()}</div>
-${screens()}${whyTables()}`;
+${decision()}${screens()}${matrix()}${whyTables()}`;
   if (focus) root.querySelector(`[data-key="${focus}"]`)?.focus();
-  history.replaceState(null, "", `?${new URLSearchParams({ device: state.device, lang: state.language, theme: state.theme, open: state.lists })}`);
+  history.replaceState(null, "", `?${new URLSearchParams({ device: state.device, lang: state.language, theme: state.theme, open: state.lists, rec: state.rec })}`);
 }
 
 // ----- the controls -----
@@ -315,6 +342,7 @@ root.addEventListener("click", (event) => {
     else if (group === "language") { state.language = value; reset(); }
     else if (group === "theme") state.theme = value;
     else if (group === "lists") { state.lists = value; for (const f of Object.values(state.frames)) f.open = undefined; }
+    else if (group === "rec") state.rec = value;
     draw();
     return;
   }

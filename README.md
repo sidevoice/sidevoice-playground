@@ -218,7 +218,10 @@ family in the open Familia list. Each family comes with its own best model for t
 lists, as the app does today (its builds say why in "Avanzado", with the app's «No funciona aquí: …»); one that does not speak the person's
 language stays selectable and says «No admite …» quietly under its name. No word of the app's catalogue is added. The controls work (family,
 model, build under "Avanzado", Descargar). A bar switches the example device, the person's language and the theme; a table at the foot says
-why each ranking is what it is.
+why each ranking is what it is. One decision is open, a switch labelled "Decision for Rubén" (`?rec=a|b|c`): how the *closed* Modelo box
+shows «Recomendado» without a wider box on a phone: A, the tag inside the box (the Modelo column is wider); B, the same tag at the end of the
+field's label row (the Field's aside); C, the app's sparkle before the name (the Select's leading icon) with «Recomendado» as its label.
+It flips every screen, and the three are shown side by side at 640 and 390 px.
 
 **Example data.** Models, builds, sizes and languages mirror sidevoice-engine's catalogue (`CATALOGUE_SOURCE` in
 `preview/mock/recommender-data.mjs`); the devices, their memory, the "comfortable on" hints and so the ranking are invented, nothing is
