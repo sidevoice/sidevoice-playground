@@ -1,7 +1,7 @@
 {
   "id": "service-version",
   "title": "Service version rows (mockup)",
-  "summary": "Mockup for sidevoice-desktop#67: the Sidevoice service pinned to the app's minor (0.19). This device runs 0.19.x: walk The service for up to date, updating to 0.19.2, waiting for the call to end, and a 0.20.0 installed by hand (newer than the app supports). Paired, one per state: Mac mini 0.19.2 (up to date), daimon 0.16.0 (out of date), NUC 0.20.0 (newer than supported) and Portátil viejo (not answering). A top bar picks device, section, the state of this device and, for the machine not answering, how it says so (B1, B2).",
+  "summary": "Mockup for sidevoice-desktop#67: the Sidevoice service pinned to the app's minor (0.19). This device runs 0.19.x: walk The service for up to date, updating to 0.19.2, waiting for the call to end, and a 0.20.0 installed by hand (newer than the app supports). Paired, one per state: Mac mini 0.19.2 (up to date), daimon 0.16.0 (out of date), NUC 0.20.0 (newer than supported) and Portátil viejo (not answering). A top bar picks the device (phone, desktop), the section (this device, remote machines, updates), the updates view (U1, U3) and the state of this device; it follows the app's own navigation.",
   "view": "app",
   "defaults": {
     "setup": "done",
@@ -134,7 +134,7 @@
         "participants": [],
         "productVersion": "0.19.1",
         "insecure": true,
-        "port": "12206"
+        "port": "10829"
       }
     },
     "local": {

@@ -18,19 +18,9 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, sheet?: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "updatesView", label: "U · Settings > Actualizaciones", note: "Scenario Service version rows (the top bar there picks all of this). Mockup for sidevoice-desktop#67.", values: [
-    { value: "u0", label: "U0 · today's view" },
-    { value: "u1", label: "U1 · a row each (the app, this device's service, each remote's), the notice below the row that needs it" },
-    { value: "u2", label: "U2 · compact: one list, one line each, a quiet line under what needs doing" },
-    { value: "u3", label: "U3 · each machine a link to its page, no notices here" },
-  ] },
-  { name: "portAlign", label: "P · Service card: where the port sits", note: "Scenario Service version rows. Mockup for sidevoice-desktop#67.", values: [
-    { value: "a", label: "P-A · second column, in the middle" },
-    { value: "b", label: "P-B · at the card's right edge" },
-  ] },
-  { name: "remoteOffline", label: "B · Remote machine not answering", note: "Scenario Service version rows, the machine not answering. B1: only Sin conexión. B2: Sin conexión and the last version seen. Mockup for sidevoice-desktop#67.", values: [
-    { value: "b1", label: "B1 · Sin conexión, nothing else" },
-    { value: "b2", label: "B2 · Sin conexión + Última versión vista" },
+  { name: "updatesView", label: "U · Settings > Actualizaciones", note: "Scenario Service version rows (the top bar there picks all of this). Every machine: this device, Mac mini (up to date), daimon (out of date), NUC (newer), Portátil viejo (not answering). Mockup for sidevoice-desktop#67.", values: [
+    { value: "u1", label: "U1 · a row each, the notice below the row that needs it" },
+    { value: "u3", label: "U3 · each machine a link to its page" },
   ] },
   { name: "pairingScan", label: "Pairing: scanning the QR code", note: "Where Scan sits on the pairing screen of the mobile app, and how the viewfinder looks. Shown in the phone view (its mock camera: a scan lasts until Cancel). sidevoice-web#466.", values: [
     { value: "current", label: "Today's · button under the field, plain frame" },
@@ -493,19 +483,15 @@ async function run(card) {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const DEVICES = [["phone", "Teléfono"], ["desktop", "Escritorio"]];
     const SECTIONS = [["device", "Este dispositivo"], ["remote", "Máquinas remotas"], ["updates", "Actualizaciones"]];
-    const UPDATES = [["u0", "U0 · Hoy"], ["u1", "U1 · Una fila cada una"], ["u2", "U2 · Compacta"], ["u3", "U3 · Enlaces"]];
-    const PORTS = [["a", "P-A · Columna"], ["b", "P-B · Borde derecho"]];
-    const CONN = [["b1", "B1 · solo «Sin conexión»"], ["b2", "B2 · con «Última versión vista»"]];
+    const UPDATES = [["u1", "U1 · Una fila cada una"], ["u3", "U3 · Enlaces"]];
     const STATES = { device: [["current", "Al día"], ["updating", "Actualizando…"], ["waiting", "Esperando llamada"], ["newer", "Más nueva"]] };
-    const MACHINE_NOTE = { "Mac mini": "Mac mini · Sidevoice 0.19.2, al día", daimon: "daimon · Sidevoice 0.16.0, desactualizada (la app usa 0.19.x)", "NUC del salón": "NUC del salón · Sidevoice 0.20.0, más nueva que la compatible", "Portátil viejo": "Portátil viejo · sin conexión" };
+    const MACHINE_NOTE = { "Mac mini": "Mac mini · Sidevoice 0.19.2, al día", daimon: "daimon · Sidevoice 0.16.0, desactualizada (la app usa 0.19.x)", "NUC del salón": "NUC del salón · Sidevoice 0.20.0, más nueva que la compatible", "Portátil viejo": "Portátil viejo · sin conexión (la última versión conocida: 0.19.1)" };
     let opened = null;
     const NOTE = { updates: "Actualizaciones: la app, el servicio de este dispositivo y los de cada máquina remota (Mac mini al día · daimon desactualizada · NUC más nueva · Portátil viejo sin conexión).", remote: "En la lista de Máquinas remotas, una por estado: Mac mini al día (0.19.2) · daimon desactualizada (0.16.0) · NUC más nueva (0.20.0) · Portátil viejo sin conexión.",
       current: "Este dispositivo · 0.19.2, al día", updating: "Este dispositivo · 0.19.0 actualizando a 0.19.2", waiting: "Este dispositivo · 0.19.0, 0.19.2 espera a que termine la llamada", newer: "Este dispositivo · 0.20.0 instalada a mano (la app usa 0.19.x)" };
-    let pick = { device: "desktop", section: "device", conn: "b1", state: "current", updates: "u0", port: "a" };
+    let pick = { device: "desktop", section: "device", state: "current", updates: "u1" };
     try { pick = { ...pick, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; } catch {}
-    if (!CONN.some(([value]) => value === pick.conn)) pick.conn = "b1";
-    if (!UPDATES.some(([value]) => value === pick.updates)) pick.updates = "u0";
-    if (!PORTS.some(([value]) => value === pick.port)) pick.port = "a";
+    if (!UPDATES.some(([value]) => value === pick.updates)) pick.updates = "u1";
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch {} };
     const bar = document.createElement("header");
     bar.id = "svcbar";
@@ -535,7 +521,7 @@ async function run(card) {
     const writeVariants = () => {
       try {
         const kept = JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {};
-        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...kept, remoteOffline: pick.conn, updatesView: pick.updates, portAlign: pick.port }));
+        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...kept, updatesView: pick.updates }));
       } catch {}
     };
     let navigation = 0;
@@ -580,10 +566,8 @@ async function run(card) {
       bar.replaceChildren(
         group("Dispositivo", DEVICES, pick.device, (value) => { pick.device = value; save(); setSize(); draw(); hold(8000); void sleep(700).then(() => navigate()); }),
         group("Sección", SECTIONS, pick.section, (value) => { pick.section = value; save(); draw(); void navigate(); }),
-        ...(pick.section === "updates" ? [group("Opción", UPDATES, pick.updates, (value) => { pick.updates = value; save(); writeVariants(); draw(); })]
-          : [group("Puerto", PORTS, pick.port, (value) => { pick.port = value; save(); writeVariants(); draw(); })]),
+        ...(pick.section === "updates" ? [group("Opción", UPDATES, pick.updates, (value) => { pick.updates = value; save(); writeVariants(); draw(); })] : []),
         ...(pick.section !== "remote" ? [group("Estado", STATES.device, pick.state, (value) => { pick.state = value; save(); chooseMockOption(world, "serviceState", value, frame, identities); draw(); })] : []),
-        ...(pick.section !== "device" ? [group("Sin conexión", CONN, pick.conn, (value) => { pick.conn = value; save(); writeVariants(); draw(); if (pick.section === "remote") void navigate("Portátil viejo"); })] : []),
       );
       const again = document.createElement("button");
       again.type = "button";
