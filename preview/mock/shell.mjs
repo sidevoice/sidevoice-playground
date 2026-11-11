@@ -480,6 +480,111 @@ async function run(card) {
     }
   }, true);
 
+  // MOCKUP (sidevoice-desktop#67): in the Service version rows scenario, a visible bar at the top picks what the page shows,
+  // one click each, instantly: the device (a phone's 390 or a desktop's 1280), the section of Settings, the design (the
+  // serviceRow / remoteVersion variants) and the state (the scenario's serviceState option, or which remote machine).
+  if (scenario().id === "service-version") serviceBar();
+  function serviceBar() {
+    const KEY = "sidevoice-preview.svcbar";
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const DEVICES = [["phone", "Teléfono"], ["desktop", "Escritorio"]];
+    const SECTIONS = [["device", "Este dispositivo"], ["remote", "Máquinas remotas"]];
+    const DESIGNS = { device: [["today", "Hoy"], ["a1", "A1"], ["a2", "A2"], ["a3", "A3"]], remote: [["today", "Hoy"], ["b1", "B1"], ["b2", "B2"], ["b3", "B3"]] };
+    const STATES = { device: [["current", "Al día"], ["updating", "Actualizando…"], ["waiting", "Esperando llamada"], ["newer", "Más nueva"]],
+      remote: [["daimon", "Desactualizada"], ["NUC del salón", "Más nueva"], ["Mac mini", "Al día"]] };
+    const NOTE = { daimon: "daimon · Sidevoice 0.16.0 (app: 0.19.x)", "NUC del salón": "NUC del salón · Sidevoice 0.20.0 (app: 0.19.x)", "Mac mini": "Mac mini · Sidevoice 0.19.2 (app: 0.19.x)",
+      current: "Este dispositivo · 0.19.2, al día", updating: "Este dispositivo · 0.19.0 actualizando a 0.19.2", waiting: "Este dispositivo · 0.19.0, 0.19.2 espera a que termine la llamada", newer: "Este dispositivo · 0.20.0 instalada a mano (la app usa 0.19.x)" };
+    let pick = { device: "desktop", section: "device", designDevice: "a1", designRemote: "b1", state: "current", machine: "daimon" };
+    try { pick = { ...pick, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; } catch {}
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch {} };
+    const bar = document.createElement("header");
+    bar.id = "svcbar";
+    document.body.classList.add("svc-bar");
+    document.body.prepend(bar);
+    const group = (label, items, current, on) => {
+      const g = document.createElement("div");
+      g.className = "svc-group";
+      const l = document.createElement("span");
+      l.className = "svc-label";
+      l.textContent = label;
+      const seg = document.createElement("div");
+      seg.className = "svc-seg";
+      seg.setAttribute("role", "group");
+      seg.setAttribute("aria-label", label);
+      for (const [value, text] of items) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = text;
+        b.setAttribute("aria-pressed", String(value === current));
+        b.addEventListener("click", () => on(value));
+        seg.append(b);
+      }
+      g.append(l, seg);
+      return g;
+    };
+    const writeVariants = () => {
+      try {
+        const kept = JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {};
+        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...kept, serviceRow: pick.designDevice, remoteVersion: pick.designRemote }));
+      } catch {}
+    };
+    let navigation = 0;
+    async function navigate() {
+      const mine = ++navigation;
+      for (let i = 0; i < 200 && mine === navigation; i++) {
+        const win = frame.contentWindow;
+        let ready = false;
+        try { ready = !!win?.location?.pathname?.startsWith("/voice") && !!win.sidevoiceUI?.store && !!win.document.getElementById("settings-open"); } catch {}
+        if (ready) break;
+        await sleep(100);
+      }
+      if (mine !== navigation) return;
+      const win = frame.contentWindow;
+      const doc = win.document;
+      const store = win.sidevoiceUI.store;
+      // The runtime wires the gear a moment after it is drawn: press it until Settings is open.
+      for (let i = 0; i < 40 && mine === navigation && !doc.querySelector("dialog[open]"); i++) { doc.getElementById("settings-open")?.click(); await sleep(400); }
+      if (mine !== navigation) return;
+      await sleep(250);
+      if (pick.section === "device") { store.patch({ settingsSection: "this-computer", settingsLevel: "page" }); return; }
+      let id = null;
+      for (let i = 0; i < 50 && !id && mine === navigation; i++) {
+        id = store.getState().machines.find((machine) => !machine.local && machine.host === pick.machine)?.id ?? null;
+        if (!id) await sleep(100);
+      }
+      if (mine === navigation) store.patch({ settingsSection: "machines", settingsLevel: "page", machinesView: { machine: id } });
+    }
+    function draw() {
+      const device = pick.section === "device";
+      const designKey = device ? "designDevice" : "designRemote";
+      const states = STATES[pick.section];
+      const stateNow = device ? pick.state : pick.machine;
+      bar.replaceChildren(
+        group("Dispositivo", DEVICES, pick.device, (value) => { pick.device = value; save(); setSize(); draw(); void sleep(700).then(navigate); }),
+        group("Sección", SECTIONS, pick.section, (value) => { pick.section = value; save(); draw(); void navigate(); }),
+        group("Opción", DESIGNS[pick.section], pick[designKey], (value) => { pick[designKey] = value; save(); writeVariants(); draw(); }),
+        group("Estado", states, stateNow, (value) => {
+          if (device) { pick.state = value; save(); chooseMockOption(world, "serviceState", value, frame, identities); }
+          else { pick.machine = value; save(); void navigate(); }
+          draw();
+        }),
+      );
+      const note = document.createElement("p");
+      note.className = "svc-note";
+      note.textContent = NOTE[stateNow] ?? "";
+      bar.append(note);
+    }
+    function setSize() { appSize = pick.device === "phone" ? { width: 390, height: 844 } : DESKTOP; place(); }
+    writeVariants();
+    setSize();
+    draw();
+    // The page loads (again) after a scenario or a ↻ option: land on the section picked, in the state picked.
+    frame.addEventListener("load", () => {
+      try { if (frame.contentWindow.location.pathname.startsWith("/voice")) { if (world) chooseMockOption(world, "serviceState", pick.state, frame, identities); void navigate(); } } catch {}
+    });
+    if (frame.contentWindow?.location?.pathname?.startsWith("/voice")) { chooseMockOption(world, "serviceState", pick.state, frame, identities); void navigate(); }
+  }
+
   function render() {
     try {
       draw();

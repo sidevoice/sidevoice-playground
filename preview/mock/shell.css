@@ -96,3 +96,16 @@ button { cursor: pointer; }
 /* The desktop app's window corner: drag to resize (shell.mjs), as a real window; only in the Desktop app view. */
 .device .resize-handle { display: none; }
 .device.app .resize-handle { display: block; position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 0 55%, #9996 55% 62%, transparent 62% 72%, #9996 72% 79%, transparent 79%); }
+
+/* MOCKUP (sidevoice-desktop#67): the Service version rows scenario's top bar; it replaces the card, the variants' panel and the stage switch. */
+body.svc-bar { display: flex; flex-direction: column; }
+body.svc-bar #card, body.svc-bar #variants, body.svc-bar #float, body.svc-bar #stage-switch { display: none !important; }
+body.svc-bar #stage { flex: 1 1 0; min-height: 0; height: auto; padding: 8px !important; }
+#svcbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 8px 12px; background: #fbf4dc; color: #2a2414; border-bottom: 2px dashed #c79a1e; }
+#svcbar .svc-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+#svcbar .svc-label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8a5a00; }
+#svcbar .svc-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid #c79a1e; border-radius: 8px; overflow: hidden; background: #fff8; }
+#svcbar .svc-seg button { border: 0; border-right: 1px solid #e0cd8f; background: none; padding: 8px 12px; min-height: 38px; font: inherit; font-size: 13px; color: inherit; }
+#svcbar .svc-seg button:last-child { border-right: 0; }
+#svcbar .svc-seg button[aria-pressed="true"] { background: #c79a1e; color: #fff; font-weight: 700; }
+#svcbar .svc-note { flex: 1 1 100%; margin: 0; font-size: 12px; color: #5a4a1a; }
