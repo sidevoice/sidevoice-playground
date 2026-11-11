@@ -1,13 +1,13 @@
 {
-  "core": "9e513f25f26a9aa286c5ff863691c3f308fc3749",
-  "connector": "a4854a338792698cebe0e050cb76a36b73873a56",
-  "web": "366fcd946ee3984692b20866f1f1686f7dd788a1",
-  "voice": "73fb627e6f7310baf4783635719054d12700ec55",
+  "core": "a02a03a2b0ca4164fbfdcb897da2ef250558f6d5",
+  "connector": "847fc63bd1184f4d087b8cd0b1036e5e0eb3a47d",
+  "web": "e1c5322deffb2fc5fc8826f50b130947ba9c74c8",
+  "voice": "5a33d7fe86a5a7f2afde3eef637e7216765c8482",
   "engine": "nightly",
   "notes": {
-    "core": "core main for the 2026-10-16 release",
-    "voice": "voice main = v0.5.0",
-    "connector": "connector main for the 2026-10-16 release",
-    "web": "web main for the 2026-10-16 release"
+    "core": "core main (0.4.7 and after)",
+    "voice": "voice v0.7.0",
+    "connector": "connector main (0.9.0 and after)",
+    "web": "web main, which pins @sidevoice/voice 0.6.0"
   }
 }

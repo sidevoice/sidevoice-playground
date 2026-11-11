@@ -40,6 +40,25 @@
       wantedThread = event.data.thread;
       return;
     }
+    if (event.data?.type === "turn-lab-skip") { try { (await readyAction()).skipReply?.(); } catch {} return; }
+    if (event.data?.type === "turn-lab-barge") {
+      // The interruption lab: the web's own `turn` settings (when a turn starts, what cuts a reply, how it fades).
+      const turn = event.data.turn, bar = turn?.listening_bar;
+      const numbers = [bar?.quiet, bar?.playing, ...["barge_in_min_speech", "barge_in_window", "vad_confidence", "speech_start_ms", "pre_roll_ms", "audio_grace_ms", "fade_ms"].map((key) => turn?.[key])];
+      if (!numbers.every(Number.isFinite)) return;
+      try {
+        const actions = await readyAction();
+        if (typeof actions.editVoice !== "function") throw new Error("Web voice settings action did not load");
+        actions.editVoice({ turn });
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        const facts = window.sidevoiceUI?.store?.facts;
+        if (facts?.settingsError) throw new Error(String(facts.settingsError?.message ?? facts.settingsError));
+        const kept = facts?.voiceSettings?.turn;
+        if (JSON.stringify(kept) !== JSON.stringify({ ...turn, listening_bar: { ...bar } })) throw new Error(`the room kept ${JSON.stringify(kept)}`);
+        report("barge-applied", { turn: kept });
+      } catch (error) { report("barge-error", { message: String(error?.message ?? error) }); }
+      return;
+    }
     if (event.data?.type === "turn-lab-output") {
       if (!["on", "agents_muted", "voice_off"].includes(event.data.output)) return;
       try {
@@ -58,14 +77,53 @@
       report("browser-ready", { paired: true, host: result?.host });
     } catch (error) { report("browser-error", { pairing: String(error?.message ?? error) }); }
   });
+  // Errors the room hits (a voice host failing silently shows up here), for the Lab's room state log.
+  let jsErrors = 0;
+  const reportError = (what, text) => { if (jsErrors++ < 40) report("barge-jserror", { what, text: String(text).slice(0, 200), t: bargeStamp() }); };
+  window.addEventListener("error", (event) => reportError("error", event.message));
+  window.addEventListener("unhandledrejection", (event) => reportError("rejection", event.reason?.message ?? event.reason));
+  const nativeError = console.error.bind(console);
+  console.error = (...args) => { reportError("console.error", args.map(String).join(" ")); nativeError(...args); };
+  // The interruption lab's signals: the microphone level, and whether the person speaks and the agent plays.
+  let bargeWired = false;
+  const bargeStamp = () => performance.timeOrigin + performance.now();
+  const wireBarge = () => {
+    const ui = window.sidevoiceUI;
+    if (bargeWired || !ui?.store?.subscribe || !ui.micLevel?.subscribe) return;
+    bargeWired = true;
+    ui.micLevel.subscribe((level) => report("barge-mic", { level, t: bargeStamp() }));
+    let last = "";
+    const state = () => {
+      const facts = ui.store.facts, voice = facts.voiceState;
+      const mic = facts.micEnabled === false ? "off" : "on", phase = facts.pendingPhase || "";
+      // What the room itself believes: a turn it keeps open, an agent it calls working, the voice's pending transcriptions.
+      const turn = facts.userTurn ? "open" : "none", working = Object.values(facts.harness || {}).some(Boolean) ? "working" : "";
+      const rec = voice?.recognising ?? 0, error = String(ui.store.getState?.().bootError ?? "").slice(0, 120);
+      const key = `${voice?.listening}|${voice?.playback}|${mic}|${phase}|${turn}|${working}|${rec}|${error}`;
+      if (key === last) return;
+      last = key;
+      report("barge-state", { listening: voice?.listening, playback: voice?.playback, mic, phase, turn, working, rec, error, t: bargeStamp() });
+    };
+    ui.store.subscribe(state);
+    state();
+  };
   const clicked = new Set();
   setInterval(() => {
+    wireBarge();
     const wizard = document.getElementById("wizard");
     const step = wizard?.getAttribute("data-step");
     if (wizard?.open && step) {
       const downloadId = step === "W4" ? "stt-model-download" : step === "W4v" ? "tts-model-download" : step === "W5" ? "turn-model-download" : null;
       const download = downloadId && document.getElementById(downloadId);
       if (download && !clicked.has(downloadId)) { clicked.add(downloadId); download.click(); report("browser-ready", { model: downloadId, state: "downloading" }); }
+      // The permissions step (W4m) has its own Continue; it is enabled once the microphone is allowed.
+      // Asks for the microphone once; the browser's own prompt (or the permission already given) answers.
+      const ask = document.getElementById("wizard-mic-action");
+      if (step === "W4m" && ask && !ask.disabled && !clicked.has("W4m:ask")) { clicked.add("W4m:ask"); ask.click(); report("browser-ready", { modelStep: "W4m", state: "asking" }); }
+      const mic = document.getElementById("wizard-mic-continue");
+      if (step === "W4m" && mic && !mic.disabled && mic.getAttribute("aria-disabled") !== "true" && !clicked.has("W4m:continue")) {
+        clicked.add("W4m:continue"); mic.click(); report("browser-ready", { modelStep: "W4m", state: "ready" });
+      }
       const next = document.getElementById("wizard-stage-action");
       if (next && !next.disabled && !clicked.has(`${step}:continue`)) { clicked.add(`${step}:continue`); next.click(); report("browser-ready", { modelStep: step, state: "ready" }); }
       if (step === "W6" && !clicked.has("enter")) { clicked.add("enter"); wizard.querySelector(".wizard-enter")?.click(); }

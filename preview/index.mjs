@@ -265,6 +265,10 @@ export async function previewSection({ api, engineBuild, voiceBuild, cache, orig
       try { return { connected: await agent.start(mode) }; }
       catch (error) { await agent.stop().catch(() => {}); agent = null; throw new RefError(502, error.message); }
     }
+    if (path === "/preview/turn-lab/play") {
+      if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
+      try { return await agent.play(); } catch (error) { throw new RefError(409, error.message); }
+    }
     if (path === "/preview/turn-lab/choose") {
       if (!agent?.state.ready) throw new RefError(409, "connect the test agent first");
       const { id } = await body(req);
