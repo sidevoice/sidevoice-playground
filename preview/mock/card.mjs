@@ -391,7 +391,7 @@ export function updateActivity(root, world) {
 
 function shortUrl(url) {
   return String(url).replace(/^(?:https|wss):\/\/([a-z0-9-]+)\.machines\.sidevoice\.example/, "[$1]")
-    .replace(/^(?:https|wss):\/\/room\.sidevoice\.example/, "[room]").replace(/^(?:http|ws):\/\/127\.0\.0\.1:47123/, "[local]");
+    .replace(/^(?:https|wss):\/\/room\.sidevoice\.example/, "[room]").replace(/^(?:http|ws):\/\/127\.0\.0\.1:10829/, "[local]");
 }
 
 /** Sample lines for the conversation's buttons. */

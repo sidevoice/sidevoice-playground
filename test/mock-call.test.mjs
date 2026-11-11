@@ -93,7 +93,7 @@ test("only a mocked machine's call socket is mocked: anything else is the page's
   assert.equal(isCallSocket("wss://nuc.machines.sidevoice.example/api/presentation/ws", PAGE), true);
   assert.equal(isCallSocket(`wss://room.sidevoice.example/nodes/nuc/api/presentation/ws`, PAGE), true, "through the room's relay");
   assert.equal(isCallSocket(`wss://preview.example/nodes/nuc/api/presentation/ws`, PAGE), true, "the relay on the page's origin");
-  assert.equal(isCallSocket("ws://127.0.0.1:47123/api/presentation/ws", PAGE), true, "the local host");
+  assert.equal(isCallSocket("ws://127.0.0.1:10829/api/presentation/ws", PAGE), true, "the local host");
   assert.equal(isCallSocket("wss://preview.example/api/presentation/ws", PAGE), false);
 });
 

@@ -20,7 +20,7 @@
 
 export const ROOM_URL = "https://room.sidevoice.example";
 export const LOCAL_ID = "local";
-export const LOCAL_URL = "http://127.0.0.1:47123";
+export const LOCAL_URL = "http://127.0.0.1:10829";
 export const directUrl = (id) => `https://${id}.machines.sidevoice.example`;
 /** The port a machine answers at on its local network. */
 const LAN_PORT = "8768";
