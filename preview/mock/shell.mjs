@@ -493,7 +493,7 @@ async function run(card) {
     const SECTIONS = [["device", "Este dispositivo"], ["remote", "Máquinas remotas"], ["updates", "Actualizaciones"]];
     const UPDATES = [["u0", "U0 · Hoy"], ["u1", "U1 · Una fila cada una"], ["u2", "U2 · Compacta"], ["u3", "U3 · Enlaces"]];
     const PORTS = [["a", "P-A · Columna"], ["b", "P-B · Borde derecho"]];
-    const CONN = [["b1", "B1 · Sin conexión"], ["b2", "B2 · Sin conexión + última versión"]];
+    const CONN = [["b1", "B1 · solo «Sin conexión»"], ["b2", "B2 · con «Última versión vista»"]];
     const STATES = { device: [["current", "Al día"], ["updating", "Actualizando…"], ["waiting", "Esperando llamada"], ["newer", "Más nueva"]] };
     const NOTE = { updates: "Actualizaciones: la app, el servicio de este dispositivo y los de cada máquina remota (Mac mini al día · daimon desactualizada · NUC más nueva · Portátil viejo sin conexión).", remote: "En la lista de Máquinas remotas, una por estado: Mac mini al día (0.19.2) · daimon desactualizada (0.16.0) · NUC más nueva (0.20.0) · Portátil viejo sin conexión.",
       current: "Este dispositivo · 0.19.2, al día", updating: "Este dispositivo · 0.19.0 actualizando a 0.19.2", waiting: "Este dispositivo · 0.19.0, 0.19.2 espera a que termine la llamada", newer: "Este dispositivo · 0.20.0 instalada a mano (la app usa 0.19.x)" };
@@ -535,7 +535,7 @@ async function run(card) {
       } catch {}
     };
     let navigation = 0;
-    async function navigate() {
+    async function navigate(machineHost = null) {
       const mine = ++navigation;
       for (let i = 0; i < 200 && mine === navigation; i++) {
         const win = frame.contentWindow;
@@ -555,7 +555,12 @@ async function run(card) {
       if (pick.section === "device") { store.patch({ settingsSection: "this-computer", settingsLevel: "page" }); return; }
       if (pick.section === "updates") { store.patch({ settingsSection: "updates", settingsLevel: "page" }); return; }
       // The list of machines: the first one's page on a desktop, the list itself on a phone.
-      store.patch({ settingsSection: "machines", settingsLevel: "page", machinesView: { machine: null } });
+      let id = null;
+      for (let i = 0; machineHost && i < 50 && !id && mine === navigation; i++) {
+        id = store.getState().machines.find((machine) => !machine.local && machine.host === machineHost)?.id ?? null;
+        if (!id) await sleep(100);
+      }
+      store.patch({ settingsSection: "machines", settingsLevel: "page", machinesView: { machine: id } });
       return;
     }
     function draw() {
@@ -566,7 +571,7 @@ async function run(card) {
         ...(pick.section === "updates" ? [group("Opción", UPDATES, pick.updates, (value) => { pick.updates = value; save(); writeVariants(); draw(); })]
           : [group("Puerto", PORTS, pick.port, (value) => { pick.port = value; save(); writeVariants(); draw(); })]),
         ...(pick.section !== "remote" ? [group("Estado", STATES.device, pick.state, (value) => { pick.state = value; save(); chooseMockOption(world, "serviceState", value, frame, identities); draw(); })] : []),
-        ...(pick.section !== "device" ? [group("Portátil viejo (sin conexión)", CONN, pick.conn, (value) => { pick.conn = value; save(); writeVariants(); draw(); })] : []),
+        ...(pick.section !== "device" ? [group("Sin conexión", CONN, pick.conn, (value) => { pick.conn = value; save(); writeVariants(); draw(); if (pick.section === "remote") void navigate("Portátil viejo"); })] : []),
       );
       const note = document.createElement("p");
       note.className = "svc-note";
