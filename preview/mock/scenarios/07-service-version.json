@@ -1,7 +1,7 @@
 {
   "id": "service-version",
   "title": "Service version rows (mockup)",
-  "summary": "Mockup for sidevoice-desktop#67: the Sidevoice service pinned to the app's minor (0.19). This device runs 0.19.x: walk The service for up to date, updating to 0.19.2, waiting for the call to end, and a 0.20.0 installed by hand (newer than the app supports). Paired: daimon on 0.16.0 (out of date), the NUC on 0.20.0 (newer than supported) and the Mac mini on 0.19.2 (up to date). A top bar picks device, section, layout (A1-A3), connection (remote machines: online, B1, B2) and state.",
+  "summary": "Mockup for sidevoice-desktop#67: the Sidevoice service pinned to the app's minor (0.19). This device runs 0.19.x: walk The service for up to date, updating to 0.19.2, waiting for the call to end, and a 0.20.0 installed by hand (newer than the app supports). Paired, one per state: Mac mini 0.19.2 (up to date), daimon 0.16.0 (out of date), NUC 0.20.0 (newer than supported) and Portátil viejo (not answering). A top bar picks device, section, layout (V1-V4) and, for the machine not answering, how it says so (B1, B2).",
   "view": "app",
   "defaults": {
     "setup": "done",
@@ -12,6 +12,36 @@
     "page": "none",
     "setup": "done",
     "machines": {
+      "mini": {
+        "host": "Mac mini",
+        "reach": "direct",
+        "paired": true,
+        "pairedDaysAgo": 12,
+        "agents": [
+          {
+            "id": "claude",
+            "registration": "connected",
+            "actionable": false
+          },
+          {
+            "id": "codex",
+            "registration": "not-connected",
+            "actionable": true
+          }
+        ],
+        "devices": [
+          {
+            "name": "Mac de Ana",
+            "kind": "code",
+            "daysAgo": 12,
+            "mine": true
+          }
+        ],
+        "participants": [],
+        "productVersion": "0.19.2",
+        "insecure": true,
+        "port": "10829"
+      },
       "daimon": {
         "host": "daimon",
         "reach": "direct",
@@ -39,6 +69,8 @@
         ],
         "participants": [],
         "productVersion": "0.16.0",
+        "insecure": true,
+        "port": "18779",
         "hostUpdate": {
           "latest": "0.19.2",
           "command": "npx sidevoice@0.19 install"
@@ -70,11 +102,13 @@
           }
         ],
         "participants": [],
-        "productVersion": "0.20.0"
+        "productVersion": "0.20.0",
+        "insecure": true,
+        "port": "14403"
       },
-      "mini": {
-        "host": "Mac mini",
-        "reach": "room",
+      "laptop": {
+        "host": "Portátil viejo",
+        "reach": "offline",
         "paired": true,
         "pairedDaysAgo": 12,
         "agents": [
@@ -98,7 +132,9 @@
           }
         ],
         "participants": [],
-        "productVersion": "0.19.2"
+        "productVersion": "0.19.1",
+        "insecure": true,
+        "port": "12206"
       }
     },
     "local": {

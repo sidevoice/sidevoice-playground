@@ -27,7 +27,9 @@ const LAN_PORT = "8768";
 /** A machine's address on its local network, over plain http: where a pairing kept without encryption reaches it. The
  *  web takes a `*.local` name for a private network's (device-pairing.js `privateHost`), the only kind of place such a
  *  pairing may go without https (`secureBase`). */
-export const lanUrl = (id) => `http://${id}.local:${LAN_PORT}`;
+/** The ports machines answer at on their local network: LAN_PORT, and each one a scenario gave a machine of its own (`port`). */
+const lanPorts = new Set([LAN_PORT]);
+export const lanUrl = (id, port = LAN_PORT) => { lanPorts.add(String(port)); return `http://${id}.local:${port}`; };
 /** The code variants the card offers for a machine. */
 export const CODE_VARIANTS = ["valid", "expired", "used", "plaintext", "damaged", "impostor"];
 const API = 1;
@@ -98,7 +100,7 @@ export function storedPairing(state, identities, id, now) {
   const identity = identities[id];
   const insecure = machine.insecure === true;
   return {
-    fp: identity.fingerprint, public_key: identity.publicKey, host: machine.host, urls: [insecure ? lanUrl(id) : directUrl(id)],
+    fp: identity.fingerprint, public_key: identity.publicKey, host: machine.host, urls: [insecure ? lanUrl(id, machine.port) : directUrl(id)],
     device_id: identity.deviceId, token: identity.token,
     paired_at: Math.floor(now / 1000) - Math.round((machine.pairedDaysAgo ?? 1) * DAY),
     ...(insecure ? { insecure: true } : {}),
@@ -188,7 +190,7 @@ export function placeOf(url, pageOrigin) {
   const direct = parsed.hostname.match(/^([a-z0-9-]+)\.machines\.sidevoice\.example$/);
   if (direct && parsed.protocol === "https:") return { id: direct[1], via: "direct", path, query };
   const lan = parsed.hostname.match(/^([a-z0-9-]+)\.local$/);
-  if (lan && parsed.protocol === "http:" && parsed.port === LAN_PORT) return { id: lan[1], via: "direct", path, query };
+  if (lan && parsed.protocol === "http:" && lanPorts.has(parsed.port)) return { id: lan[1], via: "direct", path, query };
   if (parsed.origin === pageOrigin) {
     // A page a room serves reaches the room's relay on its own origin.
     const relay = path.match(/^\/nodes\/([^/]+)(\/.*)?$/);
