@@ -37,7 +37,12 @@ export function localStatus(local, now) {
     // same number `version()` says, so the page never shows two for one service; null, unknown, where the scenario has
     // it say none (`saysVersion: false`) and where there is no local host.
     product_version: local.saysVersion === false || local.state === "absent" ? null : local.version ?? LOCAL_VERSION,
-    calls: running ? 0 : null,
+    calls: running ? local.calls ?? 0 : null,
+    // MOCKUP ONLY (sidevoice-desktop#67, sidevoice-web branch mock/service-version-rows): provisional fields the real bridge does not
+    // report; they are not a contract. `supported_minor`: the service minor this app pins; `service_update`: the
+    // background update of the service, "updating" or "waiting-for-call" (a call is on), to `bundledVersion`.
+    supported_minor: local.supportedMinor ?? null,
+    service_update: local.serviceUpdate ? { state: local.serviceUpdate, to: local.bundledVersion ?? null } : null,
     reachable: running,
     attempts: null, limit: null, since: null, window_started: null, next_retry_at: null,
     failure: local.failure ?? null,

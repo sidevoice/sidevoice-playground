@@ -1,0 +1,222 @@
+{
+  "id": "service-version",
+  "title": "Service version rows (mockup)",
+  "summary": "Mockup for sidevoice-desktop#67: the Sidevoice service pinned to the app's minor (0.19). This device runs 0.19.x: walk The service for up to date, updating to 0.19.2, waiting for the call to end, and a 0.20.0 installed by hand (newer than the app supports). Paired: daimon on 0.16.0 (out of date), the NUC on 0.20.0 (newer than supported) and the Mac mini on 0.19.2 (up to date). Pick the designs in the VARIANTS panel (Alt+Shift+V): A for This device, B for a remote machine's page.",
+  "view": "app",
+  "defaults": {
+    "setup": "done",
+    "installed": "seeded",
+    "keys": "elevenlabs"
+  },
+  "world": {
+    "page": "none",
+    "setup": "done",
+    "machines": {
+      "daimon": {
+        "host": "daimon",
+        "reach": "direct",
+        "paired": true,
+        "pairedDaysAgo": 12,
+        "agents": [
+          {
+            "id": "claude",
+            "registration": "connected",
+            "actionable": false
+          },
+          {
+            "id": "codex",
+            "registration": "not-connected",
+            "actionable": true
+          }
+        ],
+        "devices": [
+          {
+            "name": "Mac de Ana",
+            "kind": "code",
+            "daysAgo": 12,
+            "mine": true
+          }
+        ],
+        "participants": [],
+        "productVersion": "0.16.0",
+        "hostUpdate": {
+          "latest": "0.19.2",
+          "command": "npx sidevoice@0.19 install"
+        }
+      },
+      "nuc": {
+        "host": "NUC del salón",
+        "reach": "direct",
+        "paired": true,
+        "pairedDaysAgo": 12,
+        "agents": [
+          {
+            "id": "claude",
+            "registration": "connected",
+            "actionable": false
+          },
+          {
+            "id": "codex",
+            "registration": "not-connected",
+            "actionable": true
+          }
+        ],
+        "devices": [
+          {
+            "name": "Mac de Ana",
+            "kind": "code",
+            "daysAgo": 12,
+            "mine": true
+          }
+        ],
+        "participants": [],
+        "productVersion": "0.20.0"
+      },
+      "mini": {
+        "host": "Mac mini",
+        "reach": "room",
+        "paired": true,
+        "pairedDaysAgo": 12,
+        "agents": [
+          {
+            "id": "claude",
+            "registration": "connected",
+            "actionable": false
+          },
+          {
+            "id": "codex",
+            "registration": "not-connected",
+            "actionable": true
+          }
+        ],
+        "devices": [
+          {
+            "name": "Mac de Ana",
+            "kind": "code",
+            "daysAgo": 12,
+            "mine": true
+          }
+        ],
+        "participants": [],
+        "productVersion": "0.19.2"
+      }
+    },
+    "local": {
+      "computerName": "Mac de Ana",
+      "state": "running",
+      "installed": true,
+      "service": "launchd",
+      "reach": "local-only",
+      "inUse": true,
+      "version": "0.19.2",
+      "bundledVersion": "0.19.2",
+      "update": "current",
+      "devices": [
+        {
+          "name": "Mac de Ana",
+          "kind": "local",
+          "daysAgo": 30,
+          "mine": true
+        }
+      ],
+      "agents": [
+        {
+          "id": "claude",
+          "registration": "connected",
+          "actionable": false
+        },
+        {
+          "id": "codex",
+          "registration": "not-connected",
+          "actionable": false
+        }
+      ],
+      "participants": [],
+      "calls": 0,
+      "supportedMinor": "0.19"
+    }
+  },
+  "options": [
+    {
+      "id": "setup",
+      "group": "This device",
+      "label": "First-run setup",
+      "reload": true,
+      "values": [
+        {
+          "value": "done",
+          "label": "done: opens on the room, nothing new",
+          "set": {
+            "setup": "done"
+          }
+        },
+        {
+          "value": "earlier",
+          "label": "done on the release before: what's new shows",
+          "set": {
+            "setup": "earlier"
+          }
+        },
+        {
+          "value": "pending",
+          "label": "not done: opens on the setup",
+          "set": {
+            "setup": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "serviceState",
+      "group": "This device",
+      "label": "The service",
+      "reload": null,
+      "values": [
+        {
+          "value": "current",
+          "label": "up to date (0.19.2)",
+          "set": {
+            "local.version": "0.19.2",
+            "local.bundledVersion": "0.19.2",
+            "local.update": "current",
+            "local.serviceUpdate": null,
+            "local.calls": 0
+          }
+        },
+        {
+          "value": "updating",
+          "label": "updating 0.19.0 to 0.19.2",
+          "set": {
+            "local.version": "0.19.0",
+            "local.bundledVersion": "0.19.2",
+            "local.update": "current",
+            "local.serviceUpdate": "updating",
+            "local.calls": 0
+          }
+        },
+        {
+          "value": "waiting",
+          "label": "0.19.2 waits for the call to end",
+          "set": {
+            "local.version": "0.19.0",
+            "local.bundledVersion": "0.19.2",
+            "local.update": "current",
+            "local.serviceUpdate": "waiting-for-call",
+            "local.calls": 1
+          }
+        },
+        {
+          "value": "newer",
+          "label": "0.20.0 installed by hand (newer than supported)",
+          "set": {
+            "local.version": "0.20.0",
+            "local.bundledVersion": "0.19.2",
+            "local.update": "newer-installed",
+            "local.serviceUpdate": null,
+            "local.calls": 0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -18,6 +18,18 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, sheet?: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
+  { name: "serviceRow", label: "A · This device: the service's row", note: "Settings > This device (app view; scenario Service version rows, State in the card: up to date, updating, waiting for the call, newer than supported). One name, Servicio de Sidevoice, with its version and state. Mockup for sidevoice-desktop#67; Today's is the row as it is now.", values: [
+    { value: "today", label: "Today's · Servicio de Sidevoice card, state dot, version line" },
+    { value: "a1", label: "A1 · the card keeps its shape: state dot, version and the update's line beneath" },
+    { value: "a2", label: "A2 · one settings row: name and version on the left, state badge at the right" },
+    { value: "a3", label: "A3 · version first: big version, state as a line with an icon, warning as a notice" },
+  ] },
+  { name: "remoteVersion", label: "B · Remote machine: version and notice", note: "Settings > Machines > a machine (scenario Service version rows: daimon 0.16.0 out of date, NUC del salón 0.20.0 newer than supported, Mac mini 0.19.2 up to date). The notice is the permissions notice's Alert. Mockup for sidevoice-desktop#67.", values: [
+    { value: "today", label: "Today's · Servicio de Sidevoice card with its version, no notice" },
+    { value: "b1", label: "B1 · notice (Alert) above the card, the card keeps the version" },
+    { value: "b2", label: "B2 · notice inside the card, under the version, with the command to copy" },
+    { value: "b3", label: "B3 · state badge in the card's head; the notice only where there is something to do" },
+  ] },
   { name: "pairingScan", label: "Pairing: scanning the QR code", note: "Where Scan sits on the pairing screen of the mobile app, and how the viewfinder looks. Shown in the phone view (its mock camera: a scan lasts until Cancel). sidevoice-web#466.", values: [
     { value: "current", label: "Today's · button under the field, plain frame" },
     { value: "inField", label: "A · camera inside the code field" },
