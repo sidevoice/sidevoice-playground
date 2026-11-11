@@ -18,11 +18,15 @@ const VARIANTS_KEY = "sidevoice.variants";
 
 /** @type {{ name: string, label: string, note: string, sheet?: string, values: { value: string, label: string }[] }[]} */
 export const VARIANTS = [
-  { name: "serviceRow", label: "V · Service card: version, port and state", note: "Settings > This device and each remote machine's page (scenario Service version rows; the top bar there picks all of this). The same Servicio de Sidevoice card on both. Mockup for sidevoice-desktop#67.", values: [
-    { value: "v1", label: "V1 · muted line under the title (v0.19.2 · Al día); the port a row of its own" },
-    { value: "v2", label: "V2 · key/value rows: Versión 0.19.2 · Al día, Puerto 10829" },
-    { value: "v3", label: "V3 · version and state as small tags by the title; Escucha en el puerto 10829" },
-    { value: "v4", label: "V4 · three facts side by side, each under its name: Versión, Puerto, Estado" },
+  { name: "updatesView", label: "U · Settings > Actualizaciones", note: "Scenario Service version rows (the top bar there picks all of this). Mockup for sidevoice-desktop#67.", values: [
+    { value: "u0", label: "U0 · today's view" },
+    { value: "u1", label: "U1 · a row each (the app, this device's service, each remote's), the notice below the row that needs it" },
+    { value: "u2", label: "U2 · compact: one list, one line each, a quiet line under what needs doing" },
+    { value: "u3", label: "U3 · each machine a link to its page, no notices here" },
+  ] },
+  { name: "portAlign", label: "P · Service card: where the port sits", note: "Scenario Service version rows. Mockup for sidevoice-desktop#67.", values: [
+    { value: "a", label: "P-A · second column, in the middle" },
+    { value: "b", label: "P-B · at the card's right edge" },
   ] },
   { name: "remoteOffline", label: "B · Remote machine not answering", note: "Scenario Service version rows, the machine not answering. B1: only Sin conexión. B2: Sin conexión and the last version seen. Mockup for sidevoice-desktop#67.", values: [
     { value: "b1", label: "B1 · Sin conexión, nothing else" },
@@ -480,22 +484,24 @@ async function run(card) {
 
   // MOCKUP (sidevoice-desktop#67): in the Service version rows scenario, a visible bar at the top picks what the page shows,
   // one click each, instantly: the device (a phone's 390 or a desktop's 1280), the section of Settings, the design (the
-  // serviceRow / remoteVersion variants) and the state (the scenario's serviceState option, or which remote machine).
+  // remoteOffline variant, for the machine not answering) and the state (the scenario's serviceState option).
   if (scenario().id === "service-version") serviceBar();
   function serviceBar() {
     const KEY = "sidevoice-preview.svcbar";
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const DEVICES = [["phone", "Teléfono"], ["desktop", "Escritorio"]];
-    const SECTIONS = [["device", "Este dispositivo"], ["remote", "Máquinas remotas"]];
-    const LAYOUTS = [["v1", "V1"], ["v2", "V2"], ["v3", "V3"], ["v4", "V4"]];
+    const SECTIONS = [["device", "Este dispositivo"], ["remote", "Máquinas remotas"], ["updates", "Actualizaciones"]];
+    const UPDATES = [["u0", "U0 · Hoy"], ["u1", "U1 · Una fila cada una"], ["u2", "U2 · Compacta"], ["u3", "U3 · Enlaces"]];
+    const PORTS = [["a", "P-A · Columna"], ["b", "P-B · Borde derecho"]];
     const CONN = [["b1", "B1 · Sin conexión"], ["b2", "B2 · Sin conexión + última versión"]];
     const STATES = { device: [["current", "Al día"], ["updating", "Actualizando…"], ["waiting", "Esperando llamada"], ["newer", "Más nueva"]] };
-    const NOTE = { remote: "En la lista de Máquinas remotas, una por estado: Mac mini al día (0.19.2) · daimon desactualizada (0.16.0) · NUC más nueva (0.20.0) · Portátil viejo sin conexión.",
+    const NOTE = { updates: "Actualizaciones: la app, el servicio de este dispositivo y los de cada máquina remota (Mac mini al día · daimon desactualizada · NUC más nueva · Portátil viejo sin conexión).", remote: "En la lista de Máquinas remotas, una por estado: Mac mini al día (0.19.2) · daimon desactualizada (0.16.0) · NUC más nueva (0.20.0) · Portátil viejo sin conexión.",
       current: "Este dispositivo · 0.19.2, al día", updating: "Este dispositivo · 0.19.0 actualizando a 0.19.2", waiting: "Este dispositivo · 0.19.0, 0.19.2 espera a que termine la llamada", newer: "Este dispositivo · 0.20.0 instalada a mano (la app usa 0.19.x)" };
-    let pick = { device: "desktop", section: "device", layout: "v1", conn: "b1", state: "current" };
+    let pick = { device: "desktop", section: "device", conn: "b1", state: "current", updates: "u0", port: "a" };
     try { pick = { ...pick, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; } catch {}
-    if (!LAYOUTS.some(([value]) => value === pick.layout)) pick.layout = "v1";
     if (!CONN.some(([value]) => value === pick.conn)) pick.conn = "b1";
+    if (!UPDATES.some(([value]) => value === pick.updates)) pick.updates = "u0";
+    if (!PORTS.some(([value]) => value === pick.port)) pick.port = "a";
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch {} };
     const bar = document.createElement("header");
     bar.id = "svcbar";
@@ -525,7 +531,7 @@ async function run(card) {
     const writeVariants = () => {
       try {
         const kept = JSON.parse(localStorage.getItem(VARIANTS_KEY) || "{}") ?? {};
-        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...kept, serviceRow: pick.layout, remoteOffline: pick.conn }));
+        localStorage.setItem(VARIANTS_KEY, JSON.stringify({ ...kept, remoteOffline: pick.conn, updatesView: pick.updates, portAlign: pick.port }));
       } catch {}
     };
     let navigation = 0;
@@ -547,21 +553,24 @@ async function run(card) {
       if (mine !== navigation) return;
       await sleep(250);
       if (pick.section === "device") { store.patch({ settingsSection: "this-computer", settingsLevel: "page" }); return; }
+      if (pick.section === "updates") { store.patch({ settingsSection: "updates", settingsLevel: "page" }); return; }
       // The list of machines: the first one's page on a desktop, the list itself on a phone.
       store.patch({ settingsSection: "machines", settingsLevel: "page", machinesView: { machine: null } });
+      return;
     }
     function draw() {
       const device = pick.section === "device";
       bar.replaceChildren(
         group("Dispositivo", DEVICES, pick.device, (value) => { pick.device = value; save(); setSize(); draw(); void sleep(700).then(navigate); }),
         group("Sección", SECTIONS, pick.section, (value) => { pick.section = value; save(); draw(); void navigate(); }),
-        group("Opción", LAYOUTS, pick.layout, (value) => { pick.layout = value; save(); writeVariants(); draw(); }),
-        ...(device ? [group("Estado", STATES.device, pick.state, (value) => { pick.state = value; save(); chooseMockOption(world, "serviceState", value, frame, identities); draw(); })]
-          : [group("Portátil viejo (sin conexión)", CONN, pick.conn, (value) => { pick.conn = value; save(); writeVariants(); draw(); })]),
+        ...(pick.section === "updates" ? [group("Opción", UPDATES, pick.updates, (value) => { pick.updates = value; save(); writeVariants(); draw(); })]
+          : [group("Puerto", PORTS, pick.port, (value) => { pick.port = value; save(); writeVariants(); draw(); })]),
+        ...(pick.section !== "remote" ? [group("Estado", STATES.device, pick.state, (value) => { pick.state = value; save(); chooseMockOption(world, "serviceState", value, frame, identities); draw(); })] : []),
+        ...(pick.section !== "device" ? [group("Portátil viejo (sin conexión)", CONN, pick.conn, (value) => { pick.conn = value; save(); writeVariants(); draw(); })] : []),
       );
       const note = document.createElement("p");
       note.className = "svc-note";
-      note.textContent = NOTE[device ? pick.state : "remote"] ?? "";
+      note.textContent = (pick.section === "updates" ? NOTE.updates + " " : "") + (NOTE[device || pick.section === "updates" ? pick.state : "remote"] ?? "");
       bar.append(note);
     }
     function setSize() { appSize = pick.device === "phone" ? { width: 390, height: 844 } : DESKTOP; place(); }
