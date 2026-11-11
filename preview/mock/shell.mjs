@@ -487,6 +487,8 @@ async function run(card) {
   // remoteOffline variant, for the machine not answering) and the state (the scenario's serviceState option).
   if (scenario().id === "service-version") serviceBar();
   function serviceBar() {
+    // The mock registers no service worker; one an earlier visit to this origin left, and its caches, go.
+    try { navigator.serviceWorker?.getRegistrations().then((all) => all.forEach((one) => void one.unregister())); globalThis.caches?.keys().then((keys) => keys.forEach((key) => void caches.delete(key))); } catch {}
     const KEY = "sidevoice-preview.svcbar";
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const DEVICES = [["phone", "Teléfono"], ["desktop", "Escritorio"]];
@@ -495,6 +497,8 @@ async function run(card) {
     const PORTS = [["a", "P-A · Columna"], ["b", "P-B · Borde derecho"]];
     const CONN = [["b1", "B1 · solo «Sin conexión»"], ["b2", "B2 · con «Última versión vista»"]];
     const STATES = { device: [["current", "Al día"], ["updating", "Actualizando…"], ["waiting", "Esperando llamada"], ["newer", "Más nueva"]] };
+    const MACHINE_NOTE = { "Mac mini": "Mac mini · Sidevoice 0.19.2, al día", daimon: "daimon · Sidevoice 0.16.0, desactualizada (la app usa 0.19.x)", "NUC del salón": "NUC del salón · Sidevoice 0.20.0, más nueva que la compatible", "Portátil viejo": "Portátil viejo · sin conexión" };
+    let opened = null;
     const NOTE = { updates: "Actualizaciones: la app, el servicio de este dispositivo y los de cada máquina remota (Mac mini al día · daimon desactualizada · NUC más nueva · Portátil viejo sin conexión).", remote: "En la lista de Máquinas remotas, una por estado: Mac mini al día (0.19.2) · daimon desactualizada (0.16.0) · NUC más nueva (0.20.0) · Portátil viejo sin conexión.",
       current: "Este dispositivo · 0.19.2, al día", updating: "Este dispositivo · 0.19.0 actualizando a 0.19.2", waiting: "Este dispositivo · 0.19.0, 0.19.2 espera a que termine la llamada", newer: "Este dispositivo · 0.20.0 instalada a mano (la app usa 0.19.x)" };
     let pick = { device: "desktop", section: "device", conn: "b1", state: "current", updates: "u0", port: "a" };
@@ -535,7 +539,13 @@ async function run(card) {
       } catch {}
     };
     let navigation = 0;
+    let holdUntil = 0;
+    const hold = (ms) => { holdUntil = Date.now() + ms; };
     async function navigate(machineHost = null) {
+      hold(8000);
+      try { await navigateNow(machineHost); } finally { hold(900); }
+    }
+    async function navigateNow(machineHost) {
       const mine = ++navigation;
       for (let i = 0; i < 200 && mine === navigation; i++) {
         const win = frame.contentWindow;
@@ -563,22 +573,52 @@ async function run(card) {
       store.patch({ settingsSection: "machines", settingsLevel: "page", machinesView: { machine: id } });
       return;
     }
+    // The closed "newer than supported" notices come back (the page keeps them closed per machine and version).
+    const reset = () => { try { localStorage.removeItem("sidevoice.service-notice-dismissed"); frame.contentWindow?.dispatchEvent(new Event("svc-dismissed")); } catch {} };
     function draw() {
       const device = pick.section === "device";
       bar.replaceChildren(
-        group("Dispositivo", DEVICES, pick.device, (value) => { pick.device = value; save(); setSize(); draw(); void sleep(700).then(navigate); }),
+        group("Dispositivo", DEVICES, pick.device, (value) => { pick.device = value; save(); setSize(); draw(); hold(8000); void sleep(700).then(() => navigate()); }),
         group("Sección", SECTIONS, pick.section, (value) => { pick.section = value; save(); draw(); void navigate(); }),
         ...(pick.section === "updates" ? [group("Opción", UPDATES, pick.updates, (value) => { pick.updates = value; save(); writeVariants(); draw(); })]
           : [group("Puerto", PORTS, pick.port, (value) => { pick.port = value; save(); writeVariants(); draw(); })]),
         ...(pick.section !== "remote" ? [group("Estado", STATES.device, pick.state, (value) => { pick.state = value; save(); chooseMockOption(world, "serviceState", value, frame, identities); draw(); })] : []),
         ...(pick.section !== "device" ? [group("Sin conexión", CONN, pick.conn, (value) => { pick.conn = value; save(); writeVariants(); draw(); if (pick.section === "remote") void navigate("Portátil viejo"); })] : []),
       );
+      const again = document.createElement("button");
+      again.type = "button";
+      again.className = "svc-again";
+      again.textContent = "Volver a mostrar los avisos cerrados";
+      again.addEventListener("click", reset);
+      bar.append(again);
       const note = document.createElement("p");
       note.className = "svc-note";
-      note.textContent = (pick.section === "updates" ? NOTE.updates + " " : "") + (NOTE[device || pick.section === "updates" ? pick.state : "remote"] ?? "");
+      note.textContent = pick.section === "remote" && opened && MACHINE_NOTE[opened] ? MACHINE_NOTE[opened] : (pick.section === "updates" ? NOTE.updates + " " : "") + (NOTE[device || pick.section === "updates" ? pick.state : "remote"] ?? "");
       bar.append(note);
     }
     function setSize() { appSize = pick.device === "phone" ? { width: 390, height: 844 } : DESKTOP; place(); }
+    const SECTION_OF = { "this-computer": "device", machines: "remote", updates: "updates" };
+    setInterval(() => {
+      if (Date.now() < holdUntil) return;
+      try {
+        const win = frame.contentWindow;
+        if (!win?.location?.pathname?.startsWith("/voice") || !win.sidevoiceUI?.store || !win.document.querySelector("dialog[open]")) return;
+        const facts = win.sidevoiceUI.store.getState().facts;
+        if (win.matchMedia("(max-width: 767px)").matches && facts.settingsLevel !== "page") return;
+        const next = SECTION_OF[facts.settingsSection];
+        let host = null;
+        if (next === "remote") {
+          const remotes = win.sidevoiceUI.store.getState().machines.filter((machine) => !machine.local);
+          host = (remotes.find((machine) => machine.id === facts.machinesView?.machine) ?? remotes[0])?.host ?? null;
+        }
+        if ((next && next !== pick.section) || (next === "remote" && host !== opened)) {
+          if (next) pick.section = next;
+          opened = next === "remote" ? host : null;
+          save();
+          draw();
+        }
+      } catch {}
+    }, 400);
     writeVariants();
     setSize();
     draw();
